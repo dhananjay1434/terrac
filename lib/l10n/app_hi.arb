@@ -1,0 +1,11 @@
+{
+  "@@locale": "hi",
+  "tap_to_start": "शुरू करने के लिए टैप करें",
+  "no_pending_batch": "कोई लंबित बैच नहीं मिला। पहले एक नया स्कैन शुरू करें।",
+  "connect_crane_scale": "क्रेन स्केल कनेक्ट करें",
+  "stabilize_reading": "रीडिंग स्थिर करें",
+  "stabilized": "स्थिर",
+  "scan_biomass_hindi": "बायोमास स्कैन करें",
+  "connect_sensor_hindi": "सेंसर कनेक्ट करें",
+  "record_yield_hindi": "उपज दर्ज करें"
+}

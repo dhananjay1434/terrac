@@ -1,0 +1,89 @@
+name: dmrv_app
+description: "Kon-Tiki Biochar dMRV - rugged offline-first Flutter app."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+
+  flutter_riverpod: ^2.5.1
+  drift: ^2.21.0
+  # AES-256 SQLCipher encryption at rest — includes its own SQLite native lib.
+  # Do NOT also add sqlite3_flutter_libs; both ship the same Java class and
+  # the dex merger will fail with "Type defined multiple times".
+  sqlcipher_flutter_libs: ^0.6.4
+  sqlite3: ^2.4.5
+  path_provider: ^2.1.5
+  path: ^1.9.0
+  uuid: ^4.3.3
+  rxdart: ^0.28.0
+
+  # Prompt 3 — secure capture stack
+  camera: ^0.11.0+2
+  geolocator: ^13.0.1
+  native_exif: ^0.6.2
+  crypto: ^3.0.3
+  permission_handler: ^11.3.1
+  image: ^4.3.0
+
+  # Prompt 4 — BLE ESP32 thermocouple
+  flutter_reactive_ble: ^5.4.0
+
+  # Prompt 6 — Sync & Persistence
+  shared_preferences: ^2.5.2
+  connectivity_plus: ^6.1.3
+  http: ^1.3.0
+  workmanager: ^0.9.0
+
+  # Phase 6 — Zero Trust Hardening
+  # Wraps Android Keystore / iOS Keychain — passphrase never stored in plaintext.
+  flutter_secure_storage: ^9.2.2
+
+  # Phase 7 — Sybil Asset Defense
+  sensors_plus: ^6.0.0
+
+  # Phase 21 — Observability
+  sentry_flutter: ^8.2.0
+
+  # Phase 22 — Device Integrity
+  freerasp: ^6.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  drift_dev: ^2.21.0
+  build_runner: ^2.4.13
+  fake_async: ^1.3.1
+  mockito: ^5.4.4
+  test: ^1.30.0
+  mocktail: ^1.0.5
+
+flutter:
+  generate: true
+  uses-material-design: true
+  fonts:
+    - family: SpaceGrotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-Regular.ttf
+        - asset: assets/fonts/SpaceGrotesk-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/SpaceGrotesk-Bold.ttf
+          weight: 700
+    - family: SpaceMono
+      fonts:
+        - asset: assets/fonts/SpaceMono-Regular.ttf
+        - asset: assets/fonts/SpaceMono-Bold.ttf
+          weight: 700
+    - family: NotoSansDevanagari
+      fonts:
+        - asset: assets/fonts/NotoSansDevanagari-Regular.ttf
+        - asset: assets/fonts/NotoSansDevanagari-Bold.ttf
+          weight: 700

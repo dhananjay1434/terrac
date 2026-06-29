@@ -1,0 +1,5 @@
+lib\l10n/app_localizations_hi.dart: String get tap_to_start => 'शुरू करने के लिए टैप करें';
+lib\l10n/app_localizations_hi.dart: 'कोई लंबित बैच नहीं मिला। पहले एक नया स्कैन शुरू करें।';
+lib\l10n/app_localizations_hi.dart: String get connect_crane_scale => 'क्रेन स्केल कनेक्ट करें';
+lib\l10n/app_localizations_hi.dart: String get stabilize_reading => 'रीडिंग स्थिर करें';
+lib\l10n/app_localizations_hi.dart: String get stabilized => 'स्थिर';
