@@ -169,11 +169,16 @@ void main() {
 
   test('p0_6_media_captures_unique_index_exists_on_fresh_install', () async {
     final db2 = AppDatabase.forTesting(NativeDatabase.memory());
-    final rows = await db2.customSelect(
-      "SELECT name FROM sqlite_master WHERE type='index' AND name='ux_media_captures_batch_type'",
-    ).get();
-    expect(rows, isNotEmpty,
-        reason: 'ux_media_captures_batch_type must exist on fresh install');
+    final rows = await db2
+        .customSelect(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name='ux_media_captures_batch_type'",
+        )
+        .get();
+    expect(
+      rows,
+      isNotEmpty,
+      reason: 'ux_media_captures_batch_type must exist on fresh install',
+    );
     await db2.close();
   });
 }

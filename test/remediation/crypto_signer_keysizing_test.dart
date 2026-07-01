@@ -20,10 +20,10 @@ void main() {
     const devId = "dev-hmac-1";
 
     final canonical = [method, path, opId, bodyHash, devId].join('\n');
-    
+
     final hmac = Hmac(sha256, rawKey);
     final digest = hmac.convert(utf8.encode(canonical));
-    
+
     // We expect this to match the Python generated signature exactly
     // e.g. python printed signature
     expect(digest.toString(), isNotEmpty);

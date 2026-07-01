@@ -228,7 +228,9 @@ void main() {
     expect(emissions.last.totalYieldKg, 0.0);
 
     final batchUuid = uuid.v4();
-    await db.into(db.yieldMetrics).insert(
+    await db
+        .into(db.yieldMetrics)
+        .insert(
           YieldMetricsCompanion.insert(
             yieldUuid: uuid.v4(),
             batchUuid: batchUuid,

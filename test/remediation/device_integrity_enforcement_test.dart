@@ -16,24 +16,31 @@ class MockConnectivity extends Fake implements Connectivity {
   Future<List<ConnectivityResult>> checkConnectivity() async {
     return [ConnectivityResult.none];
   }
+
   @override
-  Stream<List<ConnectivityResult>> get onConnectivityChanged => const Stream.empty();
+  Stream<List<ConnectivityResult>> get onConnectivityChanged =>
+      const Stream.empty();
 }
 
 class MockCameraController extends Fake implements CameraController {
   @override
   CameraValue get value => const CameraValue.uninitialized(
-    CameraDescription(name: 'test', lensDirection: CameraLensDirection.back, sensorOrientation: 0)
+    CameraDescription(
+      name: 'test',
+      lensDirection: CameraLensDirection.back,
+      sensorOrientation: 0,
+    ),
   );
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  
+
   setUp(() {
     isDeviceCompromisedGlobally = false;
-    const MethodChannel('dev.fluttercommunity.plus/connectivity')
-        .setMockMethodCallHandler((MethodCall methodCall) async {
+    const MethodChannel(
+      'dev.fluttercommunity.plus/connectivity',
+    ).setMockMethodCallHandler((MethodCall methodCall) async {
       if (methodCall.method == 'check') {
         return ['none'];
       }
@@ -54,29 +61,43 @@ void main() {
 
     expect(
       () => captureService.capture(controller: mockController),
-      throwsA(isA<SecureCaptureException>().having((e) => e.message, 'message', contains('compromised'))),
+      throwsA(
+        isA<SecureCaptureException>().having(
+          (e) => e.message,
+          'message',
+          contains('compromised'),
+        ),
+      ),
     );
   });
 
   test('compromised_flag_blocks_sync_kick', () async {
     isDeviceCompromisedGlobally = true;
-    
+
     // We can just create a SyncQueueManager and call kickSync
     final container = ProviderContainer();
     final syncManager = container.read(syncQueueManagerProvider);
-    
+
     // We expect it to return early and not throw, but we can verify it doesn't crash
     syncManager.kickSync();
-    
+
     expect(true, isTrue);
   });
 
   test('placeholder_cert_hash_absent', () {
     final file = File('lib/services/device_integrity_service.dart');
     final content = file.readAsStringSync();
-    
-    expect(content.contains('YOUR_BASE64_CERT_HASH'), isFalse, reason: 'Placeholder YOUR_BASE64_CERT_HASH should not be in the file');
-    expect(content.contains('YOUR_TEAM_ID'), isFalse, reason: 'Placeholder YOUR_TEAM_ID should not be in the file');
+
+    expect(
+      content.contains('YOUR_BASE64_CERT_HASH'),
+      isFalse,
+      reason: 'Placeholder YOUR_BASE64_CERT_HASH should not be in the file',
+    );
+    expect(
+      content.contains('YOUR_TEAM_ID'),
+      isFalse,
+      reason: 'Placeholder YOUR_TEAM_ID should not be in the file',
+    );
   });
 }
 

@@ -129,7 +129,9 @@ extension EndUseWriter on AppDatabase {
       await (update(
         systemMetadata,
       )..where((t) => t.batchUuid.equals(batchUuid))).write(
-        const SystemMetadataCompanion(syncStatus: Value('CLOSED_PENDING_UPLOAD')),
+        const SystemMetadataCompanion(
+          syncStatus: Value('CLOSED_PENDING_UPLOAD'),
+        ),
       );
     });
   }

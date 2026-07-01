@@ -1,4 +1,5 @@
 from tests.remediation.crypto_utils import TEST_PUBLIC_KEY_B64
+
 """Phase 3 — enrollment tokens are single-use; the `dev-token` backdoor is gone.
 
 A freshly minted token enrolls a device exactly once (201). Reusing the same

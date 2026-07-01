@@ -5,6 +5,48 @@ with a mandatory gate per phase. Branch: `remediation/phase-by-phase`.
 
 ---
 
+## Final — Phase 14 sign-off (2026-07-01)
+
+**Phases complete:** 0–13 (runbook) + the re-audit hardening 7-R, 8-R, 9-R, 11-R, and the
+`dev-token` critical R2. Every phase gated green with 0 new failures vs the Phase-0 baseline.
+
+**Baseline → Final:**
+| Suite | Phase-0 baseline | Final |
+|---|---|---|
+| Backend `pytest` | 120 passed, 2 failed (pre-existing), 1 skipped | **183 passed, 1 skipped, 1 failed** |
+| Client `flutter test` | 144 passed, 2 skipped | **149 passed, 2 skipped** |
+| `flutter analyze` | 34 issues (info/warn, 0 errors) | **34 issues (info/warn), 0 errors** |
+
+`flutter analyze` count returned to the Phase-0 value of 34 (0 errors). Phase 6 had transiently reached
+33; the Phase-14 `dart format` normalization of prior-session/throwaway test files (scratch/,
+test_pragma.dart, test_quote.dart, legacy `test/` files) surfaced one additional **info-level** lint.
+None are error-severity and none are in remediation-owned code.
+
+The **2** Phase-0 pre-existing failures are now **1**: `test_migrations_gated` was incidentally fixed by
+R2 (it failed on the removed `enrollment_tokens` seed query); the sole remaining failure,
+`test_p0_21_hmac_secret`, is a documented import-isolation artifact, not a product defect.
+
+**Sign-off checks (all green):**
+- `ruff format --check backend` → 53 files already formatted (normalized in the Phase-14 `style:` commit).
+- `dart format --output=none --set-exit-if-changed lib test` → no diffs.
+- `flutter analyze` → **0 errors** (34 pre-existing info/warn, in throwaway/legacy files).
+- Alembic `upgrade head → downgrade base → upgrade head` on isolated aiosqlite → clean; single linear head.
+
+**Release sign-off checklist:**
+- ✅ Ed25519 only; no `hmac_key` in identity/request code; no server path forges signatures.
+- ✅ No `dev-token`, no `payload: dict`, no client-trusted `x-mock-location`, no fire-and-sleep sync,
+  no fabricating defaults on credit fields; credit inputs corroborated server-side; lab H:Corg only via
+  authenticated, range-checked channel; provisional batches are unsigned.
+- ✅ Integrity & registration fail closed.
+- ✅ Both suites green vs baseline; formatters clean; Alembic up/down clean.
+- ⚠️ **One CRITICAL-OPEN item before minting real credits:** real platform-attestation verification
+  (Play Integrity / DeviceCheck) is not implemented — enforcement is behind `server._ATTESTATION_ENFORCED`
+  (default off). EXIF-based scene corroboration is best-effort (EXIF is forgeable). See FINDINGS_BACKLOG.
+
+**Intended commit:** `chore: full regression green; remediation complete`
+
+---
+
 ## Baseline (Phase 0) — 2026-06-30
 
 ### Backend — `cd backend && pytest -q`

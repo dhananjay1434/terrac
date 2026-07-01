@@ -1,6 +1,7 @@
 import pytest
 from lca_engine import CORG_TABLE
 
+
 def test_corg_table_immutability():
     # Attempting to assign to MappingProxyType should raise a TypeError
     with pytest.raises(TypeError):

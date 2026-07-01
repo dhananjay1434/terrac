@@ -564,7 +564,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             if (state.biomassStatus == CardStatus.pending)
                               _buildPendingStep(
                                 title: 'Scan Biomass Input',
-                                subtitleHindi: AppLocalizations.of(context)!.scan_biomass_hindi,
+                                subtitleHindi: AppLocalizations.of(
+                                  context,
+                                )!.scan_biomass_hindi,
                                 icon: Icons.document_scanner,
                                 onTap: () =>
                                     _handleCardTap('scan_biomass', db: db),
@@ -588,7 +590,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               _buildAnimatedCard(
                                 _buildPendingStep(
                                   title: 'Connect BLE Sensor',
-                                  subtitleHindi: AppLocalizations.of(context)!.connect_sensor_hindi,
+                                  subtitleHindi: AppLocalizations.of(
+                                    context,
+                                  )!.connect_sensor_hindi,
                                   icon: Icons.sensors,
                                   onTap: () => _handleCardTap(
                                     'connect_ble_sensor',
@@ -617,7 +621,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             if (state.yieldStatus == CardStatus.pending)
                               _buildPendingStep(
                                 title: 'Record Yield Weight',
-                                subtitleHindi: AppLocalizations.of(context)!.record_yield_hindi,
+                                subtitleHindi: AppLocalizations.of(
+                                  context,
+                                )!.record_yield_hindi,
                                 icon: Icons.scale,
                                 onTap: () =>
                                     _handleCardTap('record_yield', db: db),

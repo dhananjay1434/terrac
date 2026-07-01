@@ -136,7 +136,9 @@ extension PyrolysisWriter on AppDatabase {
       batchUuid: batchUuid,
       targetTable: 'pyrolysis_telemetry',
       payload: payload,
-      insertRow: () => into(pyrolysisTelemetry).insert(companion, mode: InsertMode.insertOrReplace),
+      insertRow: () => into(
+        pyrolysisTelemetry,
+      ).insert(companion, mode: InsertMode.insertOrReplace),
     );
 
     if (captures.length != 4) {

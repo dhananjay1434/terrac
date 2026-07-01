@@ -22,7 +22,8 @@ void main() {
         ['t', 'b', 1.0, '2026-01-01T00:00:00Z', 0.0, 0.0, 'NOT JSON AT ALL'],
       ),
       throwsA(anything),
-      reason: 'CHECK (json_valid(temperature_readings_json)) missing. '
+      reason:
+          'CHECK (json_valid(temperature_readings_json)) missing. '
           'See /app/detailed.md#P1-23.',
     );
   });

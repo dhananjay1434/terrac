@@ -54,7 +54,9 @@ class FakeClient extends Mock implements http.Client {
     final stream = request.finalize();
     await stream.drain();
     captured.add(request);
-    print('[FakeClient] send called on ${this.hashCode}, serverSha256 is: $serverSha256');
+    print(
+      '[FakeClient] send called on ${this.hashCode}, serverSha256 is: $serverSha256',
+    );
     final body = jsonEncode({
       if (serverSha256 != null) 'server_sha256': serverSha256,
       'stored': true,
@@ -67,7 +69,8 @@ class FakeClient extends Mock implements http.Client {
   }
 }
 
-class MockProviderSubscription<T> extends Mock implements ProviderSubscription<T> {}
+class MockProviderSubscription<T> extends Mock
+    implements ProviderSubscription<T> {}
 
 class MockRef extends Mock implements Ref {
   final Map<dynamic, Object?> overrides = {};
@@ -85,7 +88,6 @@ class MockRef extends Mock implements Ref {
     return MockProviderSubscription<T>();
   }
 }
-
 
 Future<SyncOutboxData> fetchRow(AppDatabase db, String opId) => (db.select(
   db.syncOutbox,

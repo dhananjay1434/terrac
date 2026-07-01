@@ -4,6 +4,7 @@ A device enrolls a PUBLIC key; only the holder of the matching PRIVATE key can
 produce a signature that verifies. The server stores no secret capable of
 forging a signature.
 """
+
 import base64
 import hashlib
 import json
@@ -47,7 +48,9 @@ async def test_valid_ed25519_signature_accepted(client, session_factory):
     dev = "sig-dev-ok"
     await _enroll(session_factory, dev, _pub_b64(priv))
 
-    body = json.dumps({"batch_uuid": "b-sig-1", "telemetry_uuid": "t-1"}).encode("utf-8")
+    body = json.dumps({"batch_uuid": "b-sig-1", "telemetry_uuid": "t-1"}).encode(
+        "utf-8"
+    )
     op = "op-sig-1"
     sig = _sign(priv, "POST", "/api/v1/telemetry", op, dev, body)
 
@@ -66,7 +69,9 @@ async def test_signature_from_different_key_rejected(client, session_factory):
     dev = "sig-dev-bad"
     await _enroll(session_factory, dev, _pub_b64(enrolled))
 
-    body = json.dumps({"batch_uuid": "b-sig-2", "telemetry_uuid": "t-2"}).encode("utf-8")
+    body = json.dumps({"batch_uuid": "b-sig-2", "telemetry_uuid": "t-2"}).encode(
+        "utf-8"
+    )
     op = "op-sig-2"
     # Signed with a key that is NOT the enrolled one.
     sig = _sign(attacker, "POST", "/api/v1/telemetry", op, dev, body)
@@ -88,7 +93,9 @@ async def test_public_key_alone_cannot_forge(client, session_factory):
     dev = "sig-dev-forge"
     await _enroll(session_factory, dev, _pub_b64(enrolled))
 
-    body = json.dumps({"batch_uuid": "b-sig-3", "telemetry_uuid": "t-3"}).encode("utf-8")
+    body = json.dumps({"batch_uuid": "b-sig-3", "telemetry_uuid": "t-3"}).encode(
+        "utf-8"
+    )
     op = "op-sig-3"
     forged = _sign(
         Ed25519PrivateKey.generate(), "POST", "/api/v1/telemetry", op, dev, body
@@ -108,7 +115,9 @@ async def test_missing_signature_rejected(client, session_factory):
     dev = "sig-dev-missing"
     await _enroll(session_factory, dev, _pub_b64(priv))
 
-    body = json.dumps({"batch_uuid": "b-sig-4", "telemetry_uuid": "t-4"}).encode("utf-8")
+    body = json.dumps({"batch_uuid": "b-sig-4", "telemetry_uuid": "t-4"}).encode(
+        "utf-8"
+    )
     # No X-Signature header at all.
     r = await client.post(
         "/api/v1/telemetry",

@@ -98,7 +98,8 @@ class ScriptedClient extends Mock implements http.Client {
   }
 }
 
-class MockProviderSubscription<T> extends Mock implements ProviderSubscription<T> {}
+class MockProviderSubscription<T> extends Mock
+    implements ProviderSubscription<T> {}
 
 class MockRef extends Mock implements Ref {
   final Map<dynamic, Object?> overrides = {};

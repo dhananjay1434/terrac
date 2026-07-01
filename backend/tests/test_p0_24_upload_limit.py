@@ -1,4 +1,5 @@
 """P0-24 regression: upload must reject >10MB before exhausting memory."""
+
 import hashlib
 import io
 
@@ -21,7 +22,7 @@ async def test_upload_rejects_oversize_file(client):
             "X-Idempotency-Key": "op-oversize",
             "X-Declared-SHA256": sha,
             "X-Device-Id": "test-device-1",
-            "X-Batch-UUID": batch_uuid
+            "X-Batch-UUID": batch_uuid,
         },
     )
     assert r.status_code == 413
@@ -40,7 +41,7 @@ async def test_upload_accepts_small_file(client):
             "X-Idempotency-Key": "op-small",
             "X-Declared-SHA256": sha,
             "X-Device-Id": "test-device-1",
-            "X-Batch-UUID": batch_uuid
+            "X-Batch-UUID": batch_uuid,
         },
     )
     assert r.status_code in (200, 201)

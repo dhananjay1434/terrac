@@ -61,7 +61,11 @@ class BleTemperatureService implements BleTemperatureSource {
   /// Loads the persisted MAC whitelist. Must be called before [start].
   Future<void> loadPairedMacs(FlutterSecureStorage storage) async {
     final raw = await storage.read(key: _pairedMacsKey);
-    _pairedMacs = (raw ?? '').split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toSet();
+    _pairedMacs = (raw ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toSet();
   }
 
   final FlutterReactiveBle _ble;
@@ -109,8 +113,10 @@ class BleTemperatureService implements BleTemperatureSource {
           // P0-7: refuse to connect to any device not in the operator's
           // pre-paired allow-list. Empty list = no pairing -> no connect.
           if (_pairedMacs.isEmpty || !_pairedMacs.contains(dev.id)) {
-            debugPrint('[BLE] Ignoring un-paired device ${dev.id} '
-                '(allow-list size=${_pairedMacs.length})');
+            debugPrint(
+              '[BLE] Ignoring un-paired device ${dev.id} '
+              '(allow-list size=${_pairedMacs.length})',
+            );
             return;
           }
           await _scanSub?.cancel();
@@ -160,30 +166,32 @@ class BleTemperatureService implements BleTemperatureSource {
                       deviceId: dev.id,
                     );
                     await _attestSub?.cancel();
-                      bool sawAttestation = false;
-                      _attestSub = _ble
-                          .subscribeToCharacteristic(attestChar)
-                          .listen(
-                            (bytes) {
-                              if (bytes.length == 80) {
-                                sawAttestation = true;
-                                _attest.add(bytes);
-                              }
-                            },
-                            onError: (_) {
-                              // P0-7: attestation MUST be present in release
-                              // builds. In debug/staging we tolerate
-                              // missing attestation but mark the connection
-                              // state so the LCA pipeline can downgrade the
-                              // batch (server-side compliance check uses the
-                              // hwAttestationJson field).
-                              if (kReleaseMode && !sawAttestation) {
-                                debugPrint('[BLE] REJECT: attestation '
-                                    'characteristic not present in release mode');
-                                stop();
-                              }
-                            },
-                          );
+                    bool sawAttestation = false;
+                    _attestSub = _ble
+                        .subscribeToCharacteristic(attestChar)
+                        .listen(
+                          (bytes) {
+                            if (bytes.length == 80) {
+                              sawAttestation = true;
+                              _attest.add(bytes);
+                            }
+                          },
+                          onError: (_) {
+                            // P0-7: attestation MUST be present in release
+                            // builds. In debug/staging we tolerate
+                            // missing attestation but mark the connection
+                            // state so the LCA pipeline can downgrade the
+                            // batch (server-side compliance check uses the
+                            // hwAttestationJson field).
+                            if (kReleaseMode && !sawAttestation) {
+                              debugPrint(
+                                '[BLE] REJECT: attestation '
+                                'characteristic not present in release mode',
+                              );
+                              stop();
+                            }
+                          },
+                        );
                     break;
                   case DeviceConnectionState.disconnected:
                     _conn.add(BleConnState.disconnected);
@@ -280,7 +288,9 @@ class VirtualBleAdapter implements BleTemperatureSource {
     this.targetPlateau = 420.0,
   }) {
     if (kReleaseMode) {
-      throw UnsupportedError('VirtualBleAdapter is completely forbidden in release builds to prevent malicious telemetry spoofing.');
+      throw UnsupportedError(
+        'VirtualBleAdapter is completely forbidden in release builds to prevent malicious telemetry spoofing.',
+      );
     }
   }
 

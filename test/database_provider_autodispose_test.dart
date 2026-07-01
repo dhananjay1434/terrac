@@ -9,9 +9,16 @@ void main() {
     final f = File('lib/data/local/database_provider.dart');
     expect(f.existsSync(), isTrue);
     final src = f.readAsStringSync();
-    expect(src.contains('FutureProvider.autoDispose'), isTrue,
-        reason: 'Switch to FutureProvider.autoDispose. See /app/detailed.md#P2-1.');
-    expect(src.contains('ref.keepAlive()'), isTrue,
-        reason: 'Call ref.keepAlive() inside the autoDispose provider.');
+    expect(
+      src.contains('FutureProvider.autoDispose'),
+      isTrue,
+      reason:
+          'Switch to FutureProvider.autoDispose. See /app/detailed.md#P2-1.',
+    );
+    expect(
+      src.contains('ref.keepAlive()'),
+      isTrue,
+      reason: 'Call ref.keepAlive() inside the autoDispose provider.',
+    );
   });
 }

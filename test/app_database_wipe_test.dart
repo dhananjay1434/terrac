@@ -17,16 +17,19 @@ class _FakeWipeContext implements WipeContext {
   Future<void> clearHmacKey() async {}
 }
 
-
-
 class MockRef extends Mock implements Ref {}
 
 void main() {
-  test('secureWipe executes PRAGMA secure_delete without syntax errors',
-      () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    final mockRef = MockRef();
-    await db.secureWipe(ctx: _FakeWipeContext(), ref: mockRef); // Should not throw.
-    // db is closed inside secureWipe — do not close again.
-  });
+  test(
+    'secureWipe executes PRAGMA secure_delete without syntax errors',
+    () async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      final mockRef = MockRef();
+      await db.secureWipe(
+        ctx: _FakeWipeContext(),
+        ref: mockRef,
+      ); // Should not throw.
+      // db is closed inside secureWipe — do not close again.
+    },
+  );
 }

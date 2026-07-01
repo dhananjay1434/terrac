@@ -24,15 +24,18 @@ void main() {
     expect(svc, isA<GeolocatorLocationService>());
   });
 
-  test('GeolocatorLocationService throws on isMocked=true in release builds', () async {
-    // NOTE: this test can only pass when run under `flutter test --release`.
-    if (!kReleaseMode) {
-      markTestSkipped('kReleaseMode is false under default flutter test');
-      return;
-    }
-    // Use a fake Position emitted by a stub here in your real test.
-    expect(() async {
-      // ... call into the wrapped getter with a mock Position ...
-    }, throwsA(isA<SecureCaptureException>()));
-  });
+  test(
+    'GeolocatorLocationService throws on isMocked=true in release builds',
+    () async {
+      // NOTE: this test can only pass when run under `flutter test --release`.
+      if (!kReleaseMode) {
+        markTestSkipped('kReleaseMode is false under default flutter test');
+        return;
+      }
+      // Use a fake Position emitted by a stub here in your real test.
+      expect(() async {
+        // ... call into the wrapped getter with a mock Position ...
+      }, throwsA(isA<SecureCaptureException>()));
+    },
+  );
 }

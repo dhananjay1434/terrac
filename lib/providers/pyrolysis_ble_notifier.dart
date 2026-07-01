@@ -155,7 +155,9 @@ class PyrolysisBleNotifier extends StateNotifier<PyrolysisState> {
 }
 
 final pyrolysisBleProvider =
-    StateNotifierProvider.autoDispose<PyrolysisBleNotifier, PyrolysisState>((ref) {
+    StateNotifierProvider.autoDispose<PyrolysisBleNotifier, PyrolysisState>((
+      ref,
+    ) {
       const isDemoFlag = bool.fromEnvironment(
         'DMRV_DEMO_MODE',
         defaultValue: false,

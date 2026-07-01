@@ -40,7 +40,10 @@ void main() {
           ),
           syncQueueManagerProvider.overrideWith((ref) {
             // Return a mock SyncQueueManager that does nothing
-            final mockManager = SyncQueueManager(ref, startPeriodicTimer: false);
+            final mockManager = SyncQueueManager(
+              ref,
+              startPeriodicTimer: false,
+            );
             ref.onDispose(mockManager.dispose);
             return mockManager;
           }),

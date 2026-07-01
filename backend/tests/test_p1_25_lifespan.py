@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from server import app
 
+
 @pytest.mark.asyncio
 async def test_lifespan_starts_db():
     # Verify the FastAPI TestClient or ASGI app works with lifespan correctly

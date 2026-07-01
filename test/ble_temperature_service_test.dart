@@ -8,17 +8,20 @@ import 'package:flutter/foundation.dart';
 import 'package:mockito/mockito.dart';
 
 class MockFlutterReactiveBle extends Mock implements FlutterReactiveBle {
-  final StreamController<DiscoveredDevice> _scanStream = StreamController<DiscoveredDevice>.broadcast();
+  final StreamController<DiscoveredDevice> _scanStream =
+      StreamController<DiscoveredDevice>.broadcast();
 
   void emitDevice(String id) {
-    _scanStream.add(DiscoveredDevice(
-      id: id,
-      name: 'Test Device',
-      serviceData: const {},
-      manufacturerData: Uint8List(0),
-      rssi: -50,
-      serviceUuids: const [],
-    ));
+    _scanStream.add(
+      DiscoveredDevice(
+        id: id,
+        name: 'Test Device',
+        serviceData: const {},
+        manufacturerData: Uint8List(0),
+        rssi: -50,
+        serviceUuids: const [],
+      ),
+    );
   }
 
   @override
@@ -36,11 +39,13 @@ class MockFlutterReactiveBle extends Mock implements FlutterReactiveBle {
     Map<Uuid, List<Uuid>>? servicesWithCharacteristicsToDiscover,
     Duration? connectionTimeout,
   }) {
-    return Stream.value(ConnectionStateUpdate(
-      deviceId: id,
-      connectionState: DeviceConnectionState.connected,
-      failure: null,
-    ));
+    return Stream.value(
+      ConnectionStateUpdate(
+        deviceId: id,
+        connectionState: DeviceConnectionState.connected,
+        failure: null,
+      ),
+    );
   }
 
   @override
@@ -49,14 +54,18 @@ class MockFlutterReactiveBle extends Mock implements FlutterReactiveBle {
   }
 
   @override
-  Stream<List<int>> subscribeToCharacteristic(QualifiedCharacteristic characteristic) {
+  Stream<List<int>> subscribeToCharacteristic(
+    QualifiedCharacteristic characteristic,
+  ) {
     return const Stream.empty();
   }
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  FlutterSecureStorage.setMockInitialValues({'ble_paired_macs': 'AA:BB:CC:DD:EE:01, AA:BB:CC:DD:EE:02'});
+  FlutterSecureStorage.setMockInitialValues({
+    'ble_paired_macs': 'AA:BB:CC:DD:EE:01, AA:BB:CC:DD:EE:02',
+  });
 
   test('BleTemperatureService ignores devices not in the allow-list', () async {
     final fakeBle = MockFlutterReactiveBle();

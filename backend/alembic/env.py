@@ -2,6 +2,7 @@ import asyncio
 from logging.config import fileConfig
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from sqlalchemy import pool
@@ -23,8 +24,10 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 import os
 import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from models import Base
+
 target_metadata = Base.metadata
 
 _url = os.environ.get("DATABASE_URL")

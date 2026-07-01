@@ -1,15 +1,19 @@
 """P0-23 regression: get_corg must be case-insensitive and whitespace-tolerant."""
+
 import pytest
 from lca_engine import get_corg, CORG_TABLE
 
 
-@pytest.mark.parametrize("variant", [
-    "Lantana_camara",
-    "lantana_camara",
-    "LANTANA_CAMARA",
-    " Lantana_camara ",
-    "  lantana_camara\t",
-])
+@pytest.mark.parametrize(
+    "variant",
+    [
+        "Lantana_camara",
+        "lantana_camara",
+        "LANTANA_CAMARA",
+        " Lantana_camara ",
+        "  lantana_camara\t",
+    ],
+)
 def test_lantana_variants_resolve_to_060(variant):
     assert get_corg(variant) == pytest.approx(0.60)
 

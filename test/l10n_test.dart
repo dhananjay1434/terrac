@@ -53,13 +53,17 @@ void main() {
 
   test('no hardcoded Hindi strings remain', () {
     final libDir = Directory('lib');
-    final files = libDir.listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('.dart'));
+    final files = libDir
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'));
 
     bool found = false;
     final regex = RegExp(r'[\u0900-\u097F]');
 
     for (var file in files) {
-      if (file.path.contains('app_localizations') || file.path.contains('.arb')) continue;
+      if (file.path.contains('app_localizations') || file.path.contains('.arb'))
+        continue;
       final lines = file.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
         if (regex.hasMatch(lines[i])) {

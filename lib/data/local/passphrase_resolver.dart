@@ -37,7 +37,7 @@ Future<String> resolveOrCreatePassphrase({
   } catch (e) {
     throw UnsupportedError('Platform lacks a secure entropy source for PRNG.');
   }
-  
+
   final bytes = List<int>.generate(32, (_) => rng.nextInt(256));
   final passphrase = base64Url.encode(bytes);
   await secureStorage.write(key: kDbPassphraseKey, value: passphrase);

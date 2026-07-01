@@ -1,4 +1,5 @@
 """P0-22 regression: race-condition winner must not silently accept loser's payload."""
+
 import asyncio
 import uuid
 

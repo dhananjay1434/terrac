@@ -4,6 +4,7 @@ Runs against an in-memory SQLite via SQLAlchemy's aiosqlite driver — no
 PostgreSQL needed for CI. Spins up a private engine + session factory and
 overrides the FastAPI dependency.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -13,6 +14,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+
 pytest.skip("Phase 5 SyncOutbox endpoint not yet implemented", allow_module_level=True)
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -90,7 +92,14 @@ def sample_payload():
             "min_temp": 480.0,
             "max_temp": 612.5,
             "temperature_readings": [
-                480.0, 500.0, 540.0, 580.0, 612.5, 600.0, 595.0, 575.0
+                480.0,
+                500.0,
+                540.0,
+                580.0,
+                612.5,
+                600.0,
+                595.0,
+                575.0,
             ],
         },
         "yield_metrics": {
@@ -139,9 +148,7 @@ def test_sync_first_insert_returns_200_and_stores(client, sample_payload):
     assert body["duplicate"] is False
 
 
-def test_sync_duplicate_same_key_returns_200_no_duplicate_row(
-    client, sample_payload
-):
+def test_sync_duplicate_same_key_returns_200_no_duplicate_row(client, sample_payload):
     key = "idem-" + uuid4().hex
     r1 = client.post(
         "/api/v1/batches/sync",

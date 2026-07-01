@@ -24,8 +24,7 @@ class ProductionWipeContext implements WipeContext {
   Future<Directory> getDocsDir() => getApplicationDocumentsDirectory();
 
   @override
-  Future<void> deleteSecureKey(String key) =>
-      _secureStorage.delete(key: key);
+  Future<void> deleteSecureKey(String key) => _secureStorage.delete(key: key);
 
   @override
   Future<void> clearHmacKey() => CryptoSigner.clear();

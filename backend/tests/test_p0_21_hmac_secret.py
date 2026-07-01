@@ -1,4 +1,5 @@
 """P0-21 regression: server must refuse to start without DMRV_HMAC_SECRET."""
+
 import importlib
 import os
 import sys

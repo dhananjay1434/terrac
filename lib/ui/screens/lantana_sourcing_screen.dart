@@ -70,7 +70,9 @@ class _LantanaSourcingScreenState extends ConsumerState<LantanaSourcingScreen> {
                     const SizedBox(height: 16),
                     _PolygonBlock(
                       captured: s.polygonCaptured,
-                      onTap: () async { await notifier.captureGpsPolygon(); },
+                      onTap: () async {
+                        await notifier.captureGpsPolygon();
+                      },
                     ),
                     const SizedBox(height: 16),
                     _HarvestBlock(

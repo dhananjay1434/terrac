@@ -12,8 +12,11 @@ void main() {
       return;
     }
     final src = manifest.readAsStringSync();
-    expect(src.contains('android:allowBackup="false"'), isTrue,
-        reason: 'Set android:allowBackup="false" — see /app/detailed.md#P1-22');
+    expect(
+      src.contains('android:allowBackup="false"'),
+      isTrue,
+      reason: 'Set android:allowBackup="false" — see /app/detailed.md#P1-22',
+    );
     expect(src.contains('android:fullBackupContent="@xml/no_backup"'), isTrue);
   });
 

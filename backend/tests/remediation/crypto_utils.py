@@ -6,6 +6,7 @@ the matching private key. ``sign_request`` keeps its legacy positional
 signature (the ``b64_key`` arg is now ignored) so existing call sites only need
 to (a) enroll the public key and (b) send the ``X-Signature`` header.
 """
+
 import base64
 import hashlib
 import json

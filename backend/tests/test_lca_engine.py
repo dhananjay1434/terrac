@@ -6,6 +6,7 @@ Test vector from the spec:
   min_temp   = 210Â°C
   distance   = 14.2 km
 """
+
 from __future__ import annotations
 
 import math
@@ -29,6 +30,7 @@ from lca_engine import (
 
 # ==================== Step 1 â€” Dry Mass ====================
 
+
 def test_step1_dry_mass_spec_vector():
     """Spec: wet=115.4kg, moisture=12.7% â†’ dry â‰ˆ 0.10074 t."""
     dm = step1_dry_mass(115.4, 12.7)
@@ -47,6 +49,7 @@ def test_step1_full_moisture():
 
 # ==================== Step 2 â€” Gross C-Sink ====================
 
+
 def test_step2_gross_c_sink_lantana():
     """Corg=0.60, dry=0.10074t â†’ gross = 0.60 * 0.10074 * (44/12)."""
     dm = step1_dry_mass(115.4, 12.7)
@@ -56,6 +59,7 @@ def test_step2_gross_c_sink_lantana():
 
 
 # ==================== Step 3 â€” H:Corg Decay ====================
+
 
 def test_step3_cremain_top_tier():
     """H:Corg < 0.4 uses exponential decay formula."""
@@ -77,6 +81,7 @@ def test_step3_cremain_lower_tier():
 
 # ==================== Step 4 â€” Margin of Safety ====================
 
+
 def test_step4_safety():
     dm = 0.10074
     safety = step4_safety_deduction(dm)
@@ -84,6 +89,7 @@ def test_step4_safety():
 
 
 # ==================== Steps 5-6 â€” Transport ====================
+
 
 def test_step5_6_under_threshold():
     """14.2 km < 100 km â†’ penalty = 0."""
@@ -99,6 +105,7 @@ def test_step5_6_over_threshold():
 
 
 # ==================== Step 7 â€” CH4 ====================
+
 
 def test_step7_compliant_burn():
     """min_temp=210Â°C > 190 AND moisture=12.7% < 15 â†’ compliant, * 0.005."""
@@ -126,6 +133,7 @@ def test_step7_non_compliant_high_moisture():
 
 # ==================== Step 8 â€” Net Credit ====================
 
+
 def test_step8_net_credit_basic():
     # cremain is tonnes of elemental C remaining after 100yr decay.
     cremain_t_c = 0.05241  # dry=0.10074 * corg=0.60 * (0.75 + 0.25*decay@100)
@@ -133,12 +141,17 @@ def test_step8_net_credit_basic():
     transport = 0.0
     ch4 = 0.0005037
     net = step8_net_credit(cremain_t_c, safety, transport, ch4)
-    expected = (cremain_t_c * (44.0 / 12.0)) \
-               - (safety / 1000) - (transport / 1000) - (ch4 / 1000)
+    expected = (
+        (cremain_t_c * (44.0 / 12.0))
+        - (safety / 1000)
+        - (transport / 1000)
+        - (ch4 / 1000)
+    )
     assert net == pytest.approx(expected, rel=0.001)
 
 
 # ==================== Full Pipeline ====================
+
 
 def test_full_pipeline_spec_vector():
     """Full 8-step with the spec test vector.
@@ -215,7 +228,10 @@ def test_get_corg_unknown_species_returns_default():
 def test_co2_per_c_constant():
     """44/12 â‰ˆ 3.6667."""
     assert CO2_PER_C == pytest.approx(44.0 / 12.0, rel=0.001)
+
+
 # ==================== P0-1 Regression — pinned spec answer ====================
+
 
 def test_full_pipeline_spec_vector_pinned_net_credit():
     """REGRESSION: lock the post-fix net credit for the spec test vector.
@@ -244,7 +260,8 @@ def test_full_pipeline_spec_vector_pinned_net_credit():
         feedstock_species="Lantana_camara",
         h_corg_ratio=0.35,
     )
-    assert audit.net_credit_t_co2e == pytest.approx(0.18110, abs=0.001), \
+    assert audit.net_credit_t_co2e == pytest.approx(0.18110, abs=0.001), (
         f"Net credit must derive from cremain*44/12, got {audit.net_credit_t_co2e}"
+    )
     # Cremain must be ~0.04994 t C, NOT 0.06044 (which would be dry*corg without decay)
-    assert audit.cremain_t == pytest.approx(0.04994, abs=0.001)
+    assert audit.cremain_t == pytest.approx(0.04994, abs=0.001)

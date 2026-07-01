@@ -154,7 +154,9 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
                     if (!_permRequested)
                       RuggedButton(
                         key: const Key('connect-crane-scale-btn'),
-                        label: AppLocalizations.of(context)!.connect_crane_scale,
+                        label: AppLocalizations.of(
+                          context,
+                        )!.connect_crane_scale,
                         variant: RuggedButtonVariant.primary,
                         semanticId: 'connect-crane-scale-btn',
                         onPressed: _requestPermsAndStart,
