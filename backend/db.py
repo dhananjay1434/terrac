@@ -1,4 +1,5 @@
 """Async SQLAlchemy engine and session management."""
+
 from __future__ import annotations
 
 import os
@@ -16,8 +17,7 @@ from models import Base
 _DATABASE_URL_RAW = os.environ.get("DATABASE_URL")
 if not _DATABASE_URL_RAW:
     raise RuntimeError(
-        "DATABASE_URL env var is required. "
-        "Refusing to fall back to a local default."
+        "DATABASE_URL env var is required. Refusing to fall back to a local default."
     )
 DATABASE_URL = _DATABASE_URL_RAW
 
@@ -45,23 +45,17 @@ from alembic import command
 import asyncio
 from pathlib import Path
 
+
 async def init_db():
-    """Run Alembic migrations to head and seed test data. Idempotent."""
+    """Run Alembic migrations to head. Idempotent. No data seeding.
+
+    Phase R2: the previous unconditional seeding of a well-known development
+    EnrollmentToken (with used_at reset to None on every boot) was a permanent
+    enrollment backdoor in production. It is removed entirely — a flag-gated
+    re-seed would still be a backdoor on misconfiguration. Local dev mints a token
+    via /api/v1/admin/mint-token (requires DMRV_ADMIN_SECRET).
+    """
     if os.environ.get("DMRV_SKIP_MIGRATIONS") != "1":
         cfg = Config(str(Path(__file__).parent / "alembic.ini"))
         cfg.set_main_option("sqlalchemy.url", DATABASE_URL.replace("+asyncpg", ""))
         await asyncio.to_thread(command.upgrade, cfg, "head")
-
-    # Seed the dev-token if it doesn't exist, and reset its used_at so we can reuse it
-    from models import EnrollmentToken
-    from sqlalchemy.future import select
-    
-    async with SessionLocal() as session:
-        result = await session.execute(select(EnrollmentToken).where(EnrollmentToken.token == "dev-token"))
-        token = result.scalar_one_or_none()
-        if not token:
-            session.add(EnrollmentToken(token="dev-token"))
-        else:
-            token.used_at = None
-        await session.commit()
-

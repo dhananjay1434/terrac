@@ -1,14 +1,16 @@
-// TerraCipher — dMRV "Truth Machine" entry point.
+// TerraCipher — dMRV client entry point.
 //
 // The entire app runs inside a Riverpod `ProviderScope`, which owns the
 // lifecycle of every Notifier (dashboard, BLE telemetry, secure capture,
 // sync queue, batch session, etc.). Persistent state is committed to a
 // local Drift SQLite database (`AppDatabase`) and then forwarded to the
-// FastAPI backend through a Two-Phase Syncing pipeline: every cryptographic
-// payload is atomically written to the local store + outbox table first,
-// and only afterwards dispatched by the sync layer with idempotency keys —
-// so intermittent rural connectivity can never cause double-counted
-// carbon credits.
+// FastAPI backend through a Two-Phase Syncing pipeline: every payload is
+// atomically written to the local store + outbox table first, and only
+// afterwards dispatched by the sync layer. An append-only outbox with
+// per-operation idempotency keys minimizes double-counting under intermittent
+// rural connectivity (the server deduplicates by idempotency key); it is a
+// mitigation, not an absolute guarantee, and issuance integrity is enforced
+// server-side (corroboration + PROVISIONAL gating), not by this client.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -75,10 +77,7 @@ class TerraCipherApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('en'),
-        Locale('hi'),
-      ],
+      supportedLocales: const [Locale('en'), Locale('hi')],
       home: const DashboardScreen(),
     );
   }

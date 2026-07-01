@@ -1,3 +1,4 @@
+from tests.remediation.crypto_utils import TEST_PUBLIC_KEY_B64
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
@@ -17,9 +18,9 @@ async def registered_device(client: AsyncClient, session_factory):
         t = EnrollmentToken(token="test-credit")
         session.add(t)
         await session.commit()
-    b64_key = base64.urlsafe_b64encode(b"12345678901234567890123456789012").decode('utf-8')
+    b64_key = TEST_PUBLIC_KEY_B64
     dev_id = "test-device"
-    payload = {"device_id": dev_id, "hmac_key": b64_key}
+    payload = {"device_id": dev_id, "public_key": b64_key}
     headers = {"X-Enrollment-Token": "test-credit"}
     await client.post("/api/v1/register", content=json.dumps(payload).encode("utf-8"), headers=headers)
     return {"device_id": dev_id, "b64_key": b64_key}
@@ -57,7 +58,7 @@ async def test_real_client_biomass_payload_accepted(client: AsyncClient, registe
     headers = {
         "X-Idempotency-Key": op_id,
         "X-Device-Id": device_id,
-        "X-HMAC-Signature": sig,
+        "X-Signature": sig,
         "Content-Type": "application/json"
     }
     
@@ -86,7 +87,7 @@ async def test_photoless_biomass_accepted_null_sha(client: AsyncClient, register
     headers = {
         "X-Idempotency-Key": op_id,
         "X-Device-Id": device_id,
-        "X-HMAC-Signature": sig,
+        "X-Signature": sig,
         "Content-Type": "application/json"
     }
     response = await client.post("/api/v1/batches", content=raw_body, headers=headers)
@@ -114,7 +115,7 @@ async def test_unknown_extra_field_still_rejected(client: AsyncClient, registere
     headers = {
         "X-Idempotency-Key": op_id,
         "X-Device-Id": device_id,
-        "X-HMAC-Signature": sig,
+        "X-Signature": sig,
         "Content-Type": "application/json"
     }
     response = await client.post("/api/v1/batches", content=raw_body, headers=headers)

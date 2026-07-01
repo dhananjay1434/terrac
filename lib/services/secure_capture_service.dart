@@ -23,8 +23,6 @@ Uint8List _reencodeJpegInIsolate(Uint8List rawBytes) {
   return Uint8List.fromList(img.encodeJpg(decoded, quality: 70));
 }
 
-
-
 /// =============================================================================
 /// SecureCaptureService  (Prompt 3 — Tasks 2 & 3)
 /// Phase 6 — Zero Trust Hardening: Fix 2 (temp-file leak eliminated)
@@ -38,7 +36,10 @@ Uint8List _reencodeJpegInIsolate(Uint8List rawBytes) {
 ///   3. Fetch a GPS fix via geolocator.
 ///   4. Write GPSLatitude / GPSLongitude / DateTimeOriginal into the file
 ///      using `native_exif` (round-trips through the platform EXIF writer).
-///   5. Read raw bytes, SHA-256 → "indelible digital fingerprint".
+///   5. Read raw bytes, SHA-256 → transit tamper-evidence anchor. The hash binds
+///      the on-disk file bytes so alteration in transit is detectable; it does NOT
+///      prove the photo depicts a real burn. Scene authenticity is corroborated
+///      server-side via EXIF GPS vs the batch's claimed location (backend Phase 9).
 ///   6. Read EXIF back out and return the parsed result alongside the hash.
 ///
 /// The returned [SecureCaptureResult] is the *only* surface the UI layer is
@@ -166,7 +167,9 @@ class SecureCaptureService {
     required CameraController controller,
   }) async {
     if (isDeviceCompromisedGlobally) {
-      throw SecureCaptureException('Device integrity compromised. Capture aborted.');
+      throw SecureCaptureException(
+        'Device integrity compromised. Capture aborted.',
+      );
     }
     if (!controller.value.isInitialized) {
       throw SecureCaptureException('Camera not initialized.');

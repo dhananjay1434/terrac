@@ -10,6 +10,7 @@ References:
 
 Every function is pure, stateless, and independently testable.
 """
+
 from __future__ import annotations
 
 import math
@@ -25,7 +26,7 @@ METHODOLOGY_VERSION = "CSI-3.2"
 
 # Total Organic Carbon (Corg) by feedstock species — CSI registry values.
 _CORG_RAW: Dict[str, float] = {
-    "Lantana_camara": 0.60,       # 60% Corg — CSI positive-list value
+    "Lantana_camara": 0.60,  # 60% Corg — CSI positive-list value
     "Wood_chips": 0.55,
     "Agricultural_waste": 0.50,
     "Default": 0.55,
@@ -46,15 +47,17 @@ TRANSPORT_FACTOR_KG_PER_T_KM = 0.01194
 TRANSPORT_THRESHOLD_KM = 100.0
 
 # Methane penalties (kg CO₂e per tonne dry mass)
-CH4_COMPLIANT_KG_PER_T = 0.005     # moisture < 15% AND min_temp > 190°C
+CH4_COMPLIANT_KG_PER_T = 0.005  # moisture < 15% AND min_temp > 190°C
 CH4_NON_COMPLIANT_KG_PER_T = 30.0  # default heavy penalty
 
 
 # ==================== Data Classes ====================
 
+
 @dataclass
 class LCAAudit:
     """Full audit trail returned by the LCA engine."""
+
     methodology_version: str
 
     # Inputs
@@ -67,7 +70,8 @@ class LCAAudit:
     # Step 1
     dry_mass_t: float
 
-    # Step 2
+    # Step 2 — informational only; NOT used in net credit issuance (issuance
+    # derives from `cremain` in Steps 3/8).
     gross_c_sink_t_co2e: float
 
     # Step 3
@@ -85,11 +89,16 @@ class LCAAudit:
 
     # Step 8
     net_credit_t_co2e: float
-    
+
+    # True when the credit used an ASSUMED H:Corg (no lab value supplied).
+    # A provisional credit must never be issued as final.
+    provisional: bool = True
+
     audit_signature: str | None = None
 
 
 # ==================== Core Functions ====================
+
 
 def get_corg(feedstock_species: str) -> float:
     """Look up the Total Organic Carbon fraction for a feedstock species."""
@@ -113,8 +122,9 @@ def step2_gross_c_sink(corg_pct: float, dry_mass_t: float) -> float:
     return corg_pct * dry_mass_t * CO2_PER_C
 
 
-def step3_cremain(dry_mass_t: float, corg_pct: float, t: int = 100,
-                  h_corg_ratio: float = 0.35) -> float:
+def step3_cremain(
+    dry_mass_t: float, corg_pct: float, *, h_corg_ratio: float, t: int = 100
+) -> float:
     """Step 3 — H:Corg 100-year Decay Function.
 
     If H:Corg < 0.4 (top-tier stability):
@@ -123,14 +133,13 @@ def step3_cremain(dry_mass_t: float, corg_pct: float, t: int = 100,
 
     For Lantana biochar, H:Corg is typically 0.3–0.35 (always < 0.4).
     """
+    if h_corg_ratio is None:
+        raise ValueError("h_corg_ratio is required (lab-measured H:Corg).")
     if h_corg_ratio >= 0.4:
         # Lower-tier permanence — conservative 70% retention
         return dry_mass_t * corg_pct * 0.70
 
-    decay_term = (
-        0.1787 * math.exp(-0.5337 * t)
-        + 0.8237 * math.exp(-0.00997 * t)
-    )
+    decay_term = 0.1787 * math.exp(-0.5337 * t) + 0.8237 * math.exp(-0.00997 * t)
     return dry_mass_t * corg_pct * (0.75 + 0.25 * decay_term)
 
 
@@ -143,9 +152,7 @@ def step4_safety_deduction(dry_mass_t: float) -> float:
     return dry_mass_t * SAFETY_DEDUCTION_KG_PER_T
 
 
-def step5_6_transport_penalty(
-    transport_distance_km: float, dry_mass_t: float
-) -> float:
+def step5_6_transport_penalty(transport_distance_km: float, dry_mass_t: float) -> float:
     """Steps 5 & 6 — Transport Distance + Penalty.
 
     If distance > 100 km:
@@ -172,7 +179,7 @@ def step7_ch4_penalty(
     Returns:
         (is_compliant, penalty_kg_co2e)
     """
-    compliant = (min_recorded_temp_c > 190.0 and moisture_percent < 15.0)
+    compliant = min_recorded_temp_c > 190.0 and moisture_percent < 15.0
     if compliant:
         return True, dry_mass_t * CH4_COMPLIANT_KG_PER_T
     return False, dry_mass_t * CH4_NON_COMPLIANT_KG_PER_T
@@ -197,10 +204,16 @@ def step8_net_credit(
 
     All penalty inputs are in kg CO₂e; output is in tonnes CO₂e.
     """
-    return (cremain_t_c * CO2_PER_C) - (safety_kg / 1000.0) - (transport_kg / 1000.0) - (ch4_kg / 1000.0)
+    return (
+        (cremain_t_c * CO2_PER_C)
+        - (safety_kg / 1000.0)
+        - (transport_kg / 1000.0)
+        - (ch4_kg / 1000.0)
+    )
 
 
 # ==================== Main Entry Point ====================
+
 
 def calculate_carbon_credit(
     wet_yield_kg: float,
@@ -208,7 +221,7 @@ def calculate_carbon_credit(
     min_recorded_temp_c: float = 0.0,
     transport_distance_km: float = 0.0,
     feedstock_species: str = "Lantana_camara",
-    h_corg_ratio: float = 0.35,
+    h_corg_ratio: float | None = None,
 ) -> LCAAudit:
     """Execute the complete 8-step CSI LCA pipeline.
 
@@ -224,6 +237,12 @@ def calculate_carbon_credit(
         LCAAudit dataclass with full calculation trail.
     """
     corg = get_corg(feedstock_species)
+
+    # Phase 8: a credit computed without a lab-measured H:Corg is PROVISIONAL —
+    # it falls back to the conservative 0.35 assumption but must never be
+    # issued as final.
+    provisional = h_corg_ratio is None
+    h_corg_ratio = 0.35 if h_corg_ratio is None else h_corg_ratio
 
     # Step 1
     dry_mass = step1_dry_mass(wet_yield_kg, moisture_percent)
@@ -261,19 +280,23 @@ def calculate_carbon_credit(
         ch4_compliant=ch4_ok,
         ch4_penalty_kg=ch4,
         net_credit_t_co2e=net,
+        provisional=provisional,
     )
+
 
 import json
 import hmac
 import hashlib
 
+
 def sign_lca_audit(audit: LCAAudit, secret: str) -> str:
     """Sign the LCA audit using HMAC SHA-256."""
     # Create a deterministic dictionary of the audit without the signature itself
-    data = {k: v for k, v in audit.__dict__.items() if k != 'audit_signature'}
+    data = {k: v for k, v in audit.__dict__.items() if k != "audit_signature"}
     # Sort keys for deterministic JSON serialization
     payload_str = json.dumps(data, sort_keys=True)
-    signature = hmac.new(secret.encode(), payload_str.encode(), hashlib.sha256).hexdigest()
+    signature = hmac.new(
+        secret.encode(), payload_str.encode(), hashlib.sha256
+    ).hexdigest()
     audit.audit_signature = signature
     return signature
-

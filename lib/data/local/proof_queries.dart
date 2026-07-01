@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 
 import 'app_database.dart';
 
@@ -86,7 +87,15 @@ extension ProofQueries on AppDatabase {
           try {
             final list = jsonDecode(pyro!.smokeEvidenceJson) as List;
             parsedSmokeProofs = list.whereType<Map<String, dynamic>>().toList();
-          } catch (_) {}
+          } catch (e) {
+            // Malformed/legacy smoke-evidence JSON: degrade to no smoke proofs
+            // rather than failing the whole receipt build. Log for diagnostics.
+            debugPrint(
+              '[proof] smokeEvidenceJson parse failed for '
+              '${meta.batchUuid}: $e',
+            );
+            parsedSmokeProofs = [];
+          }
         }
 
         uniqueReceipts[meta.batchUuid] = CryptographicReceipt(

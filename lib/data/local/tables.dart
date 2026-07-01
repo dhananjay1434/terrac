@@ -1,8 +1,12 @@
 import 'package:drift/drift.dart';
 
 /// =============================================================================
-/// Kon-Tiki Biochar dMRV — Local Drift Schema  (v4)
+/// Kon-Tiki Biochar dMRV — Local Drift Schema  (schemaVersion = 15)
 /// =============================================================================
+///
+/// The authoritative version is `AppDatabase.schemaVersion` (currently 15). Keep
+/// this header in sync with it. `onUpgrade` applies cumulative `if (from < N)`
+/// blocks, so v5, v13 and v14 have no dedicated block (nothing new landed there).
 ///
 /// Design notes
 ///   • All primary/foreign keys are UUID v4 strings (offline-collision-safe).
@@ -12,11 +16,21 @@ import 'package:drift/drift.dart';
 ///   • Every primary-table insert is paired with a `SyncOutbox` row in a single
 ///     atomic transaction (Transactional Outbox Pattern).
 ///
-/// Schema v2 (Prompt 3): adds chain-of-custody photo evidence columns.
-/// Schema v3 (Prompt 5): adds mock_location_enabled column.
-/// Schema v4 (Phase 6):  adds harvest_uptime_seconds + json_synced_at +
-///                       media_synced_at columns for clock-spoof detection
-///                       and two-phase sync commit.
+/// Migration history (see AppDatabase.migration):
+///   v2  (Prompt 3): chain-of-custody photo evidence columns.
+///   v3  (Prompt 5): mock_location_enabled column.
+///   v4  (Phase 6):  harvest_uptime_seconds + farmer photo cols + json_synced_at
+///                   + media_synced_at (clock-spoof detection, two-phase commit).
+///   v6:             smoke_evidence_json (multi-phasic smoke evidence).
+///   v7:             media_captures table.
+///   v8:             sync_outbox.hmac_signature.
+///   v9:             compass telemetry (azimuth/pitch/roll) on biomass_sourcing
+///                   and pyrolysis_telemetry (Sybil-attack defence).
+///   v10:            pyrolysis_telemetry.hw_attestation_json.
+///   v11:            legacy timestamp → UTC-Z normalization; orphan-batch metadata
+///                   backfill (data migration).
+///   v12:            unique index ux_media_captures_batch_type.
+///   v15:            json_valid CHECK constraints on pyrolysis_telemetry.
 /// =============================================================================
 
 class SystemMetadata extends Table {
@@ -65,7 +79,9 @@ class BiomassSourcing extends Table {
   Set<Column> get primaryKey => {sourcingUuid};
 
   @override
-  List<Set<Column>> get uniqueKeys => [{batchUuid}];
+  List<Set<Column>> get uniqueKeys => [
+    {batchUuid},
+  ];
 }
 
 class PyrolysisTelemetry extends Table {
@@ -100,7 +116,9 @@ class PyrolysisTelemetry extends Table {
   Set<Column> get primaryKey => {telemetryUuid};
 
   @override
-  List<Set<Column>> get uniqueKeys => [{batchUuid}];
+  List<Set<Column>> get uniqueKeys => [
+    {batchUuid},
+  ];
 
   @override
   List<String> get customConstraints => const [
@@ -122,7 +140,9 @@ class YieldMetrics extends Table {
   Set<Column> get primaryKey => {yieldUuid};
 
   @override
-  List<Set<Column>> get uniqueKeys => [{batchUuid}];
+  List<Set<Column>> get uniqueKeys => [
+    {batchUuid},
+  ];
 }
 
 class EndUseApplication extends Table {
@@ -142,7 +162,9 @@ class EndUseApplication extends Table {
   Set<Column> get primaryKey => {applicationUuid};
 
   @override
-  List<Set<Column>> get uniqueKeys => [{batchUuid}];
+  List<Set<Column>> get uniqueKeys => [
+    {batchUuid},
+  ];
 }
 
 class SyncOutbox extends Table {
@@ -184,5 +206,7 @@ class MediaCaptures extends Table {
   TextColumn get createdAt => text()();
 
   @override
-  List<Set<Column>> get uniqueKeys => [{batchUuid, captureType}];
+  List<Set<Column>> get uniqueKeys => [
+    {batchUuid, captureType},
+  ];
 }

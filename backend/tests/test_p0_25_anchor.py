@@ -1,4 +1,5 @@
 """P0-25 regression: every photo must anchor to its batch by FK; orphan rows forbidden."""
+
 import hashlib
 import io
 import uuid
@@ -27,7 +28,7 @@ async def test_photo_then_batch_anchors_correctly(client, session_factory):
             "X-Idempotency-Key": "op-photo-1",
             "X-Declared-SHA256": sha,
             "X-Device-Id": "test-device-1",
-            "X-Batch-UUID": batch_uuid
+            "X-Batch-UUID": batch_uuid,
         },
     )
     assert r1.status_code in (200, 201)
@@ -41,22 +42,31 @@ async def test_photo_then_batch_anchors_correctly(client, session_factory):
         "sha256_hash": sha,
         "wet_yield_kg": 100.0,
         "min_recorded_temp_c": 650.0,
-            "harvest_uptime_seconds": 3600,
+        "harvest_uptime_seconds": 3600,
         "transport_distance_km": 0.0,
     }
     raw_body = json.dumps(batch_dict).encode("utf-8")
-    
-    canonical = "\n".join([
-        "POST", "/api/v1/batches", "op-batch-1", hashlib.sha256(raw_body).hexdigest(), "test-device-1"
-    ]).encode("utf-8")
-    hmac_val = hmac.new(b"test-secret", canonical, hashlib.sha256).hexdigest()
+
+    canonical = "\n".join(
+        [
+            "POST",
+            "/api/v1/batches",
+            "op-batch-1",
+            hashlib.sha256(raw_body).hexdigest(),
+            "test-device-1",
+        ]
+    ).encode("utf-8")
+    # Phase 5: sign with the enrolled device's Ed25519 private key.
+    from tests.remediation.crypto_utils import sign_canonical
+
+    sig = sign_canonical(canonical)
 
     r2 = await client.post(
         "/api/v1/batches",
         content=raw_body,
         headers={
             "X-Idempotency-Key": "op-batch-1",
-            "X-HMAC-Signature": hmac_val,
+            "X-Signature": sig,
             "X-Device-Id": "test-device-1",
             "Content-Type": "application/json",
         },
@@ -66,9 +76,11 @@ async def test_photo_then_batch_anchors_correctly(client, session_factory):
 
     # FK must be populated.
     async with session_factory() as db_session:
-        media_row = (await db_session.execute(
-            select(MediaFile).where(MediaFile.sha256_hash == sha)
-        )).scalar_one()
+        media_row = (
+            await db_session.execute(
+                select(MediaFile).where(MediaFile.sha256_hash == sha)
+            )
+        ).scalar_one()
         assert str(media_row.batch_uuid) == batch_uuid
 
 
@@ -103,27 +115,38 @@ async def test_late_photo_upgrades_batch_to_received(client, session_factory):
     sha = hashlib.sha256(payload).hexdigest()
 
     # Batch first -> UNVERIFIED
-    await client.post("/api/v1/batches", json={
-        "batch_uuid": batch_uuid, "feedstock_species": "Lantana_camara",
-        "harvest_timestamp": "2026-01-01T00:00:00Z", "moisture_percent": 10.0,
-        "sha256_hash": sha, "wet_yield_kg": 100.0,
-        "min_recorded_temp_c": 650.0,
-            "harvest_uptime_seconds": 3600, "transport_distance_km": 0.0,
-    }, headers={"X-Idempotency-Key": "op-late-1"})
+    await client.post(
+        "/api/v1/batches",
+        json={
+            "batch_uuid": batch_uuid,
+            "feedstock_species": "Lantana_camara",
+            "harvest_timestamp": "2026-01-01T00:00:00Z",
+            "moisture_percent": 10.0,
+            "sha256_hash": sha,
+            "wet_yield_kg": 100.0,
+            "min_recorded_temp_c": 650.0,
+            "harvest_uptime_seconds": 3600,
+            "transport_distance_km": 0.0,
+        },
+        headers={"X-Idempotency-Key": "op-late-1"},
+    )
 
     # Photo arrives second -> should flip RECEIVED
-    await client.post("/api/v1/media",
+    await client.post(
+        "/api/v1/media",
         files={"file": ("late.jpg", io.BytesIO(payload), "image/jpeg")},
         headers={
             "X-Idempotency-Key": "op-late-2",
             "X-Declared-SHA256": sha,
             "X-Device-Id": "test-device-1",
-            "X-Batch-UUID": batch_uuid
+            "X-Batch-UUID": batch_uuid,
         },
     )
 
     async with session_factory() as db_session:
-        batch_row = (await db_session.execute(
-            select(Batch).where(Batch.batch_uuid == uuid.UUID(batch_uuid))
-        )).scalar_one()
+        batch_row = (
+            await db_session.execute(
+                select(Batch).where(Batch.batch_uuid == uuid.UUID(batch_uuid))
+            )
+        ).scalar_one()
         assert batch_row.status == "RECEIVED"

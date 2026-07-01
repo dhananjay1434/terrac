@@ -1,3 +1,4 @@
+from tests.remediation.crypto_utils import TEST_PUBLIC_KEY_B64
 import json
 import pytest
 import uuid
@@ -17,9 +18,9 @@ async def registered_device(client: AsyncClient, session_factory):
         session.add(t)
         await session.commit()
     
-    b64_key = base64.urlsafe_b64encode(b"12345678901234567890123456789012").decode('utf-8')
+    b64_key = TEST_PUBLIC_KEY_B64
     dev_id = "test-device-media"
-    payload = {"device_id": dev_id, "hmac_key": b64_key}
+    payload = {"device_id": dev_id, "public_key": b64_key}
     headers = {"X-Enrollment-Token": "test-credit-media"}
     await client.post("/api/v1/register", content=json.dumps(payload).encode("utf-8"), headers=headers)
     
@@ -32,6 +33,11 @@ async def test_media_anchors_by_explicit_batch_uuid(client: AsyncClient, registe
     dev_id = registered_device["device_id"]
     b64_key = registered_device["b64_key"]
     
+    import hashlib
+
+    # Phase 9 media-integrity: the batch's declared photo hash must match the
+    # uploaded photo, otherwise the upload cannot verify the batch.
+    photo_hash = hashlib.sha256(b"fake photo data").hexdigest()
     # 1. Create batch with sha256_hash but no photo yet -> should be UNVERIFIED
     payload = {
         "batch_uuid": b1_uuid,
@@ -42,13 +48,13 @@ async def test_media_anchors_by_explicit_batch_uuid(client: AsyncClient, registe
         "min_recorded_temp_c": 0.0,
         "wet_yield_kg": 100.0,
         "transport_distance_km": 0.0,
-        "sha256_hash": "a" * 64
+        "sha256_hash": photo_hash,
     }
     
     headers = {
         "X-Device-Id": dev_id,
         "X-Idempotency-Key": "op-batch-media",
-        "X-HMAC-Signature": sign_request(dev_id, b64_key, "POST", "/api/v1/batches", "op-batch-media", payload)
+        "X-Signature": sign_request(dev_id, b64_key, "POST", "/api/v1/batches", "op-batch-media", payload)
     }
     resp1 = await client.post("/api/v1/batches", content=json.dumps(payload).encode("utf-8"), headers=headers)
     assert resp1.status_code == 201
@@ -171,7 +177,7 @@ async def test_missing_device_id_on_media_rejected(client: AsyncClient):
             "X-Idempotency-Key": "op-media-nodev",
             "X-Declared-SHA256": actual_hash,
             "X-Batch-UUID": str(uuid.uuid4()),
-            "X-HMAC-Signature": "dummy"
+            "X-Signature": "dummy"
             # Intentionally missing X-Device-Id
         })
     assert resp.status_code == 422

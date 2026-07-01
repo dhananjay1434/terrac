@@ -25,19 +25,18 @@ class PermanentSyncException implements Exception {
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
+    final container = ProviderContainer();
     try {
-      final container = ProviderContainer();
-      final syncQueue = container.read(syncQueueManagerProvider);
-      // Ensure syncQueue has started its logic.
-      syncQueue.kickSync();
-      // wait a bit for sync to finish (as kickSync is async but we don't await it here directly, let's just return true)
-      // Actually we should wait for sync to complete if possible, but kickSync doesn't return a Future.
-      // We can just sleep for 10 seconds or return true immediately.
-      await Future.delayed(const Duration(seconds: 10));
+      // Await real sync completion so WorkManager's success/retry signal is
+      // truthful instead of an unconditional 10-second sleep.
+      await container.read(syncQueueManagerProvider).kickSync();
+      return true;
     } catch (e) {
       debugPrint('Background sync failed: $e');
+      return false;
+    } finally {
+      container.dispose();
     }
-    return Future.value(true);
   });
 }
 
@@ -100,9 +99,9 @@ class SyncQueueManager {
     Connectivity? connectivity,
     http.Client? client,
     bool startPeriodicTimer = true,
-  })  : _config = config ?? const SyncConfig(apiBase: ''),
-        _connectivity = connectivity ?? Connectivity(),
-        _client = client ?? _createSecureClient() {
+  }) : _config = config ?? const SyncConfig(apiBase: ''),
+       _connectivity = connectivity ?? Connectivity(),
+       _client = client ?? _createSecureClient() {
     _initConnectivityListener();
     if (_config.enablePeriodicPolling && startPeriodicTimer) {
       _periodicTimer = Timer.periodic(
@@ -110,19 +109,15 @@ class SyncQueueManager {
         (_) => _triggerSync(),
       );
     }
-    ref.listen(
-      appDatabaseProvider,
-      (previous, next) {
-        if (next.hasValue && next.value != null) {
-          final db = next.requireValue;
-          _dbSubscription?.cancel();
-          _dbSubscription = db
-              .tableUpdates(TableUpdateQuery.onTable(db.syncOutbox))
-              .listen((_) => kickSync());
-        }
-      },
-      fireImmediately: true,
-    );
+    ref.listen(appDatabaseProvider, (previous, next) {
+      if (next.hasValue && next.value != null) {
+        final db = next.requireValue;
+        _dbSubscription?.cancel();
+        _dbSubscription = db
+            .tableUpdates(TableUpdateQuery.onTable(db.syncOutbox))
+            .listen((_) => kickSync());
+      }
+    }, fireImmediately: true);
   }
 
   final SyncConfig _config;
@@ -132,7 +127,7 @@ class SyncQueueManager {
   /// Public hook for write paths to wake the sync loop the moment a new
   /// outbox row lands. Safe to call from anywhere; the loop is re-entrant
   /// guarded by `_isSyncing`.
-  void kickSync() => _triggerSync();
+  Future<void> kickSync() => _triggerSync();
 
   static http.Client _createSecureClient() {
     if (kIsWeb) return http.Client();
@@ -174,7 +169,6 @@ class SyncQueueManager {
   /// Defaults to empty string so a forgotten flag fails fast on first request.
   /// =============================================================================
 
-
   void _initConnectivityListener() {
     // 1. Check initial connectivity on startup
     _connectivity.checkConnectivity().then((results) {
@@ -191,21 +185,16 @@ class SyncQueueManager {
         _triggerSync();
       }
     });
-    
+
     // 3. Register background sync
     if (!kIsWeb && Platform.isAndroid) {
       try {
-        Workmanager().initialize(
-          callbackDispatcher,
-          isInDebugMode: kDebugMode,
-        );
+        Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
         Workmanager().registerPeriodicTask(
           "dmrv_sync_task",
           "background_sync",
           frequency: const Duration(minutes: 15),
-          constraints: Constraints(
-            networkType: NetworkType.connected,
-          ),
+          constraints: Constraints(networkType: NetworkType.connected),
         );
       } catch (e) {
         debugPrint('Failed to register periodic task: $e');
@@ -306,14 +295,14 @@ class SyncQueueManager {
             deviceId: deviceId,
             jsonBody: entry.payloadJson,
           );
-          
+
           final jsonResponse = await _client.post(
             Uri.parse('${_config.apiBase}/api/v1/$endpoint'),
             headers: {
               'Content-Type': 'application/json',
               'X-Idempotency-Key': entry.operationId,
               'X-Device-Id': deviceId,
-              'X-HMAC-Signature': signature,
+              'X-Signature': signature,
             },
             body: entry.payloadJson,
           );
@@ -332,9 +321,7 @@ class SyncQueueManager {
                 'JSON upload failed (client error $code): ${jsonResponse.body}',
               );
             }
-            throw Exception(
-              'JSON upload failed: $code - ${jsonResponse.body}',
-            );
+            throw Exception('JSON upload failed: $code - ${jsonResponse.body}');
           }
 
           // Stamp json_synced_at so a retry skips this phase.
@@ -424,7 +411,9 @@ class SyncQueueManager {
     } catch (e) {
       debugPrint('[SyncQueue] Failed operation ${entry.operationId}: $e');
       if (e is PermanentSyncException) {
-        debugPrint('[SyncQueue] Permanent failure for ${entry.operationId}: $e');
+        debugPrint(
+          '[SyncQueue] Permanent failure for ${entry.operationId}: $e',
+        );
         await (db.update(
           db.syncOutbox,
         )..where((t) => t.operationId.equals(entry.operationId))).write(
@@ -474,7 +463,9 @@ class SyncQueueManager {
     if (mediaResponse.statusCode != 200 && mediaResponse.statusCode != 201) {
       final code = mediaResponse.statusCode;
       if (code >= 400 && code < 500) {
-        throw PermanentSyncException('Media upload failed (client error $code)');
+        throw PermanentSyncException(
+          'Media upload failed (client error $code)',
+        );
       }
       throw Exception('Media upload failed: $code');
     }
@@ -533,10 +524,7 @@ class SyncQueueManager {
 
 /// Production configuration. Tests should override this provider.
 final syncConfigProvider = Provider<SyncConfig>((ref) {
-  const apiBase = String.fromEnvironment(
-    'DMRV_API_BASE_URL',
-    defaultValue: '',
-  );
+  const apiBase = String.fromEnvironment('DMRV_API_BASE_URL', defaultValue: '');
   return const SyncConfig(apiBase: apiBase);
 });
 

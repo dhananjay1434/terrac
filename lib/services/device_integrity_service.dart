@@ -10,27 +10,37 @@ class DeviceIntegrityService {
 
   Future<void> initialize() async {
     if (kIsWeb) return; // FreeRASP doesn't support web
-    
-    // TEMPORARY: Bypass Talsec completely in Debug/Demo mode to prevent it from blocking initialization on some devices.
-    if (kDebugMode || const bool.fromEnvironment('DMRV_DEMO_MODE')) {
-        debugPrint("[DeviceIntegrity] Bypassing FreeRASP initialization in Demo Mode.");
-        return;
+
+    // Demo mode is a non-release affordance ONLY. A release binary must never
+    // silently disable integrity, so refuse to run one built with the bypass.
+    final demo = const bool.fromEnvironment('DMRV_DEMO_MODE');
+    if (demo && kReleaseMode) {
+      throw StateError('DMRV_DEMO_MODE is forbidden in release builds.');
+    }
+    if (demo || kDebugMode) {
+      debugPrint(
+        '[DeviceIntegrity] demo/debug build — integrity checks skipped.',
+      );
+      return;
     }
 
-    // Talsec configuration.
-    // We provide dummy values for androidConfig/iosConfig to allow initialization.
-    // In production, these should match the real app package/bundle ID.
+    // Fail CLOSED: a release build with no integrity configuration is treated
+    // as compromised rather than running unprotected.
+    const certHash = String.fromEnvironment('TALSEC_SIGNING_CERT_HASH');
+    const iosTeam = String.fromEnvironment('TALSEC_IOS_TEAM_ID');
+    if (certHash.isEmpty || iosTeam.isEmpty) {
+      _compromised('Integrity configuration missing');
+      return;
+    }
+
     final config = TalsecConfig(
       androidConfig: AndroidConfig(
         packageName: 'com.kontiki.dmrv',
-        signingCertHashes: [const String.fromEnvironment('TALSEC_SIGNING_CERT_HASH')],
+        signingCertHashes: [certHash],
       ),
-      iosConfig: IOSConfig(
-        bundleIds: ['com.kontiki.dmrv'],
-        teamId: const String.fromEnvironment('TALSEC_IOS_TEAM_ID'),
-      ),
+      iosConfig: IOSConfig(bundleIds: ['com.kontiki.dmrv'], teamId: iosTeam),
       watcherMail: 'security@kontiki.test',
-      isProd: !kDebugMode,
+      isProd: true,
     );
 
     // Callbacks for threat detection.
@@ -49,11 +59,13 @@ class DeviceIntegrityService {
       onUnofficialStore: () => _compromised('Unofficial Store Detected'),
     );
 
+    // Fail CLOSED on start failure too: a release build that cannot start the
+    // RASP engine must not proceed unprotected.
     Talsec.instance.attachListener(callback);
     try {
       await Talsec.instance.start(config);
-    } catch (e, st) {
-      debugPrint('Talsec initialization failed (this is normal in debug/demo without certs): $e');
+    } catch (e) {
+      _compromised('Talsec failed to start: $e');
     }
   }
 

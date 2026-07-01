@@ -55,12 +55,14 @@ class AppDatabase extends _$AppDatabase {
         'ux_media_captures_batch_type '
         'ON media_captures(batch_uuid, capture_type);',
       );
-      await customStatement('CREATE VIEW IF NOT EXISTS dashboard_stats_v AS '
-          'SELECT '
-          '(SELECT COUNT(*) FROM system_metadata) AS total_batches, '
-          '(SELECT COUNT(*) FROM end_use_application) AS completed_batches, '
-          '(SELECT COUNT(*) FROM sync_outbox WHERE status=\'PENDING\') AS pending_sync, '
-          'COALESCE((SELECT SUM(wet_yield_weight_kg) FROM yield_metrics), 0.0) AS total_yield_kg;');
+      await customStatement(
+        'CREATE VIEW IF NOT EXISTS dashboard_stats_v AS '
+        'SELECT '
+        '(SELECT COUNT(*) FROM system_metadata) AS total_batches, '
+        '(SELECT COUNT(*) FROM end_use_application) AS completed_batches, '
+        '(SELECT COUNT(*) FROM sync_outbox WHERE status=\'PENDING\') AS pending_sync, '
+        'COALESCE((SELECT SUM(wet_yield_weight_kg) FROM yield_metrics), 0.0) AS total_yield_kg;',
+      );
     },
     onUpgrade: (m, from, to) async {
       if (from < 2) {
@@ -129,7 +131,7 @@ class AppDatabase extends _$AppDatabase {
           "      THEN STRFTIME('%Y-%m-%dT%H:%M:%fZ', harvest_timestamp) "
           "    ELSE harvest_timestamp || 'Z' "
           "  END "
-          "WHERE harvest_timestamp IS NOT NULL AND harvest_timestamp NOT LIKE '%Z';"
+          "WHERE harvest_timestamp IS NOT NULL AND harvest_timestamp NOT LIKE '%Z';",
         );
 
         final prefs = await SharedPreferences.getInstance();
@@ -300,8 +302,11 @@ class AppDatabase extends _$AppDatabase {
     return sourcingUuid;
   }
 
-  // Test-only: fetch unencrypted raw query result
-  Future<List<QueryRow>> getBatchTelemetryUnsafe(String batchUuid) async {
+  /// Raw parameterized telemetry query — TEST-ONLY. Gated behind
+  /// [visibleForTesting] so it cannot be called from production code (Phase 12).
+  /// Uses a bound variable (no string interpolation), so it is injection-safe.
+  @visibleForTesting
+  Future<List<QueryRow>> getBatchTelemetryRaw(String batchUuid) async {
     return await customSelect(
       'SELECT * FROM pyrolysis_telemetry WHERE batch_uuid = ?',
       variables: [Variable.withString(batchUuid)],
@@ -393,13 +398,13 @@ LazyDatabase _openConnection() {
       },
       setup: (rawDb) {
         // P0-9: Prevent SQL injection without triggering an encrypted read.
-        // We cannot use rawDb.select('SELECT quote(?)') here because the database 
+        // We cannot use rawDb.select('SELECT quote(?)') here because the database
         // is encrypted and cannot prepare statements until PRAGMA key is set!
         final escapedPassphrase = passphrase.replaceAll("'", "''");
         rawDb.execute("PRAGMA key = '$escapedPassphrase';");
         // Force a decrypt pass so a bad key fails fast at open-time.
         rawDb.execute('SELECT count(*) FROM sqlite_master;');
-        
+
         // P0-5: Enforce relational integrity
         rawDb.execute('PRAGMA foreign_keys = ON;');
       },

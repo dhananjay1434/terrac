@@ -1,0 +1,809 @@
+# TerraCipher dMRV — Remediation Log
+
+Execution of `terracipher_reports/REMEDIATION_RUNBOOK_DETAILED.md`, one phase at a time,
+with a mandatory gate per phase. Branch: `remediation/phase-by-phase`.
+
+---
+
+## Baseline (Phase 0) — 2026-06-30
+
+### Backend — `cd backend && pytest -q`
+**120 passed, 2 failed, 1 skipped** (run confirmed in-shell, 35.45s).
+
+Known pre-existing failures (excluded from all later "no new failures" gates):
+1. `tests/remediation/test_db_migrations.py::test_migrations_gated`
+   — `sqlite3.OperationalError: no such table: enrollment_tokens`. Test-DB migration
+   setup/ordering issue: `init_db()` queries `enrollment_tokens` before the table is created
+   under the test harness. Not a product defect.
+2. `tests/test_p0_21_hmac_secret.py::test_server_refuses_to_import_without_hmac_secret`
+   — `DID NOT RAISE <RuntimeError>`. Test-isolation issue: `server` is already imported by the
+   time the test pops it from `sys.modules`, so the import-time guard does not re-trigger.
+
+### Client — `flutter analyze` / `flutter test` (clean re-run, 2026-06-30)
+- `flutter test`: **144 passed, 2 skipped, 0 failed** ("All tests passed!").
+- `flutter analyze`: **34 issues** — all info/warning severity (deprecations, unused imports,
+  `avoid_print`); no errors. These are the pre-existing analyzer baseline.
+
+The stale `.baseline_*.txt` from the prior session (paths full of `New folder\lib\...`, generated
+before that duplicate tree was deleted) were overwritten by this clean run.
+
+**Gate — GREEN.** Both suites run to completion; baseline counts recorded; pre-existing
+failures listed. Branch created.
+
+---
+
+## Phase 1 — Backend import & structure hygiene  `[REFACTOR]`  ✅ DONE
+
+**Scope:** `backend/server.py`. Behavior-preserving (imports hoisted; single module-level
+`haversine_km`; `EnrollmentToken`/`CORG_TABLE` imported at top; in-function imports removed).
+
+**Gate — GREEN**
+- `python -m py_compile backend/server.py` → exit 0.
+- `grep -n "^import json"` → 1 (line 14).
+- `grep -c "    import "` (indented imports) → 0.
+- `grep -c "def haversine("` → 0; `grep -c "def haversine_km("` → 1.
+- `pytest -q` → 120 passed, 2 failed (both pre-existing), 1 skipped — **0 new failures**.
+
+**Intended commit:** `refactor(backend): hoist imports and extract single haversine_km`
+
+---
+
+## Phase 2 — Dedicated admin secret  `[FIX]`  ✅ DONE
+
+**Scope (runbook):** `backend/server.py`, `backend/.env.example`, `backend/tests/test_admin_secret.py` (new).
+
+**Changes**
+- `server.py`: added `_ADMIN_SECRET = os.environ.get("DMRV_ADMIN_SECRET")` block (hard
+  `RuntimeError` if unset) directly after the `_HMAC_SECRET` block; changed `mint_enrollment_token`
+  to `hmac.compare_digest(x_admin_secret, _ADMIN_SECRET)`. The HMAC pepper no longer doubles as
+  the admin password.
+- `.env.example`: added `DMRV_ADMIN_SECRET=` placeholder.
+- `tests/test_admin_secret.py` (new): asserts the HMAC pepper is rejected as admin (401) and the
+  dedicated admin secret is accepted (201), using the existing `client` fixture.
+
+**Out-of-scope touch (disclosed, required by Appendix C — "required secret absent from env"):**
+- `backend/tests/conftest.py`: added `os.environ.setdefault("DMRV_ADMIN_SECRET", "test-admin-secret")`
+  — the exact parallel to the existing `DMRV_HMAC_SECRET` test shim. Without it, all backend tests
+  fail at `import server` because of the new hard requirement. One line; no behavior change.
+
+**Gate-command adaptation (this repo):** the runbook's `python -c "import server"` check also needs
+`DATABASE_URL` set, because `db.py` enforces it at import (before `server`'s `load_dotenv()` runs).
+Used the in-memory URL from conftest.
+
+**Gate**
+- `DMRV_HMAC_SECRET=x DMRV_ADMIN_SECRET=y DATABASE_URL=…memory python -c "import server"` → IMPORT_OK.
+- Import WITHOUT `DMRV_ADMIN_SECRET` → correctly refuses with `DMRV_ADMIN_SECRET` RuntimeError.
+- `pytest -q tests/test_admin_secret.py` → 2 passed.
+- `pytest -q` (full) → **122 passed, 2 failed (both pre-existing), 1 skipped, 0 errors** —
+  0 new failures. (122 = 120 baseline + 2 new admin tests.)
+- `ruff format` → 3 files reformatted (server.py, conftest.py, test_admin_secret.py).
+
+**Affected fixture (disclosed, out of listed scope — direct consequence of the fix):**
+- `backend/tests/remediation/test_enrollment_auth.py`: its `admin_mint_token` fixture minted a
+  token by sending the **HMAC pepper** as `X-Admin-Secret` (`"test-secret"`). Phase 2 correctly
+  stopped the pepper from authenticating as admin, so the fixture started returning 401 and
+  errored 3 dependent tests. Updated the fixture to send the dedicated admin secret
+  (`"test-admin-secret"`). This is exactly the kind of fixture update the runbook anticipates
+  (cf. Phase 7). Without it the Phase 2 gate could not stay green.
+
+**Intended commit:** `fix(backend): use a dedicated DMRV_ADMIN_SECRET for admin auth`
+
+---
+
+## Phase 3 — Remove the `dev-token` backdoor  `[FIX]`  ✅ DONE
+
+**Scope (runbook):** `backend/server.py` (`register_device`), `lib/services/crypto_signer.dart`
+(registration only), `backend/tests/test_enrollment.py` (new).
+
+**Changes**
+- `server.py` `register_device`: removed the `if db_token.token != "dev-token":` special-case;
+  the enrollment token is now consumed unconditionally (`db_token.used_at = datetime.now(...)`).
+- `crypto_signer.dart` `registerDevice()`: removed the `defaultValue: 'dev-token'`; now
+  `const enrollmentToken = String.fromEnvironment('ENROLLMENT_TOKEN')` with an `isEmpty` →
+  `StateError` guard. (Per runbook, only the token line changed; `apiBaseUrl` is left for Phase 4.)
+- `tests/test_enrollment.py` (new): minted token enrolls a device once (201); reuse → 401
+  `enrollment_token_used`. Uses the `client` fixture.
+
+**Gate**
+- `grep -c '"dev-token"' backend/server.py` → 0.
+- `grep -c "dev-token" lib/services/crypto_signer.dart` → 0.
+- `pytest -q tests/test_enrollment.py` → 2 passed.
+- `pytest -q` (full) → **124 passed, 2 failed (both pre-existing), 1 skipped, 0 errors** — 0 new
+  failures (124 = 122 + 2 new).
+- No Dart test calls `registerDevice`/`warmUp` (grep), so the client change is untested-path only.
+- `flutter test` → **144 passed, 2 skipped, 0 failed** ("All tests passed!") — 0 new failures.
+- Formatters: `ruff format` (1 file), `dart format` (crypto_signer.dart).
+
+> **⚠ CRITICAL RESIDUAL (out of Phase 3 scope — logged in FINDINGS_BACKLOG):** `backend/db.py`
+> `init_db()` (lines 55-66) still re-seeds a `dev-token` enrollment token and resets its
+> `used_at = None` on every boot. The Phase 3 gate only greps `server.py`/`crypto_signer.dart`,
+> so the backdoor survives in `db.py`. Must be removed in a dedicated step before release.
+
+**Intended commit:** `fix: remove dev-token enrollment backdoor; require minted single-use tokens`
+
+---
+
+## Phase 4 — Client Ed25519 device identity  `[FIX]`  ✅ DONE
+
+**Scope (runbook):** `pubspec.yaml`, `lib/services/crypto_signer.dart`, callers in
+`sync_queue_manager.dart` / `app_database.dart`, `test/services/crypto_signer_test.dart` (rewrite).
+
+**Changes**
+- `flutter pub add cryptography` → "Changed 1 dependency!" (pubspec.yaml + lock updated).
+- `crypto_signer.dart`: replaced HMAC internals with **Ed25519** (runbook's exact code). The
+  private seed never leaves the device; only the public key is enrolled. `registerDevice()` now
+  sends `public_key` (not `hmac_key`) and requires both `ENROLLMENT_TOKEN` and `DMRV_API_BASE_URL`
+  (no defaults). Public API preserved: `getDeviceId`, `signRequest`, `signPayload`, `clear`,
+  `warmUp`, `resetForTest`, `resetKeyForTesting` — so `lib/` callers need **no** changes.
+  Canonical signing string frozen: `method\npath\nidempotencyKey\nsha256(jsonBody)\ndeviceId`.
+- `test/services/crypto_signer_test.dart` (rewrite): asserts Ed25519 determinism, that the signature
+  changes when any canonical component changes, and that a public-key `verify` of a tampered body
+  fails. → 3 passed.
+
+**Affected test (disclosed, out of listed scope):**
+- `test/crypto_signer_test.dart` (root): had `expect(sig1.length, 64)` — the exact 64-char-hex-HMAC
+  assertion the runbook says "is now wrong and must be replaced". In THIS repo that assertion lives
+  here, not in the services test. Replaced with an Ed25519 determinism check. (The file's other two
+  cases — payload-changes, key-changes — remain valid and unchanged.) The other crypto-touching
+  tests — `crypto_signer_keysizing_test.dart` (computes HMAC inline, never calls CryptoSigner),
+  `hmac_outbox_test.dart` (asserts the `hmacSignature` column is non-empty — name unchanged),
+  `sign_inside_transaction_test.dart` (static grep) — are unaffected by the HMAC→Ed25519 switch.
+
+**Second affected test (disclosed, out of listed scope):**
+- `test/device_integrity_test.dart`: asserted `signPayload`/`signRequest` throw `Exception`
+  (`throwsException`) when the device is compromised. The runbook's new code throws
+  `StateError('device_compromised')`, and in Dart `StateError` implements `Error`, not `Exception`
+  — so the matcher failed. Updated both matchers to `throwsStateError` and the test name to match.
+  (Confirmed no other test asserts the old compromise-Exception behavior.)
+
+**Gate**
+- `grep -c "hmac_key" lib/services/crypto_signer.dart` → 0.
+- `flutter test test/services/crypto_signer_test.dart` → 3 passed.
+- `flutter analyze` → **34 issues — identical to baseline, no new errors.**
+- `flutter test` (full) → first run surfaced 1 new failure (device_integrity_test, above); after the
+  fix: **146 passed, 2 skipped, 0 failed** — 0 new failures (146 = 144 baseline + 2 net-new crypto tests).
+- `dart format` → applied (crypto_signer.dart + 3 test files).
+
+**Note:** client now sends `public_key` + (still) `X-HMAC-Signature` header while the server still
+verifies HMAC — client/server are intentionally mismatched until **Phase 5** lands the server-side
+Ed25519 verifier and the `X-Signature` header rename (runbook: "4 & 5 land back-to-back").
+
+**Intended commit:** `fix(client): replace symmetric HMAC identity with Ed25519 device signatures`
+
+---
+
+## Phase 5 — Server Ed25519 verification + column migration  `[FIX]`  ✅ DONE
+
+**Scope (runbook):** `backend/models.py`, `backend/server.py`,
+`backend/alembic/versions/<new>.py`, `backend/tests/test_signature.py` (new).
+
+**State found at phase start:** the Phase 5 *implementation* was already present in the
+working tree (applied by a prior session but never gated, logged, or committed — the log
+stopped at Phase 4, and the Phase 4 note saying "server still verifies HMAC" was stale).
+Verified in place:
+- `models.py` — `DeviceKey.public_key` (was `hmac_key`).
+- `server.py` — `verify_signature` uses `Ed25519PublicKey.from_public_bytes` + `_b64url_decode`;
+  `RegistrationRequest.public_key`; all signed endpoints use `Depends(verify_signature)`;
+  no `verify_hmac`/`hmac_key` references remain. Client already sends `X-Signature`.
+- migration `d7e8f9a0b1c2_device_keys_hmac_to_public.py` — `batch_alter_table` rename
+  `hmac_key`→`public_key`, with a working downgrade.
+- `tests/test_signature.py` — 4 Ed25519 tests (accept / wrong-key reject / forge-from-pubkey
+  reject / missing-sig 401).
+
+**Work done this phase:** ran the Phase 5 gate. The implementation gate was already green;
+the full-suite "no new failures" gate was **RED** with **6 new failures vs baseline**, all a
+direct consequence of the HMAC→Ed25519 switch (Phases 4–5): legacy tests were still signing
+requests with **HMAC** against the new Ed25519 verifier (→ `signature_mismatch`/`missing_signature`),
+and one file tested the deliberately-removed HMAC verification path. Migrated them to Ed25519
+using the existing `tests/remediation/crypto_utils.py` helper (`sign_canonical`, fixed test
+keypair). **No assertion was weakened** — positive tests now sign with the enrolled key and still
+assert acceptance; negative tests still assert rejection.
+
+**Affected tests (disclosed, out of listed Phase-5 scope — direct consequence of the fix):**
+- `tests/test_hmac_verification.py` — rewrote in place from the removed HMAC path to the Ed25519
+  verifier (valid sig → auth passes; bad sig → 403 `signature_mismatch`; missing → 401). It used a
+  mock device exposing `hmac_key` and asserted `detail=="hmac_mismatch"`, neither of which exists
+  post-Phase-5. (The harness blocked deleting the pre-existing file; the rewrite is now misnamed —
+  recommend renaming to `test_signature_verification.py`. Ed25519 coverage also lives in
+  `test_signature.py`.)
+- `tests/test_hardening.py` — `_sign` helper switched HMAC→`sign_canonical` (Ed25519). Keeps both
+  `test_p1_19_*_accepted` (now 201) and `test_p1_19_*_replay_to_different_endpoint_rejected` green
+  (the verifier rebuilds the canonical from the real request path, so a cross-endpoint replay
+  still 403s).
+- `tests/remediation/test_credit_gating.py::test_verified_batch_gets_credit` — inline
+  `hmac.new(...)` → `sign_canonical(canonical)` (device enrolls `TEST_PUBLIC_KEY_B64`).
+- `tests/remediation/test_enrollment_auth.py::test_registered_device_valid_signature_accepted` —
+  enroll `TEST_PUBLIC_KEY_B64` + sign with `sign_canonical` (was enrolling an arbitrary key and
+  HMAC-signing). Registration-only tests in the file keep the arbitrary `_B64_KEY` (they never
+  verify a signature).
+- `tests/test_p0_25_anchor.py::test_photo_then_batch_anchors_correctly` — inline
+  `hmac.new(b"test-secret", ...)` → `sign_canonical(canonical)` for device `test-device-1`.
+
+**Gate**
+- `grep -nc "verify_hmac" backend/server.py` → 0.
+- `grep -nc "hmac_key" backend/server.py backend/models.py` → 0.
+- `alembic upgrade head` → baseline→`public_key`; `alembic downgrade -1` → `public_key`→`hmac_key`;
+  `alembic upgrade head` → `public_key`. Verified via `PRAGMA table_info(device_keys)` at each step
+  (isolated temp SQLite DB).
+- `pytest -q tests/test_signature.py` → **4 passed**.
+- `pytest -q` (full, `--timeout=60 --timeout-method=thread`) → **2 failed, 128 passed, 1 skipped** —
+  the 2 failures are the documented Phase-0 pre-existing ones (`test_migrations_gated`,
+  `test_p0_21_hmac_secret`); **0 new failures**. (131 total = 123 baseline + 2 admin + 2 enrollment
+  + 4 signature.)
+- `ruff format` on the 5 touched test files → reformatted (whitespace only; suite re-confirmed green
+  before formatting).
+
+**Residuals (logged, not in Phase-5 scope):**
+- `server.py` CORS `allow_headers` still lists the dead `X-Hmac-Signature` and omits the live
+  `X-Signature` — harmless for the mobile client (CORS is browser-only); clean up in a hygiene phase.
+- Dead `import hmac` / `_RAW_KEY` now unused in the migrated test files (not gate-affecting).
+
+**Intended commit:** `fix(backend): verify Ed25519 device signatures; migrate device_keys to public_key`
+
+---
+
+## Phase 6 — Fail closed on integrity & registration  `[FIX]`  ✅ DONE
+
+**Scope (runbook):** `lib/services/device_integrity_service.dart`, `test/device_integrity_test.dart` (extend).
+
+**What was wrong:** `initialize()` bypassed integrity whenever `kDebugMode || DMRV_DEMO_MODE`
+with **no release guard** (a release built with `--dart-define=DMRV_DEMO_MODE=true` silently
+disabled all root/emulator/hook detection); `signingCertHashes` defaulted to `['']` when the
+env var was unset; and a `Talsec.start()` failure was swallowed with a "this is normal" log —
+all fail-OPEN paths in an anti-fraud control.
+
+**Changes (`device_integrity_service.dart` `initialize()`):**
+- `DMRV_DEMO_MODE && kReleaseMode` → `throw StateError('DMRV_DEMO_MODE is forbidden in release builds.')`.
+- demo/debug (non-release) → explicit skip with a log, as before.
+- Release with empty `TALSEC_SIGNING_CERT_HASH` or `TALSEC_IOS_TEAM_ID` → `_compromised('Integrity configuration missing')` (fail closed) instead of building a `['']` config.
+- `TalsecConfig(..., isProd: true)` (was `isProd: !kDebugMode`, unreachable in the release path anyway), real cert hash / team id wired in.
+- `Talsec.start()` failure → `_compromised('Talsec failed to start: $e')` (fail closed), not a swallowed debugPrint. Dropped the unused `st` binding.
+
+**Test (`test/device_integrity_test.dart`, extended):** kept the existing compromise-signing test and added
+(1) a behavioral test that `initialize()` is a no-op in debug/test mode and does NOT flip the compromised
+flag, and (2) a source-guard test that locks in the three fail-closed markers (`forbidden in release builds`,
+`Integrity configuration missing`, `Talsec failed to start:`, `isProd: true`) and asserts `isProd: !kDebugMode`
+is gone. The release/throw paths can't be exercised under `flutter test` (kReleaseMode is always false there),
+so the source-guard test is the durable lock — same style as the repo's existing
+`device_integrity_enforcement_test.dart::placeholder_cert_hash_absent`.
+
+**Gate**
+- `grep -n "forbidden in release builds" lib/services/device_integrity_service.dart` → present (line 18).
+- `flutter analyze` → **33 issues** — all pre-existing info/warnings, **no errors, no new issues** (one fewer
+  than the 34 baseline: the new `catch (e)` removed an unused-variable warning).
+- `flutter test test/device_integrity_test.dart` → **3 passed**.
+- `flutter test` (full) → **148 passed, 2 skipped, 0 failed** ("All tests passed!") — 0 new failures
+  (148 = 146 baseline + 2 net-new integrity tests).
+- `dart format` applied to both touched files.
+
+**Intended commit:** `fix(client): fail closed on integrity bypass, missing config, and registration errors`
+
+---
+
+## Phase 7 — Require credit-bearing inputs  `[FIX]`  ✅ DONE
+
+**Scope (runbook):** `backend/server.py` (`BatchPayload`), affected fixtures in `backend/tests/`.
+
+**What was wrong:** `wet_yield_kg` defaulted to `100.0`, `min_recorded_temp_c`/`transport_distance_km`
+to `0.0`. These three feed the LCA credit calculation, so an omitted field silently fabricated a
+credit for never-measured data.
+
+**Changes (`server.py` `BatchPayload`):** all three defaults → required.
+- `wet_yield_kg: float = Field(..., gt=0.0, ...)`
+- `min_recorded_temp_c: float = Field(..., ge=-50.0, le=1500.0, ...)`
+- `transport_distance_km: float = Field(..., ge=0.0, le=20000.0, ...)`
+
+**Test (`backend/tests/test_required_credit_inputs.py`, new):** parametrized over the three fields —
+posting a batch with any one omitted returns **422** and the response cites the missing field
+(signed via the conftest Ed25519 auto-signer, so the 422 is the validation layer, not auth).
+
+**Fixtures:** none required updating — the full suite ran with **0 new failures**, confirming every
+existing batch test already supplies the three fields (e.g. `_valid_payload` in `test_hardening.py`).
+Nothing to disclose here.
+
+**Gate**
+- `grep -n "wet_yield_kg: float = Field(\.\.\." backend/server.py` → present (line 143).
+- `pytest -q tests/test_required_credit_inputs.py` → **3 passed**.
+- `pytest -q` (full) → **2 failed, 131 passed, 1 skipped** — the 2 failures are the documented
+  Phase-0 pre-existing ones; **0 new failures** (131 = 128 + 3 new Phase-7 tests).
+- `ruff format` applied to `server.py` and the new test.
+
+**Intended commit:** `fix(backend): make wet_yield_kg, min_temp, transport_distance required`
+
+---
+
+## Phase 13 — Correct overstated claims & residual doc rot  `[REFACTOR]`  ✅ DONE
+
+**Scope (runbook):** `lib/main.dart`, `lib/services/secure_capture_service.dart`,
+`lib/data/local/tables.dart` (header), `lib/data/local/proof_queries.dart`; plus the CORS
+`allow_headers` hygiene folded in from Phases 5/9 residuals.
+
+**What was wrong:** marketing/overstated claims and stale docs — `main.dart` claimed connectivity "can
+never cause double-counted carbon credits"; `secure_capture_service.dart` called the SHA-256 an
+"indelible digital fingerprint" (conflating file integrity with scene authenticity); `tables.dart`
+header said "(v4)" while `schemaVersion` is 15; `proof_queries.dart:89` had an empty `catch (_) {}`; and
+CORS `allow_headers` still advertised the dead `X-Hmac-Signature` and omitted the live `X-Signature`.
+
+**Changes**
+- `main.dart`: reworded to "an append-only outbox with per-operation idempotency keys **minimizes**
+  double-counting … a mitigation, not an absolute guarantee; issuance integrity is enforced server-side
+  (corroboration + PROVISIONAL gating)." Dropped the "Truth Machine" label.
+- `secure_capture_service.dart`: SHA-256 reworded to "transit tamper-evidence anchor … does NOT prove
+  the photo depicts a real burn; scene authenticity is corroborated server-side via EXIF GPS (Phase 9)."
+- `tables.dart` header: `(v4)` → `(schemaVersion = 15)`, points to `AppDatabase.schemaVersion`, notes
+  v5/v13/v14 have no dedicated block, and lists the real v2→v15 migration history.
+- `proof_queries.dart`: empty `catch (_) {}` on `smokeEvidenceJson` parse → `catch (e)` that logs via
+  `debugPrint` and degrades to no smoke proofs (added `package:flutter/foundation.dart` import).
+- `server.py` CORS `allow_headers`: dropped dead legacy HMAC header; added live `X-Signature`,
+  `X-Enrollment-Token`, `X-Admin-Secret`.
+
+**Gate**
+- `grep -rc "indelible" lib` → 0; `grep -c "catch (_) {}" proof_queries.dart` → 0;
+  `grep -c "X-Hmac-Signature" server.py` → 0.
+- `flutter analyze` → **33 issues** — identical to baseline, no new.
+- `flutter test` (full) → **149 passed, 2 skipped, 0 failed** — 0 new failures. `python -m py_compile server.py` OK.
+- `dart format` (4 files) + `ruff format` (server.py) applied.
+
+**Intended commit:** `docs(client): correct integrity-vs-authenticity claims and schema header; cors: advertise live headers`
+
+---
+
+## Phase 11-R — Bound string fields and total request body size  `[FIX]`  ✅ DONE
+
+**Scope:** `backend/server.py` (the four Phase-11 models + a body-size middleware),
+`backend/tests/test_endpoint_schemas.py`. Spec: `terracipher_reports/HARDENING_8R_9R_11R_FIXES.md`
+(Phase 11-R). Backend-only.
+
+**What was wrong (brutal re-audit of Phase 11):** Phase 11 bounded list length but not string length or
+total body size — free-text fields (`artisan_id`, methodologies, paths, timestamps) had no `max_length`
+and Starlette has no default request-body cap, so a single huge string / many-huge-dicts payload was
+accepted (DoS surface).
+
+**Changes (`server.py`):**
+- Added `max_length` to every free-text `str` field across `TelemetryPayload` / `YieldPayload` /
+  `MetadataPayload` / `ApplicationPayload` (identifiers/methodologies 128, paths 512, timestamps 64,
+  hex hashes/uuids 64). `feedstock_species` is already enum-bounded via `CORG_TABLE`.
+- Added an `@app.middleware("http")` `_limit_body_size` that rejects oversized bodies by
+  `Content-Length` **before** parsing: JSON endpoints capped at `_MAX_JSON_BODY_BYTES = 2 MB` (a max
+  100k-float telemetry log is well under that); `/api/v1/media` gets `_MAX_MEDIA_BODY_BYTES = 12 MB`
+  headroom so its multipart 10 MB upload path is unaffected (its handler still enforces the real 10 MB
+  cap while streaming). Requires `from fastapi.responses import JSONResponse`.
+
+**Tests (`test_endpoint_schemas.py`, extended):** over-long `artisan_id` (10 000 chars) → **422**;
+a well-shaped telemetry body >2 MB → **413** (checked before parse). Media-path tests
+(`test_gps_corroboration.py`, `test_media_anchoring.py`) re-run green — the middleware does not break
+uploads.
+
+**Gate**
+- `grep -c "payload: dict" server.py` → **0** (unchanged from Phase 11).
+- `pytest -q tests/test_endpoint_schemas.py tests/test_gps_corroboration.py tests/remediation/test_media_anchoring.py` → **18 passed**.
+- `pytest` (full) → **1 failed, 183 passed, 1 skipped** — the 1 is the documented pre-existing
+  `test_p0_21_hmac_secret`; **0 new failures**. `ruff format` applied.
+
+**Intended commit:** `fix(backend): bound string fields and total request body size`
+
+---
+
+## Phase 9-R — Platform attestation: stop pretending it's a control  `[FIX]`  ✅ DONE
+
+**Scope:** `backend/server.py` (`recompute_batch_credit`), `backend/corroboration.py` (`assemble`),
+`backend/tests/test_corroboration.py`, `FINDINGS_BACKLOG.md`. Spec:
+`terracipher_reports/HARDENING_8R_9R_11R_FIXES.md` (Phase 9-R). **Option B chosen** (see below).
+
+**What was wrong (brutal re-audit of Phase 9):** `recompute_batch_credit` rejected only when
+`hw_attestation` was a **dict** with `status=="INVALID"`, but the real client sends a **list** of base64
+blobs — so the gate **could never fire**. There is no real Play Integrity / DeviceCheck verification; a
+rooted device's forged blob passes. It was cosmetic security.
+
+**Decision (Option B, non-blocking + honest):** Option A (unverified attestation → permanently
+PROVISIONAL) would halt **all** final issuance until a real verifier exists — a business decision not to
+make unilaterally. Instead: remove the dead check, log a loud `SECURITY TODO` warning when an
+unverified blob is present, and gate real enforcement behind a single flag so flipping to Option A later
+is one line.
+
+**Changes**
+- `corroboration.assemble` gains `attestation_ok: bool = True`; when False it appends an ordered
+  `attestation_unverified` reason (pure, unit-tested). Default True keeps it inert.
+- `server.py`: added `_ATTESTATION_ENFORCED = False` policy flag (documented). `recompute_batch_credit`
+  replaces the dead `isinstance(dict)` block with: `attestation_verified = False  # TODO(security)`, a
+  `log.warning(...)` when a blob is present-but-unverified, and `attestation_ok = True if not
+  _ATTESTATION_ENFORCED else attestation_verified` passed into `assemble`. No 403, no provisional change
+  while the flag is False.
+- `FINDINGS_BACKLOG.md`: new **CRITICAL · OPEN** item — real attestation verification is unbuilt;
+  documents the flip to Option A once a verifier + Google/Apple credentials exist.
+
+**Gate**
+- `grep -c "isinstance(attestation, dict)" server.py` → **0** (dead check gone).
+- `pytest -q tests/test_corroboration.py tests/test_corroboration_flow.py` → **17 passed** (incl. new
+  `attestation_ok` inert-default and enforced-flips-provisional cases).
+- `pytest` (full) → **1 failed, 181 passed, 1 skipped** — the 1 is the documented pre-existing
+  `test_p0_21_hmac_secret`; **0 new failures**. `ruff format` applied.
+
+**Intended commit:** `fix(backend): remove dead attestation check; warn + gate enforcement behind a flag`
+
+---
+
+## Phase 8-R — Permanence (H:Corg) authenticated + bounded, never client-asserted  `[FIX]`  ✅ DONE
+
+**Scope:** `backend/server.py`, `backend/tests/test_lab_hcorg_channel.py` (new), migrate
+`tests/remediation/test_lab_hcorg_ingestion.py` + `tests/test_lca_provisional.py`. Spec:
+`terracipher_reports/HARDENING_8R_9R_11R_FIXES.md` (Phase 8-R). Backend-only (client never sent it).
+
+**What was wrong (brutal re-audit of Phase 8):** `lab_h_corg` — the permanence determinant for issuance
+— was accepted on `BatchPayload` **unauthenticated and unbounded from the device**, and any value
+`< 0.4` (incl. `0.01`/negative) took `step3_cremain`'s max-permanence branch. A device could POST
+`lab_h_corg: 0.05` → **non-provisional, maximally-inflated credit**. Same class of bug 7-R fixed for the
+other inputs; it survived in the permanence path.
+
+**Changes (`server.py`):**
+- Removed `lab_h_corg` from `BatchPayload` and from the `create_batch` construction/recompute path.
+  `extra="forbid"` now 422s any client that self-asserts it.
+- New `LabHCorgRequest` (`extra="forbid"`, `lab_h_corg: float = Field(..., ge=0.1, le=1.5)`) +
+  **`POST /api/v1/admin/lab-hcorg`** — admin-authenticated via `hmac.compare_digest(x_admin_secret,
+  _ADMIN_SECRET)` (mirrors `mint_enrollment_token`), 404 on unknown batch — which sets the ratio and
+  re-runs `recompute_batch_credit`. Column `Batch.lab_h_corg` already existed (7-R); no migration.
+- **Folded in:** `recompute_batch_credit` now signs the LCA audit **only when the batch is not
+  provisional** (`lca_signature = None if batch.provisional else sign_lca_audit(...)`) — a provisional
+  audit must never look issuable downstream.
+
+**Tests**
+- `test_lab_hcorg_channel.py` (new, 8 incl. params): `lab_h_corg` on `/batches` → 422; endpoint needs
+  admin secret (401); out-of-range `0.01`/`-0.2`/`9.0` → 422; unknown batch → 404; corroborated batch +
+  in-range ratio → 200 + `provisional False` + non-null `lca_signature`; provisional batch →
+  `lca_signature is None`.
+- Migrated (disclosed): `test_lab_hcorg_ingestion.py` and `test_lca_provisional.py::test_batch_with_
+  lab_hcorg_is_not_provisional` now corroborate the batch then set the ratio via the admin channel; the
+  credit-ordering / not-provisional intents are preserved.
+
+**Gate**
+- `grep -n "lab_h_corg" server.py` → only in `LabHCorgRequest`/the admin endpoint/`recompute` param +
+  `batch.lab_h_corg` fallback; **not** in `BatchPayload` or the `create_batch` payload path.
+- `pytest -q` the lab/provisional/flow set → **17 passed**.
+- `pytest` (full) → **1 failed, 179 passed, 1 skipped** — the 1 is the documented pre-existing
+  `test_p0_21_hmac_secret`; **0 new failures**. (One affected test disclosed:
+  `tests/remediation/test_lca_defensibility.py` asserted `lca_signature is not None` on an
+  uncorroborated batch — updated to assert the batch is provisional and therefore unsigned, while
+  still asserting the audit trail/methodology are present.) `ruff format` applied.
+
+**Intended commit:** `fix(backend): accept lab H:Corg only via authenticated, range-checked channel; don't sign provisional audits`
+
+---
+
+## Phase 12 — Gate raw telemetry query behind `@visibleForTesting`  `[REFACTOR]`  ✅ DONE
+
+**Scope (runbook):** `lib/data/local/app_database.dart`, test callers in `test/`.
+
+**What was wrong:** `AppDatabase.getBatchTelemetryUnsafe()` — a public method with "Unsafe" in its name
+and a "Test-only" comment — lived on the production database class, callable from anywhere.
+
+**Changes:** renamed `getBatchTelemetryUnsafe` → **`getBatchTelemetryRaw`** and annotated it
+`@visibleForTesting` (`flutter/foundation.dart`, already imported) so a production `lib/` call now trips
+the analyzer. The query already uses a bound `Variable` (no interpolation) — injection-safe — clarified
+in the docstring. Updated the sole caller `test/app_database_telemetry_query_test.dart`.
+
+**Gate**
+- `grep -rc "getBatchTelemetryUnsafe" lib test` → **0**; new name present in `lib` (definition) + `test`.
+- `flutter analyze` → **33 issues** — identical to baseline, no new (no `lib/` caller, so no
+  `invalid_use_of_visible_for_testing_member`).
+- `flutter test test/app_database_telemetry_query_test.dart` → **1 passed**.
+- `flutter test` (full) → 0 new failures.
+- `dart format` applied to both touched files.
+
+**Intended commit:** `refactor(client): gate raw telemetry query behind @visibleForTesting`
+
+---
+
+## Phase 11 — Strict schemas + size bounds on the `dict` endpoints  `[FIX]`  ✅ DONE
+
+**Scope (runbook + finding #8):** `backend/server.py` (`/telemetry`, `/yield`, `/metadata`,
+`/application`), `backend/tests/test_endpoint_schemas.py` (new), migrate `test_stub_persistence.py`.
+Spec: `terracipher_reports/NEXT_FIXES_PROMPT.md` (Phase 11).
+
+**What was wrong:** the four side-endpoints accepted a raw `payload: dict` — no schema, no size limit —
+while `/batches` was strictly validated. Unknown keys and unbounded arrays were accepted. The auth
+dependency param was mistyped `is_verified: bool` (it returns a device-id **str**).
+
+**Changes (`server.py`):**
+- Added four `extra="forbid"` Pydantic models — `TelemetryPayload`, `YieldPayload`, `MetadataPayload`,
+  `ApplicationPayload` — with identity fields required, the rest optional (accepts the real client and
+  minimal evidence payloads), and **bounded lists** (`temperature_readings max_length=100_000`,
+  `smoke_evidence`/`hw_attestation max_length=1_000`; application lat/lon/transport range-checked).
+- Replaced `payload: dict` with the typed models on all four endpoints; `is_verified: bool` →
+  `device_id: str = Depends(verify_signature)`. Persist `json.dumps(payload.model_dump(mode="json"))`.
+- **Canonical keys preserved** (`temperature_readings`, `wet_yield_weight_kg`, `latitude`/`longitude`)
+  so Phase-7-R corroboration still reads them; the `_recompute_if_batch_exists` calls are kept.
+
+**Tests**
+- `test_endpoint_schemas.py` (new, 9): per endpoint — valid minimal payload → 201; unknown field → 422;
+  oversized `temperature_readings` (100_001) → 422.
+- `test_stub_persistence.py` (migrated — disclosed): its foreign keys (`some_data`/`yield_kg`/`field_id`)
+  would now 422; switched to canonical fields, and the telemetry full-dict-equality assertion → a
+  canonical-field round-trip check (the strict model normalizes optionals to null).
+
+**Gate**
+- `grep -c "payload: dict" server.py` → **0**; `grep -c "is_verified: bool"` → **0**; all 5 signed
+  endpoints use `device_id: str = Depends(verify_signature)`.
+- `pytest -q tests/test_endpoint_schemas.py` + migrated stub + `test_corroboration_flow.py` → **14 passed**.
+- `pytest -q` (full) → **1 failed, 171 passed, 1 skipped** — the 1 is the documented pre-existing
+  `test_p0_21_hmac_secret`; **0 new failures**.
+- `ruff format` applied to `server.py` + touched tests.
+
+**Intended commit:** `fix(backend): strict schemas + size bounds on telemetry/yield/metadata/application`
+
+---
+
+## Phase R2 — Kill the `dev-token` enrollment backdoor  `[FIX]`  ✅ DONE
+
+**Scope:** `backend/db.py` (`init_db`), delete `backend/check_db.py`, `backend/tests/test_no_dev_token_seed.py` (new).
+Spec: `terracipher_reports/NEXT_FIXES_PROMPT.md` (Phase R2).
+
+**What was wrong:** `init_db()` — run on every boot via `server.py` `lifespan` — unconditionally seeded
+an `EnrollmentToken("dev-token")` and **reset its `used_at = None` on every boot**, so a permanent,
+always-fresh enrollment token existed in production. Phase 3 had removed `register_device`'s special
+case, but the backdoor survived in this seed block (logged in FINDINGS_BACKLOG since Phase 3).
+
+**Changes**
+- `db.py` `init_db()`: removed the entire dev-token seed block (and its local `EnrollmentToken`/`select`
+  imports). `init_db()` is now purely the Alembic-upgrade runner; no data seeding. Not gated behind a
+  flag — a misconfigured flag would still be a backdoor; local dev mints a token via
+  `/api/v1/admin/mint-token`.
+- Deleted `backend/check_db.py`: a manual script that *reset* the dev-token `used_at` (re-opening the
+  backdoor) **and** read `DeviceKey.hmac_key` — a column removed in Phase 5, so the script was already
+  broken/dead.
+
+**Test (`tests/test_no_dev_token_seed.py`, new, 3):** source-guard (the token string no longer appears
+in `db.py`); a fresh DB contains no such `EnrollmentToken`; `/api/v1/register` with the dev token →
+**401 `invalid_enrollment_token`**.
+
+**Gate**
+- `grep -rl "dev-token" backend --include=*.py` (excluding tests) → **none**; `check_db.py` absent.
+- `pytest -q tests/test_no_dev_token_seed.py` → **3 passed**.
+- `pytest -q` (full) → **1 failed, 162 passed, 1 skipped** — **0 new failures**, and one *fewer*
+  pre-existing failure: `test_migrations_gated` now PASSES because it failed precisely on
+  `init_db()` querying `enrollment_tokens` before the table existed (the removed seed block). The
+  lone remaining failure is the documented Phase-0 pre-existing `test_p0_21_hmac_secret`
+  (import-isolation issue, not a product defect).
+- `ruff format` applied to `db.py` + the new test.
+
+**Intended commit:** `fix(backend): remove dev-token enrollment seed/backdoor from init_db`
+
+---
+
+## Phase 7-R — Contract reconciliation: corroborate credit inputs server-side  `[FIX]`  ✅ DONE
+
+**Spec:** `terracipher_reports/CONTRACT_RECONCILIATION_PROMPT.md`. Executed after discovering (via the
+`test_client_contract.py` xfail probes) that the backend had been hardened against a payload contract
+the real Flutter client does not produce, and that the suite globally mocked the DB for the most
+important anti-fraud query. Backend-only; **no `lib/` changes** (the client is the contract source of truth).
+
+**What was wrong (three verified divergences):**
+- **A** — Phase 7 made `wet_yield_kg` / `min_recorded_temp_c` / `transport_distance_km` **required** on
+  `BatchPayload`, but the client never sends them and they don't exist at batch-creation time (the
+  batch is written at harvest; yield/telemetry/application evidence arrive later). Every real `/batches`
+  sync 422'd.
+- **B** — client sends `temperature_readings` / `hw_attestation` (snake); server read
+  `temperatureReadingsJson` / `hwAttestationJson` (camel) → burn-temp gate never saw real readings.
+- **Test integrity** — `conftest.py` autouse-monkeypatched `AsyncSession.execute` suite-wide to fake
+  `{"temperatureReadingsJson": [650]*60}`, so much of the suite verified the mock, not the code.
+
+**Design:** credit inputs are **corroborated server-side from the evidence streams, never trusted from
+the batch payload**; a batch stays **PROVISIONAL** (never issued) until each is corroborated —
+generalizing Phase 8's flag to every corroboration gap.
+
+**Changes**
+- `backend/corroboration.py` (new): pure, DB-free, unit-tested derivers `derive_min_temp` (canonical
+  `temperature_readings`, ≥60 samples), `derive_wet_yield` (`wet_yield_weight_kg`), `derive_transport_km`
+  (Haversine, injected), and `assemble` (provisional + ordered reasons).
+- `server.py`: `BatchPayload` three LCA fields → `Optional` (default `None`); removed the obsolete
+  `_validate_burn_compliance` payload-temp validator and the now-unused `model_validator` import. New
+  thin `recompute_batch_credit(session, batch, *, lab_h_corg)` loads telemetry/yield/application, runs
+  the pure derivers + `calculate_carbon_credit`, writes `wet_yield_kg/min_recorded_temp_c/
+  transport_distance_km/net_credit/provisional/provisional_reasons/lca_*`, and fails closed on an
+  explicitly-INVALID `hw_attestation`. `create_batch` is now a thin orchestrator (idempotency →
+  teleport check → build row from client fields → `recompute_batch_credit` → persist → anchor). New
+  `_recompute_if_batch_exists` helper called from `create_telemetry`/`create_yield`/`create_application`
+  so credit converges as evidence lands (replaced the bespoke transport recompute in `create_application`).
+- `models.py` + migration `c3d4e5f6a7b8`: `Batch.lab_h_corg` (Float, nullable — persists a lab value so a
+  later-stream recompute can't lose it) and `Batch.provisional_reasons` (Text, nullable — audit trail).
+  `wet_yield_kg` DB default `100.0` → `0.0` (no fabricating default). Reversible (up/down/up verified).
+
+**Tests**
+- `test_corroboration.py` (new, 14): unit-pin every derivation rule incl. the camelCase key being ignored.
+- `test_corroboration_flow.py` (new, 1): batch lands provisional with 0 inputs → telemetry → yield →
+  application, asserting each input corroborates and the batch is provisional only for `assumed_h_corg`.
+- `test_client_contract.py`: both probes now **pass with the `xfail` markers removed** (strict-xfail
+  forced their deletion); CONTRACT-B check retargeted to `corroboration.py`.
+
+**Affected tests migrated (disclosed — direct consequence; no assertion weakened, intent preserved):**
+- `test_required_credit_inputs.py` (Phase 7's premise, reversed) — rewritten: omitting inputs is now
+  **accepted + PROVISIONAL** with the right reason, never a fabricated credit.
+- `test_hmac_verification.py::test_hmac_verification_success` — valid sig now → 201 provisional (was 400).
+- `test_hardening.py::test_p0_16_single_high_temp_rejected` — client-asserted temp is ignored → 201
+  provisional (a client can't assert its way to a credit).
+- `test_api.py::test_valid_payload_returns_201` — asserts `provisional is True` (was `net_credit>0`).
+- `test_lca_provisional.py::test_batch_with_lab_hcorg_is_not_provisional` — now posts full evidence +
+  lab H:Corg for `provisional False` (not-provisional requires both).
+- `test_lab_hcorg_ingestion.py` + `test_temperature_log_verification.py` — camel→snake telemetry key +
+  post `/yield` so credit is corroborated; `test_single_sample_temp_rejected` now asserts 201 provisional.
+- `conftest.py` — removed the global `AsyncSession.execute` mock (kept device seeding).
+
+**Gate**
+- `grep -c "temperatureReadingsJson\|hwAttestationJson"` in `server.py`+`corroboration.py` → **0**.
+- `grep "wet_yield_kg: float = Field(\.\.\."` server.py → **none** (no longer required).
+- No global `AsyncSession.execute` mock in `conftest.py`.
+- `test_client_contract.py` → **2 passed, xfail markers removed**; `test_corroboration*.py` → **15 passed**.
+- `pytest -q` (full) → **2 failed, 158 passed, 1 skipped** — the 2 are the documented Phase-0
+  pre-existing failures; **0 new failures**.
+- Migration `alembic upgrade/downgrade/upgrade` on isolated aiosqlite → clean; single linear head.
+- `ruff format` applied (4 files reformatted; suite re-confirmed green after).
+
+**Intended commit:** `fix(backend): corroborate credit inputs server-side; batch PROVISIONAL until evidence lands`
+
+---
+
+## Phase 8 — LCA: measured permanence or PROVISIONAL  `[FIX]`  ✅ DONE
+
+**Scope (runbook):** `backend/lca_engine.py`, `backend/server.py` (`create_batch`),
+`backend/models.py` (+ migration), `backend/tests/test_lca_provisional.py` (new).
+
+**What was wrong:** `step3_cremain`/`calculate_carbon_credit` defaulted `h_corg_ratio` to `0.35`
+and `lab_h_corg` is usually absent, so the permanence factor — the scientific basis for issuance —
+was a silent assumption on the common path. `gross_c_sink_t_co2e` was computed, stored, and never
+used in the net credit.
+
+**Changes**
+- `lca_engine.py`:
+  - `step3_cremain(dry_mass_t, corg_pct, *, h_corg_ratio, t=100)` — `h_corg_ratio` is now a
+    **required keyword-only** arg; explicit `None` raises `ValueError`. No silent 0.35 default.
+  - `calculate_carbon_credit(..., h_corg_ratio: float | None = None)` — `provisional = h_corg_ratio is None`;
+    falls back to the conservative `0.35` only to produce a number, and records `audit.provisional`.
+  - `LCAAudit` gains `provisional: bool = True`; `gross_c_sink_t_co2e` re-labelled "informational only —
+    NOT used in issuance".
+- `models.py`: `Batch.provisional: bool` column (default `True`).
+- `server.py`: `create_batch` sets `provisional=lca.provisional` on the row; `BatchResponse.provisional`
+  added and populated in all three return paths (new / duplicate / race).
+- migration `a1b2c3d4e5f6_batches_add_provisional.py`: `batch_alter_table` add `provisional BOOLEAN
+  NOT NULL DEFAULT TRUE` (existing rows backfill TRUE), with a `drop_column` downgrade.
+
+**Design deviation from the runbook (disclosed):** the runbook's Phase-8 sketch says
+"set `status='PROVISIONAL'`". I instead added a **dedicated `provisional` column + `BatchResponse.provisional`**
+and left `status` alone. Rationale: `status` encodes **photo-evidence anchoring** (RECEIVED ↔ UNVERIFIED,
+flipped by the media endpoint and asserted by `test_p0_25_anchor`/`test_late_photo`/`test_batch_without_photo`,
+none of which send `lab_h_corg`). Overloading `status` with PROVISIONAL would conflate two orthogonal
+concerns and break those tests. The runbook explicitly permits this ("Migration: add `provisional` handling
+if a column is needed"). The Phase-8 test asserts the **flag/response**, not a `status` string. **No existing
+test or fixture needed changing** (full suite ran with 0 new failures).
+
+**Test (`backend/tests/test_lca_provisional.py`, new, 7 cases):** `step3_cremain` omitted ratio → `TypeError`,
+explicit `None` → `ValueError`; no `lab_h_corg` → `provisional True`; with `lab_h_corg` → `provisional False`;
+provisional fallback yields the **same number** as explicit `0.35`; audit determinism (sorted-JSON equality +
+identical `sign_lca_audit`); API: batch without `lab_h_corg` → response `provisional: true`, with it → `false`.
+
+**Gate**
+- `pytest -q tests/test_lca_provisional.py` → **7 passed**; `tests/test_lca_engine.py` + lab-H:Corg + LCA
+  defensibility → all green (29 passed together).
+- `pytest -q` (full) → **2 failed, 138 passed, 1 skipped** — the 2 are the documented Phase-0 pre-existing
+  failures; **0 new failures** (138 = 131 + 7 new Phase-8 tests).
+- Migration cycle (bonus, isolated SQLite): `upgrade head` adds `provisional`; `downgrade -1` removes it;
+  `upgrade head` re-adds — clean.
+- `ruff format` applied to `lca_engine.py`, `models.py`, `server.py`, the migration, and the new test.
+
+**Intended commit:** `fix(lca): require measured H:Corg or mark batch PROVISIONAL; never issue on assumptions`
+
+---
+
+## Phase 9 — Server-side GPS corroboration (drop client mock header) + media integrity  `[FIX]`  ✅ DONE
+
+**Scope (runbook):** `backend/server.py` (`upload_media`, `create_batch`), `backend/models.py` (+ migration),
+`backend/requirements.txt`, `backend/tests/test_gps_corroboration.py` (new). **Plus a folded-in media-integrity
+fix (disclosed below).**
+
+**What was wrong:** `upload_media` rejected uploads on the client-supplied `X-Mock-Location: true` header —
+an honor-system control the fraudster simply sets to `false`. Additionally (my earlier finding) the endpoint
+flipped a batch `UNVERIFIED → RECEIVED` for *any* uploaded file, never checking it against the batch's declared
+photo hash.
+
+**Changes**
+- `server.py`:
+  - Removed the `X-Mock-Location` 403 check. `mock_location_enabled` remains a stored review signal; the
+    teleport check is retained.
+  - `import piexif`; helpers `_exif_to_decimal`, `_parse_exif_gps`, `_gps_mismatch_km`, `_evaluate_anchor`.
+  - `upload_media` parses the photo's EXIF GPS into `MediaFile.exif_lat/exif_lon`.
+  - **Anchoring is now integrity-checked** via `_evaluate_anchor` (used by both `upload_media` for the
+    batch-first case and `create_batch` for the media-first case): a photo upgrades a batch to `RECEIVED`
+    **only** if its SHA-256 matches the batch's declared `sha256_hash`; if the photo's EXIF GPS disagrees
+    with the batch's claimed coordinates by **>1 km** the batch is set to `QUARANTINE_GPS_MISMATCH`. A batch
+    asserting a photo now starts `UNVERIFIED` and is upgraded only on a matching, corroborated photo.
+- `models.py`: `MediaFile.exif_lat`, `MediaFile.exif_lon` (nullable Float).
+- migration `b2c3d4e5f6a7_media_add_exif_gps.py`: add the two columns (nullable), reversible.
+- `requirements.txt`: `piexif==1.1.3` (installed this phase).
+
+**Folded-in beyond the runbook (disclosed):** the SHA-match anchoring requirement is *my finding*, not in the
+runbook (the runbook's Phase 9 edits `upload_media` but never adds it). It is server-only and closes the
+"anchor any file to flip a batch verified" half of the unauthenticated-media critical. **The other half —
+requiring an Ed25519 signature on `/api/v1/media` — is deliberately NOT done here:** it is cross-stack (the
+client `sync_queue_manager._uploadMedia` must sign the upload) and changes the frozen canonical string, which
+needs a dedicated phase + a design decision. Flagged as the recommended next security phase.
+
+**Affected tests (disclosed):**
+- `test_hardening.py::test_p1_18_*` — was `..._rejected` asserting `X-Mock-Location:true` → 403; renamed to
+  `..._has_no_effect` asserting 200 (Phase 9 dropped it as a control).
+- `test_media_anchoring.py::test_media_anchors_by_explicit_batch_uuid` — declared `sha256_hash="a"*64` but
+  uploaded a photo with a different hash and expected `RECEIVED`. That encoded the old "any file verifies"
+  behavior; updated so the batch declares the uploaded photo's real hash (now legitimately `RECEIVED`).
+  (`test_p0_25_anchor` / `test_late_photo` / `test_batch_without_photo` already used matching hashes and pass
+  unchanged.)
+
+**Test (`backend/tests/test_gps_corroboration.py`, new, 3 cases):** crafts JPEGs with real EXIF GPS
+(Pillow + piexif) — matching photo/claim GPS → `RECEIVED`; Delhi photo vs London claim (>1 km) →
+`QUARANTINE_GPS_MISMATCH`; `X-Mock-Location: true` on `/media` has no effect (200).
+
+**Gate**
+- `grep -c "x-mock-location" backend/server.py` → 0.
+- `pytest -q tests/test_gps_corroboration.py` + the affected anchoring/mock tests → 14 passed.
+- `pytest -q` (full) → **2 failed, 141 passed, 1 skipped** — the 2 are the Phase-0 pre-existing failures;
+  **0 new failures** (141 = 138 + 3 new Phase-9 tests).
+- Migration cycle (isolated SQLite): `upgrade/downgrade/upgrade` adds/removes/re-adds `exif_lat`/`exif_lon` cleanly.
+- `ruff format` applied to `server.py`, `models.py`, the migration, and the new test.
+
+**Residual (logged):** full Ed25519 **authentication** of `/api/v1/media` (the other half of the critical) is
+deferred to a dedicated cross-stack phase. CORS `allow_headers` still lists the dead `X-Hmac-Signature`
+(Phase 13 hygiene).
+
+**Intended commit:** `fix(backend): drop client mock-GPS header; corroborate GPS via photo EXIF; bind photo hash to batch`
+
+---
+
+## Phase 10 — Background sync awaits real completion  `[FIX]`  ✅ DONE
+
+**Scope (runbook):** `lib/services/sync_queue_manager.dart`, `test/background_sync_test.dart` (extend).
+
+**What was wrong:** `callbackDispatcher` fired `kickSync()` **un-awaited**, slept a fixed
+`Future.delayed(Duration(seconds: 10))`, then returned `true` unconditionally — so WorkManager's
+success/retry signal was meaningless (sync completion was a coin flip) and the `ProviderContainer`
+was never disposed (leak). The self-admitting comments said as much.
+
+**Changes (`sync_queue_manager.dart`):**
+- `void kickSync() => _triggerSync();` → **`Future<void> kickSync() => _triggerSync();`** (the
+  function already delegated to a `Future<void>`; only the return type was being thrown away).
+- `callbackDispatcher`: now `await container.read(syncQueueManagerProvider).kickSync()` inside a
+  `try` → `return true`; `catch` → log + `return false`; **`finally` → `container.dispose()`**.
+  Removed the 10-second sleep entirely. (`_triggerSync` swallows its own loop exceptions in a
+  `try/finally`, so awaiting it yields true completion without hanging.)
+
+**Test (`test/background_sync_test.dart`, extended):** added a case asserting `kickSync()` returns
+`isA<Future<void>>()` and that awaiting it completes within 5s (locks in the void→Future change and
+guards against the sleep regressing). The existing 3 cases call `kickSync()` and still pass unchanged.
+The `callbackDispatcher`/WorkManager path itself can't be exercised under `flutter test` (no
+WorkManager host), so the Future-return assertion is the durable behavioral lock.
+
+**Gate**
+- `grep -c "Future.delayed(const Duration(seconds: 10))" lib/services/sync_queue_manager.dart` → **0**.
+- `grep -n "Future<void> kickSync"` → present (line 130).
+- `flutter test test/background_sync_test.dart` → **4 passed**.
+- `flutter test` (full) → **149 passed, 2 skipped, 0 failed** — 0 new failures (149 = 148 baseline + 1 new Phase-10 test).
+- `flutter analyze` → **33 issues** — identical to the Phase-6 baseline, no new issues.
+- `dart format` applied to both touched files.
+
+**Intended commit:** `fix(client): await sync completion in WorkManager task; dispose container`
+
+---
+
+## Working-tree notes (state inherited at Phase 0 start)
+
+The repo has a single commit (`3469c10 initial`) and a heavily modified, uncommitted working
+tree inherited from prior sessions. Decisions recorded for auditability:
+
+- **`backend/test_req.py` deleted (out of scope).** It is a manual socket-probe (not a real
+  test) that opens a TCP connection to `127.0.0.1:8000` on import, which hangs/breaks pytest
+  collection so the backend suite cannot run to completion. Per runbook Appendix C this is a
+  declared stop condition; removal is the minimal change required for the Phase 0 gate.
+  Logged in `FINDINGS_BACKLOG.md`.
+- **`backend/server.py` already carries the Phase 1 refactor.** It was applied early (imports
+  hoisted, single module-level `haversine_km`, `EnrollmentToken`/`CORG_TABLE` imported at top).
+  It is behavior-preserving — the backend baseline above shows 0 new failures vs. the documented
+  baseline. Phase 1's gate will be formally re-verified before its commit.
+- **Junk scripts deleted** (`backend/tests/fix_*.py`, `bulk_fix.py`, `patch_*.py`): out of
+  scope, do not match pytest's `test_*` collection pattern, so they do not affect any gate.
+- **Duplicate `New folder/` tree deleted** (a full second copy of the repo): out of scope,
+  deleted from disk by a prior session.

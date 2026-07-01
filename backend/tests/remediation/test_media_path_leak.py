@@ -1,3 +1,4 @@
+from tests.remediation.crypto_utils import TEST_PUBLIC_KEY_B64
 import json
 import pytest
 import uuid
@@ -15,9 +16,9 @@ async def registered_device(client: AsyncClient, session_factory):
         session.add(t)
         await session.commit()
     
-    b64_key = base64.urlsafe_b64encode(b"12345678901234567890123456789012").decode('utf-8')
+    b64_key = TEST_PUBLIC_KEY_B64
     dev_id = "test-device-leak"
-    payload = {"device_id": dev_id, "hmac_key": b64_key}
+    payload = {"device_id": dev_id, "public_key": b64_key}
     headers = {"X-Enrollment-Token": "test-credit-leak"}
     await client.post("/api/v1/register", content=json.dumps(payload).encode("utf-8"), headers=headers)
     
@@ -43,7 +44,7 @@ async def test_media_endpoint_does_not_leak_absolute_path(client: AsyncClient, r
             "X-Declared-SHA256": actual_hash,
             "X-Batch-UUID": str(uuid.uuid4()),
             "X-Device-Id": dev_id,
-            "X-HMAC-Signature": "dummy" # mock will skip if dummy
+            "X-Signature": "dummy" # mock will skip if dummy
         })
     assert resp.status_code == 200
     

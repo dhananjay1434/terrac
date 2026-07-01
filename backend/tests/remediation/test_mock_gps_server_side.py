@@ -1,3 +1,4 @@
+from tests.remediation.crypto_utils import TEST_PUBLIC_KEY_B64
 from httpx import AsyncClient
 import pytest
 import pytest_asyncio
@@ -17,9 +18,9 @@ async def registered_device(client: AsyncClient, session_factory):
         session.add(t)
         await session.commit()
     
-    b64_key = base64.urlsafe_b64encode(b"12345678901234567890123456789012").decode('utf-8')
+    b64_key = TEST_PUBLIC_KEY_B64
     dev_id = "test-device"
-    payload = {"device_id": dev_id, "hmac_key": b64_key}
+    payload = {"device_id": dev_id, "public_key": b64_key}
     headers = {"X-Enrollment-Token": "test-credit"}
     await client.post("/api/v1/register", content=json.dumps(payload).encode("utf-8"), headers=headers)
     
@@ -53,7 +54,7 @@ async def test_x_mock_location_header_is_not_trusted(client: AsyncClient, regist
         "X-Mock-Location": "true" # The client header
     }
     
-    headers["X-HMAC-Signature"] = sign_request(dev_id, b64_key, "POST", "/api/v1/batches", "op-mock-1", payload)
+    headers["X-Signature"] = sign_request(dev_id, b64_key, "POST", "/api/v1/batches", "op-mock-1", payload)
 
     # Should not be rejected with 403 mock_location_not_allowed in verify_hmac
     # It should reach create_batch and maybe fail for missing telemetry, but not 403.
@@ -87,7 +88,7 @@ async def test_teleport_between_batches_flagged(client: AsyncClient, registered_
     await client.post("/api/v1/telemetry", content=json.dumps(tel1).encode("utf-8"), headers={
         "X-Device-Id": dev_id,
         "X-Idempotency-Key": "op-tel-1",
-        "X-HMAC-Signature": sign_request(dev_id, b64_key, "POST", "/api/v1/telemetry", "op-tel-1", tel1)
+        "X-Signature": sign_request(dev_id, b64_key, "POST", "/api/v1/telemetry", "op-tel-1", tel1)
     })
 
     payload1 = {
@@ -105,7 +106,7 @@ async def test_teleport_between_batches_flagged(client: AsyncClient, registered_
     await client.post("/api/v1/batches", content=json.dumps(payload1).encode("utf-8"), headers={
         "X-Device-Id": dev_id,
         "X-Idempotency-Key": "op-batch-1",
-        "X-HMAC-Signature": sign_request(dev_id, b64_key, "POST", "/api/v1/batches", "op-batch-1", payload1)
+        "X-Signature": sign_request(dev_id, b64_key, "POST", "/api/v1/batches", "op-batch-1", payload1)
     })
 
     # Batch 2 - 1 hour later, in London (implausible speed)
@@ -120,7 +121,7 @@ async def test_teleport_between_batches_flagged(client: AsyncClient, registered_
     await client.post("/api/v1/telemetry", content=json.dumps(tel2).encode("utf-8"), headers={
         "X-Device-Id": dev_id,
         "X-Idempotency-Key": "op-tel-2",
-        "X-HMAC-Signature": sign_request(dev_id, b64_key, "POST", "/api/v1/telemetry", "op-tel-2", tel2)
+        "X-Signature": sign_request(dev_id, b64_key, "POST", "/api/v1/telemetry", "op-tel-2", tel2)
     })
 
     payload2 = {
@@ -138,7 +139,7 @@ async def test_teleport_between_batches_flagged(client: AsyncClient, registered_
     response = await client.post("/api/v1/batches", content=json.dumps(payload2).encode("utf-8"), headers={
         "X-Device-Id": dev_id,
         "X-Idempotency-Key": "op-batch-2",
-        "X-HMAC-Signature": sign_request(dev_id, b64_key, "POST", "/api/v1/batches", "op-batch-2", payload2)
+        "X-Signature": sign_request(dev_id, b64_key, "POST", "/api/v1/batches", "op-batch-2", payload2)
     })
     
     assert response.status_code == 403

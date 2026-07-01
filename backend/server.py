@@ -5,44 +5,167 @@ Endpoints:
   POST /api/v1/media    - Upload media with SHA-256 verification
   GET  /api/health      - Health check
 """
+
 from __future__ import annotations
 
-import hmac
+import base64
 import hashlib
+import hmac
+import json
 import logging
 import os
-from dotenv import load_dotenv
-load_dotenv()
-from datetime import datetime, timezone
+import re
+import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
+from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from typing import Optional, Literal
-from contextlib import asynccontextmanager
-from pydantic import ConfigDict
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile, status, Response
+from dotenv import load_dotenv
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Header,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+    Response,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import select
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.exceptions import InvalidSignature
+import piexif
 
 from db import get_session, init_db
-from models import Batch, MediaFile, DeviceKey, PyrolysisTelemetry, YieldMetrics, EndUseApplication, SystemMetadata
-from lca_engine import calculate_carbon_credit, sign_lca_audit
+from models import (
+    Batch,
+    DeviceKey,
+    EndUseApplication,
+    EnrollmentToken,
+    MediaFile,
+    PyrolysisTelemetry,
+    SystemMetadata,
+    YieldMetrics,
+)
+from lca_engine import CORG_TABLE, calculate_carbon_credit, sign_lca_audit
+from corroboration import (
+    assemble,
+    derive_min_temp,
+    derive_transport_km,
+    derive_wet_yield,
+)
+
+load_dotenv()
+
+
+def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    lon1, lat1, lon2, lat2 = map(radians, (lon1, lat1, lon2, lat2))
+    a = (
+        sin((lat2 - lat1) / 2) ** 2
+        + cos(lat1) * cos(lat2) * sin((lon2 - lon1) / 2) ** 2
+    )
+    return 6371.0 * 2 * asin(sqrt(a))
+
+
+def _exif_to_decimal(dms, ref) -> Optional[float]:
+    """Convert an EXIF GPS (degrees, minutes, seconds) rational triple + ref
+    ('N'/'S'/'E'/'W') to a signed decimal degree. Returns None if absent."""
+    if not dms or ref is None:
+        return None
+    try:
+
+        def _r(x):
+            return x[0] / x[1]
+
+        deg = _r(dms[0]) + _r(dms[1]) / 60.0 + _r(dms[2]) / 3600.0
+    except (TypeError, IndexError, ZeroDivisionError):
+        return None
+    if isinstance(ref, bytes):
+        ref = ref.decode("ascii", "ignore")
+    if ref in ("S", "W"):
+        deg = -deg
+    return deg
+
+
+def _parse_exif_gps(content: bytes) -> tuple[Optional[float], Optional[float]]:
+    """Best-effort GPS extraction from a photo's EXIF. Non-JPEG / no-EXIF /
+    no-GPS uploads return (None, None) rather than raising."""
+    try:
+        gps = piexif.load(content).get("GPS") or {}
+    except Exception:
+        return (None, None)
+    lat = _exif_to_decimal(
+        gps.get(piexif.GPSIFD.GPSLatitude), gps.get(piexif.GPSIFD.GPSLatitudeRef)
+    )
+    lon = _exif_to_decimal(
+        gps.get(piexif.GPSIFD.GPSLongitude), gps.get(piexif.GPSIFD.GPSLongitudeRef)
+    )
+    return (lat, lon)
+
+
+def _gps_mismatch_km(lat1, lon1, lat2, lon2, threshold_km: float = 1.0) -> bool:
+    """True only when all four coordinates are present AND the photo EXIF and
+    the claimed location disagree by more than `threshold_km`."""
+    if None in (lat1, lon1, lat2, lon2):
+        return False
+    return haversine_km(lon1, lat1, lon2, lat2) > threshold_km
+
+
+def _evaluate_anchor(batch, photo_sha: Optional[str], exif_lat, exif_lon) -> None:
+    """Decide a batch's status when a photo is anchored to it.
+
+    Phase 9 + media integrity: only a photo whose SHA-256 matches the batch's
+    declared `sha256_hash` may verify it (a mismatching upload never upgrades
+    the batch). When the photo's EXIF GPS disagrees with the batch's claimed
+    coordinates by >1 km the batch is quarantined for review.
+    """
+    if not batch.sha256_hash or not photo_sha:
+        return
+    if photo_sha.lower() != batch.sha256_hash.lower():
+        return  # wrong photo — do not upgrade
+    if _gps_mismatch_km(batch.latitude, batch.longitude, exif_lat, exif_lon):
+        batch.status = "QUARANTINE_GPS_MISMATCH"
+    elif batch.status == "UNVERIFIED":
+        batch.status = "RECEIVED"
+
 
 _HMAC_SECRET = os.environ.get("DMRV_HMAC_SECRET")
 if not _HMAC_SECRET:
     raise RuntimeError("DMRV_HMAC_SECRET env var is required.")
 
+_ADMIN_SECRET = os.environ.get("DMRV_ADMIN_SECRET")
+if not _ADMIN_SECRET:
+    raise RuntimeError("DMRV_ADMIN_SECRET env var is required.")
+
+# Phase 9-R: platform attestation (Play Integrity / DeviceCheck) is NOT yet
+# cryptographically verified — a rooted device's forged blob would pass. We refuse
+# to pretend a blob's mere presence proves integrity. Policy switch:
+#   False (default, "Option B") — non-blocking: log a loud warning, do not gate.
+#   True  ("Option A")          — fail closed: an unverified attestation keeps the
+#                                  batch PROVISIONAL. Flip to True once a real
+#                                  verifier exists (or to halt final issuance until
+#                                  then). See FINDINGS_BACKLOG.
+_ATTESTATION_ENFORCED = False
+
 log = logging.getLogger("dmrv")
 logging.basicConfig(level=logging.INFO)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     log.info("Database initialized")
     yield
+
 
 app = FastAPI(
     title="Kon-Tiki dMRV API",
@@ -59,8 +182,44 @@ app.add_middleware(
     allow_origins=[_ALLOWED_ORIGIN] if _ALLOWED_ORIGIN else [],
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Device-Id", "X-Idempotency-Key", "X-Payload-Sha256", "X-Hmac-Signature"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-Device-Id",
+        "X-Idempotency-Key",
+        "X-Payload-Sha256",
+        # Phase 13: advertise the live Ed25519 signature + auth headers actually
+        # used; the dead legacy HMAC signature header (removed in Phase 5) is gone.
+        "X-Signature",
+        "X-Enrollment-Token",
+        "X-Admin-Secret",
+    ],
 )
+
+# Phase 11-R: reject oversized bodies via Content-Length before parsing. JSON
+# endpoints are capped at 2 MB (a max 100k-float telemetry log is well under that);
+# /api/v1/media gets headroom for its multipart 10 MB file (its handler enforces the
+# real 10 MB cap while streaming).
+_MAX_JSON_BODY_BYTES = 2 * 1024 * 1024
+_MAX_MEDIA_BODY_BYTES = 12 * 1024 * 1024
+
+
+@app.middleware("http")
+async def _limit_body_size(request: Request, call_next):
+    cl = request.headers.get("content-length")
+    if cl is not None and cl.isdigit():
+        cap = (
+            _MAX_MEDIA_BODY_BYTES
+            if request.url.path == "/api/v1/media"
+            else _MAX_JSON_BODY_BYTES
+        )
+        if int(cl) > cap:
+            return JSONResponse(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                content={"detail": "payload_too_large"},
+            )
+    return await call_next(request)
+
 
 # Media upload directory — relative to this file, works on Windows + Linux + Docker.
 UPLOAD_DIR = Path(__file__).parent / "uploads"
@@ -68,8 +227,10 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ==================== Pydantic Models ====================
 
+
 class BatchPayload(BaseModel):
     """Strict Pydantic V2 model for batch payload."""
+
     batch_uuid: UUID
     feedstock_species: str
     harvest_timestamp: datetime
@@ -88,16 +249,33 @@ class BatchPayload(BaseModel):
     roll: Optional[float] = None
 
     # --- LCA inputs (Prompt 8) ---
-    wet_yield_kg: float = Field(100.0, gt=0.0, description="BLE crane scale reading")
-    min_recorded_temp_c: float = Field(0.0, ge=-50.0, le=1500.0, description="Min temp from BLE thermocouple array")
-    transport_distance_km: float = Field(0.0, ge=0.0, le=20000.0, description="GPS Haversine distance to application field")
+    # Phase 7-R: these are NOT client-supplied. They are corroborated server-side
+    # from the /telemetry (min temp), /yield (wet yield) and /application (transport
+    # GPS) streams, which arrive AFTER the batch. They are optional on the payload;
+    # an uncorroborated input keeps the batch PROVISIONAL (never issued as final).
+    wet_yield_kg: Optional[float] = Field(
+        None, gt=0.0, description="Corroborated server-side from /yield"
+    )
+    min_recorded_temp_c: Optional[float] = Field(
+        None,
+        ge=-50.0,
+        le=1500.0,
+        description="Corroborated server-side from /telemetry",
+    )
+    transport_distance_km: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=20000.0,
+        description="Corroborated server-side from /application GPS",
+    )
 
     @field_validator("feedstock_species")
     @classmethod
     def validate_feedstock(cls, v: str) -> str:
-        from lca_engine import CORG_TABLE
         if v not in CORG_TABLE:
-            raise ValueError(f"feedstock_species must be one of {list(CORG_TABLE.keys())}")
+            raise ValueError(
+                f"feedstock_species must be one of {list(CORG_TABLE.keys())}"
+            )
         return v
 
     @field_validator("sha256_hash")
@@ -112,23 +290,15 @@ class BatchPayload(BaseModel):
             raise ValueError("sha256_hash must be valid hexadecimal")
         return v.lower()
 
-    @model_validator(mode="after")
-    def _validate_burn_compliance(self) -> "BatchPayload":
-        # If a burn temp is being asserted (>0), enforce a defensible floor
-        # and require the moisture invariant the LCA assumes.
-        if self.min_recorded_temp_c > 0.0:
-            if self.min_recorded_temp_c < 100.0:
-                # No real Kon-Tiki burn ever measures below 100 C anywhere
-                # near the thermocouple. A 1-sample fake is the dominant cause.
-                raise ValueError(
-                    "min_recorded_temp_c < 100 C; provide the full "
-                    "temperature_readings log (>= 60 samples) instead."
-                )
-        return self
+    # Phase 7-R: the payload-temp validator was removed. min_recorded_temp_c is
+    # no longer client-asserted; the <100 C / >=60-sample burn-compliance rule now
+    # lives in corroboration.derive_min_temp against the real /telemetry log.
 
+    # Phase 8-R: lab_h_corg is NOT accepted from the device. A lab-measured
+    # permanence ratio is authoritative and must arrive on the admin-authenticated
+    # /api/v1/admin/lab-hcorg channel (range-checked). extra="forbid" now 422s any
+    # client that tries to self-assert it.
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-    
-    lab_h_corg: Optional[float] = Field(None, description="Lab-measured H:Corg ratio")
 
 
 class BatchResponse(BaseModel):
@@ -138,6 +308,9 @@ class BatchResponse(BaseModel):
     duplicate: bool
     received_at: datetime
     net_credit_t_co2e: Optional[float] = None
+    # Phase 8: True when net_credit_t_co2e was computed on an ASSUMED H:Corg
+    # (no lab value). Such a credit is NOT issuable as final.
+    provisional: Optional[bool] = None
 
 
 class MediaUploadResponse(BaseModel):
@@ -148,11 +321,13 @@ class MediaUploadResponse(BaseModel):
 
 class RegistrationRequest(BaseModel):
     device_id: str = Field(..., min_length=1)
-    hmac_key: str = Field(..., min_length=40, max_length=64)
+    public_key: str = Field(..., min_length=40, max_length=64)  # base64url Ed25519
+
 
 class RegistrationResponse(BaseModel):
     status: str
     device_id: str
+
 
 # ==================== Endpoints ====================\n
 @app.get("/api/health")
@@ -160,121 +335,317 @@ async def health() -> dict:
     return {
         "status": "ok",
         "service": "dmrv-api",
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
-async def verify_hmac(
+def _b64url_decode(s: str) -> bytes:
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
+async def verify_signature(
     request: Request,
     x_device_id: Optional[str] = Header(None, alias="X-Device-Id"),
-    x_hmac_signature: Optional[str] = Header(None, alias="X-HMAC-Signature"),
+    x_signature: Optional[str] = Header(None, alias="X-Signature"),
     x_idempotency_key: Optional[str] = Header(None, alias="X-Idempotency-Key"),
     session: AsyncSession = Depends(get_session),
 ) -> str:
-
-    if not x_hmac_signature:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_signature")
-
-    raw_body = await request.body()
-
+    if not x_signature:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_signature"
+        )
     if not x_device_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="unknown_device")
-
-    stmt = select(DeviceKey).where(DeviceKey.device_id == x_device_id)
-    result = await session.execute(stmt)
-    device = result.scalar_one_or_none()
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="unknown_device"
+        )
+    device = (
+        await session.execute(
+            select(DeviceKey).where(DeviceKey.device_id == x_device_id)
+        )
+    ).scalar_one_or_none()
     if not device:
-        log.error(f"HMAC Error: unknown_device '{x_device_id}'")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="unknown_device")
-
-    import base64
+        log.error(f"Signature Error: unknown_device '{x_device_id}'")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="unknown_device"
+        )
+    pub = Ed25519PublicKey.from_public_bytes(_b64url_decode(device.public_key))
+    body_hash = hashlib.sha256(await request.body()).hexdigest()
+    canonical = "\n".join(
+        [
+            request.method.upper(),
+            request.url.path,
+            x_idempotency_key or "",
+            body_hash,
+            x_device_id,
+        ]
+    ).encode("utf-8")
     try:
-        padding = '=' * (4 - (len(device.hmac_key) % 4))
-        secret = base64.urlsafe_b64decode(device.hmac_key + padding)    # Standardize on base64url-encoded 32-byte raw keys
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="invalid_key_format")
-
-    method = request.method.upper()
-    path = request.url.path
-    op_id = x_idempotency_key or ""
-    body_hash = hashlib.sha256(raw_body).hexdigest()
-    dev_id = x_device_id or ""
-    canonical = "\n".join([method, path, op_id, body_hash, dev_id]).encode('utf-8')
-
-    calculated = hmac.new(secret, canonical, hashlib.sha256).hexdigest()
-
-    if not hmac.compare_digest(calculated.lower(), x_hmac_signature.lower()):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="hmac_mismatch")
-    
+        pub.verify(_b64url_decode(x_signature), canonical)
+    except InvalidSignature:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="signature_mismatch"
+        )
     return x_device_id
 
-from models import EnrollmentToken
 
-@app.post("/api/v1/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/api/v1/register",
+    response_model=RegistrationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def register_device(
     payload: RegistrationRequest,
     x_enrollment_token: Optional[str] = Header(None, alias="X-Enrollment-Token"),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
 ):
     if not x_enrollment_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="enrollment_token_required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="enrollment_token_required"
+        )
 
-    token_stmt = select(EnrollmentToken).where(EnrollmentToken.token == x_enrollment_token)
+    token_stmt = select(EnrollmentToken).where(
+        EnrollmentToken.token == x_enrollment_token
+    )
     token_res = await session.execute(token_stmt)
     db_token = token_res.scalar_one_or_none()
 
     if not db_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_enrollment_token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_enrollment_token"
+        )
     if db_token.used_at:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="enrollment_token_used")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="enrollment_token_used"
+        )
     if db_token.expires_at:
-        expires = db_token.expires_at.replace(tzinfo=timezone.utc) if db_token.expires_at.tzinfo is None else db_token.expires_at
+        expires = (
+            db_token.expires_at.replace(tzinfo=timezone.utc)
+            if db_token.expires_at.tzinfo is None
+            else db_token.expires_at
+        )
         if expires < datetime.now(timezone.utc):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="enrollment_token_expired")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="enrollment_token_expired",
+            )
 
     stmt = select(DeviceKey).where(DeviceKey.device_id == payload.device_id)
     result = await session.execute(stmt)
     existing = result.scalar_one_or_none()
-    
+
     if existing:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="device_already_registered")
-    
-    new_key = DeviceKey(device_id=payload.device_id, hmac_key=payload.hmac_key)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="device_already_registered"
+        )
+
+    new_key = DeviceKey(device_id=payload.device_id, public_key=payload.public_key)
     session.add(new_key)
-    
-    if db_token.token != "dev-token":
-        db_token.used_at = datetime.now(timezone.utc)
-    
+
+    db_token.used_at = datetime.now(timezone.utc)
     await session.commit()
-    log.info(f"[register] Device {payload.device_id} registered successfully with token.")
+    log.info(
+        f"[register] Device {payload.device_id} registered successfully with token."
+    )
     return RegistrationResponse(status="registered", device_id=payload.device_id)
+
 
 class MintTokenRequest(BaseModel):
     token: str
     expires_in_days: int = 7
 
+
 @app.post("/api/v1/admin/mint-token", status_code=status.HTTP_201_CREATED)
 async def mint_enrollment_token(
     payload: MintTokenRequest,
     x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
 ):
-    import hmac
-    if not hmac.compare_digest(x_admin_secret, _HMAC_SECRET):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthorized")
-        
-    from datetime import timedelta
+    if not hmac.compare_digest(x_admin_secret, _ADMIN_SECRET):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthorized"
+        )
+
     expires = datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days)
     new_token = EnrollmentToken(token=payload.token, expires_at=expires)
     session.add(new_token)
-    
+
     try:
         await session.commit()
     except IntegrityError:
         await session.rollback()
         raise HTTPException(status_code=409, detail="token_already_exists")
-        
-    return {"status": "minted", "token": payload.token, "expires_at": expires.isoformat()}
+
+    return {
+        "status": "minted",
+        "token": payload.token,
+        "expires_at": expires.isoformat(),
+    }
+
+
+class LabHCorgRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    batch_uuid: UUID
+    # Physically plausible H:Corg molar ratio for biochar (~0.1–0.7 typical; Lantana
+    # ~0.3–0.35). Bounds reject forged/absurd values that would inflate permanence.
+    lab_h_corg: float = Field(..., ge=0.1, le=1.5)
+
+
+@app.post("/api/v1/admin/lab-hcorg", status_code=status.HTTP_200_OK)
+async def ingest_lab_hcorg(
+    payload: LabHCorgRequest,
+    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Authenticated lab channel for the permanence ratio (Phase 8-R).
+
+    A lab-measured H:Corg is authoritative and must NOT be self-asserted by the
+    device — it arrives here, admin-authenticated and range-checked, then triggers
+    a recompute that can clear the batch's PROVISIONAL status.
+    """
+    if not hmac.compare_digest(x_admin_secret, _ADMIN_SECRET):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthorized"
+        )
+    batch = (
+        await session.execute(
+            select(Batch).where(Batch.batch_uuid == payload.batch_uuid)
+        )
+    ).scalar_one_or_none()
+    if batch is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="unknown_batch"
+        )
+    await recompute_batch_credit(session, batch, lab_h_corg=payload.lab_h_corg)
+    await session.commit()
+    return {
+        "status": "ok",
+        "batch_uuid": str(payload.batch_uuid),
+        "provisional": batch.provisional,
+    }
+
+
+async def recompute_batch_credit(
+    session: AsyncSession, batch: Batch, *, lab_h_corg: Optional[float] = None
+) -> None:
+    """Corroborate a batch's credit inputs from the telemetry/yield/application
+    streams, recompute the LCA credit, and update the batch row in place.
+
+    Pure derivation lives in corroboration.py; this is the thin DB glue. The
+    caller commits. Idempotent — safe to call from create_batch and from every
+    evidence endpoint so the credit converges as evidence arrives. A batch stays
+    PROVISIONAL (never issued) until every input is corroborated.
+    """
+    buid = str(batch.batch_uuid)
+
+    tel = (
+        await session.execute(
+            select(PyrolysisTelemetry).where(PyrolysisTelemetry.batch_uuid == buid)
+        )
+    ).scalar_one_or_none()
+    yld = (
+        await session.execute(
+            select(YieldMetrics).where(YieldMetrics.batch_uuid == buid)
+        )
+    ).scalar_one_or_none()
+    app_row = (
+        await session.execute(
+            select(EndUseApplication).where(EndUseApplication.batch_uuid == buid)
+        )
+    ).scalar_one_or_none()
+
+    tel_payload = json.loads(tel.payload_json) if tel else None
+    yld_payload = json.loads(yld.payload_json) if yld else None
+    app_payload = json.loads(app_row.payload_json) if app_row else None
+
+    # Phase 9-R: platform attestation. There is NO real Play Integrity / DeviceCheck
+    # verifier yet, so a blob's presence proves nothing — we do not treat it as a
+    # control (the old isinstance(dict) check was dead: the client sends a list).
+    # SECURITY TODO: verify the attestation signature; until then it is unverified.
+    attestation_blob = tel_payload.get("hw_attestation") if tel_payload else None
+    attestation_verified = False  # TODO(security): real Play Integrity/DeviceCheck
+    if attestation_blob and not attestation_verified:
+        log.warning(
+            "batch %s carries hw_attestation but it is NOT cryptographically "
+            "verified (Play Integrity/DeviceCheck integration is a SECURITY TODO)",
+            buid,
+        )
+    attestation_ok = True if not _ATTESTATION_ENFORCED else attestation_verified
+
+    min_temp, _ = derive_min_temp(tel_payload)
+    wet_yield, _ = derive_wet_yield(yld_payload)
+    transport, _ = derive_transport_km(
+        batch.latitude, batch.longitude, app_payload, haversine=haversine_km
+    )
+
+    effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
+    corr = assemble(
+        wet_yield,
+        min_temp,
+        transport,
+        has_lab_hcorg=effective_lab is not None,
+        attestation_ok=attestation_ok,
+    )
+
+    kwargs = {}
+    if effective_lab is not None:
+        kwargs["h_corg_ratio"] = effective_lab
+
+    lca = calculate_carbon_credit(
+        wet_yield_kg=corr.wet_yield_kg if corr.wet_yield_kg is not None else 0.0,
+        moisture_percent=batch.moisture_percent,
+        min_recorded_temp_c=(
+            corr.min_recorded_temp_c if corr.min_recorded_temp_c is not None else 0.0
+        ),
+        transport_distance_km=(
+            corr.transport_distance_km
+            if corr.transport_distance_km is not None
+            else 0.0
+        ),
+        feedstock_species=batch.feedstock_species,
+        **kwargs,
+    )
+
+    # Persist derived inputs (0.0 where uncorroborated; columns are NOT NULL).
+    batch.wet_yield_kg = corr.wet_yield_kg if corr.wet_yield_kg is not None else 0.0
+    batch.min_recorded_temp_c = (
+        corr.min_recorded_temp_c if corr.min_recorded_temp_c is not None else 0.0
+    )
+    batch.transport_distance_km = (
+        corr.transport_distance_km if corr.transport_distance_km is not None else 0.0
+    )
+    if lab_h_corg is not None:
+        batch.lab_h_corg = lab_h_corg
+    # Provisional if any input is uncorroborated OR H:Corg was assumed.
+    batch.provisional = corr.provisional or lca.provisional
+    batch.provisional_reasons = json.dumps(corr.reasons)
+    batch.net_credit_t_co2e = lca.net_credit_t_co2e
+    batch.lca_methodology_version = lca.methodology_version
+    batch.lca_audit_json = json.dumps({k: v for k, v in lca.__dict__.items()})
+    # Phase 8-R: only a fully-corroborated, non-provisional batch carries an
+    # issuance signature. A provisional audit must never look issuable downstream.
+    batch.lca_signature = (
+        None if batch.provisional else sign_lca_audit(lca, _HMAC_SECRET)
+    )
+
+
+async def _recompute_if_batch_exists(
+    session: AsyncSession, batch_uuid_str: str
+) -> None:
+    """Recompute a batch's corroborated credit if the batch already exists.
+
+    Called by the evidence endpoints so a batch's credit converges the moment its
+    telemetry/yield/application lands. No-op if the batch hasn't arrived yet
+    (create_batch will recompute when it does)."""
+    try:
+        buid = uuid.UUID(batch_uuid_str)
+    except (ValueError, AttributeError, TypeError):
+        return
+    batch = (
+        await session.execute(select(Batch).where(Batch.batch_uuid == buid))
+    ).scalar_one_or_none()
+    if batch is not None:
+        await recompute_batch_credit(session, batch)
+        await session.commit()
 
 
 @app.post(
@@ -286,19 +657,19 @@ async def create_batch(
     payload: BatchPayload,
     response: Response,
     x_idempotency_key: str = Header(..., alias="X-Idempotency-Key"),
-    device_id: str = Depends(verify_hmac),
+    device_id: str = Depends(verify_signature),
     session: AsyncSession = Depends(get_session),
 ) -> BatchResponse:
     """
     Accept dMRV batch payload with idempotency.
-    
+
     Returns 201 on first insert, 200 on duplicate (idempotent).
     Returns 422 if payload is malformed.
     """
     if not x_idempotency_key.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="X-Idempotency-Key header is required and non-empty"
+            detail="X-Idempotency-Key header is required and non-empty",
         )
 
     # Check for existing batch with same operation_id (idempotency)
@@ -307,8 +678,9 @@ async def create_batch(
     existing = result.scalar_one_or_none()
 
     if existing:
-        if (existing.sha256_hash.lower() != payload.sha256_hash.lower()
-            or str(existing.batch_uuid) != str(payload.batch_uuid)):
+        if existing.sha256_hash.lower() != payload.sha256_hash.lower() or str(
+            existing.batch_uuid
+        ) != str(payload.batch_uuid):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="operation_id_in_use_with_different_payload",
@@ -322,101 +694,46 @@ async def create_batch(
             duplicate=True,
             received_at=existing.received_at,
             net_credit_t_co2e=existing.net_credit_t_co2e,
+            provisional=existing.provisional,
         )
 
-    import json
-    
-    # 1. Fetch Telemetry
-    stmt_tel = select(PyrolysisTelemetry).where(PyrolysisTelemetry.batch_uuid == str(payload.batch_uuid))
-    telemetry = (await session.execute(stmt_tel)).scalar_one_or_none()
-    
-    min_temp = 0.0
-    if telemetry:
-        tel_data = json.loads(telemetry.payload_json)
-        readings = tel_data.get("temperatureReadingsJson", [])
-        if len(readings) >= 60:
-            min_temp = min(readings)
-        else:
-            if payload.min_recorded_temp_c > 0.0:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="missing_qualifying_telemetry_log"
+    # Plausibility: teleport / implausible-movement check against the device's
+    # previous batch. (Credit inputs are corroborated separately, below.)
+    if payload.latitude is not None and payload.longitude is not None:
+        stmt_prev = (
+            select(Batch)
+            .where(Batch.device_id == device_id)
+            .order_by(desc(Batch.harvest_timestamp))
+            .limit(1)
+        )
+        prev = (await session.execute(stmt_prev)).scalar_one_or_none()
+
+        if prev and prev.latitude is not None and prev.longitude is not None:
+            dist_km = haversine_km(
+                payload.longitude, payload.latitude, prev.longitude, prev.latitude
+            )
+            time_diff_hours = (
+                abs(
+                    (
+                        payload.harvest_timestamp.replace(tzinfo=None)
+                        - prev.harvest_timestamp.replace(tzinfo=None)
+                    ).total_seconds()
                 )
-            
-        attestation = tel_data.get("hwAttestationJson")
-        if attestation:
-            # Here we would verify Play Integrity / DeviceCheck
-            # For now, we reject if it's explicitly marked as invalid
-            if isinstance(attestation, dict) and attestation.get("status") == "INVALID":
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="invalid_platform_attestation")
-    else:
-        if payload.min_recorded_temp_c > 0.0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="missing_qualifying_telemetry_log"
+                / 3600.0
             )
 
-    # 2. Teleport Check & Plausibility
-    if payload.latitude is not None and payload.longitude is not None:
-        from sqlalchemy import desc
-        stmt_prev = (select(Batch)
-                     .where(Batch.device_id == device_id)
-                     .order_by(desc(Batch.harvest_timestamp))
-                     .limit(1))
-        prev = (await session.execute(stmt_prev)).scalar_one_or_none()
-        
-        if prev and prev.latitude is not None and prev.longitude is not None:
-            from math import radians, cos, sin, asin, sqrt
-            def haversine(lon1, lat1, lon2, lat2):
-                lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-                dlon = lon2 - lon1
-                dlat = lat2 - lat1
-                a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-                c = 2 * asin(sqrt(a))
-                return 6371 * c
-                
-            dist_km = haversine(payload.longitude, payload.latitude, prev.longitude, prev.latitude)
-            time_diff_hours = abs((payload.harvest_timestamp.replace(tzinfo=None) - prev.harvest_timestamp.replace(tzinfo=None)).total_seconds()) / 3600.0
-            
             if time_diff_hours > 0:
                 speed_kmh = dist_km / time_diff_hours
                 if speed_kmh > 150.0:
-                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="implausible_movement")
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="implausible_movement",
+                    )
 
-    # Calculate LCA carbon credit (8-step CSI pipeline)
-    # Task 3.4 Cross-check transport distance
-    stmt_app = select(EndUseApplication).where(EndUseApplication.batch_uuid == str(payload.batch_uuid))
-    app_row = (await session.execute(stmt_app)).scalar_one_or_none()
-    if app_row and payload.latitude is not None and payload.longitude is not None:
-        app_payload = json.loads(app_row.payload_json)
-        app_lat = app_payload.get("latitude")
-        app_lon = app_payload.get("longitude")
-        if app_lat is not None and app_lon is not None:
-            min_dist = haversine(app_lon, app_lat, payload.longitude, payload.latitude)
-            # Apply a 10% tolerance for GPS inaccuracy/rounding
-            if payload.transport_distance_km < min_dist * 0.9:
-                payload.transport_distance_km = min_dist
-                
-    kwargs = {}
-    if payload.lab_h_corg is not None:
-        kwargs["h_corg_ratio"] = payload.lab_h_corg
-
-    lca = calculate_carbon_credit(
-        wet_yield_kg=payload.wet_yield_kg,
-        moisture_percent=payload.moisture_percent,
-        min_recorded_temp_c=min_temp,
-        transport_distance_km=payload.transport_distance_km,
-        feedstock_species=payload.feedstock_species,
-        **kwargs
-    )
-    
-    # Sign provenance trail
-    lca_sig = sign_lca_audit(lca, _HMAC_SECRET)
-    import json
-    lca_json = json.dumps({k: v for k, v in lca.__dict__.items()})
-    net_credit = lca.net_credit_t_co2e
-
-    # Create new batch
+    # Build the batch from client-supplied fields only. The credit-bearing inputs
+    # (wet_yield_kg, min_recorded_temp_c, transport_distance_km) and the net credit
+    # are corroborated server-side by recompute_batch_credit; the batch stays
+    # PROVISIONAL until every input is corroborated.
     batch = Batch(
         batch_uuid=payload.batch_uuid,
         operation_id=x_idempotency_key,
@@ -434,16 +751,13 @@ async def create_batch(
         azimuth=payload.azimuth,
         pitch=payload.pitch,
         roll=payload.roll,
-        wet_yield_kg=payload.wet_yield_kg,
-        min_recorded_temp_c=min_temp,
-        transport_distance_km=payload.transport_distance_km,
         device_id=device_id,
-        net_credit_t_co2e=net_credit,
-        lca_methodology_version=lca.methodology_version,
-        lca_audit_json=lca_json,
-        lca_signature=lca_sig,
         status="RECEIVED",
     )
+
+    # Credit inputs (incl. lab H:Corg) are corroborated server-side; a fresh batch
+    # has no lab value, so it stays PROVISIONAL until /admin/lab-hcorg supplies one.
+    await recompute_batch_credit(session, batch)
 
     session.add(batch)
     try:
@@ -455,11 +769,11 @@ async def create_batch(
         stmt = select(Batch).where(Batch.batch_uuid == payload.batch_uuid)
         result = await session.execute(stmt)
         batch = result.scalar_one()
-        
+
         batch_sha = batch.sha256_hash.lower() if batch.sha256_hash else None
         payload_sha = payload.sha256_hash.lower() if payload.sha256_hash else None
-        
-        if (batch_sha != payload_sha or batch.operation_id != x_idempotency_key):
+
+        if batch_sha != payload_sha or batch.operation_id != x_idempotency_key:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="race_resolved_with_different_payload",
@@ -473,16 +787,23 @@ async def create_batch(
             duplicate=True,
             received_at=batch.received_at,
             net_credit_t_co2e=batch.net_credit_t_co2e,
+            provisional=batch.provisional,
         )
 
     if payload.sha256_hash:
+        # A batch asserting a photo is UNVERIFIED until a photo whose hash
+        # matches (and whose EXIF GPS corroborates) is anchored. If the photo
+        # already arrived (media-first), evaluate it now.
         stmt = select(MediaFile).where(MediaFile.batch_uuid == batch.batch_uuid)
         media = (await session.execute(stmt)).scalars().first()
-        if not media:
-            batch.status = "UNVERIFIED"
-            await session.commit()
+        batch.status = "UNVERIFIED"
+        if media:
+            _evaluate_anchor(batch, media.sha256_hash, media.exif_lat, media.exif_lon)
+        await session.commit()
 
-    log.info(f"[batches] STORED batch_uuid={batch.batch_uuid} operation_id={x_idempotency_key}")
+    log.info(
+        f"[batches] STORED batch_uuid={batch.batch_uuid} operation_id={x_idempotency_key}"
+    )
     return BatchResponse(
         batch_uuid=str(batch.batch_uuid),
         operation_id=batch.operation_id,
@@ -490,6 +811,7 @@ async def create_batch(
         duplicate=False,
         received_at=batch.received_at,
         net_credit_t_co2e=batch.net_credit_t_co2e,
+        provisional=batch.provisional,
     )
 
 
@@ -510,24 +832,27 @@ async def upload_media(
 ) -> MediaUploadResponse:
     """
     Upload media file with SHA-256 verification.
+
+    Phase 9: the client-supplied ``X-Mock-Location`` header is no longer an
+    access control (it was honor-system). Mock-location is recorded as a review
+    signal (``mock_location_enabled`` on the batch) and corroborated server-side
+    via photo EXIF GPS and the teleport check.
     """
-    if request.headers.get("x-mock-location", "").lower() == "true":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="mock_location_not_allowed")
-        
-    import re
     if not x_idempotency_key.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="X-Idempotency-Key header is required"
+            detail="X-Idempotency-Key header is required",
         )
-        
-    if x_device_id and not re.match(r'^[\w\-]+$', x_device_id):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid_device_id")
+
+    if x_device_id and not re.match(r"^[\w\-]+$", x_device_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="invalid_device_id"
+        )
 
     if not x_declared_sha256.strip() or len(x_declared_sha256) != 64:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="X-Declared-SHA256 header must be 64-character hex string"
+            detail="X-Declared-SHA256 header must be 64-character hex string",
         )
 
     stmt = select(MediaFile).where(MediaFile.operation_id == x_idempotency_key)
@@ -538,15 +863,14 @@ async def upload_media(
         if existing.sha256_hash.lower() != x_declared_sha256.lower():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="operation_id_in_use_with_different_payload"
+                detail="operation_id_in_use_with_different_payload",
             )
         log.info(f"[media] DUPLICATE operation_id={x_idempotency_key}")
-        import pathlib
         response.status_code = status.HTTP_200_OK
         return MediaUploadResponse(
             server_sha256=existing.sha256_hash,
             stored=True,
-            file_path=pathlib.Path(existing.file_path).name,
+            file_path=Path(existing.file_path).name,
         )
 
     MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -567,10 +891,11 @@ async def upload_media(
     calculated_hash = hasher.hexdigest()
 
     if calculated_hash.lower() != x_declared_sha256.lower():
-        log.warning(f"[media] SHA256 MISMATCH declared={x_declared_sha256[:8]} calculated={calculated_hash[:8]}")
+        log.warning(
+            f"[media] SHA256 MISMATCH declared={x_declared_sha256[:8]} calculated={calculated_hash[:8]}"
+        )
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="sha256_mismatch"
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="sha256_mismatch"
         )
 
     _SAFE = re.compile(r"^[A-Za-z0-9_\-]{1,128}$")
@@ -593,15 +918,20 @@ async def upload_media(
 
     if not file_path.resolve().is_relative_to(UPLOAD_DIR.resolve()):
         raise HTTPException(status_code=400, detail="path_traversal")
-    
+
     with open(file_path, "wb") as f:
         f.write(content)
+
+    # Phase 9: extract GPS from the photo's EXIF for server-side corroboration.
+    exif_lat, exif_lon = _parse_exif_gps(content)
 
     media = MediaFile(
         operation_id=x_idempotency_key,
         file_path=str(file_path),
         sha256_hash=calculated_hash,
         filename=file.filename,
+        exif_lat=exif_lat,
+        exif_lon=exif_lon,
     )
 
     session.add(media)
@@ -613,18 +943,18 @@ async def upload_media(
         result = await session.execute(stmt)
         media = result.scalar_one()
 
-    import uuid
     media.batch_uuid = uuid.UUID(x_batch_uuid)
-    
-    # Anchor photo to batch if batch was already created (P0-25)
+
+    # Anchor photo to batch if batch was already created (P0-25). The photo only
+    # verifies the batch if its hash matches the batch's declared sha256_hash,
+    # and the EXIF GPS corroborates the claimed coordinates (Phase 9).
     stmt = select(Batch).where(Batch.batch_uuid == uuid.UUID(x_batch_uuid))
     batch_result = await session.execute(stmt)
     batch = batch_result.scalar_one_or_none()
     if batch:
-        if batch.status == "UNVERIFIED":
-            batch.status = "RECEIVED"
+        _evaluate_anchor(batch, calculated_hash, exif_lat, exif_lon)
         session.add(batch)
-    
+
     session.add(media)
     await session.commit()
 
@@ -646,52 +976,118 @@ def _assert_same_uuid(*, expected: str, **kwargs: str) -> None:
                 detail=f"batch_uuid mismatch: {name}={value} expected={expected}",
             )
 
+
+# ==================== Evidence-endpoint schemas (Phase 11) ====================
+# Strict schemas + size bounds for the previously-`dict` side-endpoints. Identity
+# fields are required; the rest are optional (accepts the real client and minimal
+# test payloads). `extra="forbid"` rejects unknown keys; lists are bounded. The
+# canonical field names MUST match the Dart writers and what corroboration.py reads
+# (temperature_readings / wet_yield_weight_kg / latitude / longitude) — changing
+# them silently breaks credit corroboration.
+
+
+# Phase 11-R: free-text string fields are length-bounded so a single huge string
+# cannot slip past the array bounds. Identifiers/short text -> 128, paths -> 512,
+# timestamps -> 64, hex hashes -> 64.
+class TelemetryPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    telemetry_uuid: str = Field(..., max_length=64)
+    batch_uuid: str = Field(..., max_length=64)
+    kiln_gross_capacity: Optional[float] = None
+    burn_start_timestamp: Optional[str] = Field(None, max_length=64)
+    burn_end_timestamp: Optional[str] = Field(None, max_length=64)
+    min_temp: Optional[float] = None
+    max_temp: Optional[float] = None
+    temperature_readings: Optional[list[float]] = Field(None, max_length=100_000)
+    smoke_evidence: Optional[list[dict]] = Field(None, max_length=1_000)
+    hw_attestation: Optional[list] = Field(None, max_length=1_000)
+
+
+class YieldPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    yield_uuid: str = Field(..., max_length=64)
+    batch_uuid: str = Field(..., max_length=64)
+    quench_methodology: Optional[str] = Field(None, max_length=128)
+    gross_volume: Optional[float] = None
+    wet_yield_weight_kg: Optional[float] = None
+    dry_yield_weight_kg: Optional[float] = None
+
+
+class MetadataPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    batch_uuid: str = Field(..., max_length=64)
+    artisan_id: Optional[str] = Field(None, max_length=128)
+    device_hardware_mac: Optional[str] = Field(None, max_length=128)
+    app_build_version: Optional[str] = Field(None, max_length=128)
+    sync_status: Optional[str] = Field(None, max_length=64)
+    created_at: Optional[str] = Field(None, max_length=64)
+
+
+class ApplicationPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    application_uuid: str = Field(..., max_length=64)
+    batch_uuid: str = Field(..., max_length=64)
+    application_methodology: Optional[str] = Field(None, max_length=128)
+    application_rate_tonnes: Optional[float] = None
+    transport_distance_km: Optional[float] = Field(None, ge=0.0, le=20000.0)
+    latitude: Optional[float] = Field(None, ge=-90.0, le=90.0)
+    longitude: Optional[float] = Field(None, ge=-180.0, le=180.0)
+    farmer_photo_path: Optional[str] = Field(None, max_length=512)
+    farmer_photo_sha256: Optional[str] = Field(None, max_length=64)
+
+
 @app.post("/api/v1/telemetry", status_code=status.HTTP_201_CREATED)
-async def create_telemetry(payload: dict, is_verified: bool = Depends(verify_hmac), session: AsyncSession = Depends(get_session)):
-    bu = payload.get("batch_uuid")
-    if bu is None or not isinstance(bu, str):
-        raise HTTPException(status_code=422, detail="batch_uuid required")
-    tu = payload.get("telemetry_uuid")
-    if tu is None or not isinstance(tu, str):
-        raise HTTPException(status_code=422, detail="telemetry_uuid required")
-        
-    import json
-    row = PyrolysisTelemetry(telemetry_uuid=tu, batch_uuid=bu, payload_json=json.dumps(payload))
+async def create_telemetry(
+    payload: TelemetryPayload,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+):
+    row = PyrolysisTelemetry(
+        telemetry_uuid=payload.telemetry_uuid,
+        batch_uuid=payload.batch_uuid,
+        payload_json=json.dumps(payload.model_dump(mode="json")),
+    )
     session.add(row)
     try:
         await session.commit()
     except IntegrityError:
         await session.rollback()
         return {"status": "success", "duplicate": True}
+    await _recompute_if_batch_exists(session, payload.batch_uuid)
     return {"status": "success", "duplicate": False}
+
 
 @app.post("/api/v1/yield", status_code=status.HTTP_201_CREATED)
-async def create_yield(payload: dict, is_verified: bool = Depends(verify_hmac), session: AsyncSession = Depends(get_session)):
-    bu = payload.get("batch_uuid")
-    if bu is None or not isinstance(bu, str):
-        raise HTTPException(status_code=422, detail="batch_uuid required")
-    yu = payload.get("yield_uuid")
-    if yu is None or not isinstance(yu, str):
-        raise HTTPException(status_code=422, detail="yield_uuid required")
-        
-    import json
-    row = YieldMetrics(yield_uuid=yu, batch_uuid=bu, payload_json=json.dumps(payload))
+async def create_yield(
+    payload: YieldPayload,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+):
+    row = YieldMetrics(
+        yield_uuid=payload.yield_uuid,
+        batch_uuid=payload.batch_uuid,
+        payload_json=json.dumps(payload.model_dump(mode="json")),
+    )
     session.add(row)
     try:
         await session.commit()
     except IntegrityError:
         await session.rollback()
         return {"status": "success", "duplicate": True}
+    await _recompute_if_batch_exists(session, payload.batch_uuid)
     return {"status": "success", "duplicate": False}
+
 
 @app.post("/api/v1/metadata", status_code=status.HTTP_201_CREATED)
-async def create_metadata(payload: dict, is_verified: bool = Depends(verify_hmac), session: AsyncSession = Depends(get_session)):
-    bu = payload.get("batch_uuid")
-    if bu is None or not isinstance(bu, str):
-        raise HTTPException(status_code=422, detail="batch_uuid required")
-        
-    import json
-    row = SystemMetadata(batch_uuid=bu, payload_json=json.dumps(payload))
+async def create_metadata(
+    payload: MetadataPayload,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+):
+    row = SystemMetadata(
+        batch_uuid=payload.batch_uuid,
+        payload_json=json.dumps(payload.model_dump(mode="json")),
+    )
     session.add(row)
     try:
         await session.commit()
@@ -700,53 +1096,25 @@ async def create_metadata(payload: dict, is_verified: bool = Depends(verify_hmac
         return {"status": "success", "duplicate": True}
     return {"status": "success", "duplicate": False}
 
+
 @app.post("/api/v1/application", status_code=status.HTTP_201_CREATED)
-async def create_application(payload: dict, is_verified: bool = Depends(verify_hmac), session: AsyncSession = Depends(get_session)):
-    bu = payload.get("batch_uuid")
-    if bu is None or not isinstance(bu, str):
-        raise HTTPException(status_code=422, detail="batch_uuid required")
-    au = payload.get("application_uuid")
-    if au is None or not isinstance(au, str):
-        raise HTTPException(status_code=422, detail="application_uuid required")
-        
-    import json
-    row = EndUseApplication(application_uuid=au, batch_uuid=bu, payload_json=json.dumps(payload))
+async def create_application(
+    payload: ApplicationPayload,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+):
+    row = EndUseApplication(
+        application_uuid=payload.application_uuid,
+        batch_uuid=payload.batch_uuid,
+        payload_json=json.dumps(payload.model_dump(mode="json")),
+    )
     session.add(row)
-    
-    # Task 3.4 Cross-check transport distance if batch already exists
-    app_lat = payload.get("latitude")
-    app_lon = payload.get("longitude")
-    if app_lat is not None and app_lon is not None:
-        import uuid
-        stmt = select(Batch).where(Batch.batch_uuid == uuid.UUID(bu))
-        batch = (await session.execute(stmt)).scalar_one_or_none()
-        if batch and batch.latitude is not None and batch.longitude is not None:
-            from math import radians, cos, sin, asin, sqrt
-            def haversine(lon1, lat1, lon2, lat2):
-                lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-                dlon = lon2 - lon1
-                dlat = lat2 - lat1
-                a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-                c = 2 * asin(sqrt(a))
-                return 6371 * c
-                
-            min_dist = haversine(app_lon, app_lat, batch.longitude, batch.latitude)
-            if batch.transport_distance_km < min_dist * 0.9:
-                batch.transport_distance_km = min_dist
-                from lca_engine import calculate_carbon_credit
-                lca = calculate_carbon_credit(
-                    wet_yield_kg=batch.wet_yield_kg,
-                    moisture_percent=batch.moisture_percent,
-                    min_recorded_temp_c=batch.min_recorded_temp_c,
-                    transport_distance_km=batch.transport_distance_km,
-                    feedstock_species=batch.feedstock_species,
-                )
-                batch.net_credit_t_co2e = lca.net_credit_t_co2e
-                session.add(batch)
-                
     try:
         await session.commit()
     except IntegrityError:
         await session.rollback()
         return {"status": "success", "duplicate": True}
+    # Transport distance is derived from this application's GPS inside
+    # recompute_batch_credit (see corroboration.derive_transport_km).
+    await _recompute_if_batch_exists(session, payload.batch_uuid)
     return {"status": "success", "duplicate": False}

@@ -1,113 +1,103 @@
 import 'dart:convert';
-import 'dart:math';
 import 'package:crypto/crypto.dart';
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'package:http/http.dart' as http;
 import 'device_integrity_service.dart';
 
-/// A stateless utility class that generates HMAC-SHA256 signatures for payloads.
-/// The signing key is persisted securely in the device Keystore.
+/// Ed25519 device identity. The PRIVATE seed never leaves the device;
+/// only the PUBLIC key is enrolled with the server. This restores true
+/// non-repudiation — the server cannot forge a client signature.
 class CryptoSigner {
-  static const _storage = FlutterSecureStorage();
-  static const _keyName = 'hmac_signing_key';
-  static const _deviceIdName = 'device_id_key';
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
+  static const _seedKey = 'ed25519_seed';
+  static const _deviceIdKey = 'device_id_key';
+  static final _algo = Ed25519();
 
-  static Future<List<int>>? _keyFuture;
-  static Future<String>? _deviceIdFuture;
+  static SimpleKeyPair? _pair;
+  static String? _deviceId;
 
-  static Future<List<int>> _resolveKey() {
-    return _keyFuture ??= _readOrCreateOnce();
+  static Future<SimpleKeyPair> _keyPair() async {
+    if (_pair != null) return _pair!;
+    final stored = await _storage.read(key: _seedKey);
+    if (stored != null) {
+      _pair = await _algo.newKeyPairFromSeed(base64Url.decode(_pad(stored)));
+      return _pair!;
+    }
+    final pair = await _algo.newKeyPair();
+    final seed = await pair.extractPrivateKeyBytes();
+    await _storage.write(
+      key: _seedKey,
+      value: base64Url.encode(seed).replaceAll('=', ''),
+    );
+    _pair = pair;
+    return pair;
   }
 
-  static Future<String> _resolveDeviceId() {
-    return _deviceIdFuture ??= _readOrCreateDeviceIdOnce();
+  static String _pad(String s) {
+    while (s.length % 4 != 0) {
+      s += '=';
+    }
+    return s;
   }
 
-  static Future<List<int>> _readOrCreateOnce() async {
-    final existingKey = await _storage.read(key: _keyName);
-    if (existingKey != null) {
-      String padded = existingKey;
-      while (padded.length % 4 != 0) {
-        padded += '=';
-      }
-      try {
-        return base64Url.decode(padded);
-      } catch (e) {
-        // Fallback for legacy hex keys, though we assume a clean slate
-      }
+  static Future<String> getDeviceId() async {
+    if (_deviceId != null) return _deviceId!;
+    final existing = await _storage.read(key: _deviceIdKey);
+    if (existing != null) {
+      _deviceId = existing;
+      return existing;
     }
-    Random random;
-    try {
-      random = Random.secure();
-    } catch (e) {
-      throw UnsupportedError('Platform lacks a secure entropy source for PRNG.');
-    }
-    // 32 bytes
-    final keyBytes = List<int>.generate(32, (_) => random.nextInt(256));
-    final b64Key = base64Url.encode(keyBytes).replaceAll('=', '');
-    await _storage.write(key: _keyName, value: b64Key);
-    return keyBytes;
+    final id = const Uuid().v4();
+    await _storage.write(key: _deviceIdKey, value: id);
+    _deviceId = id;
+    return id;
   }
 
-  static Future<String> _readOrCreateDeviceIdOnce() async {
-    final existingId = await _storage.read(key: _deviceIdName);
-    if (existingId != null) {
-      return existingId;
-    }
-    final newId = const Uuid().v4();
-    await _storage.write(key: _deviceIdName, value: newId);
-    return newId;
+  static Future<String> publicKeyB64() async {
+    final pub = await (await _keyPair()).extractPublicKey();
+    return base64Url.encode(pub.bytes).replaceAll('=', '');
   }
 
   static Future<void> warmUp() async {
-    await _resolveKey();
-    await _resolveDeviceId();
+    await _keyPair();
+    await getDeviceId();
     await registerDevice();
   }
 
   static Future<void> registerDevice() async {
-    final deviceId = await _resolveDeviceId();
-    final keyBytes = await _resolveKey();
-    final hmacKey = base64Url.encode(keyBytes).replaceAll('=', '');
-
-    // For testing/development, we use a placeholder token or read from env
-    final enrollmentToken = const String.fromEnvironment('ENROLLMENT_TOKEN', defaultValue: 'dev-token');
-    final apiBaseUrl = const String.fromEnvironment('DMRV_API_BASE_URL', defaultValue: 'http://10.0.2.2:8000');
-
-    try {
-      final response = await http.post(
-        Uri.parse('$apiBaseUrl/api/v1/register'),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Enrollment-Token': enrollmentToken,
-        },
-        body: jsonEncode({
-          'device_id': deviceId,
-          'hmac_key': hmacKey,
-        }),
+    final deviceId = await getDeviceId();
+    final publicKey = await publicKeyB64();
+    const enrollmentToken = String.fromEnvironment('ENROLLMENT_TOKEN');
+    if (enrollmentToken.isEmpty) {
+      throw StateError(
+        'ENROLLMENT_TOKEN is required; pass via --dart-define-from-file=secrets.json.',
       );
-      if (response.statusCode != 201) {
-        debugPrint('Failed to register device: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('Error registering device: $e');
+    }
+    const apiBaseUrl = String.fromEnvironment('DMRV_API_BASE_URL');
+    if (apiBaseUrl.isEmpty) {
+      throw StateError('DMRV_API_BASE_URL is required.');
+    }
+    final response = await http.post(
+      Uri.parse('$apiBaseUrl/api/v1/register'),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Enrollment-Token': enrollmentToken,
+      },
+      body: jsonEncode({'device_id': deviceId, 'public_key': publicKey}),
+    );
+    if (response.statusCode != 201 && response.statusCode != 409) {
+      throw StateError(
+        'Device registration failed: ${response.statusCode} ${response.body}',
+      );
     }
   }
 
-  static Future<String> getDeviceId() async {
-    return await _resolveDeviceId();
-  }
-
-  static Future<String> signPayload(String jsonPayload) async {
-    if (isDeviceCompromisedGlobally) throw Exception('Device compromised');
-    final keyBytes = await _resolveKey();
-    final hmac = Hmac(sha256, keyBytes);
-    final digest = hmac.convert(utf8.encode(jsonPayload));
-    return digest.toString();
-  }
-
+  /// CANONICAL STRING (frozen): method\npath\nidempotencyKey\nsha256(jsonBody)\ndeviceId
   static Future<String> signRequest({
     required String method,
     required String path,
@@ -115,27 +105,38 @@ class CryptoSigner {
     required String deviceId,
     required String jsonBody,
   }) async {
-    if (isDeviceCompromisedGlobally) throw Exception('Device compromised');
-    final keyBytes = await _resolveKey();
-    final hmac = Hmac(sha256, keyBytes);
+    if (isDeviceCompromisedGlobally) throw StateError('device_compromised');
     final bodySha = sha256.convert(utf8.encode(jsonBody)).toString();
     final canonical = '$method\n$path\n$idempotencyKey\n$bodySha\n$deviceId';
-    final digest = hmac.convert(utf8.encode(canonical));
-    return digest.toString();
+    final sig = await _algo.sign(
+      utf8.encode(canonical),
+      keyPair: await _keyPair(),
+    );
+    return base64Url.encode(sig.bytes).replaceAll('=', '');
+  }
+
+  /// Local-only tamper-evidence for the outbox row. NOT sent to the server as proof.
+  static Future<String> signPayload(String jsonPayload) async {
+    if (isDeviceCompromisedGlobally) throw StateError('device_compromised');
+    final sig = await _algo.sign(
+      utf8.encode(jsonPayload),
+      keyPair: await _keyPair(),
+    );
+    return base64Url.encode(sig.bytes).replaceAll('=', '');
   }
 
   static Future<void> clear() async {
-    _keyFuture = null;
-    _deviceIdFuture = null;
-    await _storage.delete(key: _keyName);
-    await _storage.delete(key: _deviceIdName);
+    _pair = null;
+    _deviceId = null;
+    await _storage.delete(key: _seedKey);
+    await _storage.delete(key: _deviceIdKey);
   }
-
-  static Future<void> resetKeyForTesting() => clear();
 
   @visibleForTesting
   static void resetForTest() {
-    _keyFuture = null;
-    _deviceIdFuture = null;
+    _pair = null;
+    _deviceId = null;
   }
+
+  static Future<void> resetKeyForTesting() => clear();
 }

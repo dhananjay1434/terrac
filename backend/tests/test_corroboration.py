@@ -1,0 +1,141 @@
+"""Unit tests for the pure corroboration derivers (Phase 7-R).
+
+These need no DB and no FastAPI — they pin the exact rules by which server-side
+evidence becomes a credit input, and when a batch is PROVISIONAL.
+"""
+
+import math
+
+from corroboration import (
+    MIN_TEMPERATURE_SAMPLES,
+    assemble,
+    derive_min_temp,
+    derive_transport_km,
+    derive_wet_yield,
+)
+
+
+# ---- derive_min_temp -------------------------------------------------------
+
+
+def test_min_temp_none_when_no_telemetry():
+    assert derive_min_temp(None) == (None, "no_telemetry")
+
+
+def test_min_temp_requires_enough_samples():
+    payload = {"temperature_readings": [650.0] * (MIN_TEMPERATURE_SAMPLES - 1)}
+    assert derive_min_temp(payload) == (None, "insufficient_temperature_samples")
+
+
+def test_min_temp_reads_snake_case_and_returns_min():
+    payload = {"temperature_readings": [650.0] * 59 + [210.0]}
+    val, reason = derive_min_temp(payload)
+    assert reason is None
+    assert val == 210.0
+
+
+def test_min_temp_ignores_camelcase_legacy_key():
+    # The old camelCase key must NOT be honored — that was the production bug.
+    payload = {"temperatureReadingsJson": [650.0] * 60}
+    assert derive_min_temp(payload) == (None, "insufficient_temperature_samples")
+
+
+# ---- derive_wet_yield ------------------------------------------------------
+
+
+def test_wet_yield_none_when_no_record():
+    assert derive_wet_yield(None) == (None, "no_yield_record")
+
+
+def test_wet_yield_reads_wet_yield_weight_kg():
+    assert derive_wet_yield({"wet_yield_weight_kg": 42.5}) == (42.5, None)
+
+
+def test_wet_yield_rejects_nonpositive():
+    assert derive_wet_yield({"wet_yield_weight_kg": 0}) == (None, "invalid_wet_yield")
+    assert derive_wet_yield({"wet_yield_weight_kg": "x"}) == (
+        None,
+        "invalid_wet_yield",
+    )
+
+
+# ---- derive_transport_km ---------------------------------------------------
+
+
+def _haversine(lon1, lat1, lon2, lat2):
+    # minimal reference haversine so the test is independent of server.py
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def test_transport_none_without_application():
+    assert derive_transport_km(1.0, 1.0, None, haversine=_haversine) == (
+        None,
+        "no_application_record",
+    )
+
+
+def test_transport_none_without_batch_gps():
+    assert derive_transport_km(
+        None, None, {"latitude": 1.0, "longitude": 1.0}, haversine=_haversine
+    ) == (None, "no_application_record")
+
+
+def test_transport_missing_application_gps():
+    assert derive_transport_km(1.0, 1.0, {"foo": "bar"}, haversine=_haversine) == (
+        None,
+        "application_missing_gps",
+    )
+
+
+def test_transport_computes_positive_distance():
+    val, reason = derive_transport_km(
+        0.0, 0.0, {"latitude": 1.0, "longitude": 0.0}, haversine=_haversine
+    )
+    assert reason is None
+    assert val > 100.0  # ~111 km per degree of latitude
+
+
+# ---- assemble --------------------------------------------------------------
+
+
+def test_fully_corroborated_is_not_provisional():
+    c = assemble(50.0, 300.0, 12.0, has_lab_hcorg=True)
+    assert c.provisional is False
+    assert c.reasons == []
+
+
+def test_each_missing_input_flips_provisional_with_reason():
+    c = assemble(None, 300.0, 12.0, has_lab_hcorg=True)
+    assert c.provisional is True and c.reasons == ["wet_yield_uncorroborated"]
+
+    c = assemble(50.0, None, 12.0, has_lab_hcorg=True)
+    assert c.reasons == ["min_temp_uncorroborated"]
+
+    c = assemble(50.0, 300.0, None, has_lab_hcorg=True)
+    assert c.reasons == ["transport_uncorroborated"]
+
+
+def test_assumed_hcorg_is_provisional_even_when_inputs_present():
+    c = assemble(50.0, 300.0, 12.0, has_lab_hcorg=False)
+    assert c.provisional is True
+    assert c.reasons == ["assumed_h_corg"]
+
+
+def test_attestation_ok_defaults_true_and_is_inert():
+    # Phase 9-R: default (no enforcement) adds no attestation reason.
+    c = assemble(50.0, 300.0, 12.0, has_lab_hcorg=True)
+    assert "attestation_unverified" not in c.reasons
+    assert c.provisional is False
+
+
+def test_unverified_attestation_flips_provisional_when_enforced():
+    # When the caller passes attestation_ok=False (Option A enforcement), an
+    # otherwise fully-corroborated batch is held PROVISIONAL.
+    c = assemble(50.0, 300.0, 12.0, has_lab_hcorg=True, attestation_ok=False)
+    assert c.provisional is True
+    assert c.reasons == ["attestation_unverified"]

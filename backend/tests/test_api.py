@@ -88,7 +88,9 @@ async def test_valid_payload_returns_201(client, registered_device):
     assert data["duplicate"] is False
     assert "received_at" in data
     assert "net_credit_t_co2e" in data
-    assert data["net_credit_t_co2e"] > 0  # LCA should calculate a positive credit
+    # Phase 7-R: without corroborating /yield + a qualifying /telemetry log, the
+    # batch is accepted but PROVISIONAL and earns no fabricated credit.
+    assert data["provisional"] is True
 
 
 @pytest.mark.asyncio
