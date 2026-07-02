@@ -390,6 +390,48 @@ CORS `allow_headers` still advertised the dead `X-Hmac-Signature` and omitted th
 
 ---
 
+## Phase 17 — Batch-ownership authorization on the evidence endpoints  `[SECURITY]`  ✅ DONE
+
+**Finding (CRITICAL, from the post-C4 deep review):** the six evidence endpoints
+(`/telemetry`, `/yield`, `/moisture`, `/application`, `/metadata`, `/composite-sample`) took
+`device_id = Depends(verify_signature)` — i.e. they authenticated the caller — but never used it.
+None checked that the caller **owns** the batch the evidence anchors to. Because the carbon credit is
+corroborated server-side from these streams (`recompute_batch_credit`), any *enrolled* device could
+inject telemetry/yield/application/moisture/composite rows into another device's batch and move its
+credit. This was authorization, not authentication: identity was proven, ownership was not. The media
+endpoint already did this check (`not_your_batch`, Phase 15-A); the JSON evidence channels did not, and
+C4 widened the surface by one more channel.
+
+**Fix:** one shared guard `_assert_batch_ownership(session, batch_uuid, device_id)`, called as the
+FIRST statement of every evidence handler (before any `session.add`), mirroring the media rule:
+  * batch exists + owned by another device → **403 `not_your_batch`** (the hole)
+  * batch exists + owned by this device / owner NULL → OK
+  * batch does not exist yet → OK (evidence-first is a legitimate flow; `create_batch` establishes
+    ownership from its own signed payload when it arrives, and drives the authoritative recompute then)
+  * malformed batch_uuid → passes through to the handler's own persistence/validation (cannot match an
+    owned batch, so not a bypass)
+
+No schema change; no client change (the honest client always signs as the batch owner, so the guard is
+transparent to it — proven by the full suite passing unchanged).
+
+**Tests:** `test_batch_ownership.py` — (1) a different enrolled device is 403'd on ALL SIX endpoints AND
+no row is persisted; (2) the owner posts to all six and gets 201; (3) evidence-first for an absent batch
+is still accepted on all six.
+
+**Gate:** backend `pytest` → **1 failed, 215 passed, 1 skipped** (+3 new tests; the 1 failure is the
+pre-existing `test_p0_21_hmac_secret` env artifact; **0 new failures**). No Flutter change (server-only).
+`ruff format` applied.
+
+**Follow-ups (unchanged by this phase, still open):** the one-to-one evidence tables (`telemetry`/
+`yield`/`application`) silently return `{"duplicate": true}` on the first-writer-wins IntegrityError —
+now that a foreign device is blocked *before* the insert, the residual risk is a legitimate owner's
+correction being dropped; consider upsert like `/metadata`. And same-device self-corroboration limits
+still apply (see the C6 transport cross-check + attestation TODO).
+
+**Intended commit:** `fix(security): enforce batch ownership on all evidence endpoints (not_your_batch)`
+
+---
+
 ## Phase C4 — Rainbow compliance: site composite pile sub-sample  `[COMPLIANCE]`  ✅ DONE
 
 **Requirement:** a biochar sub-sample set aside per run, tagged with **date/time, GPS, kiln ID/QR,

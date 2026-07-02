@@ -748,6 +748,47 @@ async def recompute_batch_credit(
     )
 
 
+async def _assert_batch_ownership(
+    session: AsyncSession, batch_uuid_str: str, device_id: str
+) -> None:
+    """Reject evidence targeting a batch owned by a DIFFERENT device.
+
+    Security (batch-ownership hardening): the evidence endpoints authenticate the
+    caller but historically never checked that the caller owns the batch the
+    evidence is anchored to. Because the credit is corroborated server-side from
+    these streams (recompute_batch_credit), any enrolled device could otherwise
+    inject telemetry/yield/application/moisture/composite rows into a victim's
+    batch and move its credit. This mirrors the media handler's `not_your_batch`
+    rule (upload_media).
+
+    Policy:
+      * batch exists AND is owned by another device  -> 403 not_your_batch
+      * batch exists AND owned by this device         -> OK
+      * batch owned by nobody yet (device_id NULL)    -> OK (legacy/unowned)
+      * batch does NOT exist yet                      -> OK (evidence-first is a
+        legitimate flow; create_batch establishes ownership from its own signed
+        payload when it arrives, and drives the authoritative recompute then)
+
+    A malformed batch_uuid is left for the endpoint's own persistence/validation
+    to handle; it cannot match an existing owned batch, so it is not a bypass.
+    """
+    try:
+        buid = uuid.UUID(batch_uuid_str)
+    except (ValueError, AttributeError, TypeError):
+        return
+    batch = (
+        await session.execute(select(Batch).where(Batch.batch_uuid == buid))
+    ).scalar_one_or_none()
+    if (
+        batch is not None
+        and batch.device_id is not None
+        and batch.device_id != device_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="not_your_batch"
+        )
+
+
 async def _recompute_if_batch_exists(
     session: AsyncSession, batch_uuid_str: str
 ) -> None:
@@ -1218,6 +1259,7 @@ async def create_moisture(
     device_id: str = Depends(verify_signature),
     session: AsyncSession = Depends(get_session),
 ):
+    await _assert_batch_ownership(session, payload.batch_uuid, device_id)
     row = MoistureReading(
         reading_uuid=payload.reading_uuid,
         batch_uuid=payload.batch_uuid,
@@ -1240,6 +1282,7 @@ async def create_composite_sample(
     device_id: str = Depends(verify_signature),
     session: AsyncSession = Depends(get_session),
 ):
+    await _assert_batch_ownership(session, payload.batch_uuid, device_id)
     row = CompositePileSample(
         sample_uuid=payload.sample_uuid,
         batch_uuid=payload.batch_uuid,
@@ -1262,6 +1305,7 @@ async def create_telemetry(
     device_id: str = Depends(verify_signature),
     session: AsyncSession = Depends(get_session),
 ):
+    await _assert_batch_ownership(session, payload.batch_uuid, device_id)
     row = PyrolysisTelemetry(
         telemetry_uuid=payload.telemetry_uuid,
         batch_uuid=payload.batch_uuid,
@@ -1283,6 +1327,7 @@ async def create_yield(
     device_id: str = Depends(verify_signature),
     session: AsyncSession = Depends(get_session),
 ):
+    await _assert_batch_ownership(session, payload.batch_uuid, device_id)
     row = YieldMetrics(
         yield_uuid=payload.yield_uuid,
         batch_uuid=payload.batch_uuid,
@@ -1304,6 +1349,7 @@ async def create_metadata(
     device_id: str = Depends(verify_signature),
     session: AsyncSession = Depends(get_session),
 ):
+    await _assert_batch_ownership(session, payload.batch_uuid, device_id)
     payload_json = json.dumps(payload.model_dump(mode="json"))
     row = SystemMetadata(batch_uuid=payload.batch_uuid, payload_json=payload_json)
     session.add(row)
@@ -1333,6 +1379,7 @@ async def create_application(
     device_id: str = Depends(verify_signature),
     session: AsyncSession = Depends(get_session),
 ):
+    await _assert_batch_ownership(session, payload.batch_uuid, device_id)
     row = EndUseApplication(
         application_uuid=payload.application_uuid,
         batch_uuid=payload.batch_uuid,
