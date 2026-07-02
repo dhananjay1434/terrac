@@ -33,6 +33,7 @@ const _uuid = Uuid();
     SyncOutbox,
     MediaCaptures,
     MoistureReadings,
+    CompositePileSamples,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -42,7 +43,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -211,6 +212,10 @@ class AppDatabase extends _$AppDatabase {
           pyrolysisTelemetry,
           pyrolysisTelemetry.ignitionEnergyAmount,
         );
+      }
+      if (from < 20) {
+        // Rainbow compliance C4: site composite pile sub-sample table.
+        await m.createTable(compositePileSamples);
       }
     },
   );
@@ -397,6 +402,53 @@ class AppDatabase extends _$AppDatabase {
     return readingUuid;
   }
 
+  /// Rainbow compliance C4: persist one site composite pile sub-sample + its
+  /// photo, atomically enqueued. The photo (photo_path/sha256_hash in the
+  /// payload) rides the existing two-phase signed /media upload path, so no new
+  /// media plumbing is needed. Routes to the /composite-sample endpoint.
+  Future<String> insertCompositePileSampleWithOutbox({
+    required String batchUuid,
+    String? sampledAt,
+    double? latitude,
+    double? longitude,
+    String? kilnQr,
+    String? batchQr,
+    String? photoPath,
+    String? sha256Hash,
+  }) async {
+    final sampleUuid = _uuid.v4();
+    final companion = CompositePileSamplesCompanion.insert(
+      sampleUuid: sampleUuid,
+      batchUuid: batchUuid,
+      sampledAt: Value(sampledAt),
+      latitude: Value(latitude),
+      longitude: Value(longitude),
+      kilnQr: Value(kilnQr),
+      batchQr: Value(batchQr),
+      sandboxPath: Value(photoPath),
+      sha256Hash: Value(sha256Hash),
+      createdAt: DateTime.now().toUtc().toIso8601String(),
+    );
+    final payload = <String, dynamic>{
+      'sample_uuid': sampleUuid,
+      'batch_uuid': batchUuid,
+      'sampled_at': sampledAt,
+      'latitude': latitude,
+      'longitude': longitude,
+      'kiln_qr': kilnQr,
+      'batch_qr': batchQr,
+      'photo_path': photoPath,
+      'sha256_hash': sha256Hash,
+    };
+    await insertWithOutbox(
+      batchUuid: batchUuid,
+      targetTable: 'composite_pile_samples',
+      payload: payload,
+      insertRow: () => into(compositePileSamples).insert(companion),
+    );
+    return sampleUuid;
+  }
+
   /// Raw parameterized telemetry query — TEST-ONLY. Gated behind
   /// [visibleForTesting] so it cannot be called from production code (Phase 12).
   /// Uses a bound variable (no string interpolation), so it is injection-safe.
@@ -433,6 +485,8 @@ class AppDatabase extends _$AppDatabase {
         await delete(endUseApplication).go();
         await delete(syncOutbox).go();
         await delete(mediaCaptures).go();
+        await delete(moistureReadings).go();
+        await delete(compositePileSamples).go();
       });
       await customStatement('VACUUM;');
       // 16E: fold WAL frames back into the (now-scrubbed) main file and truncate

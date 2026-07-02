@@ -5430,6 +5430,683 @@ class MoistureReadingsCompanion extends UpdateCompanion<MoistureReading> {
   }
 }
 
+class $CompositePileSamplesTable extends CompositePileSamples
+    with TableInfo<$CompositePileSamplesTable, CompositePileSample> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CompositePileSamplesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _sampleUuidMeta = const VerificationMeta(
+    'sampleUuid',
+  );
+  @override
+  late final GeneratedColumn<String> sampleUuid = GeneratedColumn<String>(
+    'sample_uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _batchUuidMeta = const VerificationMeta(
+    'batchUuid',
+  );
+  @override
+  late final GeneratedColumn<String> batchUuid = GeneratedColumn<String>(
+    'batch_uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES system_metadata (batch_uuid)',
+    ),
+  );
+  static const VerificationMeta _sampledAtMeta = const VerificationMeta(
+    'sampledAt',
+  );
+  @override
+  late final GeneratedColumn<String> sampledAt = GeneratedColumn<String>(
+    'sampled_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _latitudeMeta = const VerificationMeta(
+    'latitude',
+  );
+  @override
+  late final GeneratedColumn<double> latitude = GeneratedColumn<double>(
+    'latitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _longitudeMeta = const VerificationMeta(
+    'longitude',
+  );
+  @override
+  late final GeneratedColumn<double> longitude = GeneratedColumn<double>(
+    'longitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _kilnQrMeta = const VerificationMeta('kilnQr');
+  @override
+  late final GeneratedColumn<String> kilnQr = GeneratedColumn<String>(
+    'kiln_qr',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _batchQrMeta = const VerificationMeta(
+    'batchQr',
+  );
+  @override
+  late final GeneratedColumn<String> batchQr = GeneratedColumn<String>(
+    'batch_qr',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sandboxPathMeta = const VerificationMeta(
+    'sandboxPath',
+  );
+  @override
+  late final GeneratedColumn<String> sandboxPath = GeneratedColumn<String>(
+    'sandbox_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sha256HashMeta = const VerificationMeta(
+    'sha256Hash',
+  );
+  @override
+  late final GeneratedColumn<String> sha256Hash = GeneratedColumn<String>(
+    'sha256_hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    sampleUuid,
+    batchUuid,
+    sampledAt,
+    latitude,
+    longitude,
+    kilnQr,
+    batchQr,
+    sandboxPath,
+    sha256Hash,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'composite_pile_samples';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CompositePileSample> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('sample_uuid')) {
+      context.handle(
+        _sampleUuidMeta,
+        sampleUuid.isAcceptableOrUnknown(data['sample_uuid']!, _sampleUuidMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sampleUuidMeta);
+    }
+    if (data.containsKey('batch_uuid')) {
+      context.handle(
+        _batchUuidMeta,
+        batchUuid.isAcceptableOrUnknown(data['batch_uuid']!, _batchUuidMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_batchUuidMeta);
+    }
+    if (data.containsKey('sampled_at')) {
+      context.handle(
+        _sampledAtMeta,
+        sampledAt.isAcceptableOrUnknown(data['sampled_at']!, _sampledAtMeta),
+      );
+    }
+    if (data.containsKey('latitude')) {
+      context.handle(
+        _latitudeMeta,
+        latitude.isAcceptableOrUnknown(data['latitude']!, _latitudeMeta),
+      );
+    }
+    if (data.containsKey('longitude')) {
+      context.handle(
+        _longitudeMeta,
+        longitude.isAcceptableOrUnknown(data['longitude']!, _longitudeMeta),
+      );
+    }
+    if (data.containsKey('kiln_qr')) {
+      context.handle(
+        _kilnQrMeta,
+        kilnQr.isAcceptableOrUnknown(data['kiln_qr']!, _kilnQrMeta),
+      );
+    }
+    if (data.containsKey('batch_qr')) {
+      context.handle(
+        _batchQrMeta,
+        batchQr.isAcceptableOrUnknown(data['batch_qr']!, _batchQrMeta),
+      );
+    }
+    if (data.containsKey('sandbox_path')) {
+      context.handle(
+        _sandboxPathMeta,
+        sandboxPath.isAcceptableOrUnknown(
+          data['sandbox_path']!,
+          _sandboxPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sha256_hash')) {
+      context.handle(
+        _sha256HashMeta,
+        sha256Hash.isAcceptableOrUnknown(data['sha256_hash']!, _sha256HashMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {sampleUuid},
+  ];
+  @override
+  CompositePileSample map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CompositePileSample(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      sampleUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sample_uuid'],
+      )!,
+      batchUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}batch_uuid'],
+      )!,
+      sampledAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sampled_at'],
+      ),
+      latitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}latitude'],
+      ),
+      longitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}longitude'],
+      ),
+      kilnQr: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kiln_qr'],
+      ),
+      batchQr: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}batch_qr'],
+      ),
+      sandboxPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sandbox_path'],
+      ),
+      sha256Hash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sha256_hash'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CompositePileSamplesTable createAlias(String alias) {
+    return $CompositePileSamplesTable(attachedDatabase, alias);
+  }
+}
+
+class CompositePileSample extends DataClass
+    implements Insertable<CompositePileSample> {
+  final int id;
+  final String sampleUuid;
+  final String batchUuid;
+
+  /// When the sub-sample was set aside (ISO-8601 UTC).
+  final String? sampledAt;
+
+  /// Location where the sub-sample was taken.
+  final double? latitude;
+  final double? longitude;
+
+  /// Kiln ID/QR and batch ID/QR scanned at sampling (chain-of-custody linkage).
+  final String? kilnQr;
+  final String? batchQr;
+
+  /// Sandboxed photo of the sub-sample + its SHA-256 (uploaded via /media).
+  final String? sandboxPath;
+  final String? sha256Hash;
+  final String createdAt;
+  const CompositePileSample({
+    required this.id,
+    required this.sampleUuid,
+    required this.batchUuid,
+    this.sampledAt,
+    this.latitude,
+    this.longitude,
+    this.kilnQr,
+    this.batchQr,
+    this.sandboxPath,
+    this.sha256Hash,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['sample_uuid'] = Variable<String>(sampleUuid);
+    map['batch_uuid'] = Variable<String>(batchUuid);
+    if (!nullToAbsent || sampledAt != null) {
+      map['sampled_at'] = Variable<String>(sampledAt);
+    }
+    if (!nullToAbsent || latitude != null) {
+      map['latitude'] = Variable<double>(latitude);
+    }
+    if (!nullToAbsent || longitude != null) {
+      map['longitude'] = Variable<double>(longitude);
+    }
+    if (!nullToAbsent || kilnQr != null) {
+      map['kiln_qr'] = Variable<String>(kilnQr);
+    }
+    if (!nullToAbsent || batchQr != null) {
+      map['batch_qr'] = Variable<String>(batchQr);
+    }
+    if (!nullToAbsent || sandboxPath != null) {
+      map['sandbox_path'] = Variable<String>(sandboxPath);
+    }
+    if (!nullToAbsent || sha256Hash != null) {
+      map['sha256_hash'] = Variable<String>(sha256Hash);
+    }
+    map['created_at'] = Variable<String>(createdAt);
+    return map;
+  }
+
+  CompositePileSamplesCompanion toCompanion(bool nullToAbsent) {
+    return CompositePileSamplesCompanion(
+      id: Value(id),
+      sampleUuid: Value(sampleUuid),
+      batchUuid: Value(batchUuid),
+      sampledAt: sampledAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sampledAt),
+      latitude: latitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(latitude),
+      longitude: longitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(longitude),
+      kilnQr: kilnQr == null && nullToAbsent
+          ? const Value.absent()
+          : Value(kilnQr),
+      batchQr: batchQr == null && nullToAbsent
+          ? const Value.absent()
+          : Value(batchQr),
+      sandboxPath: sandboxPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sandboxPath),
+      sha256Hash: sha256Hash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sha256Hash),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory CompositePileSample.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CompositePileSample(
+      id: serializer.fromJson<int>(json['id']),
+      sampleUuid: serializer.fromJson<String>(json['sampleUuid']),
+      batchUuid: serializer.fromJson<String>(json['batchUuid']),
+      sampledAt: serializer.fromJson<String?>(json['sampledAt']),
+      latitude: serializer.fromJson<double?>(json['latitude']),
+      longitude: serializer.fromJson<double?>(json['longitude']),
+      kilnQr: serializer.fromJson<String?>(json['kilnQr']),
+      batchQr: serializer.fromJson<String?>(json['batchQr']),
+      sandboxPath: serializer.fromJson<String?>(json['sandboxPath']),
+      sha256Hash: serializer.fromJson<String?>(json['sha256Hash']),
+      createdAt: serializer.fromJson<String>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'sampleUuid': serializer.toJson<String>(sampleUuid),
+      'batchUuid': serializer.toJson<String>(batchUuid),
+      'sampledAt': serializer.toJson<String?>(sampledAt),
+      'latitude': serializer.toJson<double?>(latitude),
+      'longitude': serializer.toJson<double?>(longitude),
+      'kilnQr': serializer.toJson<String?>(kilnQr),
+      'batchQr': serializer.toJson<String?>(batchQr),
+      'sandboxPath': serializer.toJson<String?>(sandboxPath),
+      'sha256Hash': serializer.toJson<String?>(sha256Hash),
+      'createdAt': serializer.toJson<String>(createdAt),
+    };
+  }
+
+  CompositePileSample copyWith({
+    int? id,
+    String? sampleUuid,
+    String? batchUuid,
+    Value<String?> sampledAt = const Value.absent(),
+    Value<double?> latitude = const Value.absent(),
+    Value<double?> longitude = const Value.absent(),
+    Value<String?> kilnQr = const Value.absent(),
+    Value<String?> batchQr = const Value.absent(),
+    Value<String?> sandboxPath = const Value.absent(),
+    Value<String?> sha256Hash = const Value.absent(),
+    String? createdAt,
+  }) => CompositePileSample(
+    id: id ?? this.id,
+    sampleUuid: sampleUuid ?? this.sampleUuid,
+    batchUuid: batchUuid ?? this.batchUuid,
+    sampledAt: sampledAt.present ? sampledAt.value : this.sampledAt,
+    latitude: latitude.present ? latitude.value : this.latitude,
+    longitude: longitude.present ? longitude.value : this.longitude,
+    kilnQr: kilnQr.present ? kilnQr.value : this.kilnQr,
+    batchQr: batchQr.present ? batchQr.value : this.batchQr,
+    sandboxPath: sandboxPath.present ? sandboxPath.value : this.sandboxPath,
+    sha256Hash: sha256Hash.present ? sha256Hash.value : this.sha256Hash,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  CompositePileSample copyWithCompanion(CompositePileSamplesCompanion data) {
+    return CompositePileSample(
+      id: data.id.present ? data.id.value : this.id,
+      sampleUuid: data.sampleUuid.present
+          ? data.sampleUuid.value
+          : this.sampleUuid,
+      batchUuid: data.batchUuid.present ? data.batchUuid.value : this.batchUuid,
+      sampledAt: data.sampledAt.present ? data.sampledAt.value : this.sampledAt,
+      latitude: data.latitude.present ? data.latitude.value : this.latitude,
+      longitude: data.longitude.present ? data.longitude.value : this.longitude,
+      kilnQr: data.kilnQr.present ? data.kilnQr.value : this.kilnQr,
+      batchQr: data.batchQr.present ? data.batchQr.value : this.batchQr,
+      sandboxPath: data.sandboxPath.present
+          ? data.sandboxPath.value
+          : this.sandboxPath,
+      sha256Hash: data.sha256Hash.present
+          ? data.sha256Hash.value
+          : this.sha256Hash,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CompositePileSample(')
+          ..write('id: $id, ')
+          ..write('sampleUuid: $sampleUuid, ')
+          ..write('batchUuid: $batchUuid, ')
+          ..write('sampledAt: $sampledAt, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('kilnQr: $kilnQr, ')
+          ..write('batchQr: $batchQr, ')
+          ..write('sandboxPath: $sandboxPath, ')
+          ..write('sha256Hash: $sha256Hash, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    sampleUuid,
+    batchUuid,
+    sampledAt,
+    latitude,
+    longitude,
+    kilnQr,
+    batchQr,
+    sandboxPath,
+    sha256Hash,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CompositePileSample &&
+          other.id == this.id &&
+          other.sampleUuid == this.sampleUuid &&
+          other.batchUuid == this.batchUuid &&
+          other.sampledAt == this.sampledAt &&
+          other.latitude == this.latitude &&
+          other.longitude == this.longitude &&
+          other.kilnQr == this.kilnQr &&
+          other.batchQr == this.batchQr &&
+          other.sandboxPath == this.sandboxPath &&
+          other.sha256Hash == this.sha256Hash &&
+          other.createdAt == this.createdAt);
+}
+
+class CompositePileSamplesCompanion
+    extends UpdateCompanion<CompositePileSample> {
+  final Value<int> id;
+  final Value<String> sampleUuid;
+  final Value<String> batchUuid;
+  final Value<String?> sampledAt;
+  final Value<double?> latitude;
+  final Value<double?> longitude;
+  final Value<String?> kilnQr;
+  final Value<String?> batchQr;
+  final Value<String?> sandboxPath;
+  final Value<String?> sha256Hash;
+  final Value<String> createdAt;
+  const CompositePileSamplesCompanion({
+    this.id = const Value.absent(),
+    this.sampleUuid = const Value.absent(),
+    this.batchUuid = const Value.absent(),
+    this.sampledAt = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.kilnQr = const Value.absent(),
+    this.batchQr = const Value.absent(),
+    this.sandboxPath = const Value.absent(),
+    this.sha256Hash = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  CompositePileSamplesCompanion.insert({
+    this.id = const Value.absent(),
+    required String sampleUuid,
+    required String batchUuid,
+    this.sampledAt = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.kilnQr = const Value.absent(),
+    this.batchQr = const Value.absent(),
+    this.sandboxPath = const Value.absent(),
+    this.sha256Hash = const Value.absent(),
+    required String createdAt,
+  }) : sampleUuid = Value(sampleUuid),
+       batchUuid = Value(batchUuid),
+       createdAt = Value(createdAt);
+  static Insertable<CompositePileSample> custom({
+    Expression<int>? id,
+    Expression<String>? sampleUuid,
+    Expression<String>? batchUuid,
+    Expression<String>? sampledAt,
+    Expression<double>? latitude,
+    Expression<double>? longitude,
+    Expression<String>? kilnQr,
+    Expression<String>? batchQr,
+    Expression<String>? sandboxPath,
+    Expression<String>? sha256Hash,
+    Expression<String>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sampleUuid != null) 'sample_uuid': sampleUuid,
+      if (batchUuid != null) 'batch_uuid': batchUuid,
+      if (sampledAt != null) 'sampled_at': sampledAt,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (kilnQr != null) 'kiln_qr': kilnQr,
+      if (batchQr != null) 'batch_qr': batchQr,
+      if (sandboxPath != null) 'sandbox_path': sandboxPath,
+      if (sha256Hash != null) 'sha256_hash': sha256Hash,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  CompositePileSamplesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? sampleUuid,
+    Value<String>? batchUuid,
+    Value<String?>? sampledAt,
+    Value<double?>? latitude,
+    Value<double?>? longitude,
+    Value<String?>? kilnQr,
+    Value<String?>? batchQr,
+    Value<String?>? sandboxPath,
+    Value<String?>? sha256Hash,
+    Value<String>? createdAt,
+  }) {
+    return CompositePileSamplesCompanion(
+      id: id ?? this.id,
+      sampleUuid: sampleUuid ?? this.sampleUuid,
+      batchUuid: batchUuid ?? this.batchUuid,
+      sampledAt: sampledAt ?? this.sampledAt,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      kilnQr: kilnQr ?? this.kilnQr,
+      batchQr: batchQr ?? this.batchQr,
+      sandboxPath: sandboxPath ?? this.sandboxPath,
+      sha256Hash: sha256Hash ?? this.sha256Hash,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (sampleUuid.present) {
+      map['sample_uuid'] = Variable<String>(sampleUuid.value);
+    }
+    if (batchUuid.present) {
+      map['batch_uuid'] = Variable<String>(batchUuid.value);
+    }
+    if (sampledAt.present) {
+      map['sampled_at'] = Variable<String>(sampledAt.value);
+    }
+    if (latitude.present) {
+      map['latitude'] = Variable<double>(latitude.value);
+    }
+    if (longitude.present) {
+      map['longitude'] = Variable<double>(longitude.value);
+    }
+    if (kilnQr.present) {
+      map['kiln_qr'] = Variable<String>(kilnQr.value);
+    }
+    if (batchQr.present) {
+      map['batch_qr'] = Variable<String>(batchQr.value);
+    }
+    if (sandboxPath.present) {
+      map['sandbox_path'] = Variable<String>(sandboxPath.value);
+    }
+    if (sha256Hash.present) {
+      map['sha256_hash'] = Variable<String>(sha256Hash.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CompositePileSamplesCompanion(')
+          ..write('id: $id, ')
+          ..write('sampleUuid: $sampleUuid, ')
+          ..write('batchUuid: $batchUuid, ')
+          ..write('sampledAt: $sampledAt, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('kilnQr: $kilnQr, ')
+          ..write('batchQr: $batchQr, ')
+          ..write('sandboxPath: $sandboxPath, ')
+          ..write('sha256Hash: $sha256Hash, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5447,6 +6124,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $MoistureReadingsTable moistureReadings = $MoistureReadingsTable(
     this,
   );
+  late final $CompositePileSamplesTable compositePileSamples =
+      $CompositePileSamplesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5460,6 +6139,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     syncOutbox,
     mediaCaptures,
     moistureReadings,
+    compositePileSamples,
   ];
 }
 
@@ -5656,6 +6336,39 @@ final class $$SystemMetadataTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<
+    $CompositePileSamplesTable,
+    List<CompositePileSample>
+  >
+  _compositePileSamplesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.compositePileSamples,
+        aliasName: $_aliasNameGenerator(
+          db.systemMetadata.batchUuid,
+          db.compositePileSamples.batchUuid,
+        ),
+      );
+
+  $$CompositePileSamplesTableProcessedTableManager
+  get compositePileSamplesRefs {
+    final manager =
+        $$CompositePileSamplesTableTableManager(
+          $_db,
+          $_db.compositePileSamples,
+        ).filter(
+          (f) => f.batchUuid.batchUuid.sqlEquals(
+            $_itemColumn<String>('batch_uuid')!,
+          ),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _compositePileSamplesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$SystemMetadataTableFilterComposer
@@ -5838,6 +6551,31 @@ class $$SystemMetadataTableFilterComposer
           }) => $$MoistureReadingsTableFilterComposer(
             $db: $db,
             $table: $db.moistureReadings,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> compositePileSamplesRefs(
+    Expression<bool> Function($$CompositePileSamplesTableFilterComposer f) f,
+  ) {
+    final $$CompositePileSamplesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.compositePileSamples,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CompositePileSamplesTableFilterComposer(
+            $db: $db,
+            $table: $db.compositePileSamples,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6072,6 +6810,32 @@ class $$SystemMetadataTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> compositePileSamplesRefs<T extends Object>(
+    Expression<T> Function($$CompositePileSamplesTableAnnotationComposer a) f,
+  ) {
+    final $$CompositePileSamplesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.batchUuid,
+          referencedTable: $db.compositePileSamples,
+          getReferencedColumn: (t) => t.batchUuid,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CompositePileSamplesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.compositePileSamples,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$SystemMetadataTableTableManager
@@ -6094,6 +6858,7 @@ class $$SystemMetadataTableTableManager
             bool endUseApplicationRefs,
             bool mediaCapturesRefs,
             bool moistureReadingsRefs,
+            bool compositePileSamplesRefs,
           })
         > {
   $$SystemMetadataTableTableManager(
@@ -6161,6 +6926,7 @@ class $$SystemMetadataTableTableManager
                 endUseApplicationRefs = false,
                 mediaCapturesRefs = false,
                 moistureReadingsRefs = false,
+                compositePileSamplesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -6171,6 +6937,7 @@ class $$SystemMetadataTableTableManager
                     if (endUseApplicationRefs) db.endUseApplication,
                     if (mediaCapturesRefs) db.mediaCaptures,
                     if (moistureReadingsRefs) db.moistureReadings,
+                    if (compositePileSamplesRefs) db.compositePileSamples,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -6301,6 +7068,27 @@ class $$SystemMetadataTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (compositePileSamplesRefs)
+                        await $_getPrefetchedData<
+                          SystemMetadataData,
+                          $SystemMetadataTable,
+                          CompositePileSample
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SystemMetadataTableReferences
+                              ._compositePileSamplesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SystemMetadataTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).compositePileSamplesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.batchUuid == item.batchUuid,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -6328,6 +7116,7 @@ typedef $$SystemMetadataTableProcessedTableManager =
         bool endUseApplicationRefs,
         bool mediaCapturesRefs,
         bool moistureReadingsRefs,
+        bool compositePileSamplesRefs,
       })
     >;
 typedef $$BiomassSourcingTableCreateCompanionBuilder =
@@ -9400,6 +10189,461 @@ typedef $$MoistureReadingsTableProcessedTableManager =
       MoistureReading,
       PrefetchHooks Function({bool batchUuid})
     >;
+typedef $$CompositePileSamplesTableCreateCompanionBuilder =
+    CompositePileSamplesCompanion Function({
+      Value<int> id,
+      required String sampleUuid,
+      required String batchUuid,
+      Value<String?> sampledAt,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      Value<String?> kilnQr,
+      Value<String?> batchQr,
+      Value<String?> sandboxPath,
+      Value<String?> sha256Hash,
+      required String createdAt,
+    });
+typedef $$CompositePileSamplesTableUpdateCompanionBuilder =
+    CompositePileSamplesCompanion Function({
+      Value<int> id,
+      Value<String> sampleUuid,
+      Value<String> batchUuid,
+      Value<String?> sampledAt,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      Value<String?> kilnQr,
+      Value<String?> batchQr,
+      Value<String?> sandboxPath,
+      Value<String?> sha256Hash,
+      Value<String> createdAt,
+    });
+
+final class $$CompositePileSamplesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $CompositePileSamplesTable,
+          CompositePileSample
+        > {
+  $$CompositePileSamplesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $SystemMetadataTable _batchUuidTable(_$AppDatabase db) =>
+      db.systemMetadata.createAlias(
+        $_aliasNameGenerator(
+          db.compositePileSamples.batchUuid,
+          db.systemMetadata.batchUuid,
+        ),
+      );
+
+  $$SystemMetadataTableProcessedTableManager get batchUuid {
+    final $_column = $_itemColumn<String>('batch_uuid')!;
+
+    final manager = $$SystemMetadataTableTableManager(
+      $_db,
+      $_db.systemMetadata,
+    ).filter((f) => f.batchUuid.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_batchUuidTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$CompositePileSamplesTableFilterComposer
+    extends Composer<_$AppDatabase, $CompositePileSamplesTable> {
+  $$CompositePileSamplesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sampleUuid => $composableBuilder(
+    column: $table.sampleUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sampledAt => $composableBuilder(
+    column: $table.sampledAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kilnQr => $composableBuilder(
+    column: $table.kilnQr,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get batchQr => $composableBuilder(
+    column: $table.batchQr,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sandboxPath => $composableBuilder(
+    column: $table.sandboxPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sha256Hash => $composableBuilder(
+    column: $table.sha256Hash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$SystemMetadataTableFilterComposer get batchUuid {
+    final $$SystemMetadataTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.systemMetadata,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SystemMetadataTableFilterComposer(
+            $db: $db,
+            $table: $db.systemMetadata,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CompositePileSamplesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CompositePileSamplesTable> {
+  $$CompositePileSamplesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sampleUuid => $composableBuilder(
+    column: $table.sampleUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sampledAt => $composableBuilder(
+    column: $table.sampledAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kilnQr => $composableBuilder(
+    column: $table.kilnQr,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get batchQr => $composableBuilder(
+    column: $table.batchQr,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sandboxPath => $composableBuilder(
+    column: $table.sandboxPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sha256Hash => $composableBuilder(
+    column: $table.sha256Hash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$SystemMetadataTableOrderingComposer get batchUuid {
+    final $$SystemMetadataTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.systemMetadata,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SystemMetadataTableOrderingComposer(
+            $db: $db,
+            $table: $db.systemMetadata,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CompositePileSamplesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CompositePileSamplesTable> {
+  $$CompositePileSamplesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sampleUuid => $composableBuilder(
+    column: $table.sampleUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sampledAt =>
+      $composableBuilder(column: $table.sampledAt, builder: (column) => column);
+
+  GeneratedColumn<double> get latitude =>
+      $composableBuilder(column: $table.latitude, builder: (column) => column);
+
+  GeneratedColumn<double> get longitude =>
+      $composableBuilder(column: $table.longitude, builder: (column) => column);
+
+  GeneratedColumn<String> get kilnQr =>
+      $composableBuilder(column: $table.kilnQr, builder: (column) => column);
+
+  GeneratedColumn<String> get batchQr =>
+      $composableBuilder(column: $table.batchQr, builder: (column) => column);
+
+  GeneratedColumn<String> get sandboxPath => $composableBuilder(
+    column: $table.sandboxPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sha256Hash => $composableBuilder(
+    column: $table.sha256Hash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$SystemMetadataTableAnnotationComposer get batchUuid {
+    final $$SystemMetadataTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.systemMetadata,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SystemMetadataTableAnnotationComposer(
+            $db: $db,
+            $table: $db.systemMetadata,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CompositePileSamplesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CompositePileSamplesTable,
+          CompositePileSample,
+          $$CompositePileSamplesTableFilterComposer,
+          $$CompositePileSamplesTableOrderingComposer,
+          $$CompositePileSamplesTableAnnotationComposer,
+          $$CompositePileSamplesTableCreateCompanionBuilder,
+          $$CompositePileSamplesTableUpdateCompanionBuilder,
+          (CompositePileSample, $$CompositePileSamplesTableReferences),
+          CompositePileSample,
+          PrefetchHooks Function({bool batchUuid})
+        > {
+  $$CompositePileSamplesTableTableManager(
+    _$AppDatabase db,
+    $CompositePileSamplesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CompositePileSamplesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CompositePileSamplesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CompositePileSamplesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> sampleUuid = const Value.absent(),
+                Value<String> batchUuid = const Value.absent(),
+                Value<String?> sampledAt = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                Value<String?> kilnQr = const Value.absent(),
+                Value<String?> batchQr = const Value.absent(),
+                Value<String?> sandboxPath = const Value.absent(),
+                Value<String?> sha256Hash = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+              }) => CompositePileSamplesCompanion(
+                id: id,
+                sampleUuid: sampleUuid,
+                batchUuid: batchUuid,
+                sampledAt: sampledAt,
+                latitude: latitude,
+                longitude: longitude,
+                kilnQr: kilnQr,
+                batchQr: batchQr,
+                sandboxPath: sandboxPath,
+                sha256Hash: sha256Hash,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String sampleUuid,
+                required String batchUuid,
+                Value<String?> sampledAt = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                Value<String?> kilnQr = const Value.absent(),
+                Value<String?> batchQr = const Value.absent(),
+                Value<String?> sandboxPath = const Value.absent(),
+                Value<String?> sha256Hash = const Value.absent(),
+                required String createdAt,
+              }) => CompositePileSamplesCompanion.insert(
+                id: id,
+                sampleUuid: sampleUuid,
+                batchUuid: batchUuid,
+                sampledAt: sampledAt,
+                latitude: latitude,
+                longitude: longitude,
+                kilnQr: kilnQr,
+                batchQr: batchQr,
+                sandboxPath: sandboxPath,
+                sha256Hash: sha256Hash,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$CompositePileSamplesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({batchUuid = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (batchUuid) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.batchUuid,
+                                referencedTable:
+                                    $$CompositePileSamplesTableReferences
+                                        ._batchUuidTable(db),
+                                referencedColumn:
+                                    $$CompositePileSamplesTableReferences
+                                        ._batchUuidTable(db)
+                                        .batchUuid,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$CompositePileSamplesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CompositePileSamplesTable,
+      CompositePileSample,
+      $$CompositePileSamplesTableFilterComposer,
+      $$CompositePileSamplesTableOrderingComposer,
+      $$CompositePileSamplesTableAnnotationComposer,
+      $$CompositePileSamplesTableCreateCompanionBuilder,
+      $$CompositePileSamplesTableUpdateCompanionBuilder,
+      (CompositePileSample, $$CompositePileSamplesTableReferences),
+      CompositePileSample,
+      PrefetchHooks Function({bool batchUuid})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -9420,4 +10664,6 @@ class $AppDatabaseManager {
       $$MediaCapturesTableTableManager(_db, _db.mediaCaptures);
   $$MoistureReadingsTableTableManager get moistureReadings =>
       $$MoistureReadingsTableTableManager(_db, _db.moistureReadings);
+  $$CompositePileSamplesTableTableManager get compositePileSamples =>
+      $$CompositePileSamplesTableTableManager(_db, _db.compositePileSamples);
 }

@@ -108,6 +108,28 @@ class MoistureReading(Base):
     )
 
 
+class CompositePileSample(Base):
+    """Rainbow compliance C4: a site composite pile sub-sample (many per batch).
+
+    Like moisture_readings, batch_uuid is indexed but NOT unique — the
+    methodology sets aside sub-samples per run, each tagged with GPS + kiln/batch
+    QR + a photo.
+    """
+
+    __tablename__ = "composite_pile_samples"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    sample_uuid: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, index=True
+    )
+    batch_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class Batch(Base):
     __tablename__ = "batches"
 

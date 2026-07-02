@@ -1,10 +1,10 @@
 import 'package:drift/drift.dart';
 
 /// =============================================================================
-/// Kon-Tiki Biochar dMRV — Local Drift Schema  (schemaVersion = 19)
+/// Kon-Tiki Biochar dMRV — Local Drift Schema  (schemaVersion = 20)
 /// =============================================================================
 ///
-/// The authoritative version is `AppDatabase.schemaVersion` (currently 19). Keep
+/// The authoritative version is `AppDatabase.schemaVersion` (currently 20). Keep
 /// this header in sync with it. `onUpgrade` applies cumulative `if (from < N)`
 /// blocks, so v5, v13 and v14 have no dedicated block (nothing new landed there).
 ///
@@ -35,6 +35,7 @@ import 'package:drift/drift.dart';
 ///   v17:            biomass_input_kg + biomass_measurement_method on biomass_sourcing (Rainbow C1).
 ///   v18:            moisture_readings table — per-reading moisture + photo (Rainbow C2).
 ///   v19:            flame_height_m + ignition_energy_type/amount on pyrolysis_telemetry (Rainbow C3/C3b).
+///   v20:            composite_pile_samples table — site composite sub-sample + photo (Rainbow C4).
 /// =============================================================================
 
 class SystemMetadata extends Table {
@@ -260,5 +261,36 @@ class MoistureReadings extends Table {
   List<Set<Column>> get uniqueKeys => [
     {readingUuid},
     {batchUuid, sequence},
+  ];
+}
+
+/// v20 — Rainbow compliance C4: site composite pile sub-sample.
+/// The methodology requires a biochar sub-sample set aside per run, tagged with
+/// date/time, GPS, the kiln ID/QR and batch ID/QR, and photographed. One row per
+/// sub-sample (many per batch); the photo rides the existing signed /media path.
+class CompositePileSamples extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get sampleUuid => text()();
+  TextColumn get batchUuid => text().references(SystemMetadata, #batchUuid)();
+
+  /// When the sub-sample was set aside (ISO-8601 UTC).
+  TextColumn get sampledAt => text().nullable()();
+
+  /// Location where the sub-sample was taken.
+  RealColumn get latitude => real().nullable()();
+  RealColumn get longitude => real().nullable()();
+
+  /// Kiln ID/QR and batch ID/QR scanned at sampling (chain-of-custody linkage).
+  TextColumn get kilnQr => text().nullable()();
+  TextColumn get batchQr => text().nullable()();
+
+  /// Sandboxed photo of the sub-sample + its SHA-256 (uploaded via /media).
+  TextColumn get sandboxPath => text().nullable()();
+  TextColumn get sha256Hash => text().nullable()();
+  TextColumn get createdAt => text()();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+    {sampleUuid},
   ];
 }

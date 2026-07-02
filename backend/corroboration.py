@@ -163,6 +163,24 @@ def derive_ignition_compliance(
     return bool(ignition_energy_type)
 
 
+def derive_composite_sample_compliance(
+    photographed_sample_count: int, *, enforced: bool = False
+) -> tuple[bool, Optional[str]]:
+    """Rainbow C4: a site composite pile sub-sample (photographed) must be set
+    aside per run. `photographed_sample_count` is the number of composite-sample
+    rows carrying a photo hash. Returns (compliant, reason_if_not).
+
+    Inert by default (`enforced=False`) so existing flows are untouched until the
+    unified issuance gate (C10) turns it on — mirrors how C1's biomass reason is
+    deferred. When enforced, requires at least one photographed sub-sample.
+    """
+    if not enforced:
+        return True, None
+    if photographed_sample_count < 1:
+        return False, "missing_composite_sample"
+    return True, None
+
+
 def assemble(
     wet_yield: Optional[float],
     min_temp: Optional[float],
@@ -174,6 +192,7 @@ def assemble(
     pyrolysis_photos_ok: bool = True,
     flame_height_ok: bool = True,
     ignition_ok: bool = True,
+    composite_sample_ok: bool = True,
 ) -> Corroboration:
     """Combine the derived inputs into a Corroboration, computing provisional
     status and the ordered list of reasons a batch is not yet issuable.
@@ -203,6 +222,8 @@ def assemble(
         reasons.append("flame_height_out_of_range")
     if not ignition_ok:
         reasons.append("missing_ignition_energy")
+    if not composite_sample_ok:
+        reasons.append("missing_composite_sample")
     return Corroboration(
         wet_yield_kg=wet_yield,
         min_recorded_temp_c=min_temp,

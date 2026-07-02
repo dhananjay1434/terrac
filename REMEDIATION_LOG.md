@@ -390,6 +390,42 @@ CORS `allow_headers` still advertised the dead `X-Hmac-Signature` and omitted th
 
 ---
 
+## Phase C4 — Rainbow compliance: site composite pile sub-sample  `[COMPLIANCE]`  ✅ DONE
+
+**Requirement:** a biochar sub-sample set aside per run, tagged with **date/time, GPS, kiln ID/QR,
+batch ID/QR** and **photographed**. New evidence channel (many sub-samples per batch). Additive; new
+table on both client and server.
+
+**Changes**
+- Client: new Drift table `CompositePileSamples` (`sampleUuid` unique, `batchUuid` FK/indexed,
+  `sampledAt`, `latitude`, `longitude`, `kilnQr`, `batchQr`, `sandboxPath`, `sha256Hash`, `createdAt`).
+  Registered in `@DriftDatabase`; `schemaVersion` 19→20; additive `if (from<20)` `createTable` migration;
+  header v20. Writer `insertCompositePileSampleWithOutbox` (photo rides the existing signed two-phase
+  `/media` path). `kEndpointByTable` adds `composite_pile_samples → composite-sample`. `.g.dart`
+  regenerated (`$CompositePileSamplesTable` present). Also added `moistureReadings` (C2, pre-existing
+  gap) **and** `compositePileSamples` to `secureWipe` so their PII/GPS is scrubbed.
+- Server: `CompositePileSample` model (`sample_uuid` unique, `batch_uuid` indexed — many per batch);
+  Alembic `a7b8c9d0e1f2` (create table + indexes; `down_revision=f6a7b8c9d0e1`). Strict
+  `CompositeSamplePayload` (`extra="forbid"`, length/range-bounded) + `POST /api/v1/composite-sample`
+  (signed via `verify_signature`) → persist + `_recompute_if_batch_exists` (idempotent dedupe on
+  IntegrityError).
+- Compliance (pure, `corroboration.py`): `derive_composite_sample_compliance(count, *, enforced=False)`
+  → reason `missing_composite_sample`. **Inert by default** (deferred to the C10 unified gate, mirroring
+  C1) so existing flows are unaffected. `assemble` gains `composite_sample_ok`. `recompute_batch_credit`
+  counts photographed composite-sample rows and passes it through.
+
+**Tests:** `test_composite_sample_flow.py` — deriver inert by default / enforced requires a photographed
+sample; endpoint persists (round-trips kiln_qr) and stays non-gating; IntegrityError dedupe path.
+
+**Gate:** Alembic `upgrade head → downgrade base → upgrade head` clean on an aiosqlite temp DB
+(space-free path); codegen exit 0; backend `pytest` → **1 failed, 212 passed, 1 skipped** (+4 new C4
+tests; the 1 failure is the pre-existing `test_p0_21_hmac_secret`; **0 new failures**); `flutter analyze`
+25 / 0 errors; `flutter test` **149 passed, 2 skipped**; `ruff`+`dart format` applied.
+
+**Intended commit:** `feat(dmrv): site composite pile sub-sample evidence channel (Rainbow C4)`
+
+---
+
 ## Phase C3 / C3b — Rainbow compliance: pyrolysis evidence + ignition energy  `[COMPLIANCE]`  ✅ DONE
 
 **Requirement:** open-kiln — photos of **flame curtain / quenching / flame height** and **flame height

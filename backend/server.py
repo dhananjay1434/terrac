@@ -48,6 +48,7 @@ import piexif
 from db import get_session, init_db
 from models import (
     Batch,
+    CompositePileSample,
     DeviceKey,
     EndUseApplication,
     EnrollmentToken,
@@ -60,6 +61,7 @@ from models import (
 from lca_engine import CORG_TABLE, calculate_carbon_credit, sign_lca_audit
 from corroboration import (
     assemble,
+    derive_composite_sample_compliance,
     derive_ignition_compliance,
     derive_min_temp,
     derive_moisture_compliance,
@@ -656,6 +658,24 @@ async def recompute_batch_credit(
     )
     moisture_ok, _ = derive_moisture_compliance(photographed, batch.biomass_input_kg)
 
+    # Rainbow C4: count photographed composite pile sub-samples. Inert by default
+    # (enforced at the C10 unified gate) so existing flows are unaffected.
+    cs_rows = (
+        (
+            await session.execute(
+                select(CompositePileSample).where(
+                    CompositePileSample.batch_uuid == buid
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    photographed_samples = sum(
+        1 for r in cs_rows if json.loads(r.payload_json).get("sha256_hash")
+    )
+    composite_sample_ok, _ = derive_composite_sample_compliance(photographed_samples)
+
     # Rainbow C3/C3b: kiln-type-conditional pyrolysis-photo, flame-height and
     # ignition-energy compliance, read from the telemetry payload. Inert unless
     # kiln_type is explicitly 'open'/'closed'.
@@ -681,6 +701,7 @@ async def recompute_batch_credit(
         pyrolysis_photos_ok=photos_ok,
         flame_height_ok=flame_ok,
         ignition_ok=ignition_ok,
+        composite_sample_ok=composite_sample_ok,
     )
 
     kwargs = {}
@@ -1177,6 +1198,20 @@ class MoisturePayload(BaseModel):
     sha256_hash: Optional[str] = Field(None, min_length=64, max_length=64)
 
 
+class CompositeSamplePayload(BaseModel):
+    # Rainbow compliance C4: one site composite pile sub-sample (many per batch).
+    model_config = ConfigDict(extra="forbid")
+    sample_uuid: str = Field(..., max_length=64)
+    batch_uuid: str = Field(..., max_length=64)
+    sampled_at: Optional[str] = Field(None, max_length=64)
+    latitude: Optional[float] = Field(None, ge=-90.0, le=90.0)
+    longitude: Optional[float] = Field(None, ge=-180.0, le=180.0)
+    kiln_qr: Optional[str] = Field(None, max_length=128)
+    batch_qr: Optional[str] = Field(None, max_length=128)
+    photo_path: Optional[str] = Field(None, max_length=512)
+    sha256_hash: Optional[str] = Field(None, min_length=64, max_length=64)
+
+
 @app.post("/api/v1/moisture", status_code=status.HTTP_201_CREATED)
 async def create_moisture(
     payload: MoisturePayload,
@@ -1195,6 +1230,28 @@ async def create_moisture(
         await session.rollback()
         return {"status": "success", "duplicate": True}
     # New reading may satisfy the moisture-sample-count compliance rule.
+    await _recompute_if_batch_exists(session, payload.batch_uuid)
+    return {"status": "success", "duplicate": False}
+
+
+@app.post("/api/v1/composite-sample", status_code=status.HTTP_201_CREATED)
+async def create_composite_sample(
+    payload: CompositeSamplePayload,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+):
+    row = CompositePileSample(
+        sample_uuid=payload.sample_uuid,
+        batch_uuid=payload.batch_uuid,
+        payload_json=json.dumps(payload.model_dump(mode="json")),
+    )
+    session.add(row)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return {"status": "success", "duplicate": True}
+    # New sub-sample may satisfy the C4 composite-sample compliance rule.
     await _recompute_if_batch_exists(session, payload.batch_uuid)
     return {"status": "success", "duplicate": False}
 
