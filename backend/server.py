@@ -68,11 +68,14 @@ from emission_factors import TRANSPORT_EVENTS_ENFORCED, fuel_emissions_kg_co2e
 from lca_engine import CORG_TABLE, calculate_carbon_credit, sign_lca_audit
 from corroboration import (
     assemble,
+    derive_biomass_compliance,
     derive_composite_sample_compliance,
     derive_delivery_compliance,
     derive_ignition_compliance,
+    derive_kiln_registration_compliance,
     derive_min_temp,
     derive_moisture_compliance,
+    derive_pah_compliance,
     derive_pyrolysis_photo_compliance,
     derive_transport_km,
     derive_wet_yield,
@@ -827,6 +830,47 @@ async def recompute_batch_credit(
         te_payloads and gps_km > 0.0 and reported_transport_km < 0.5 * gps_km
     )
 
+    # ---- Rainbow C10: unified issuance-gate signals -------------------------
+    # Fold the previously-deferred methodology checks into the provisional gate.
+    # Only signals whose linkage is resolvable from batch state are emitted; the
+    # project/scale-scoped checks (scale calibration, annual methane) require a
+    # batch→project/scale linkage that does not exist yet, so they stay dormant
+    # rather than gate every batch spuriously (documented C10 follow-up).
+    c10_reasons: list[str] = []
+
+    # C1: biomass input amount + method (persisted on the batch).
+    _biomass_ok, _biomass_reason = derive_biomass_compliance(
+        batch.biomass_input_kg, batch.biomass_measurement_method
+    )
+    if _biomass_reason:
+        c10_reasons.append(_biomass_reason)
+
+    # C8: the batch's kiln (telemetry kiln_id) must be in the project registry.
+    kiln_id = tel_payload.get("kiln_id") if tel_payload else None
+    kiln_registered = False
+    if kiln_id:
+        kiln_registered = (
+            await session.execute(select(Kiln.id).where(Kiln.kiln_id == kiln_id))
+        ).first() is not None
+    _kiln_ok, _kiln_reason = derive_kiln_registration_compliance(
+        kiln_id, kiln_registered
+    )
+    if _kiln_reason:
+        c10_reasons.append(_kiln_reason)
+
+    # C9: PAH is mandatory for closed kilns. Resolve from the batch's project-year
+    # verification IF a project linkage exists; absent linkage, evaluate against
+    # any verification carrying a PAH flag is not possible, so PAH is only gated
+    # when kiln_type == 'closed' AND we can resolve it — dormant otherwise.
+    # (kiln registration above already ties the batch to a kiln; project linkage
+    # is the missing piece for the annual/scale checks — see follow-up.)
+    pah_measured = False  # no batch→project linkage yet; stays dormant unless closed
+    _pah_ok, _pah_reason = derive_pah_compliance(
+        kiln_type, pah_measured, enforced=False
+    )
+    if _pah_reason:
+        c10_reasons.append(_pah_reason)
+
     effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
     # C7: prefer a lab-measured organic-carbon fraction over the species constant.
     effective_corg = lab_corg if lab_corg is not None else batch.organic_carbon_pct
@@ -844,6 +888,7 @@ async def recompute_batch_credit(
         composite_sample_ok=composite_sample_ok,
         delivery_ok=delivery_ok,
         buyer_ok=buyer_ok,
+        extra_reasons=c10_reasons,
     )
 
     kwargs = {}
@@ -1915,4 +1960,91 @@ async def register_annual_verification(
         "project_id": payload.project_id,
         "year": payload.year,
         "updated": True,
+    }
+
+
+# ==================== C10: unified compliance gate + report ====================
+# Every provisional reason `assemble` can emit, mapped to its methodology section
+# and a human-readable label. Ordered so the checklist reads project → per-run →
+# per-batch → lab. This is the single source of truth for the compliance report.
+_COMPLIANCE_CATALOG: list[tuple[str, str, str]] = [
+    # (reason_code, methodology_section, human_label)
+    ("missing_biomass_input", "per-run (C1)", "Biomass input amount not recorded"),
+    (
+        "missing_conversion_factor",
+        "per-run (C1)",
+        "Biomass yield-conversion factor missing",
+    ),
+    ("wet_yield_uncorroborated", "per-run", "Wet biochar yield not corroborated"),
+    ("min_temp_uncorroborated", "per-run", "Minimum burn temperature not corroborated"),
+    (
+        "insufficient_moisture_samples",
+        "per-run (C2)",
+        "Too few photographed moisture readings",
+    ),
+    ("missing_pyrolysis_photos", "per-run (C3)", "Open-kiln pyrolysis photos missing"),
+    (
+        "flame_height_out_of_range",
+        "per-run (C3)",
+        "Open-kiln flame height out of range",
+    ),
+    ("missing_ignition_energy", "per-run (C3b)", "Closed-kiln ignition energy missing"),
+    (
+        "missing_composite_sample",
+        "per-run (C4)",
+        "Site composite pile sub-sample missing",
+    ),
+    ("transport_uncorroborated", "per-event", "Transport distance not corroborated"),
+    ("missing_delivery_record", "per-batch (C5)", "Delivery record missing"),
+    ("missing_buyer_identity", "per-batch (C5)", "Buyer/end-user identity missing"),
+    ("unregistered_kiln", "project (C8)", "Kiln not in the project registry"),
+    ("scale_calibration_expired", "project (C8)", "Scale calibration missing/expired"),
+    ("missing_annual_methane", "annual (C9)", "Current methane measurement missing"),
+    ("missing_pah", "annual (C9)", "Closed-kiln PAH measurement missing"),
+    ("assumed_h_corg", "lab (C7)", "H:Corg permanence ratio not lab-measured"),
+    ("assumed_corg", "lab (C7)", "Organic carbon not lab-measured"),
+    ("attestation_unverified", "security", "Device attestation unverified"),
+]
+
+
+@app.get("/api/v1/batches/{batch_uuid}/compliance")
+async def batch_compliance(
+    batch_uuid: str,
+    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    session: AsyncSession = Depends(get_session),
+):
+    """C10 unified compliance report for a batch (admin).
+
+    Returns the ordered provisional reasons plus a human checklist mapping every
+    methodology item to pass/fail, so a Project Developer sees exactly what is
+    missing before issuance. `issuable` mirrors `not provisional`.
+    """
+    _require_admin(x_admin_secret)
+    try:
+        buid = uuid.UUID(batch_uuid)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail="invalid_batch_uuid")
+    batch = (
+        await session.execute(select(Batch).where(Batch.batch_uuid == buid))
+    ).scalar_one_or_none()
+    if batch is None:
+        raise HTTPException(status_code=404, detail="unknown_batch")
+
+    reasons = json.loads(batch.provisional_reasons or "[]")
+    reason_set = set(reasons)
+    checklist = [
+        {
+            "code": code,
+            "section": section,
+            "label": label,
+            "ok": code not in reason_set,
+        }
+        for code, section, label in _COMPLIANCE_CATALOG
+    ]
+    return {
+        "batch_uuid": str(buid),
+        "provisional": batch.provisional,
+        "issuable": not batch.provisional,
+        "reasons": reasons,
+        "checklist": checklist,
     }

@@ -145,7 +145,19 @@ async def test_credit_converges_as_evidence_arrives(
     assert batch.min_recorded_temp_c == 650.0
     assert batch.transport_distance_km > 100.0
     assert batch.net_credit_t_co2e != 0.0
-    # Still provisional ONLY because the lab permanence inputs are unsupplied:
-    # H:Corg (Phase 8-R) and organic Corg (C7 — previously a species constant).
-    assert json.loads(batch.provisional_reasons) == ["assumed_h_corg", "assumed_corg"]
+    # This test exercises PHYSICAL-input convergence, so those reasons must be
+    # cleared. The batch is still provisional for the non-physical methodology
+    # items it does not supply (lab permanence + C10 project/per-batch data) —
+    # the fully-issuable path is covered by test_compliance_gate_c10.py.
+    reasons = json.loads(batch.provisional_reasons)
+    for cleared in (
+        "wet_yield_uncorroborated",
+        "min_temp_uncorroborated",
+        "transport_uncorroborated",
+        "insufficient_moisture_samples",
+    ):
+        assert cleared not in reasons
+    # Lab permanence inputs still assumed (no lab supplied).
+    assert "assumed_h_corg" in reasons
+    assert "assumed_corg" in reasons
     assert batch.provisional is True

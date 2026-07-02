@@ -19,9 +19,10 @@ from corroboration import derive_composite_sample_compliance
 pytestmark = pytest.mark.asyncio
 
 
-def test_deriver_inert_by_default():
-    # Zero samples, not enforced -> compliant, no reason.
-    assert derive_composite_sample_compliance(0) == (True, None)
+def test_deriver_inert_when_opted_out():
+    # C10 enforces this by default; a caller can still opt out (enforced=False),
+    # in which case zero samples is compliant with no reason.
+    assert derive_composite_sample_compliance(0, enforced=False) == (True, None)
 
 
 def test_deriver_enforced_requires_a_photographed_sample():

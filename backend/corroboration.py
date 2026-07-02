@@ -26,6 +26,20 @@ from typing import Callable, Optional
 # at least this many samples to count as a qualifying burn record.
 MIN_TEMPERATURE_SAMPLES = 60
 
+# Rainbow C10 — unified issuance gate. When True, the previously-inert methodology
+# checks (C1 biomass, C4 composite sample, C5 delivery/buyer, C8 kiln registration +
+# scale calibration, C9 annual methane + closed-kiln PAH) are ENFORCED: a batch
+# missing any of them stays provisional and is not issuable. Flipped on at C10;
+# each deriver takes an `enforced` override so a caller/test can opt out.
+#
+# NOTE: this gate is about methodology COMPLETENESS, not the credit-math flips that
+# still need methodology sign-off (C6 transport-emission factors, C9 methane→CH4
+# penalty, C9 conversion_factor→C1 yield_conversion, C7 1000-yr inertinite pathway).
+COMPLIANCE_ENFORCED = True
+
+# C9: minimum representative kiln runs for the annual methane measurement.
+MIN_METHANE_RUNS = 3
+
 
 @dataclass
 class Corroboration:
@@ -164,15 +178,15 @@ def derive_ignition_compliance(
 
 
 def derive_composite_sample_compliance(
-    photographed_sample_count: int, *, enforced: bool = False
+    photographed_sample_count: int, *, enforced: bool = COMPLIANCE_ENFORCED
 ) -> tuple[bool, Optional[str]]:
     """Rainbow C4: a site composite pile sub-sample (photographed) must be set
     aside per run. `photographed_sample_count` is the number of composite-sample
     rows carrying a photo hash. Returns (compliant, reason_if_not).
 
-    Inert by default (`enforced=False`) so existing flows are untouched until the
-    unified issuance gate (C10) turns it on — mirrors how C1's biomass reason is
-    deferred. When enforced, requires at least one photographed sub-sample.
+    Enforced at the C10 unified gate (`COMPLIANCE_ENFORCED`); a caller/test can
+    pass `enforced=False` to opt out. When enforced, requires at least one
+    photographed sub-sample.
     """
     if not enforced:
         return True, None
@@ -181,8 +195,32 @@ def derive_composite_sample_compliance(
     return True, None
 
 
+def derive_biomass_compliance(
+    biomass_input_kg: Optional[float],
+    biomass_measurement_method: Optional[str],
+    *,
+    enforced: bool = COMPLIANCE_ENFORCED,
+) -> tuple[bool, Optional[str]]:
+    """Rainbow C1: the biomass input amount + how it was measured must be recorded.
+
+    Deferred from C1 (data-capture) to the C10 gate. Returns (compliant,
+    reason_if_not): `missing_biomass_input` when no positive amount is recorded;
+    `missing_conversion_factor` when the method is 'yield_conversion' but no amount
+    was derived (a yield-converted amount still needs the amount present).
+    """
+    if not enforced:
+        return True, None
+    if not biomass_input_kg or biomass_input_kg <= 0:
+        # A yield_conversion method with no amount specifically flags the missing
+        # conversion; otherwise the raw input amount is missing.
+        if biomass_measurement_method == "yield_conversion":
+            return False, "missing_conversion_factor"
+        return False, "missing_biomass_input"
+    return True, None
+
+
 def derive_delivery_compliance(
-    app_payload: Optional[dict], *, enforced: bool = False
+    app_payload: Optional[dict], *, enforced: bool = COMPLIANCE_ENFORCED
 ) -> tuple[bool, bool]:
     """Rainbow C5: delivery record + buyer/end-user identity on the /application.
 
@@ -191,7 +229,7 @@ def derive_delivery_compliance(
         delivered amount was captured for this batch).
       * buyer_ok     — the buyer/end-user is identified (a name is present).
 
-    Inert by default (`enforced=False`, deferred to the C10 unified gate,
+    Enforced at the C10 unified gate (`COMPLIANCE_ENFORCED`; deferred there,
     mirroring C4/C1) so existing flows are untouched. When enforced, a missing
     delivery record or buyer identity flips the batch provisional via
     `missing_delivery_record` / `missing_buyer_identity`.
@@ -202,6 +240,67 @@ def derive_delivery_compliance(
     delivery_ok = bool(p.get("delivery_date") or p.get("delivered_amount_kg"))
     buyer_ok = bool((p.get("buyer_name") or "").strip())
     return delivery_ok, buyer_ok
+
+
+def derive_kiln_registration_compliance(
+    kiln_id: Optional[str],
+    kiln_is_registered: bool,
+    *,
+    enforced: bool = COMPLIANCE_ENFORCED,
+) -> tuple[bool, Optional[str]]:
+    """Rainbow C8: the batch's kiln (telemetry `kiln_id`, C0) must be registered
+    in the project kiln registry. `kiln_is_registered` is resolved by the caller
+    (DB lookup). Inert when no kiln_id is declared (older flows) or unenforced.
+    Returns (compliant, `unregistered_kiln`)."""
+    if not enforced or not kiln_id:
+        return True, None
+    if not kiln_is_registered:
+        return False, "unregistered_kiln"
+    return True, None
+
+
+def derive_scale_calibration_compliance(
+    has_in_date_calibration: bool, *, enforced: bool = COMPLIANCE_ENFORCED
+) -> tuple[bool, Optional[str]]:
+    """Rainbow C8: the weighing scale must have an in-date calibration on file.
+    `has_in_date_calibration` is resolved by the caller (a scale_calibrations row
+    whose valid_until is in the future). Returns (compliant,
+    `scale_calibration_expired`)."""
+    if not enforced:
+        return True, None
+    if not has_in_date_calibration:
+        return False, "scale_calibration_expired"
+    return True, None
+
+
+def derive_annual_methane_compliance(
+    methane_run_count: Optional[int], *, enforced: bool = COMPLIANCE_ENFORCED
+) -> tuple[bool, Optional[str]]:
+    """Rainbow C9: the batch's project/period must have a current methane
+    measurement over >= MIN_METHANE_RUNS representative runs. `methane_run_count`
+    is resolved by the caller from the annual verification record. Returns
+    (compliant, `missing_annual_methane`)."""
+    if not enforced:
+        return True, None
+    if not methane_run_count or methane_run_count < MIN_METHANE_RUNS:
+        return False, "missing_annual_methane"
+    return True, None
+
+
+def derive_pah_compliance(
+    kiln_type: Optional[str],
+    pah_measured: bool,
+    *,
+    enforced: bool = COMPLIANCE_ENFORCED,
+) -> tuple[bool, Optional[str]]:
+    """Rainbow C9: PAH measurement is MANDATORY for closed kilns. Inert for
+    open/unknown kiln types (open-kiln PAH is not required). Returns (compliant,
+    `missing_pah`)."""
+    if not enforced or kiln_type != "closed":
+        return True, None
+    if not pah_measured:
+        return False, "missing_pah"
+    return True, None
 
 
 def assemble(
@@ -219,6 +318,7 @@ def assemble(
     composite_sample_ok: bool = True,
     delivery_ok: bool = True,
     buyer_ok: bool = True,
+    extra_reasons: Optional[list[str]] = None,
 ) -> Corroboration:
     """Combine the derived inputs into a Corroboration, computing provisional
     status and the ordered list of reasons a batch is not yet issuable.
@@ -228,6 +328,10 @@ def assemble(
     the policy — when enforcement is on and attestation is unverified, this adds
     `attestation_unverified` (fail closed). Defaults True so the check is inert
     until a verifier and the enforcement flag are enabled.
+
+    `extra_reasons` (C10): additional issuance-gate reasons the caller derives
+    from DB state (C1 biomass, C8 kiln registration + scale calibration, C9 annual
+    methane + PAH), appended in caller order and de-duplicated.
     """
     reasons: list[str] = []
     if wet_yield is None:
@@ -256,6 +360,11 @@ def assemble(
         reasons.append("missing_delivery_record")
     if not buyer_ok:
         reasons.append("missing_buyer_identity")
+    # C10: caller-supplied gate reasons (C1 biomass, C8 kiln/calibration, C9
+    # methane/PAH) — already ordered by the caller; de-duplicated defensively.
+    for r in extra_reasons or []:
+        if r not in reasons:
+            reasons.append(r)
     return Corroboration(
         wet_yield_kg=wet_yield,
         min_recorded_temp_c=min_temp,

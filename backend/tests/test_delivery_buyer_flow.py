@@ -23,10 +23,11 @@ pytestmark = pytest.mark.asyncio
 OWNER = "test-device-reg"
 
 
-def test_deriver_inert_by_default():
-    # Even with an empty payload, not enforced -> both signals pass.
-    assert derive_delivery_compliance(None) == (True, True)
-    assert derive_delivery_compliance({}) == (True, True)
+def test_deriver_inert_when_opted_out():
+    # C10 enforces this by default; a caller can still opt out (enforced=False),
+    # in which case an empty payload passes both signals.
+    assert derive_delivery_compliance(None, enforced=False) == (True, True)
+    assert derive_delivery_compliance({}, enforced=False) == (True, True)
 
 
 def test_deriver_enforced_flags_missing_pieces():

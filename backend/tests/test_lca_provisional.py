@@ -178,12 +178,15 @@ async def _corroborate(client, bu, lat=12.9716, lon=77.5946):
                 "batch_uuid": bu,
                 "latitude": lat + 1.0,  # ~111 km from the batch → nonzero transport
                 "longitude": lon,
+                # C5 (enforced at C10): delivery record + buyer identity.
+                "delivery_date": "2026-07-03T00:00:00Z",
+                "delivered_amount_kg": 50.0,
+                "buyer_name": "Asha Co-op",
             }
         ).encode("utf-8"),
         headers={"X-Idempotency-Key": "app-" + bu[:8]},
     )
-    # Rainbow C2: supply the floor of 10 photographed moisture readings so the
-    # only remaining provisional reason is the assumed H:Corg (cleared by the lab).
+    # Rainbow C2: supply the floor of 10 photographed moisture readings.
     for i in range(1, 11):
         await client.post(
             "/api/v1/moisture",
@@ -198,6 +201,18 @@ async def _corroborate(client, bu, lat=12.9716, lon=77.5946):
             ).encode("utf-8"),
             headers={"X-Idempotency-Key": f"moist-{bu[:6]}-{i}"},
         )
+    # C4 (enforced at C10): a photographed site composite pile sub-sample.
+    await client.post(
+        "/api/v1/composite-sample",
+        content=json.dumps(
+            {
+                "sample_uuid": str(uuid4()),
+                "batch_uuid": bu,
+                "sha256_hash": "a" * 64,
+            }
+        ).encode("utf-8"),
+        headers={"X-Idempotency-Key": "cs-" + bu[:8]},
+    )
 
 
 @pytest.mark.asyncio
@@ -211,9 +226,16 @@ async def test_batch_with_full_lab_is_not_provisional(client):
     await _corroborate(client, bu, lat, lon)
     r = await client.post(
         "/api/v1/batches",
-        content=json.dumps(_payload(batch_uuid=bu, latitude=lat, longitude=lon)).encode(
-            "utf-8"
-        ),
+        content=json.dumps(
+            _payload(
+                batch_uuid=bu,
+                latitude=lat,
+                longitude=lon,
+                # C1 (enforced at C10): biomass input amount + method.
+                biomass_input_kg=500.0,
+                biomass_measurement_method="direct_weigh",
+            )
+        ).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "X-Idempotency-Key": str(uuid4()),

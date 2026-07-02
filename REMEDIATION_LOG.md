@@ -465,6 +465,68 @@ pre-existing `test_p0_21_hmac_secret`; **0 new failures**). Server-only. `ruff f
 
 ---
 
+## Phase C10 — Rainbow compliance: unified issuance gate + compliance report  `[CAPSTONE]`  ✅ DONE
+
+**Goal:** fold every previously-inert methodology reason into ONE issuance gate and expose a
+per-batch compliance report. This phase FLIPS ENFORCEMENT ON — batches that were non-provisional under
+the weaker gate correctly become provisional until their methodology data is complete. Server-only.
+
+**Enforcement switch:** `corroboration.COMPLIANCE_ENFORCED = True`. C4 (composite) and C5
+(delivery/buyer) derivers now default to enforced; new derivers added for C1 (biomass), C8 (kiln
+registration, scale calibration), C9 (annual methane, PAH). Each deriver keeps an `enforced` override so
+a caller/test can opt out.
+
+**Now ENFORCED (resolvable from batch state):**
+- C1 `missing_biomass_input` / `missing_conversion_factor` (batch biomass fields).
+- C4 `missing_composite_sample` (photographed sub-sample).
+- C5 `missing_delivery_record` / `missing_buyer_identity` (application payload).
+- C8 `unregistered_kiln` — batch telemetry `kiln_id` must exist in `kilns`; inert when no kiln_id.
+
+**Deliberately DORMANT (documented follow-up, NOT faked):** `scale_calibration_expired` and
+`missing_annual_methane`/`missing_pah` require a batch→project/scale linkage that does not exist on the
+Batch model yet. Enforcing them now would gate EVERY batch unconditionally (no way to resolve the right
+calibration/verification row). The derivers exist + are unit-tested; wiring waits on a future phase that
+adds `batch.project_id` / `scale_id`. `derive_pah_compliance` is called with `enforced=False` in
+recompute for the same reason.
+
+**Also NOT in C10 (separate credit-math phases, need methodology sign-off):** flip C6
+`TRANSPORT_EVENTS_ENFORCED` + wire fuel emissions into the LCA; feed C9 methane rate into
+`step7_ch4_penalty`; feed C9 `conversion_factor` into C1 yield_conversion; enable the C7 1000-yr
+inertinite pathway. C10 is methodology COMPLETENESS, not credit-math.
+
+**Changes**
+- `corroboration.py`: `COMPLIANCE_ENFORCED`, `MIN_METHANE_RUNS`; new derivers
+  `derive_biomass_compliance`, `derive_kiln_registration_compliance`, `derive_scale_calibration_compliance`,
+  `derive_annual_methane_compliance`, `derive_pah_compliance`; `assemble(..., extra_reasons=[])` appends
+  caller-derived gate reasons (de-duped, ordered).
+- `server.recompute_batch_credit`: computes C1/C8 (+dormant C9-PAH) gate signals, passes `extra_reasons`.
+- `GET /api/v1/batches/{uuid}/compliance` (admin): returns `provisional` / `issuable` / ordered `reasons`
+  + a human `checklist` from `_COMPLIANCE_CATALOG` (every reason → methodology section + label).
+
+**Stale-test triage (the enforcement flip, handled deliberately — never weakened the gate):** 7 tests
+encoded the old inert behavior. Fixed each to the correct new invariant: the two `deriver_inert_by_default`
+unit tests now assert the `enforced=False` OPT-OUT; the C8 "registry does not gate" test became
+`unregistered_kiln`-gates-and-registration-clears-it; the lab/provisional helpers
+(`test_lab_hcorg_channel`, `test_lca_provisional`) now supply the full C1/C4/C5 set so a fully-complete
+batch genuinely reaches issuable; `test_corroboration_flow` (a physical-convergence test) now asserts the
+physical reasons cleared rather than pinning the whole list.
+
+**Tests:** `test_compliance_gate_c10.py` — a fully-populated batch is issuable (empty reasons); each of
+biomass / composite / delivery / unregistered-kiln toggled off surfaces its exact reason; the compliance
+endpoint returns the checklist (missing item not-ok, satisfied item ok); admin-required (401); unknown
+batch 404.
+
+**Gate:** backend `pytest` → **1 failed, 260 passed, 1 skipped** (+8 C10 tests, 7 stale tests updated;
+the 1 failure is the pre-existing `test_p0_21_hmac_secret`; **0 new failures**); `flutter analyze` 25 /
+0 errors; `flutter test` unchanged (server-only); `ruff format` applied. **No client migration.**
+
+**Rainbow Compliance — status:** C0–C10 complete. Every methodology line either enforces a provisional
+reason today or is a documented, tracked follow-up (project/scale linkage; the four credit-math flips).
+
+**Intended commit:** `feat(dmrv): unified issuance compliance gate + /compliance report (Rainbow C10)`
+
+---
+
 ## Phase C9 — Rainbow compliance: annual verification inputs (admin)  `[V][ADMIN]`  ✅ DONE
 
 **Requirement (annually / when feedstock changes; + per verification):** methane emission rate (3

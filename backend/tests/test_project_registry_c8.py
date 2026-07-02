@@ -1,10 +1,10 @@
 """Rainbow compliance C8 — project registry (admin console).
 
 Project-setup data: kilns, operator training, supervisor visits, scale
-calibrations. Admin-authenticated (never the field app). C8 lands the registry
-ONLY — the compliance reasons it enables (unregistered_kiln /
-scale_calibration_expired) are deferred to the C10 unified gate, so no batch's
-issuance changes here.
+calibrations. Admin-authenticated (never the field app). The registry itself
+landed in C8; the C10 unified gate then turned on `unregistered_kiln` (the
+kiln-registration tests at the bottom exercise that enforcement). Scale
+calibration remains dormant (needs a batch→scale linkage — C10 follow-up).
 """
 
 import json
@@ -156,15 +156,10 @@ async def test_scale_calibration_bad_timestamp_is_400(client):
     assert r.status_code == 400, r.text
 
 
-# ---- registry does NOT gate issuance yet --------------------------------
+# ---- C10: kiln registration now gates issuance --------------------------
 
 
-async def test_registry_does_not_change_batch_provisional(
-    client, registered_device, session_factory
-):
-    # A batch with a kiln_id that is NOT registered must be unaffected by C8
-    # (unregistered_kiln is deferred to C10).
-    bu = str(uuid.uuid4())
+async def _batch_with_kiln(client, bu, kiln_id):
     await client.post(
         "/api/v1/telemetry",
         content=json.dumps(
@@ -172,7 +167,7 @@ async def test_registry_does_not_change_batch_provisional(
                 "telemetry_uuid": str(uuid.uuid4()),
                 "batch_uuid": bu,
                 "kiln_type": "open",
-                "kiln_id": "UNREGISTERED-KILN",
+                "kiln_id": kiln_id,
                 "temperature_readings": [650.0] * 60,
             }
         ).encode("utf-8"),
@@ -191,10 +186,63 @@ async def test_registry_does_not_change_batch_provisional(
         ).encode("utf-8"),
         headers={"X-Idempotency-Key": "b-" + bu[:8]},
     )
+
+
+async def _reasons(session_factory, bu):
     async with session_factory() as s:
         b = (
             await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
         ).scalar_one()
-    reasons = json.loads(b.provisional_reasons or "[]")
-    assert "unregistered_kiln" not in reasons
-    assert "scale_calibration_expired" not in reasons
+        return json.loads(b.provisional_reasons or "[]")
+
+
+async def test_unregistered_kiln_gates_and_registration_clears_it(
+    client, registered_device, session_factory
+):
+    # C10: a batch whose telemetry kiln_id is NOT in the registry surfaces
+    # unregistered_kiln; registering that kiln and recomputing clears it.
+    bu = str(uuid.uuid4())
+    await _batch_with_kiln(client, bu, "GATED-KILN")
+    assert "unregistered_kiln" in await _reasons(session_factory, bu)
+
+    # Register the kiln, then re-trigger a recompute via a fresh telemetry-adjacent
+    # evidence post (moisture) so the batch converges.
+    await _post(
+        client, "/api/v1/admin/kiln", {"kiln_id": "GATED-KILN", "kiln_type": "open"}
+    )
+    await client.post(
+        "/api/v1/moisture",
+        content=json.dumps(
+            {
+                "reading_uuid": str(uuid.uuid4()),
+                "batch_uuid": bu,
+                "moisture_percent": 12.0,
+                "sequence": 1,
+                "sha256_hash": _SHA,
+            }
+        ).encode("utf-8"),
+        headers={"X-Idempotency-Key": "m-" + bu[:8]},
+    )
+    assert "unregistered_kiln" not in await _reasons(session_factory, bu)
+
+
+async def test_no_kiln_id_does_not_gate_on_registration(
+    client, registered_device, session_factory
+):
+    # A batch that declares no kiln_id at all is not gated by C8 kiln registration
+    # (the check is inert without a kiln_id — older/no-kiln flows are unaffected).
+    bu = str(uuid.uuid4())
+    await client.post(
+        "/api/v1/batches",
+        content=json.dumps(
+            {
+                "batch_uuid": bu,
+                "feedstock_species": "Lantana_camara",
+                "harvest_timestamp": datetime.now(timezone.utc).isoformat(),
+                "moisture_percent": 12.0,
+                "harvest_uptime_seconds": 100,
+            }
+        ).encode("utf-8"),
+        headers={"X-Idempotency-Key": "b-" + bu[:8]},
+    )
+    assert "unregistered_kiln" not in await _reasons(session_factory, bu)

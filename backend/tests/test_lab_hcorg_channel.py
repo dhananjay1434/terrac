@@ -32,6 +32,9 @@ def _batch_payload(bu, lat=12.9716, lon=77.5946):
         "latitude": lat,
         "longitude": lon,
         "harvest_uptime_seconds": 3600,
+        # C1 (enforced at C10): biomass input amount + method.
+        "biomass_input_kg": 500.0,
+        "biomass_measurement_method": "direct_weigh",
     }
 
 
@@ -66,9 +69,25 @@ async def _corroborate(client, bu, lat=12.9716, lon=77.5946):
                 "batch_uuid": bu,
                 "latitude": lat + 1.0,
                 "longitude": lon,
+                # C5 (enforced at C10): delivery record + buyer identity.
+                "delivery_date": "2026-07-03T00:00:00Z",
+                "delivered_amount_kg": 50.0,
+                "buyer_name": "Asha Co-op",
             }
         ).encode("utf-8"),
         headers={"X-Idempotency-Key": "app-" + bu[:8]},
+    )
+    # C4 (enforced at C10): a photographed site composite pile sub-sample.
+    await client.post(
+        "/api/v1/composite-sample",
+        content=json.dumps(
+            {
+                "sample_uuid": str(uuid.uuid4()),
+                "batch_uuid": bu,
+                "sha256_hash": "a" * 64,
+            }
+        ).encode("utf-8"),
+        headers={"X-Idempotency-Key": "cs-" + bu[:8]},
     )
     # Rainbow C2: supply the floor of 10 photographed moisture readings so the
     # only remaining provisional reason is the assumed H:Corg (cleared by the lab).
