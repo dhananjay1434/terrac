@@ -52,9 +52,13 @@ from models import (
     DeviceKey,
     EndUseApplication,
     EnrollmentToken,
+    Kiln,
     MediaFile,
     MoistureReading,
+    OperatorTraining,
     PyrolysisTelemetry,
+    ScaleCalibration,
+    SupervisorVisit,
     SystemMetadata,
     TransportEvent,
     YieldMetrics,
@@ -1657,3 +1661,173 @@ async def create_application(
     # recompute_batch_credit (see corroboration.derive_transport_km).
     await _recompute_if_batch_exists(session, payload.batch_uuid)
     return {"status": "success", "duplicate": False}
+
+
+# ==================== C8: project registry (admin) ====================
+# Project-setup data (once / updated on change): kilns, operator training,
+# supervisor visits, scale calibrations. Admin-authenticated (project console,
+# NOT the per-run field app). The compliance reasons these enable
+# (unregistered_kiln / scale_calibration_expired) are DEFERRED to the C10 unified
+# gate — C8 lands the registry only, so no batch's issuance changes here.
+
+
+def _require_admin(x_admin_secret: str) -> None:
+    if not hmac.compare_digest(x_admin_secret, _ADMIN_SECRET):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthorized"
+        )
+
+
+def _parse_dt(s: Optional[str]) -> Optional[datetime]:
+    """Parse an ISO-8601 timestamp to an aware UTC datetime, or 400 on garbage."""
+    if s is None:
+        return None
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail="invalid_timestamp")
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+class KilnRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kiln_id: str = Field(..., min_length=1, max_length=128)
+    material: Optional[str] = Field(None, max_length=128)
+    weight_kg: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
+    lifetime_years: Optional[float] = Field(None, ge=0.0, le=200.0)
+    kiln_type: Optional[Literal["open", "closed"]] = None
+
+
+class OperatorTrainingRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    record_uuid: str = Field(..., max_length=64)
+    operator_id: Optional[str] = Field(None, max_length=128)
+    training_type: Optional[str] = Field(None, max_length=128)
+    completed_at: Optional[str] = Field(None, max_length=64)
+    report_sha256: Optional[str] = Field(None, min_length=64, max_length=64)
+
+
+class SupervisorVisitRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    visit_uuid: str = Field(..., max_length=64)
+    kiln_id: Optional[str] = Field(None, max_length=128)
+    visited_at: Optional[str] = Field(None, max_length=64)
+    notes: Optional[str] = Field(None, max_length=2000)
+    report_sha256: Optional[str] = Field(None, min_length=64, max_length=64)
+
+
+class ScaleCalibrationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    calibration_uuid: str = Field(..., max_length=64)
+    scale_id: Optional[str] = Field(None, max_length=128)
+    calibrated_at: Optional[str] = Field(None, max_length=64)
+    valid_until: Optional[str] = Field(None, max_length=64)
+    report_sha256: Optional[str] = Field(None, min_length=64, max_length=64)
+
+
+@app.post("/api/v1/admin/kiln", status_code=status.HTTP_200_OK)
+async def register_kiln(
+    payload: KilnRequest,
+    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Register/update a project kiln (C8). Upsert by kiln_id — the methodology
+    says kiln data is captured once and updated when kilns change."""
+    _require_admin(x_admin_secret)
+    existing = (
+        await session.execute(select(Kiln).where(Kiln.kiln_id == payload.kiln_id))
+    ).scalar_one_or_none()
+    extra = payload.model_dump(mode="json")
+    if existing is None:
+        session.add(
+            Kiln(
+                kiln_id=payload.kiln_id,
+                material=payload.material,
+                weight_kg=payload.weight_kg,
+                lifetime_years=payload.lifetime_years,
+                kiln_type=payload.kiln_type,
+                payload_json=json.dumps(extra),
+            )
+        )
+        await session.commit()
+        return {"status": "ok", "kiln_id": payload.kiln_id, "updated": False}
+    existing.material = payload.material
+    existing.weight_kg = payload.weight_kg
+    existing.lifetime_years = payload.lifetime_years
+    existing.kiln_type = payload.kiln_type
+    existing.payload_json = json.dumps(extra)
+    await session.commit()
+    return {"status": "ok", "kiln_id": payload.kiln_id, "updated": True}
+
+
+@app.post("/api/v1/admin/operator-training", status_code=status.HTTP_201_CREATED)
+async def register_operator_training(
+    payload: OperatorTrainingRequest,
+    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    session: AsyncSession = Depends(get_session),
+):
+    _require_admin(x_admin_secret)
+    session.add(
+        OperatorTraining(
+            record_uuid=payload.record_uuid,
+            operator_id=payload.operator_id,
+            payload_json=json.dumps(payload.model_dump(mode="json")),
+        )
+    )
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return {"status": "ok", "duplicate": True}
+    return {"status": "ok", "duplicate": False}
+
+
+@app.post("/api/v1/admin/supervisor-visit", status_code=status.HTTP_201_CREATED)
+async def register_supervisor_visit(
+    payload: SupervisorVisitRequest,
+    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    session: AsyncSession = Depends(get_session),
+):
+    _require_admin(x_admin_secret)
+    session.add(
+        SupervisorVisit(
+            visit_uuid=payload.visit_uuid,
+            kiln_id=payload.kiln_id,
+            report_sha256=payload.report_sha256,
+            payload_json=json.dumps(payload.model_dump(mode="json")),
+        )
+    )
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return {"status": "ok", "duplicate": True}
+    return {"status": "ok", "duplicate": False}
+
+
+@app.post("/api/v1/admin/scale-calibration", status_code=status.HTTP_201_CREATED)
+async def register_scale_calibration(
+    payload: ScaleCalibrationRequest,
+    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    session: AsyncSession = Depends(get_session),
+):
+    _require_admin(x_admin_secret)
+    # Parse the validity window so the C10 gate can check in-date calibration.
+    calibrated_at = _parse_dt(payload.calibrated_at)
+    valid_until = _parse_dt(payload.valid_until)
+    session.add(
+        ScaleCalibration(
+            calibration_uuid=payload.calibration_uuid,
+            scale_id=payload.scale_id,
+            calibrated_at=calibrated_at,
+            valid_until=valid_until,
+            report_sha256=payload.report_sha256,
+            payload_json=json.dumps(payload.model_dump(mode="json")),
+        )
+    )
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return {"status": "ok", "duplicate": True}
+    return {"status": "ok", "duplicate": False}

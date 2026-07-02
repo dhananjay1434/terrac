@@ -465,6 +465,47 @@ pre-existing `test_p0_21_hmac_secret`; **0 new failures**). Server-only. `ruff f
 
 ---
 
+## Phase C8 — Rainbow compliance: project registry (admin console)  `[ADMIN]`  ✅ DONE
+
+**Requirement (project setup, once / updated on change):** infrastructure & machinery data (kiln
+material, weight, item lifetime), kiln-operator training records, kiln-supervisor site-visit reports,
+scale-calibration proof. Project-level, admin-authenticated — a project console, **NOT** the per-run field
+app. **Server-only, no client change.**
+
+**Scope decision (agreed):** C8 lands the REGISTRY (4 tables + admin endpoints) only. The compliance
+reasons it enables — `unregistered_kiln`, `scale_calibration_expired` — are **deferred to the C10 unified
+gate** (inert-by-default, like C1/C4/C5), so no batch's issuance changes in C8. A test asserts a batch
+whose telemetry `kiln_id` is unregistered is unaffected.
+
+**Changes**
+- Models + Alembic `d0e1f2a3b4c5` (4 tables): `kilns` (kiln_id unique; material/weight/lifetime/type +
+  payload_json — upsert on change), `operator_training` (record_uuid unique, many per project),
+  `supervisor_visits` (visit_uuid unique; report_sha256 → reuse the signed `/media` channel for the
+  artifact), `scale_calibrations` (calibration_uuid unique; `calibrated_at` / `valid_until` parsed to real
+  DateTime columns so the C10 gate can check in-date calibration).
+- Server (4 admin endpoints, `X-Admin-Secret` via a new `_require_admin` helper): `POST /admin/kiln`
+  (upsert by kiln_id → `{updated: bool}`), `POST /admin/operator-training`, `POST /admin/supervisor-visit`,
+  `POST /admin/scale-calibration` (one-to-many, IntegrityError→`{duplicate: true}`). New `_parse_dt`
+  rejects a malformed timestamp with 400 (not 500).
+
+**Tests:** `test_project_registry_c8.py` — all four require admin (401 on wrong secret, parametrized);
+kiln register-then-update is an upsert (one row, latest values); operator-training persists + dedupes;
+supervisor-visit round-trips report_sha256; scale-calibration parses the validity window; bad timestamp →
+400; a batch with an unregistered kiln_id gains NO C8 reason (registry is inert until C10).
+
+**Gate:** Alembic `up→down base→up` clean (aiosqlite); backend `pytest` → **1 failed, 246 passed,
+1 skipped** (+10 new; the 1 failure is the pre-existing `test_p0_21_hmac_secret`; **0 new failures**);
+`flutter analyze` 25 / 0 errors; `flutter test` unchanged (server-only); `ruff format` applied. **No client
+migration.**
+
+**Follow-up (C10):** wire `unregistered_kiln` (batch telemetry kiln_id ∈ kilns) and
+`scale_calibration_expired` (an in-date scale_calibrations row) into the unified issuance gate; enable the
+1000-yr inertinite pathway election (C7 data-capture) as a project setting here/at C8-project level.
+
+**Intended commit:** `feat(dmrv): project registry — kilns/training/visits/scale calibration (Rainbow C8)`
+
+---
+
 ## Phase C7 — Rainbow compliance: per-batch lab results (admin channel)  `[V]` ⚠ TOUCHES CREDIT MATH  ✅ DONE
 
 **Requirement `[V]`:** per-batch lab data — organic **Corg** (elemental), **H:Corg**, biochar moisture

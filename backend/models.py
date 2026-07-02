@@ -152,6 +152,95 @@ class TransportEvent(Base):
     )
 
 
+class Kiln(Base):
+    """Rainbow compliance C8: project kiln registry (once / updated on change).
+
+    Admin-authenticated project-setup data — kiln material, weight, item lifetime.
+    A batch's telemetry `kiln_id` (C0) references a row here; the C10 gate will
+    require a batch's kiln to be registered (reason `unregistered_kiln`).
+    """
+
+    __tablename__ = "kilns"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kiln_id: Mapped[str] = mapped_column(
+        String(128), unique=True, nullable=False, index=True
+    )
+    material: Mapped[str] = mapped_column(String(128), nullable=True)
+    weight_kg: Mapped[float] = mapped_column(Float, nullable=True)
+    lifetime_years: Mapped[float] = mapped_column(Float, nullable=True)
+    kiln_type: Mapped[str] = mapped_column(String(16), nullable=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=True)
+    registered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class OperatorTraining(Base):
+    """Rainbow compliance C8: kiln-operator training records (many per project)."""
+
+    __tablename__ = "operator_training"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    record_uuid: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
+    )
+    operator_id: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class SupervisorVisit(Base):
+    """Rainbow compliance C8: kiln-supervisor site-visit reports (many per project)."""
+
+    __tablename__ = "supervisor_visits"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    visit_uuid: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
+    )
+    kiln_id: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
+    # SHA-256 of a signed report artifact uploaded via the existing /media channel.
+    report_sha256: Mapped[str] = mapped_column(String(64), nullable=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class ScaleCalibration(Base):
+    """Rainbow compliance C8: scale calibration proof (many per project/scale).
+
+    `valid_until` drives the C10 `scale_calibration_expired` gate — a batch whose
+    weighing scale has no in-date calibration is not issuable.
+    """
+
+    __tablename__ = "scale_calibrations"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    calibration_uuid: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
+    )
+    scale_id: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
+    calibrated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    valid_until: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    report_sha256: Mapped[str] = mapped_column(String(64), nullable=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class Batch(Base):
     __tablename__ = "batches"
 
