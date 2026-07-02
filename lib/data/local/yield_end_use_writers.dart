@@ -82,6 +82,11 @@ extension EndUseWriter on AppDatabase {
     required double longitude,
     String? farmerPhotoPath,
     String? farmerPhotoSha256,
+    // Rainbow compliance C5: delivery record + buyer/end-user identity.
+    String? deliveryDate,
+    double? deliveredAmountKg,
+    String? buyerName,
+    String? buyerContact,
   }) async {
     final applicationUuid = _uuid.v4();
 
@@ -95,6 +100,10 @@ extension EndUseWriter on AppDatabase {
       longitude: Value(longitude),
       farmerPhotoPath: Value(farmerPhotoPath),
       farmerPhotoSha256: Value(farmerPhotoSha256),
+      deliveryDate: Value(deliveryDate),
+      deliveredAmountKg: Value(deliveredAmountKg),
+      buyerName: Value(buyerName),
+      buyerContact: Value(buyerContact),
     );
 
     final payload = <String, dynamic>{
@@ -107,6 +116,10 @@ extension EndUseWriter on AppDatabase {
       'longitude': longitude,
       'farmer_photo_path': farmerPhotoPath,
       'farmer_photo_sha256': farmerPhotoSha256,
+      'delivery_date': deliveryDate,
+      'delivered_amount_kg': deliveredAmountKg,
+      'buyer_name': buyerName,
+      'buyer_contact': buyerContact,
     };
 
     await insertWithOutbox(

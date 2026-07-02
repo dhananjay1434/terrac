@@ -43,7 +43,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -216,6 +216,16 @@ class AppDatabase extends _$AppDatabase {
       if (from < 20) {
         // Rainbow compliance C4: site composite pile sub-sample table.
         await m.createTable(compositePileSamples);
+      }
+      if (from < 21) {
+        // Rainbow compliance C5: delivery + buyer identity on end_use_application.
+        await m.addColumn(endUseApplication, endUseApplication.deliveryDate);
+        await m.addColumn(
+          endUseApplication,
+          endUseApplication.deliveredAmountKg,
+        );
+        await m.addColumn(endUseApplication, endUseApplication.buyerName);
+        await m.addColumn(endUseApplication, endUseApplication.buyerContact);
       }
     },
   );

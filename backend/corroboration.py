@@ -181,6 +181,29 @@ def derive_composite_sample_compliance(
     return True, None
 
 
+def derive_delivery_compliance(
+    app_payload: Optional[dict], *, enforced: bool = False
+) -> tuple[bool, bool]:
+    """Rainbow C5: delivery record + buyer/end-user identity on the /application.
+
+    Returns (delivery_ok, buyer_ok):
+      * delivery_ok  — a delivery record is present (a delivery date OR a
+        delivered amount was captured for this batch).
+      * buyer_ok     — the buyer/end-user is identified (a name is present).
+
+    Inert by default (`enforced=False`, deferred to the C10 unified gate,
+    mirroring C4/C1) so existing flows are untouched. When enforced, a missing
+    delivery record or buyer identity flips the batch provisional via
+    `missing_delivery_record` / `missing_buyer_identity`.
+    """
+    if not enforced:
+        return True, True
+    p = app_payload or {}
+    delivery_ok = bool(p.get("delivery_date") or p.get("delivered_amount_kg"))
+    buyer_ok = bool((p.get("buyer_name") or "").strip())
+    return delivery_ok, buyer_ok
+
+
 def assemble(
     wet_yield: Optional[float],
     min_temp: Optional[float],
@@ -193,6 +216,8 @@ def assemble(
     flame_height_ok: bool = True,
     ignition_ok: bool = True,
     composite_sample_ok: bool = True,
+    delivery_ok: bool = True,
+    buyer_ok: bool = True,
 ) -> Corroboration:
     """Combine the derived inputs into a Corroboration, computing provisional
     status and the ordered list of reasons a batch is not yet issuable.
@@ -224,6 +249,10 @@ def assemble(
         reasons.append("missing_ignition_energy")
     if not composite_sample_ok:
         reasons.append("missing_composite_sample")
+    if not delivery_ok:
+        reasons.append("missing_delivery_record")
+    if not buyer_ok:
+        reasons.append("missing_buyer_identity")
     return Corroboration(
         wet_yield_kg=wet_yield,
         min_recorded_temp_c=min_temp,

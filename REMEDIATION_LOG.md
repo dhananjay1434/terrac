@@ -465,6 +465,40 @@ pre-existing `test_p0_21_hmac_secret`; **0 new failures**). Server-only. `ruff f
 
 ---
 
+## Phase C5 — Rainbow compliance: delivery records + buyer identity  `[COMPLIANCE]`  ✅ DONE
+
+**Requirement:** delivery tracking (date, amount, batch id) + **buyer/end-user name + contact**. Additive;
+extends the EXISTING `end_use_application` — **no new table, no server migration** (fields live in the
+application `payload_json`, which `recompute_batch_credit` already loads).
+
+**Changes**
+- Client `EndUseApplication`: nullable `deliveryDate`, `deliveredAmountKg`, `buyerName`, `buyerContact`.
+  `schemaVersion` 20→21; additive `if (from<21)` `addColumn` migration; header v21. Writer
+  `insertEndUseWithOutbox` gains the four optional params (companion + payload). `.g.dart` regenerated.
+  PII note: buyer name/contact live only in the SQLCipher DB and are already covered by `secureWipe`
+  (end_use_application was already in the wipe set — verified, no change needed).
+- Server `ApplicationPayload`: optional, length/range-bounded `delivery_date` (≤64), `delivered_amount_kg`
+  (`ge=0,le=100000`), `buyer_name`/`buyer_contact` (≤256). Persisted in payload_json.
+- Compliance (pure, `corroboration.py`): `derive_delivery_compliance(app_payload, *, enforced=False)` →
+  `(delivery_ok, buyer_ok)`; delivery_ok = a delivery date OR amount present; buyer_ok = non-blank buyer
+  name. **Inert by default** (deferred to the C10 unified gate, mirroring C4/C1) so existing flows are
+  untouched. `assemble` gains `delivery_ok`/`buyer_ok` → reasons `missing_delivery_record` /
+  `missing_buyer_identity`. Wired into `recompute_batch_credit` from the already-loaded `app_payload`.
+
+**Tests:** `test_delivery_buyer_flow.py` — deriver inert by default; enforced flags each missing piece
+(amount-only, whitespace buyer, both present); endpoint round-trips buyer/delivery into payload_json and
+stays non-gating; over-length `buyer_contact` → 422. Client `migration_v21_c5_delivery_test.dart` locks
+the v21 schema shape (new columns exist + accept the fields).
+
+**Gate:** codegen exit 0 (C5 fields generated); backend `pytest` → **1 failed, 223 passed, 1 skipped**
+(+4 new; the 1 failure is the pre-existing `test_p0_21_hmac_secret`; **0 new failures**); `flutter
+analyze` 25 / 0 errors; `flutter test` **150 passed, 2 skipped** (149 + the new v21 test); `ruff`+`dart
+format` applied. No server migration (client migration v21 only).
+
+**Intended commit:** `feat(dmrv): delivery records + buyer identity on end-use application (Rainbow C5)`
+
+---
+
 ## Phase C4 — Rainbow compliance: site composite pile sub-sample  `[COMPLIANCE]`  ✅ DONE
 
 **Requirement:** a biochar sub-sample set aside per run, tagged with **date/time, GPS, kiln ID/QR,

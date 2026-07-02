@@ -1,10 +1,10 @@
 import 'package:drift/drift.dart';
 
 /// =============================================================================
-/// Kon-Tiki Biochar dMRV — Local Drift Schema  (schemaVersion = 20)
+/// Kon-Tiki Biochar dMRV — Local Drift Schema  (schemaVersion = 21)
 /// =============================================================================
 ///
-/// The authoritative version is `AppDatabase.schemaVersion` (currently 20). Keep
+/// The authoritative version is `AppDatabase.schemaVersion` (currently 21). Keep
 /// this header in sync with it. `onUpgrade` applies cumulative `if (from < N)`
 /// blocks, so v5, v13 and v14 have no dedicated block (nothing new landed there).
 ///
@@ -36,6 +36,7 @@ import 'package:drift/drift.dart';
 ///   v18:            moisture_readings table — per-reading moisture + photo (Rainbow C2).
 ///   v19:            flame_height_m + ignition_energy_type/amount on pyrolysis_telemetry (Rainbow C3/C3b).
 ///   v20:            composite_pile_samples table — site composite sub-sample + photo (Rainbow C4).
+///   v21:            delivery + buyer identity on end_use_application (Rainbow C5).
 /// =============================================================================
 
 class SystemMetadata extends Table {
@@ -186,6 +187,18 @@ class EndUseApplication extends Table {
   // ---------- v4 chain-of-custody evidence (farmer ID photo) ----------
   TextColumn get farmerPhotoPath => text().nullable()();
   TextColumn get farmerPhotoSha256 => text().nullable()();
+
+  // ---------- v21 delivery + buyer identity (Rainbow compliance C5) ----------
+  /// When the biochar was delivered to the end user (ISO-8601 UTC).
+  TextColumn get deliveryDate => text().nullable()();
+
+  /// Mass delivered (kg) — the delivery-tracking amount for this batch.
+  RealColumn get deliveredAmountKg => real().nullable()();
+
+  /// Buyer / end-user identity. PII — lives only in the SQLCipher DB and is
+  /// scrubbed by secureWipe.
+  TextColumn get buyerName => text().nullable()();
+  TextColumn get buyerContact => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {applicationUuid};

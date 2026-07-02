@@ -62,6 +62,7 @@ from lca_engine import CORG_TABLE, calculate_carbon_credit, sign_lca_audit
 from corroboration import (
     assemble,
     derive_composite_sample_compliance,
+    derive_delivery_compliance,
     derive_ignition_compliance,
     derive_min_temp,
     derive_moisture_compliance,
@@ -690,6 +691,10 @@ async def recompute_batch_credit(
         tel_payload.get("ignition_energy_type") if tel_payload else None,
     )
 
+    # Rainbow C5: delivery record + buyer identity, read from the /application
+    # payload. Inert by default (enforced at the C10 unified gate).
+    delivery_ok, buyer_ok = derive_delivery_compliance(app_payload)
+
     effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
     corr = assemble(
         wet_yield,
@@ -702,6 +707,8 @@ async def recompute_batch_credit(
         flame_height_ok=flame_ok,
         ignition_ok=ignition_ok,
         composite_sample_ok=composite_sample_ok,
+        delivery_ok=delivery_ok,
+        buyer_ok=buyer_ok,
     )
 
     kwargs = {}
@@ -1270,6 +1277,13 @@ class ApplicationPayload(BaseModel):
     longitude: Optional[float] = Field(None, ge=-180.0, le=180.0)
     farmer_photo_path: Optional[str] = Field(None, max_length=512)
     farmer_photo_sha256: Optional[str] = Field(None, max_length=64)
+    # Rainbow compliance C5: delivery record + buyer/end-user identity.
+    # Persisted in payload_json (no server column); read by
+    # derive_delivery_compliance in recompute_batch_credit.
+    delivery_date: Optional[str] = Field(None, max_length=64)
+    delivered_amount_kg: Optional[float] = Field(None, ge=0.0, le=100_000.0)
+    buyer_name: Optional[str] = Field(None, max_length=256)
+    buyer_contact: Optional[str] = Field(None, max_length=256)
 
 
 class MoisturePayload(BaseModel):

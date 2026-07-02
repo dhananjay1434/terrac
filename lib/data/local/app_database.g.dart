@@ -3135,6 +3135,51 @@ class $EndUseApplicationTable extends EndUseApplication
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _deliveryDateMeta = const VerificationMeta(
+    'deliveryDate',
+  );
+  @override
+  late final GeneratedColumn<String> deliveryDate = GeneratedColumn<String>(
+    'delivery_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deliveredAmountKgMeta = const VerificationMeta(
+    'deliveredAmountKg',
+  );
+  @override
+  late final GeneratedColumn<double> deliveredAmountKg =
+      GeneratedColumn<double>(
+        'delivered_amount_kg',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _buyerNameMeta = const VerificationMeta(
+    'buyerName',
+  );
+  @override
+  late final GeneratedColumn<String> buyerName = GeneratedColumn<String>(
+    'buyer_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _buyerContactMeta = const VerificationMeta(
+    'buyerContact',
+  );
+  @override
+  late final GeneratedColumn<String> buyerContact = GeneratedColumn<String>(
+    'buyer_contact',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     applicationUuid,
@@ -3146,6 +3191,10 @@ class $EndUseApplicationTable extends EndUseApplication
     longitude,
     farmerPhotoPath,
     farmerPhotoSha256,
+    deliveryDate,
+    deliveredAmountKg,
+    buyerName,
+    buyerContact,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3241,6 +3290,39 @@ class $EndUseApplicationTable extends EndUseApplication
         ),
       );
     }
+    if (data.containsKey('delivery_date')) {
+      context.handle(
+        _deliveryDateMeta,
+        deliveryDate.isAcceptableOrUnknown(
+          data['delivery_date']!,
+          _deliveryDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('delivered_amount_kg')) {
+      context.handle(
+        _deliveredAmountKgMeta,
+        deliveredAmountKg.isAcceptableOrUnknown(
+          data['delivered_amount_kg']!,
+          _deliveredAmountKgMeta,
+        ),
+      );
+    }
+    if (data.containsKey('buyer_name')) {
+      context.handle(
+        _buyerNameMeta,
+        buyerName.isAcceptableOrUnknown(data['buyer_name']!, _buyerNameMeta),
+      );
+    }
+    if (data.containsKey('buyer_contact')) {
+      context.handle(
+        _buyerContactMeta,
+        buyerContact.isAcceptableOrUnknown(
+          data['buyer_contact']!,
+          _buyerContactMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3290,6 +3372,22 @@ class $EndUseApplicationTable extends EndUseApplication
         DriftSqlType.string,
         data['${effectivePrefix}farmer_photo_sha256'],
       ),
+      deliveryDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}delivery_date'],
+      ),
+      deliveredAmountKg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}delivered_amount_kg'],
+      ),
+      buyerName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}buyer_name'],
+      ),
+      buyerContact: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}buyer_contact'],
+      ),
     );
   }
 
@@ -3310,6 +3408,17 @@ class EndUseApplicationData extends DataClass
   final double? longitude;
   final String? farmerPhotoPath;
   final String? farmerPhotoSha256;
+
+  /// When the biochar was delivered to the end user (ISO-8601 UTC).
+  final String? deliveryDate;
+
+  /// Mass delivered (kg) — the delivery-tracking amount for this batch.
+  final double? deliveredAmountKg;
+
+  /// Buyer / end-user identity. PII — lives only in the SQLCipher DB and is
+  /// scrubbed by secureWipe.
+  final String? buyerName;
+  final String? buyerContact;
   const EndUseApplicationData({
     required this.applicationUuid,
     required this.batchUuid,
@@ -3320,6 +3429,10 @@ class EndUseApplicationData extends DataClass
     this.longitude,
     this.farmerPhotoPath,
     this.farmerPhotoSha256,
+    this.deliveryDate,
+    this.deliveredAmountKg,
+    this.buyerName,
+    this.buyerContact,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3340,6 +3453,18 @@ class EndUseApplicationData extends DataClass
     }
     if (!nullToAbsent || farmerPhotoSha256 != null) {
       map['farmer_photo_sha256'] = Variable<String>(farmerPhotoSha256);
+    }
+    if (!nullToAbsent || deliveryDate != null) {
+      map['delivery_date'] = Variable<String>(deliveryDate);
+    }
+    if (!nullToAbsent || deliveredAmountKg != null) {
+      map['delivered_amount_kg'] = Variable<double>(deliveredAmountKg);
+    }
+    if (!nullToAbsent || buyerName != null) {
+      map['buyer_name'] = Variable<String>(buyerName);
+    }
+    if (!nullToAbsent || buyerContact != null) {
+      map['buyer_contact'] = Variable<String>(buyerContact);
     }
     return map;
   }
@@ -3363,6 +3488,18 @@ class EndUseApplicationData extends DataClass
       farmerPhotoSha256: farmerPhotoSha256 == null && nullToAbsent
           ? const Value.absent()
           : Value(farmerPhotoSha256),
+      deliveryDate: deliveryDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveryDate),
+      deliveredAmountKg: deliveredAmountKg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveredAmountKg),
+      buyerName: buyerName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(buyerName),
+      buyerContact: buyerContact == null && nullToAbsent
+          ? const Value.absent()
+          : Value(buyerContact),
     );
   }
 
@@ -3387,6 +3524,12 @@ class EndUseApplicationData extends DataClass
       farmerPhotoSha256: serializer.fromJson<String?>(
         json['farmerPhotoSha256'],
       ),
+      deliveryDate: serializer.fromJson<String?>(json['deliveryDate']),
+      deliveredAmountKg: serializer.fromJson<double?>(
+        json['deliveredAmountKg'],
+      ),
+      buyerName: serializer.fromJson<String?>(json['buyerName']),
+      buyerContact: serializer.fromJson<String?>(json['buyerContact']),
     );
   }
   @override
@@ -3404,6 +3547,10 @@ class EndUseApplicationData extends DataClass
       'longitude': serializer.toJson<double?>(longitude),
       'farmerPhotoPath': serializer.toJson<String?>(farmerPhotoPath),
       'farmerPhotoSha256': serializer.toJson<String?>(farmerPhotoSha256),
+      'deliveryDate': serializer.toJson<String?>(deliveryDate),
+      'deliveredAmountKg': serializer.toJson<double?>(deliveredAmountKg),
+      'buyerName': serializer.toJson<String?>(buyerName),
+      'buyerContact': serializer.toJson<String?>(buyerContact),
     };
   }
 
@@ -3417,6 +3564,10 @@ class EndUseApplicationData extends DataClass
     Value<double?> longitude = const Value.absent(),
     Value<String?> farmerPhotoPath = const Value.absent(),
     Value<String?> farmerPhotoSha256 = const Value.absent(),
+    Value<String?> deliveryDate = const Value.absent(),
+    Value<double?> deliveredAmountKg = const Value.absent(),
+    Value<String?> buyerName = const Value.absent(),
+    Value<String?> buyerContact = const Value.absent(),
   }) => EndUseApplicationData(
     applicationUuid: applicationUuid ?? this.applicationUuid,
     batchUuid: batchUuid ?? this.batchUuid,
@@ -3432,6 +3583,12 @@ class EndUseApplicationData extends DataClass
     farmerPhotoSha256: farmerPhotoSha256.present
         ? farmerPhotoSha256.value
         : this.farmerPhotoSha256,
+    deliveryDate: deliveryDate.present ? deliveryDate.value : this.deliveryDate,
+    deliveredAmountKg: deliveredAmountKg.present
+        ? deliveredAmountKg.value
+        : this.deliveredAmountKg,
+    buyerName: buyerName.present ? buyerName.value : this.buyerName,
+    buyerContact: buyerContact.present ? buyerContact.value : this.buyerContact,
   );
   EndUseApplicationData copyWithCompanion(EndUseApplicationCompanion data) {
     return EndUseApplicationData(
@@ -3456,6 +3613,16 @@ class EndUseApplicationData extends DataClass
       farmerPhotoSha256: data.farmerPhotoSha256.present
           ? data.farmerPhotoSha256.value
           : this.farmerPhotoSha256,
+      deliveryDate: data.deliveryDate.present
+          ? data.deliveryDate.value
+          : this.deliveryDate,
+      deliveredAmountKg: data.deliveredAmountKg.present
+          ? data.deliveredAmountKg.value
+          : this.deliveredAmountKg,
+      buyerName: data.buyerName.present ? data.buyerName.value : this.buyerName,
+      buyerContact: data.buyerContact.present
+          ? data.buyerContact.value
+          : this.buyerContact,
     );
   }
 
@@ -3470,7 +3637,11 @@ class EndUseApplicationData extends DataClass
           ..write('latitude: $latitude, ')
           ..write('longitude: $longitude, ')
           ..write('farmerPhotoPath: $farmerPhotoPath, ')
-          ..write('farmerPhotoSha256: $farmerPhotoSha256')
+          ..write('farmerPhotoSha256: $farmerPhotoSha256, ')
+          ..write('deliveryDate: $deliveryDate, ')
+          ..write('deliveredAmountKg: $deliveredAmountKg, ')
+          ..write('buyerName: $buyerName, ')
+          ..write('buyerContact: $buyerContact')
           ..write(')'))
         .toString();
   }
@@ -3486,6 +3657,10 @@ class EndUseApplicationData extends DataClass
     longitude,
     farmerPhotoPath,
     farmerPhotoSha256,
+    deliveryDate,
+    deliveredAmountKg,
+    buyerName,
+    buyerContact,
   );
   @override
   bool operator ==(Object other) =>
@@ -3499,7 +3674,11 @@ class EndUseApplicationData extends DataClass
           other.latitude == this.latitude &&
           other.longitude == this.longitude &&
           other.farmerPhotoPath == this.farmerPhotoPath &&
-          other.farmerPhotoSha256 == this.farmerPhotoSha256);
+          other.farmerPhotoSha256 == this.farmerPhotoSha256 &&
+          other.deliveryDate == this.deliveryDate &&
+          other.deliveredAmountKg == this.deliveredAmountKg &&
+          other.buyerName == this.buyerName &&
+          other.buyerContact == this.buyerContact);
 }
 
 class EndUseApplicationCompanion
@@ -3513,6 +3692,10 @@ class EndUseApplicationCompanion
   final Value<double?> longitude;
   final Value<String?> farmerPhotoPath;
   final Value<String?> farmerPhotoSha256;
+  final Value<String?> deliveryDate;
+  final Value<double?> deliveredAmountKg;
+  final Value<String?> buyerName;
+  final Value<String?> buyerContact;
   final Value<int> rowid;
   const EndUseApplicationCompanion({
     this.applicationUuid = const Value.absent(),
@@ -3524,6 +3707,10 @@ class EndUseApplicationCompanion
     this.longitude = const Value.absent(),
     this.farmerPhotoPath = const Value.absent(),
     this.farmerPhotoSha256 = const Value.absent(),
+    this.deliveryDate = const Value.absent(),
+    this.deliveredAmountKg = const Value.absent(),
+    this.buyerName = const Value.absent(),
+    this.buyerContact = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   EndUseApplicationCompanion.insert({
@@ -3536,6 +3723,10 @@ class EndUseApplicationCompanion
     this.longitude = const Value.absent(),
     this.farmerPhotoPath = const Value.absent(),
     this.farmerPhotoSha256 = const Value.absent(),
+    this.deliveryDate = const Value.absent(),
+    this.deliveredAmountKg = const Value.absent(),
+    this.buyerName = const Value.absent(),
+    this.buyerContact = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : applicationUuid = Value(applicationUuid),
        batchUuid = Value(batchUuid),
@@ -3552,6 +3743,10 @@ class EndUseApplicationCompanion
     Expression<double>? longitude,
     Expression<String>? farmerPhotoPath,
     Expression<String>? farmerPhotoSha256,
+    Expression<String>? deliveryDate,
+    Expression<double>? deliveredAmountKg,
+    Expression<String>? buyerName,
+    Expression<String>? buyerContact,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3566,6 +3761,10 @@ class EndUseApplicationCompanion
       if (longitude != null) 'longitude': longitude,
       if (farmerPhotoPath != null) 'farmer_photo_path': farmerPhotoPath,
       if (farmerPhotoSha256 != null) 'farmer_photo_sha256': farmerPhotoSha256,
+      if (deliveryDate != null) 'delivery_date': deliveryDate,
+      if (deliveredAmountKg != null) 'delivered_amount_kg': deliveredAmountKg,
+      if (buyerName != null) 'buyer_name': buyerName,
+      if (buyerContact != null) 'buyer_contact': buyerContact,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3580,6 +3779,10 @@ class EndUseApplicationCompanion
     Value<double?>? longitude,
     Value<String?>? farmerPhotoPath,
     Value<String?>? farmerPhotoSha256,
+    Value<String?>? deliveryDate,
+    Value<double?>? deliveredAmountKg,
+    Value<String?>? buyerName,
+    Value<String?>? buyerContact,
     Value<int>? rowid,
   }) {
     return EndUseApplicationCompanion(
@@ -3593,6 +3796,10 @@ class EndUseApplicationCompanion
       longitude: longitude ?? this.longitude,
       farmerPhotoPath: farmerPhotoPath ?? this.farmerPhotoPath,
       farmerPhotoSha256: farmerPhotoSha256 ?? this.farmerPhotoSha256,
+      deliveryDate: deliveryDate ?? this.deliveryDate,
+      deliveredAmountKg: deliveredAmountKg ?? this.deliveredAmountKg,
+      buyerName: buyerName ?? this.buyerName,
+      buyerContact: buyerContact ?? this.buyerContact,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3631,6 +3838,18 @@ class EndUseApplicationCompanion
     if (farmerPhotoSha256.present) {
       map['farmer_photo_sha256'] = Variable<String>(farmerPhotoSha256.value);
     }
+    if (deliveryDate.present) {
+      map['delivery_date'] = Variable<String>(deliveryDate.value);
+    }
+    if (deliveredAmountKg.present) {
+      map['delivered_amount_kg'] = Variable<double>(deliveredAmountKg.value);
+    }
+    if (buyerName.present) {
+      map['buyer_name'] = Variable<String>(buyerName.value);
+    }
+    if (buyerContact.present) {
+      map['buyer_contact'] = Variable<String>(buyerContact.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3649,6 +3868,10 @@ class EndUseApplicationCompanion
           ..write('longitude: $longitude, ')
           ..write('farmerPhotoPath: $farmerPhotoPath, ')
           ..write('farmerPhotoSha256: $farmerPhotoSha256, ')
+          ..write('deliveryDate: $deliveryDate, ')
+          ..write('deliveredAmountKg: $deliveredAmountKg, ')
+          ..write('buyerName: $buyerName, ')
+          ..write('buyerContact: $buyerContact, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8667,6 +8890,10 @@ typedef $$EndUseApplicationTableCreateCompanionBuilder =
       Value<double?> longitude,
       Value<String?> farmerPhotoPath,
       Value<String?> farmerPhotoSha256,
+      Value<String?> deliveryDate,
+      Value<double?> deliveredAmountKg,
+      Value<String?> buyerName,
+      Value<String?> buyerContact,
       Value<int> rowid,
     });
 typedef $$EndUseApplicationTableUpdateCompanionBuilder =
@@ -8680,6 +8907,10 @@ typedef $$EndUseApplicationTableUpdateCompanionBuilder =
       Value<double?> longitude,
       Value<String?> farmerPhotoPath,
       Value<String?> farmerPhotoSha256,
+      Value<String?> deliveryDate,
+      Value<double?> deliveredAmountKg,
+      Value<String?> buyerName,
+      Value<String?> buyerContact,
       Value<int> rowid,
     });
 
@@ -8768,6 +8999,26 @@ class $$EndUseApplicationTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get deliveryDate => $composableBuilder(
+    column: $table.deliveryDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get deliveredAmountKg => $composableBuilder(
+    column: $table.deliveredAmountKg,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get buyerName => $composableBuilder(
+    column: $table.buyerName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get buyerContact => $composableBuilder(
+    column: $table.buyerContact,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$SystemMetadataTableFilterComposer get batchUuid {
     final $$SystemMetadataTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -8841,6 +9092,26 @@ class $$EndUseApplicationTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get deliveryDate => $composableBuilder(
+    column: $table.deliveryDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get deliveredAmountKg => $composableBuilder(
+    column: $table.deliveredAmountKg,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get buyerName => $composableBuilder(
+    column: $table.buyerName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get buyerContact => $composableBuilder(
+    column: $table.buyerContact,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SystemMetadataTableOrderingComposer get batchUuid {
     final $$SystemMetadataTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8910,6 +9181,24 @@ class $$EndUseApplicationTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get deliveryDate => $composableBuilder(
+    column: $table.deliveryDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get deliveredAmountKg => $composableBuilder(
+    column: $table.deliveredAmountKg,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get buyerName =>
+      $composableBuilder(column: $table.buyerName, builder: (column) => column);
+
+  GeneratedColumn<String> get buyerContact => $composableBuilder(
+    column: $table.buyerContact,
+    builder: (column) => column,
+  );
+
   $$SystemMetadataTableAnnotationComposer get batchUuid {
     final $$SystemMetadataTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -8976,6 +9265,10 @@ class $$EndUseApplicationTableTableManager
                 Value<double?> longitude = const Value.absent(),
                 Value<String?> farmerPhotoPath = const Value.absent(),
                 Value<String?> farmerPhotoSha256 = const Value.absent(),
+                Value<String?> deliveryDate = const Value.absent(),
+                Value<double?> deliveredAmountKg = const Value.absent(),
+                Value<String?> buyerName = const Value.absent(),
+                Value<String?> buyerContact = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => EndUseApplicationCompanion(
                 applicationUuid: applicationUuid,
@@ -8987,6 +9280,10 @@ class $$EndUseApplicationTableTableManager
                 longitude: longitude,
                 farmerPhotoPath: farmerPhotoPath,
                 farmerPhotoSha256: farmerPhotoSha256,
+                deliveryDate: deliveryDate,
+                deliveredAmountKg: deliveredAmountKg,
+                buyerName: buyerName,
+                buyerContact: buyerContact,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9000,6 +9297,10 @@ class $$EndUseApplicationTableTableManager
                 Value<double?> longitude = const Value.absent(),
                 Value<String?> farmerPhotoPath = const Value.absent(),
                 Value<String?> farmerPhotoSha256 = const Value.absent(),
+                Value<String?> deliveryDate = const Value.absent(),
+                Value<double?> deliveredAmountKg = const Value.absent(),
+                Value<String?> buyerName = const Value.absent(),
+                Value<String?> buyerContact = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => EndUseApplicationCompanion.insert(
                 applicationUuid: applicationUuid,
@@ -9011,6 +9312,10 @@ class $$EndUseApplicationTableTableManager
                 longitude: longitude,
                 farmerPhotoPath: farmerPhotoPath,
                 farmerPhotoSha256: farmerPhotoSha256,
+                deliveryDate: deliveryDate,
+                deliveredAmountKg: deliveredAmountKg,
+                buyerName: buyerName,
+                buyerContact: buyerContact,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
