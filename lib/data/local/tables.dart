@@ -1,10 +1,10 @@
 import 'package:drift/drift.dart';
 
 /// =============================================================================
-/// Kon-Tiki Biochar dMRV — Local Drift Schema  (schemaVersion = 15)
+/// Kon-Tiki Biochar dMRV — Local Drift Schema  (schemaVersion = 19)
 /// =============================================================================
 ///
-/// The authoritative version is `AppDatabase.schemaVersion` (currently 15). Keep
+/// The authoritative version is `AppDatabase.schemaVersion` (currently 19). Keep
 /// this header in sync with it. `onUpgrade` applies cumulative `if (from < N)`
 /// blocks, so v5, v13 and v14 have no dedicated block (nothing new landed there).
 ///
@@ -31,6 +31,10 @@ import 'package:drift/drift.dart';
 ///                   backfill (data migration).
 ///   v12:            unique index ux_media_captures_batch_type.
 ///   v15:            json_valid CHECK constraints on pyrolysis_telemetry.
+///   v16:            kiln_type + kiln_id on pyrolysis_telemetry (Rainbow C0).
+///   v17:            biomass_input_kg + biomass_measurement_method on biomass_sourcing (Rainbow C1).
+///   v18:            moisture_readings table — per-reading moisture + photo (Rainbow C2).
+///   v19:            flame_height_m + ignition_energy_type/amount on pyrolysis_telemetry (Rainbow C3/C3b).
 /// =============================================================================
 
 class SystemMetadata extends Table {
@@ -75,6 +79,14 @@ class BiomassSourcing extends Table {
   RealColumn get pitch => real().nullable()();
   RealColumn get roll => real().nullable()();
 
+  // ---------- v17 biomass input (Rainbow compliance C1) ----------
+  /// Mass of biomass fed to the kiln (kg). Methodology requires the biomass
+  /// AMOUNT, either directly weighed or derived via a yield-conversion ratio.
+  RealColumn get biomassInputKg => real().nullable()();
+
+  /// 'direct_weigh' | 'yield_conversion'.
+  TextColumn get biomassMeasurementMethod => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {sourcingUuid};
 
@@ -111,6 +123,22 @@ class PyrolysisTelemetry extends Table {
   /// device's registered public key.
   TextColumn get hwAttestationJson =>
       text().withDefault(const Constant('[]'))();
+
+  // ---------- v16 kiln registry (Rainbow compliance C0) ----------
+  /// 'open' | 'closed'. The Rainbow methodology branches on kiln type (ignition
+  /// energy, pyrolysis-photo requirements, PAH). Nullable for backward compat.
+  TextColumn get kilnType => text().nullable()();
+
+  /// Stable kiln identifier / QR (links a run to the project kiln registry).
+  TextColumn get kilnId => text().nullable()();
+
+  // ---------- v19 pyrolysis evidence (Rainbow compliance C3 / C3b) ----------
+  /// Measured flame height (m); open-kiln methodology requires < 0.5 m.
+  RealColumn get flameHeightM => real().nullable()();
+
+  /// Ignition energy inputs — closed-kiln only (type + amount incl. syngas).
+  TextColumn get ignitionEnergyType => text().nullable()();
+  RealColumn get ignitionEnergyAmount => real().nullable()();
 
   @override
   Set<Column> get primaryKey => {telemetryUuid};
@@ -208,5 +236,29 @@ class MediaCaptures extends Table {
   @override
   List<Set<Column>> get uniqueKeys => [
     {batchUuid, captureType},
+  ];
+}
+
+/// v18 — Rainbow compliance C2: individual moisture-meter readings.
+/// The methodology requires ≥1 reading per 100 kg of biomass, min 10 per run,
+/// EACH with a photo. One row per reading (not a single summary value).
+class MoistureReadings extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get readingUuid => text()();
+  TextColumn get batchUuid => text().references(SystemMetadata, #batchUuid)();
+  RealColumn get moisturePercent => real()();
+
+  /// Ordinal within the run (1..N). Unique per batch so retakes don't duplicate.
+  IntColumn get sequence => integer()();
+
+  /// Sandboxed photo of the meter reading + its SHA-256 (uploaded via /media).
+  TextColumn get sandboxPath => text().nullable()();
+  TextColumn get sha256Hash => text().nullable()();
+  TextColumn get createdAt => text()();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+    {readingUuid},
+    {batchUuid, sequence},
   ];
 }

@@ -52,6 +52,7 @@ from models import (
     EndUseApplication,
     EnrollmentToken,
     MediaFile,
+    MoistureReading,
     PyrolysisTelemetry,
     SystemMetadata,
     YieldMetrics,
@@ -59,7 +60,10 @@ from models import (
 from lca_engine import CORG_TABLE, calculate_carbon_credit, sign_lca_audit
 from corroboration import (
     assemble,
+    derive_ignition_compliance,
     derive_min_temp,
+    derive_moisture_compliance,
+    derive_pyrolysis_photo_compliance,
     derive_transport_km,
     derive_wet_yield,
 )
@@ -248,6 +252,12 @@ class BatchPayload(BaseModel):
     pitch: Optional[float] = None
     roll: Optional[float] = None
 
+    # Rainbow compliance C1: biomass input amount + how it was measured.
+    biomass_input_kg: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
+    biomass_measurement_method: Optional[
+        Literal["direct_weigh", "yield_conversion"]
+    ] = None
+
     # --- LCA inputs (Prompt 8) ---
     # Phase 7-R: these are NOT client-supplied. They are corroborated server-side
     # from the /telemetry (min temp), /yield (wet yield) and /application (transport
@@ -376,6 +386,59 @@ async def verify_signature(
             request.url.path,
             x_idempotency_key or "",
             body_hash,
+            x_device_id,
+        ]
+    ).encode("utf-8")
+    try:
+        pub.verify(_b64url_decode(x_signature), canonical)
+    except InvalidSignature:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="signature_mismatch"
+        )
+    return x_device_id
+
+
+async def verify_media_signature(
+    x_device_id: Optional[str] = Header(None, alias="X-Device-Id"),
+    x_signature: Optional[str] = Header(None, alias="X-Signature"),
+    x_idempotency_key: Optional[str] = Header(None, alias="X-Idempotency-Key"),
+    x_declared_sha256: Optional[str] = Header(None, alias="X-Declared-SHA256"),
+    x_batch_uuid: Optional[str] = Header(None, alias="X-Batch-UUID"),
+    session: AsyncSession = Depends(get_session),
+) -> str:
+    """Phase 15-A: Ed25519 auth for the media evidence channel.
+
+    FROZEN media canonical — MUST byte-match the client's CryptoSigner.signMediaUpload:
+        POST\\n/api/v1/media\\n{idempotency_key}\\n{declared_sha256_lower}\\n{batch_uuid}\\n{device_id}
+    We sign the DECLARED file hash rather than sha256(multipart body) — the client
+    cannot reproduce the exact multipart bytes. upload_media separately enforces
+    calculated_hash == declared, so signing the declared hash binds the real bytes.
+    """
+    if not x_signature:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_signature"
+        )
+    if not x_device_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="unknown_device"
+        )
+    device = (
+        await session.execute(
+            select(DeviceKey).where(DeviceKey.device_id == x_device_id)
+        )
+    ).scalar_one_or_none()
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="unknown_device"
+        )
+    pub = Ed25519PublicKey.from_public_bytes(_b64url_decode(device.public_key))
+    canonical = "\n".join(
+        [
+            "POST",
+            "/api/v1/media",
+            x_idempotency_key or "",
+            (x_declared_sha256 or "").lower(),
+            x_batch_uuid or "",
             x_device_id,
         ]
     ).encode("utf-8")
@@ -577,6 +640,36 @@ async def recompute_batch_credit(
         batch.latitude, batch.longitude, app_payload, haversine=haversine_km
     )
 
+    # Rainbow C2: count photographed moisture readings and evaluate the ≥1/100 kg,
+    # min-10 rule against the batch's biomass input.
+    m_rows = (
+        (
+            await session.execute(
+                select(MoistureReading).where(MoistureReading.batch_uuid == buid)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    photographed = sum(
+        1 for r in m_rows if json.loads(r.payload_json).get("sha256_hash")
+    )
+    moisture_ok, _ = derive_moisture_compliance(photographed, batch.biomass_input_kg)
+
+    # Rainbow C3/C3b: kiln-type-conditional pyrolysis-photo, flame-height and
+    # ignition-energy compliance, read from the telemetry payload. Inert unless
+    # kiln_type is explicitly 'open'/'closed'.
+    kiln_type = tel_payload.get("kiln_type") if tel_payload else None
+    photos_ok, flame_ok = derive_pyrolysis_photo_compliance(
+        kiln_type,
+        tel_payload.get("smoke_evidence") if tel_payload else None,
+        tel_payload.get("flame_height_m") if tel_payload else None,
+    )
+    ignition_ok = derive_ignition_compliance(
+        kiln_type,
+        tel_payload.get("ignition_energy_type") if tel_payload else None,
+    )
+
     effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
     corr = assemble(
         wet_yield,
@@ -584,6 +677,10 @@ async def recompute_batch_credit(
         transport,
         has_lab_hcorg=effective_lab is not None,
         attestation_ok=attestation_ok,
+        moisture_ok=moisture_ok,
+        pyrolysis_photos_ok=photos_ok,
+        flame_height_ok=flame_ok,
+        ignition_ok=ignition_ok,
     )
 
     kwargs = {}
@@ -624,7 +721,9 @@ async def recompute_batch_credit(
     # Phase 8-R: only a fully-corroborated, non-provisional batch carries an
     # issuance signature. A provisional audit must never look issuable downstream.
     batch.lca_signature = (
-        None if batch.provisional else sign_lca_audit(lca, _HMAC_SECRET)
+        None
+        if batch.provisional
+        else sign_lca_audit(lca, _HMAC_SECRET, batch_uuid=str(batch.batch_uuid))
     )
 
 
@@ -751,6 +850,8 @@ async def create_batch(
         azimuth=payload.azimuth,
         pitch=payload.pitch,
         roll=payload.roll,
+        biomass_input_kg=payload.biomass_input_kg,
+        biomass_measurement_method=payload.biomass_measurement_method,
         device_id=device_id,
         status="RECEIVED",
     )
@@ -828,6 +929,7 @@ async def upload_media(
     x_declared_sha256: str = Header(..., alias="X-Declared-SHA256"),
     x_batch_uuid: str = Header(..., alias="X-Batch-UUID"),
     x_device_id: str = Header(..., alias="X-Device-Id"),
+    device_id: str = Depends(verify_media_signature),
     session: AsyncSession = Depends(get_session),
 ) -> MediaUploadResponse:
     """
@@ -943,15 +1045,23 @@ async def upload_media(
         result = await session.execute(stmt)
         media = result.scalar_one()
 
-    media.batch_uuid = uuid.UUID(x_batch_uuid)
+    # Phase 15-A: parse the batch UUID safely (malformed → 400, not a 500) and
+    # bind ownership — only the device that owns the batch may anchor evidence to it.
+    try:
+        batch_uuid = uuid.UUID(x_batch_uuid)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail="invalid_batch_uuid")
+    media.batch_uuid = batch_uuid
 
     # Anchor photo to batch if batch was already created (P0-25). The photo only
     # verifies the batch if its hash matches the batch's declared sha256_hash,
     # and the EXIF GPS corroborates the claimed coordinates (Phase 9).
-    stmt = select(Batch).where(Batch.batch_uuid == uuid.UUID(x_batch_uuid))
+    stmt = select(Batch).where(Batch.batch_uuid == batch_uuid)
     batch_result = await session.execute(stmt)
     batch = batch_result.scalar_one_or_none()
     if batch:
+        if batch.device_id is not None and batch.device_id != device_id:
+            raise HTTPException(status_code=403, detail="not_your_batch")
         _evaluate_anchor(batch, calculated_hash, exif_lat, exif_lon)
         session.add(batch)
 
@@ -1001,6 +1111,23 @@ class TelemetryPayload(BaseModel):
     temperature_readings: Optional[list[float]] = Field(None, max_length=100_000)
     smoke_evidence: Optional[list[dict]] = Field(None, max_length=1_000)
     hw_attestation: Optional[list] = Field(None, max_length=1_000)
+    # Rainbow compliance C0: kiln type/id (persisted in payload_json).
+    kiln_type: Optional[Literal["open", "closed"]] = None
+    kiln_id: Optional[str] = Field(None, max_length=128)
+    # Rainbow compliance C3 (open-kiln) / C3b (closed-kiln); read from payload_json
+    # by recompute_batch_credit for kiln-type-conditional compliance.
+    flame_height_m: Optional[float] = Field(None, ge=0.0, le=5.0)
+    ignition_energy_type: Optional[str] = Field(None, max_length=128)
+    ignition_energy_amount: Optional[float] = Field(None, ge=0.0)
+
+    @field_validator("temperature_readings")
+    @classmethod
+    def _validate_temp_range(cls, v: Optional[list[float]]) -> Optional[list[float]]:
+        # Phase 15-C: every reading must be physically plausible so a fabricated
+        # constant array can't inflate the burn-quality (CH4) gate with absurd values.
+        if v is not None and any((t < -50.0 or t > 1500.0) for t in v):
+            raise ValueError("temperature_readings values must be in [-50, 1500] C")
+        return v
 
 
 class YieldPayload(BaseModel):
@@ -1009,8 +1136,11 @@ class YieldPayload(BaseModel):
     batch_uuid: str = Field(..., max_length=64)
     quench_methodology: Optional[str] = Field(None, max_length=128)
     gross_volume: Optional[float] = None
-    wet_yield_weight_kg: Optional[float] = None
-    dry_yield_weight_kg: Optional[float] = None
+    # Phase 15-C: hard upper bound so a single self-asserted field can't linearly
+    # inflate the credit to arbitrary size (100 t/batch ceiling — confirm vs real
+    # kiln throughput). A kiln-capacity cross-check remains a documented follow-up.
+    wet_yield_weight_kg: Optional[float] = Field(None, gt=0.0, le=100_000.0)
+    dry_yield_weight_kg: Optional[float] = Field(None, ge=0.0, le=100_000.0)
 
 
 class MetadataPayload(BaseModel):
@@ -1034,6 +1164,39 @@ class ApplicationPayload(BaseModel):
     longitude: Optional[float] = Field(None, ge=-180.0, le=180.0)
     farmer_photo_path: Optional[str] = Field(None, max_length=512)
     farmer_photo_sha256: Optional[str] = Field(None, max_length=64)
+
+
+class MoisturePayload(BaseModel):
+    # Rainbow compliance C2: one moisture-meter reading (many per batch).
+    model_config = ConfigDict(extra="forbid")
+    reading_uuid: str = Field(..., max_length=64)
+    batch_uuid: str = Field(..., max_length=64)
+    moisture_percent: float = Field(..., ge=0.0, le=100.0)
+    sequence: int = Field(..., ge=1)
+    photo_path: Optional[str] = Field(None, max_length=512)
+    sha256_hash: Optional[str] = Field(None, min_length=64, max_length=64)
+
+
+@app.post("/api/v1/moisture", status_code=status.HTTP_201_CREATED)
+async def create_moisture(
+    payload: MoisturePayload,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+):
+    row = MoistureReading(
+        reading_uuid=payload.reading_uuid,
+        batch_uuid=payload.batch_uuid,
+        payload_json=json.dumps(payload.model_dump(mode="json")),
+    )
+    session.add(row)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return {"status": "success", "duplicate": True}
+    # New reading may satisfy the moisture-sample-count compliance rule.
+    await _recompute_if_batch_exists(session, payload.batch_uuid)
+    return {"status": "success", "duplicate": False}
 
 
 @app.post("/api/v1/telemetry", status_code=status.HTTP_201_CREATED)
@@ -1084,16 +1247,26 @@ async def create_metadata(
     device_id: str = Depends(verify_signature),
     session: AsyncSession = Depends(get_session),
 ):
-    row = SystemMetadata(
-        batch_uuid=payload.batch_uuid,
-        payload_json=json.dumps(payload.model_dump(mode="json")),
-    )
+    payload_json = json.dumps(payload.model_dump(mode="json"))
+    row = SystemMetadata(batch_uuid=payload.batch_uuid, payload_json=payload_json)
     session.add(row)
     try:
         await session.commit()
     except IntegrityError:
+        # 16D: metadata is keyed by batch_uuid; a repeat POST is a status UPDATE
+        # (e.g. closeBatch → CLOSED_PENDING_UPLOAD), not a no-op. Upsert the latest
+        # signed payload so batch-close events actually propagate to the server.
         await session.rollback()
-        return {"status": "success", "duplicate": True}
+        existing = (
+            await session.execute(
+                select(SystemMetadata).where(
+                    SystemMetadata.batch_uuid == payload.batch_uuid
+                )
+            )
+        ).scalar_one()
+        existing.payload_json = payload_json
+        await session.commit()
+        return {"status": "success", "updated": True}
     return {"status": "success", "duplicate": False}
 
 

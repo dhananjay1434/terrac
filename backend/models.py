@@ -5,7 +5,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import DateTime, Float, Integer, String, Text, ForeignKey
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    Text,
+    ForeignKey,
+)
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -79,8 +87,38 @@ class EndUseApplication(Base):
     )
 
 
+class MoistureReading(Base):
+    """Rainbow compliance C2: one moisture-meter reading per row (many per batch).
+
+    Unlike the other side tables, batch_uuid is NOT unique — the methodology
+    requires many readings per run (≥1 per 100 kg, min 10).
+    """
+
+    __tablename__ = "moisture_readings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    reading_uuid: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, index=True
+    )
+    batch_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class Batch(Base):
     __tablename__ = "batches"
+
+    # Phase 15-D: the permanence ratio invariant lives at the DB layer, not just in
+    # the LabHCorgRequest API model — any write path must respect [0.1, 1.5].
+    __table_args__ = (
+        CheckConstraint(
+            "lab_h_corg IS NULL OR (lab_h_corg >= 0.1 AND lab_h_corg <= 1.5)",
+            name="ck_batches_lab_h_corg_range",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     batch_uuid: Mapped[UUID] = mapped_column(
@@ -126,6 +164,10 @@ class Batch(Base):
     # conservative 0.35 assumption and is PROVISIONAL). Persisted so recompute
     # from a later evidence stream does not lose a previously-ingested lab value.
     lab_h_corg: Mapped[float] = mapped_column(Float, nullable=True)
+
+    # Rainbow compliance C1: biomass input amount + measurement method.
+    biomass_input_kg: Mapped[float] = mapped_column(Float, nullable=True)
+    biomass_measurement_method: Mapped[str] = mapped_column(String(32), nullable=True)
 
     # Metadata
     status: Mapped[str] = mapped_column(String(32), default="RECEIVED", nullable=False)

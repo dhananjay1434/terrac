@@ -16,7 +16,7 @@ from PIL import Image
 from sqlalchemy import select
 
 from models import Batch
-from tests.remediation.crypto_utils import sign_request
+from tests.remediation.crypto_utils import sign_request, sign_media
 
 
 def _dms(value: float):
@@ -81,6 +81,7 @@ async def _post_media(client, batch_uuid, content, op):
             "X-Declared-SHA256": sha,
             "X-Batch-UUID": batch_uuid,
             "X-Device-Id": "test-device-reg",
+            "X-Signature": sign_media("test-device-reg", op, sha, batch_uuid),
         },
     )
 
@@ -140,6 +141,7 @@ async def test_mock_location_header_has_no_effect_on_media(client):
             "X-Batch-UUID": bu,
             "X-Device-Id": "test-device-reg",
             "X-Mock-Location": "true",
+            "X-Signature": sign_media("test-device-reg", "op-mock-noeffect", sha, bu),
         },
     )
     assert r.status_code == 200, r.text

@@ -32,10 +32,9 @@ async def registered_device(client: AsyncClient, session_factory):
 async def test_media_endpoint_does_not_leak_absolute_path(
     client: AsyncClient, registered_device
 ):
-    from tests.remediation.crypto_utils import sign_request
+    from tests.remediation.crypto_utils import sign_media
     import hashlib
     import tempfile
-    import os
 
     dev_id = registered_device["device_id"]
 
@@ -44,6 +43,7 @@ async def test_media_endpoint_does_not_leak_absolute_path(
         tmp_name = tmp.name
 
     actual_hash = hashlib.sha256(b"leak test").hexdigest()
+    bu = str(uuid.uuid4())
 
     with open(tmp_name, "rb") as f:
         resp = await client.post(
@@ -52,9 +52,9 @@ async def test_media_endpoint_does_not_leak_absolute_path(
             headers={
                 "X-Idempotency-Key": "op-media-leak",
                 "X-Declared-SHA256": actual_hash,
-                "X-Batch-UUID": str(uuid.uuid4()),
+                "X-Batch-UUID": bu,
                 "X-Device-Id": dev_id,
-                "X-Signature": "dummy",  # mock will skip if dummy
+                "X-Signature": sign_media(dev_id, "op-media-leak", actual_hash, bu),
             },
         )
     assert resp.status_code == 200

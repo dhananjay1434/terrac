@@ -61,3 +61,22 @@ def sign_canonical(canonical: bytes) -> str:
     """Ed25519-sign an already-assembled canonical byte string with the fixed
     test private key. For call sites that build the canonical string inline."""
     return _b64u(_PRIV.sign(canonical))
+
+
+def sign_media(
+    device_id: str, idempotency_key: str, declared_sha256: str, batch_uuid: str
+) -> str:
+    """Ed25519-sign the FROZEN media canonical (Phase 15-A):
+    POST\\n/api/v1/media\\n{idempotency_key}\\n{declared_sha256_lower}\\n{batch_uuid}\\n{device_id}
+    """
+    canonical = "\n".join(
+        [
+            "POST",
+            "/api/v1/media",
+            idempotency_key,
+            declared_sha256.lower(),
+            batch_uuid,
+            device_id,
+        ]
+    ).encode("utf-8")
+    return _b64u(_PRIV.sign(canonical))

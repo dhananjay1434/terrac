@@ -53,6 +53,7 @@ const Map<String, String> kEndpointByTable = <String, String>{
   'pyrolysis_telemetry': 'telemetry',
   'yield_metrics': 'yield',
   'end_use_application': 'application',
+  'moisture_readings': 'moisture',
 };
 
 /// Resolve the sync endpoint for [targetTable]. Throws [StateError] for an
@@ -225,6 +226,21 @@ class SyncQueueManager {
 
     try {
       final db = await ref.read(appDatabaseProvider.future);
+
+      // 16A: reclaim leases abandoned by a crashed/OS-killed worker — any row left
+      // PROCESSING longer than the lease window is returned to PENDING so it isn't
+      // stuck forever.
+      final leaseCutoff = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(seconds: 120))
+          .toIso8601String();
+      await db.customUpdate(
+        "UPDATE sync_outbox SET status='PENDING' "
+        "WHERE status='PROCESSING' AND (last_attempt_at IS NULL OR last_attempt_at < ?)",
+        variables: [Variable.withString(leaseCutoff)],
+        updates: {db.syncOutbox},
+      );
+
       final pending =
           await (db.select(db.syncOutbox)
                 ..where((t) => t.status.equals('PENDING'))
@@ -260,6 +276,25 @@ class SyncQueueManager {
             );
             continue;
           }
+        }
+        // 16A: atomically claim the row (PENDING -> PROCESSING). If another worker
+        // (e.g. the WorkManager background isolate racing the foreground loop) beat
+        // us to it, `claimed` is 0 and we skip — no double POST / double media
+        // upload / delete-under-the-other-worker.
+        final claimed = await db.customUpdate(
+          "UPDATE sync_outbox SET status='PROCESSING', last_attempt_at=? "
+          "WHERE operation_id=? AND status='PENDING'",
+          variables: [
+            Variable.withString(DateTime.now().toUtc().toIso8601String()),
+            Variable.withString(entry.operationId),
+          ],
+          updates: {db.syncOutbox},
+        );
+        if (claimed != 1) {
+          debugPrint(
+            '[SyncQueue] ${entry.operationId} already claimed by another worker — skipping.',
+          );
+          continue;
         }
         await _processEntry(db, entry);
       }
@@ -316,6 +351,16 @@ class SyncQueueManager {
 
           if (!jsonAccepted) {
             final code = jsonResponse.statusCode;
+            // 16C: 401/403 are usually TRANSIENT — a device that signed before
+            // registration completed, a clock/enrollment race, or a key not yet
+            // propagated. Retry (with backoff) instead of poisoning real field
+            // evidence as FAILED_PERMANENTLY. Only genuine validation (422) and
+            // other 4xx are permanent.
+            if (code == 401 || code == 403) {
+              throw Exception(
+                'JSON upload auth pending ($code) — will retry: ${jsonResponse.body}',
+              );
+            }
             if (code >= 400 && code < 500) {
               throw PermanentSyncException(
                 'JSON upload failed (client error $code): ${jsonResponse.body}',
@@ -420,10 +465,14 @@ class SyncQueueManager {
           const SyncOutboxCompanion(status: Value('FAILED_PERMANENTLY')),
         );
       } else {
+        // 16A: release the PROCESSING lease back to PENDING (and bump retry) so the
+        // next sweep re-selects it. Without this reset a transient failure would
+        // leave the row stuck in PROCESSING until the lease-reclaim window elapses.
         await (db.update(
           db.syncOutbox,
         )..where((t) => t.operationId.equals(entry.operationId))).write(
           SyncOutboxCompanion(
+            status: const Value('PENDING'),
             retryCount: Value(entry.retryCount + 1),
             lastAttemptAt: Value(DateTime.now().toUtc().toIso8601String()),
           ),
@@ -448,12 +497,22 @@ class SyncQueueManager {
       'POST',
       Uri.parse('${_config.apiBase}/api/v1/media'),
     );
-    request.headers['X-Idempotency-Key'] = '${entry.operationId}_media';
-    request.headers['X-Device-Id'] = await CryptoSigner.getDeviceId();
+    final mediaOpKey = '${entry.operationId}_media';
+    final mediaDeviceId = await CryptoSigner.getDeviceId();
+    request.headers['X-Idempotency-Key'] = mediaOpKey;
+    request.headers['X-Device-Id'] = mediaDeviceId;
     request.headers['X-Mock-Location'] = isMockLocation.toString();
     request.headers['X-Batch-UUID'] = entry.batchUuid;
     if (declaredSha256 != null) {
       request.headers['X-Declared-SHA256'] = declaredSha256;
+      // Phase 15-A: Ed25519-sign the media upload (frozen media canonical) so the
+      // evidence channel is authenticated, not an anonymous checksum.
+      request.headers['X-Signature'] = await CryptoSigner.signMediaUpload(
+        idempotencyKey: mediaOpKey,
+        declaredSha256: declaredSha256,
+        batchUuid: entry.batchUuid,
+        deviceId: mediaDeviceId,
+      );
     }
     request.files.add(await http.MultipartFile.fromPath('file', photoPath));
 
@@ -462,6 +521,10 @@ class SyncQueueManager {
 
     if (mediaResponse.statusCode != 200 && mediaResponse.statusCode != 201) {
       final code = mediaResponse.statusCode;
+      // 16C: 401/403 are transient auth/enrollment races — retry, don't poison.
+      if (code == 401 || code == 403) {
+        throw Exception('Media upload auth pending ($code) — will retry');
+      }
       if (code >= 400 && code < 500) {
         throw PermanentSyncException(
           'Media upload failed (client error $code)',
@@ -492,7 +555,14 @@ class SyncQueueManager {
       );
     }
 
-    // Only GC the file after the server hash is confirmed.
+    // 16B: stamp media_synced_at BEFORE deleting the file. If the process dies
+    // between the delete and the commit, a retry would find the file gone and
+    // (pre-fix) mark server-accepted evidence as permanently failed. Committing
+    // the stamp first means a crash after delete simply resumes as "already
+    // synced". The server has verified the bytes (hash match above), so it is
+    // safe to record success before GC.
+    await _stampMediaSynced(db, entry.operationId);
+
     debugPrint('[SyncQueue] GC: deleting local evidence: $photoPath');
     await file.delete();
   }

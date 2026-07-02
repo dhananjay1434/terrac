@@ -74,6 +74,11 @@ extension PyrolysisWriter on AppDatabase {
     required DateTime burnEnd,
     required List<double> temperatureReadings,
     List<List<int>> attestationBlobs = const [],
+    String? kilnType, // 'open' | 'closed' (Rainbow compliance C0)
+    String? kilnId,
+    double? flameHeightM, // Rainbow C3 (open-kiln)
+    String? ignitionEnergyType, // Rainbow C3b (closed-kiln)
+    double? ignitionEnergyAmount,
   }) async {
     if (temperatureReadings.isEmpty) {
       throw ArgumentError(
@@ -117,6 +122,11 @@ extension PyrolysisWriter on AppDatabase {
       hwAttestationJson: Value(
         jsonEncode(attestationBlobs.map((b) => base64Encode(b)).toList()),
       ),
+      kilnType: Value(kilnType),
+      kilnId: Value(kilnId),
+      flameHeightM: Value(flameHeightM),
+      ignitionEnergyType: Value(ignitionEnergyType),
+      ignitionEnergyAmount: Value(ignitionEnergyAmount),
     );
 
     final payload = <String, dynamic>{
@@ -130,6 +140,11 @@ extension PyrolysisWriter on AppDatabase {
       'temperature_readings': temperatureReadings,
       'smoke_evidence': smokeEvidence,
       'hw_attestation': attestationBlobs.map((b) => base64Encode(b)).toList(),
+      'kiln_type': kilnType,
+      'kiln_id': kilnId,
+      'flame_height_m': flameHeightM,
+      'ignition_energy_type': ignitionEnergyType,
+      'ignition_energy_amount': ignitionEnergyAmount,
     };
 
     await insertWithOutbox(

@@ -1,5 +1,16 @@
 # Findings Backlog
 - Deleted out-of-scope test_req.py as it caused collection to hang by attempting external TCP connections.
+- **[RESOLVED · Phase 15] Post-audit authenticity holes.** `/api/v1/media` now Ed25519-signed +
+  device-ownership bound (15A); the LCA issuance signature is bound to `batch_uuid` (15B); self-asserted
+  `wet_yield_weight_kg`/`temperature_readings` are bounded (15C); `lab_h_corg` range enforced by a DB
+  CHECK (15D). Locked by `test_media_auth.py`, `test_lab_hcorg_db_constraint.py`, and signature/bound
+  cases in `test_lca_provisional.py`/`test_endpoint_schemas.py`. See REMEDIATION_LOG Phase 15.
+- **[RESOLVED · Phase 16] Field reliability & data-loss cluster.** Outbox row-lease (16A),
+  crash-safe media stamp-before-delete (16B), 401/403 retryable (16C), closeBatch enqueue + server
+  metadata upsert (16D), secureWipe keys-first/re-open-latch/secure_delete@open/WAL-checkpoint (16E),
+  v11 offset-timestamp + v15 malformed-JSON migration fixes (16F). See REMEDIATION_LOG Phase 16.
+- **[OPEN · Phase 17, trust-root epics — cross-team] hardware-bound non-extractable device key (17A);
+  real Play Integrity/DeviceCheck attestation (17B, gates scaled issuance).** See PHASE_15_17 spec.
 - **[RESOLVED · Phase 11-R] Unbounded strings / request body on the strict endpoints.** Free-text string
   fields now carry `max_length`, and a Content-Length middleware caps JSON bodies at 2 MB (413) while
   giving `/api/v1/media` 12 MB headroom. Locked by `test_endpoint_schemas.py`. See REMEDIATION_LOG Phase 11-R.

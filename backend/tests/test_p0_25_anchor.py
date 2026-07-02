@@ -20,7 +20,9 @@ async def test_photo_then_batch_anchors_correctly(client, session_factory):
     sha = hashlib.sha256(payload).hexdigest()
     batch_uuid = str(uuid.uuid4())
 
-    # 1. Photo lands first
+    from tests.remediation.crypto_utils import sign_media
+
+    # 1. Photo lands first (signed by test-device-1, which will own the batch)
     r1 = await client.post(
         "/api/v1/media",
         files={"file": ("x.jpg", io.BytesIO(payload), "image/jpeg")},
@@ -29,6 +31,7 @@ async def test_photo_then_batch_anchors_correctly(client, session_factory):
             "X-Declared-SHA256": sha,
             "X-Device-Id": "test-device-1",
             "X-Batch-UUID": batch_uuid,
+            "X-Signature": sign_media("test-device-1", "op-photo-1", sha, batch_uuid),
         },
     )
     assert r1.status_code in (200, 201)
@@ -131,15 +134,19 @@ async def test_late_photo_upgrades_batch_to_received(client, session_factory):
         headers={"X-Idempotency-Key": "op-late-1"},
     )
 
-    # Photo arrives second -> should flip RECEIVED
+    # Photo arrives second -> should flip RECEIVED. The batch above was auto-signed
+    # by the conftest client as "test-device-reg", so the owner uploads the photo.
+    from tests.remediation.crypto_utils import sign_media
+
     await client.post(
         "/api/v1/media",
         files={"file": ("late.jpg", io.BytesIO(payload), "image/jpeg")},
         headers={
             "X-Idempotency-Key": "op-late-2",
             "X-Declared-SHA256": sha,
-            "X-Device-Id": "test-device-1",
+            "X-Device-Id": "test-device-reg",
             "X-Batch-UUID": batch_uuid,
+            "X-Signature": sign_media("test-device-reg", "op-late-2", sha, batch_uuid),
         },
     )
 

@@ -32,6 +32,7 @@ const _uuid = Uuid();
     EndUseApplication,
     SyncOutbox,
     MediaCaptures,
+    MoistureReadings,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -41,7 +42,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -127,8 +128,13 @@ class AppDatabase extends _$AppDatabase {
           "SET harvest_timestamp = "
           "  CASE "
           "    WHEN harvest_timestamp LIKE '%Z' THEN harvest_timestamp "
+          // 16F: a timestamp that already carries a +HH:MM / -HH:MM offset is a
+          // valid, lossless ISO-8601 instant — leave it untouched. The previous
+          // STRFTIME('...Z', ...) returned NULL for offset strings (SQLite does not
+          // parse the offset), silently destroying the harvest time that anchors
+          // the drying-mandate check.
           "    WHEN harvest_timestamp LIKE '%+%' OR harvest_timestamp LIKE '%-__:__' "
-          "      THEN STRFTIME('%Y-%m-%dT%H:%M:%fZ', harvest_timestamp) "
+          "      THEN harvest_timestamp "
           "    ELSE harvest_timestamp || 'Z' "
           "  END "
           "WHERE harvest_timestamp IS NOT NULL AND harvest_timestamp NOT LIKE '%Z';",
@@ -156,11 +162,55 @@ class AppDatabase extends _$AppDatabase {
         );
       }
       if (from < 15) {
+        // 16F: sanitise any legacy non-JSON content BEFORE adding the json_valid
+        // CHECK constraints. The TableMigration below rewrites the table with an
+        // INSERT..SELECT that validates every row against the new CHECK; a single
+        // malformed/empty legacy value would abort the whole upgrade and leave the
+        // DB unopenable. Coerce invalid values to an empty JSON array first.
+        for (final col in const [
+          'temperature_readings_json',
+          'smoke_evidence_json',
+          'hw_attestation_json',
+        ]) {
+          await customStatement(
+            "UPDATE pyrolysis_telemetry SET $col = '[]' "
+            "WHERE $col IS NULL OR json_valid($col) = 0;",
+          );
+        }
         // P1-23: Add json_valid constraints to pyrolysis_telemetry.
         // TableMigration automatically performs the table-rewrite (temp table + insert + rename)
         // required by SQLite to add CHECK constraints.
         // ignore: experimental_member_use
         await m.alterTable(TableMigration(pyrolysisTelemetry));
+      }
+      if (from < 16) {
+        // Rainbow compliance C0: kiln type + id on pyrolysis telemetry.
+        await m.addColumn(pyrolysisTelemetry, pyrolysisTelemetry.kilnType);
+        await m.addColumn(pyrolysisTelemetry, pyrolysisTelemetry.kilnId);
+      }
+      if (from < 17) {
+        // Rainbow compliance C1: biomass input amount + measurement method.
+        await m.addColumn(biomassSourcing, biomassSourcing.biomassInputKg);
+        await m.addColumn(
+          biomassSourcing,
+          biomassSourcing.biomassMeasurementMethod,
+        );
+      }
+      if (from < 18) {
+        // Rainbow compliance C2: per-reading moisture table.
+        await m.createTable(moistureReadings);
+      }
+      if (from < 19) {
+        // Rainbow compliance C3/C3b: flame height + ignition energy on telemetry.
+        await m.addColumn(pyrolysisTelemetry, pyrolysisTelemetry.flameHeightM);
+        await m.addColumn(
+          pyrolysisTelemetry,
+          pyrolysisTelemetry.ignitionEnergyType,
+        );
+        await m.addColumn(
+          pyrolysisTelemetry,
+          pyrolysisTelemetry.ignitionEnergyAmount,
+        );
       }
     },
   );
@@ -254,6 +304,9 @@ class AppDatabase extends _$AppDatabase {
     double? azimuth,
     double? pitch,
     double? roll,
+    // Rainbow compliance C1: biomass input amount + method.
+    double? biomassInputKg,
+    String? biomassMeasurementMethod,
   }) async {
     final sourcingUuid = _uuid.v4();
     final companion = BiomassSourcingCompanion.insert(
@@ -272,6 +325,8 @@ class AppDatabase extends _$AppDatabase {
       azimuth: Value(azimuth),
       pitch: Value(pitch),
       roll: Value(roll),
+      biomassInputKg: Value(biomassInputKg),
+      biomassMeasurementMethod: Value(biomassMeasurementMethod),
     );
 
     final payload = <String, dynamic>{
@@ -291,6 +346,8 @@ class AppDatabase extends _$AppDatabase {
       'azimuth': azimuth,
       'pitch': pitch,
       'roll': roll,
+      'biomass_input_kg': biomassInputKg,
+      'biomass_measurement_method': biomassMeasurementMethod,
     };
 
     await insertWithOutbox(
@@ -300,6 +357,44 @@ class AppDatabase extends _$AppDatabase {
       insertRow: () => into(biomassSourcing).insert(companion),
     );
     return sourcingUuid;
+  }
+
+  /// Rainbow compliance C2: persist one moisture-meter reading + its photo,
+  /// atomically enqueued. The photo (photo_path/sha256_hash in the payload) rides
+  /// the existing two-phase signed /media upload path in the sync loop, so no new
+  /// media plumbing is needed. Routes to the /moisture endpoint.
+  Future<String> insertMoistureReadingWithOutbox({
+    required String batchUuid,
+    required double moisturePercent,
+    required int sequence,
+    String? photoPath,
+    String? sha256Hash,
+  }) async {
+    final readingUuid = _uuid.v4();
+    final companion = MoistureReadingsCompanion.insert(
+      readingUuid: readingUuid,
+      batchUuid: batchUuid,
+      moisturePercent: moisturePercent,
+      sequence: sequence,
+      sandboxPath: Value(photoPath),
+      sha256Hash: Value(sha256Hash),
+      createdAt: DateTime.now().toUtc().toIso8601String(),
+    );
+    final payload = <String, dynamic>{
+      'reading_uuid': readingUuid,
+      'batch_uuid': batchUuid,
+      'moisture_percent': moisturePercent,
+      'sequence': sequence,
+      'photo_path': photoPath,
+      'sha256_hash': sha256Hash,
+    };
+    await insertWithOutbox(
+      batchUuid: batchUuid,
+      targetTable: 'moisture_readings',
+      payload: payload,
+      insertRow: () => into(moistureReadings).insert(companion),
+    );
+    return readingUuid;
   }
 
   /// Raw parameterized telemetry query — TEST-ONLY. Gated behind
@@ -316,30 +411,45 @@ class AppDatabase extends _$AppDatabase {
   /// Securely erases all user data and key material. After this call the
   /// AppDatabase instance is closed; callers MUST `ref.invalidate(appDatabaseProvider)`.
   Future<void> secureWipe({required WipeContext ctx, required Ref ref}) async {
-    ref.invalidate(syncQueueManagerProvider);
-    await customStatement('PRAGMA secure_delete = ON;');
-    await transaction(() async {
-      await delete(systemMetadata).go();
-      await delete(biomassSourcing).go();
-      await delete(pyrolysisTelemetry).go();
-      await delete(yieldMetrics).go();
-      await delete(endUseApplication).go();
-      await delete(syncOutbox).go();
-      await delete(mediaCaptures).go();
-    });
-    await customStatement('VACUUM;');
-    await close();
+    // 16E: block any re-open for the whole duration so an in-flight provider read
+    // cannot recreate the DB against the passphrase we are about to discard.
+    _dbWipeInProgress = true;
+    try {
+      ref.invalidate(syncQueueManagerProvider);
 
-    final dir = await ctx.getDocsDir();
-    for (final suffix in const ['', '-wal', '-shm', '-journal']) {
-      final f = File(p.join(dir.path, '$_kDbFileName$suffix'));
-      if (await f.exists()) {
-        await f.delete();
+      // 16E: delete key material FIRST. If anything below crashes mid-wipe, the
+      // DB is left unreadable (safe) rather than a fresh file bound to a key that
+      // was then thrown away. The already-open connection keeps its in-memory key,
+      // so the deletes/VACUUM below still run.
+      await ctx.deleteSecureKey(kDbPassphraseKey);
+      await ctx.clearHmacKey();
+
+      await customStatement('PRAGMA secure_delete = ON;');
+      await transaction(() async {
+        await delete(systemMetadata).go();
+        await delete(biomassSourcing).go();
+        await delete(pyrolysisTelemetry).go();
+        await delete(yieldMetrics).go();
+        await delete(endUseApplication).go();
+        await delete(syncOutbox).go();
+        await delete(mediaCaptures).go();
+      });
+      await customStatement('VACUUM;');
+      // 16E: fold WAL frames back into the (now-scrubbed) main file and truncate
+      // the -wal so no plaintext-at-rest frames survive the file deletion below.
+      await customStatement('PRAGMA wal_checkpoint(TRUNCATE);');
+      await close();
+
+      final dir = await ctx.getDocsDir();
+      for (final suffix in const ['', '-wal', '-shm', '-journal']) {
+        final f = File(p.join(dir.path, '$_kDbFileName$suffix'));
+        if (await f.exists()) {
+          await f.delete();
+        }
       }
+    } finally {
+      _dbWipeInProgress = false;
     }
-
-    await ctx.deleteSecureKey(kDbPassphraseKey);
-    await ctx.clearHmacKey();
   }
 }
 
@@ -358,6 +468,12 @@ class AppDatabase extends _$AppDatabase {
 
 const _kDbFileName = 'dmrv_encrypted.sqlite';
 
+/// 16E: set while [AppDatabase.secureWipe] runs so a concurrent
+/// `appDatabaseProvider` read cannot re-open (and thereby recreate) the database
+/// against a passphrase that is about to be discarded — which would leave an
+/// unreadable "ghost" encrypted file. A re-open during wipe fails fast instead.
+bool _dbWipeInProgress = false;
+
 /// Hardware-backed storage (Android Keystore / iOS Keychain).
 /// encryptedSharedPreferences: true ensures the backing XML is itself
 /// encrypted by the Jetpack EncryptedSharedPreferences layer on Android < 9.
@@ -375,6 +491,10 @@ Future<String> _resolveOrCreatePassphrase() async {
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
+    // 16E: refuse to open while a secure wipe is in flight (see secureWipe).
+    if (_dbWipeInProgress) {
+      throw StateError('AppDatabase open refused: secure wipe in progress');
+    }
     if (!kIsWeb && Platform.isAndroid) {
       await applyWorkaroundToOpenSqlCipherOnOldAndroidVersions();
     }
@@ -407,6 +527,10 @@ LazyDatabase _openConnection() {
 
         // P0-5: Enforce relational integrity
         rawDb.execute('PRAGMA foreign_keys = ON;');
+
+        // 16E: zero freed pages for the DB's whole lifetime (not just at wipe
+        // time), so deleted evidence leaves no plaintext remnants in freed pages.
+        rawDb.execute('PRAGMA secure_delete = ON;');
       },
     );
   });

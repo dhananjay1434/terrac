@@ -1,4 +1,4 @@
-from tests.remediation.crypto_utils import TEST_PUBLIC_KEY_B64
+from tests.remediation.crypto_utils import TEST_PUBLIC_KEY_B64, sign_media
 import json
 import pytest
 import uuid
@@ -92,6 +92,9 @@ async def test_media_anchors_by_explicit_batch_uuid(
                 "X-Declared-SHA256": actual_hash,
                 "X-Batch-UUID": b1_uuid,
                 "X-Device-Id": dev_id,
+                "X-Signature": sign_media(
+                    dev_id, "op-media-anch", actual_hash, b1_uuid
+                ),
             },
         )
     assert resp2.status_code == 200
@@ -143,6 +146,9 @@ async def test_duplicate_photo_hash_does_not_500(
                 "X-Declared-SHA256": actual_hash,
                 "X-Batch-UUID": b1_uuid,
                 "X-Device-Id": dev_id,
+                "X-Signature": sign_media(
+                    dev_id, "op-media-dup1", actual_hash, b1_uuid
+                ),
             },
         )
     assert resp1.status_code == 200
@@ -157,6 +163,9 @@ async def test_duplicate_photo_hash_does_not_500(
                 "X-Declared-SHA256": actual_hash,
                 "X-Batch-UUID": b2_uuid,
                 "X-Device-Id": dev_id,
+                "X-Signature": sign_media(
+                    dev_id, "op-media-dup2", actual_hash, b2_uuid
+                ),
             },
         )
     assert resp2.status_code == 200
@@ -194,6 +203,7 @@ async def test_reused_photo_anchors_to_correct_batch(
                 "X-Declared-SHA256": actual_hash,
                 "X-Batch-UUID": b1_uuid,
                 "X-Device-Id": dev_id,
+                "X-Signature": sign_media(dev_id, "op-media-ru1", actual_hash, b1_uuid),
             },
         )
 
@@ -207,6 +217,7 @@ async def test_reused_photo_anchors_to_correct_batch(
                 "X-Declared-SHA256": actual_hash,
                 "X-Batch-UUID": b2_uuid,
                 "X-Device-Id": dev_id,
+                "X-Signature": sign_media(dev_id, "op-media-ru2", actual_hash, b2_uuid),
             },
         )
 
@@ -248,4 +259,6 @@ async def test_missing_device_id_on_media_rejected(client: AsyncClient):
                 # Intentionally missing X-Device-Id
             },
         )
-    assert resp.status_code == 422
+    # Phase 15-A: media now requires auth; a missing device id is rejected
+    # (422 from the required header, or 403 unknown_device) — either way, not stored.
+    assert resp.status_code in (401, 403, 422)

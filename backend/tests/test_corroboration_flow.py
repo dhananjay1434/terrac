@@ -105,6 +105,26 @@ async def test_credit_converges_as_evidence_arrives(
     batch = await _fetch(session_factory, bu)
     assert batch.wet_yield_kg == 120.0
 
+    # 3.5 Moisture readings arrive (Rainbow C2) -> moisture compliance satisfied.
+    # No biomass_input_kg on this payload, so the floor of 10 photographed
+    # readings applies; supply exactly 10 so the only remaining reason is the
+    # assumed H:Corg.
+    for i in range(1, 11):
+        rm = await client.post(
+            "/api/v1/moisture",
+            content=json.dumps(
+                {
+                    "reading_uuid": str(uuid.uuid4()),
+                    "batch_uuid": bu,
+                    "moisture_percent": 12.0,
+                    "sequence": i,
+                    "sha256_hash": "a" * 64,
+                }
+            ).encode("utf-8"),
+            headers={"X-Idempotency-Key": f"flow-moist-{i}"},
+        )
+        assert rm.status_code == 201, rm.text
+
     # 4. Application arrives with distinct GPS -> transport corroborated.
     app = {
         "application_uuid": str(uuid.uuid4()),

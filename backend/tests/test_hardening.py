@@ -123,11 +123,16 @@ async def test_p0_13_batch_dup_op_id_different_sha_returns_409(client):
 
 @pytest.mark.asyncio
 async def test_p0_13_media_dup_op_id_different_hash_returns_409(client):
+    from tests.remediation.crypto_utils import sign_media
+
     op_id = str(uuid4())
     content_a = b"photo-A-bytes"
     content_b = b"photo-B-bytes"
     sha_a = hashlib.sha256(content_a).hexdigest()
     sha_b = hashlib.sha256(content_b).hexdigest()
+    dev = "test-device-1"  # enrolled by conftest
+    bu_a = str(uuid4())
+    bu_b = str(uuid4())
 
     r1 = await client.post(
         "/api/v1/media",
@@ -135,8 +140,9 @@ async def test_p0_13_media_dup_op_id_different_hash_returns_409(client):
         headers={
             "X-Idempotency-Key": op_id,
             "X-Declared-SHA256": sha_a,
-            "X-Device-Id": "device-123",
-            "X-Batch-UUID": str(uuid4()),
+            "X-Device-Id": dev,
+            "X-Batch-UUID": bu_a,
+            "X-Signature": sign_media(dev, op_id, sha_a, bu_a),
         },
     )
     assert r1.status_code == 200, r1.text
@@ -146,8 +152,9 @@ async def test_p0_13_media_dup_op_id_different_hash_returns_409(client):
         headers={
             "X-Idempotency-Key": op_id,
             "X-Declared-SHA256": sha_b,
-            "X-Device-Id": "device-123",
-            "X-Batch-UUID": str(uuid4()),
+            "X-Device-Id": dev,
+            "X-Batch-UUID": bu_b,
+            "X-Signature": sign_media(dev, op_id, sha_b, bu_b),
         },
     )
     assert r2.status_code == 409
@@ -251,13 +258,10 @@ async def test_p0_16_real_burn_temp_accepted(client):
 
 
 def test_p0_17_no_hardcoded_db_default():
-    db_py = (
-        Path(__file__).resolve().parents[2]
-        / "uploaded"
-        / "New folder"
-        / "backend"
-        / "db.py"
-    ).read_text(encoding="utf-8")
+    # Retargeted (Rainbow C0 incidental): assert against the REAL backend/db.py,
+    # not the untracked duplicate under uploaded/New folder/ that used to be here
+    # (that cruft copy was cleaned; it was never version-controlled).
+    db_py = (Path(__file__).resolve().parents[1] / "db.py").read_text(encoding="utf-8")
     assert "postgres:postgres@localhost" not in db_py, (
         "Hardcoded postgres:postgres default still present in db.py. See /app/detailed.md#P0-17."
     )
@@ -319,17 +323,23 @@ async def test_p1_18_mock_location_header_has_no_effect(client):
     # Phase 9: the honor-system X-Mock-Location header was dropped as a control.
     # A well-formed media upload must NOT be rejected because of it; mock-location
     # is corroborated server-side (EXIF GPS / teleport), not via a client header.
+    from tests.remediation.crypto_utils import sign_media
+
     content = b"x"
     sha = hashlib.sha256(content).hexdigest()
+    dev = "test-device-1"
+    op = str(uuid4())
+    bu = str(uuid4())
     r = await client.post(
         "/api/v1/media",
         files={"file": ("a.jpg", io.BytesIO(content), "image/jpeg")},
         headers={
-            "X-Idempotency-Key": str(uuid4()),
+            "X-Idempotency-Key": op,
             "X-Declared-SHA256": sha,
             "X-Mock-Location": "true",
-            "X-Device-Id": "device-abc",
-            "X-Batch-UUID": str(uuid4()),
+            "X-Device-Id": dev,
+            "X-Batch-UUID": bu,
+            "X-Signature": sign_media(dev, op, sha, bu),
         },
     )
     assert r.status_code == 200, (
@@ -429,23 +439,31 @@ async def test_p1_20_invalid_device_id_400(client):
             "X-Batch-UUID": str(uuid4()),
         },
     )
-    assert r.status_code == 400
+    # Phase 15-A: media is now signed. A hostile/unenrolled device id is rejected by
+    # auth (401 missing signature / 403 unknown device) before the 400 format check —
+    # either way it never stores a file.
+    assert r.status_code in (400, 401, 403)
 
 
 @pytest.mark.asyncio
 async def test_p1_20_path_traversal_filename_blocked(client):
     """Even with a hostile filename, the file must land under UPLOAD_DIR/device/."""
+    from tests.remediation.crypto_utils import sign_media
+
     content = b"hello"
     sha = hashlib.sha256(content).hexdigest()
     op_id = "op-" + uuid4().hex
+    dev = "test-device-1"
+    bu = str(uuid4())
     r = await client.post(
         "/api/v1/media",
         files={"file": ("../../etc/passwd_pwn.jpg", io.BytesIO(content), "image/jpeg")},
         headers={
             "X-Idempotency-Key": op_id,
             "X-Declared-SHA256": sha,
-            "X-Device-Id": "device-1",
-            "X-Batch-UUID": str(uuid4()),
+            "X-Device-Id": dev,
+            "X-Batch-UUID": bu,
+            "X-Signature": sign_media(dev, op_id, sha, bu),
         },
     )
     assert r.status_code == 200, r.text
@@ -457,8 +475,10 @@ async def test_p1_20_path_traversal_filename_blocked(client):
 
 
 def test_p1_20_uploads_in_gitignore():
-    root = Path(__file__).resolve().parents[2] / "uploaded" / "New folder"
-    gi = root / ".gitignore"
+    # Retargeted (Rainbow C0 incidental): assert against the REAL repo-root
+    # .gitignore, not the untracked duplicate copy that used to live under
+    # uploaded/New folder/ (now cleaned; never version-controlled).
+    gi = Path(__file__).resolve().parents[2] / ".gitignore"
     assert gi.exists(), ".gitignore missing at repo root"
     text = gi.read_text(encoding="utf-8")
     assert "backend/uploads" in text or "uploads/" in text, (

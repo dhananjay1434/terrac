@@ -115,6 +115,27 @@ class CryptoSigner {
     return base64Url.encode(sig.bytes).replaceAll('=', '');
   }
 
+  /// CANONICAL STRING (frozen, media): the multipart body is not byte-reproducible,
+  /// so we sign the DECLARED file hash instead of sha256(body). MUST byte-match the
+  /// server's verify_media_signature:
+  ///   POST\n/api/v1/media\n{idempotencyKey}\n{declaredSha256Lower}\n{batchUuid}\n{deviceId}
+  static Future<String> signMediaUpload({
+    required String idempotencyKey,
+    required String declaredSha256,
+    required String batchUuid,
+    required String deviceId,
+  }) async {
+    if (isDeviceCompromisedGlobally) throw StateError('device_compromised');
+    final canonical =
+        'POST\n/api/v1/media\n$idempotencyKey\n'
+        '${declaredSha256.toLowerCase()}\n$batchUuid\n$deviceId';
+    final sig = await _algo.sign(
+      utf8.encode(canonical),
+      keyPair: await _keyPair(),
+    );
+    return base64Url.encode(sig.bytes).replaceAll('=', '');
+  }
+
   /// Local-only tamper-evidence for the outbox row. NOT sent to the server as proof.
   static Future<String> signPayload(String jsonPayload) async {
     if (isDeviceCompromisedGlobally) throw StateError('device_compromised');

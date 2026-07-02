@@ -11,6 +11,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import 'app_database.dart';
+import '../../services/crypto_signer.dart';
 
 const _uuid = Uuid();
 
@@ -131,6 +132,31 @@ extension EndUseWriter on AppDatabase {
       )..where((t) => t.batchUuid.equals(batchUuid))).write(
         const SystemMetadataCompanion(
           syncStatus: Value('CLOSED_PENDING_UPLOAD'),
+        ),
+      );
+
+      // 16D: enqueue the status change atomically so the server learns the batch
+      // closed. Previously this local-only update never reached the outbox, so
+      // completed batches silently under-reported. Signed like every outbox row.
+      final payload = <String, dynamic>{
+        'batch_uuid': exists.batchUuid,
+        'artisan_id': exists.artisanId,
+        'device_hardware_mac': exists.deviceHardwareMac,
+        'app_build_version': exists.appBuildVersion,
+        'sync_status': 'CLOSED_PENDING_UPLOAD',
+        'created_at': exists.createdAt,
+      };
+      final jsonString = jsonEncode(payload);
+      final signature = await CryptoSigner.signPayload(jsonString);
+      await into(syncOutbox).insert(
+        SyncOutboxCompanion.insert(
+          operationId: _uuid.v4(),
+          batchUuid: batchUuid,
+          targetTable: 'system_metadata',
+          operationType: 'UPDATE',
+          payloadJson: jsonString,
+          createdAt: DateTime.now().toUtc().toIso8601String(),
+          hmacSignature: Value(signature),
         ),
       );
     });

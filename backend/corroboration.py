@@ -105,6 +105,64 @@ def derive_transport_km(
         return None, "invalid_application_gps"
 
 
+import math
+
+
+def derive_moisture_compliance(
+    photographed_reading_count: int, biomass_input_kg: Optional[float]
+) -> tuple[bool, Optional[str]]:
+    """Rainbow C2 moisture rule: at least 1 photographed reading per 100 kg of
+    biomass, with a floor of 10 readings per run. `photographed_reading_count` is
+    the number of moisture readings that carry a photo hash. Returns
+    (compliant, reason_if_not)."""
+    required = 10
+    if biomass_input_kg and biomass_input_kg > 0:
+        required = max(required, math.ceil(biomass_input_kg / 100.0))
+    if photographed_reading_count < required:
+        return False, "insufficient_moisture_samples"
+    return True, None
+
+
+# Rainbow C3: open-kiln pyrolysis photo evidence the methodology requires.
+REQUIRED_OPEN_KILN_STAGES = frozenset({"flame_curtain", "quenching", "flame_height"})
+MAX_OPEN_KILN_FLAME_HEIGHT_M = 0.5
+
+
+def derive_pyrolysis_photo_compliance(
+    kiln_type: Optional[str],
+    smoke_evidence: Optional[list],
+    flame_height_m: Optional[float],
+) -> tuple[bool, bool]:
+    """Rainbow C3 (open-kiln only): returns (photos_ok, flame_height_ok).
+
+    Only enforced when kiln_type == 'open'. For any other/unknown kiln type the
+    checks are inert (both True) so existing/closed-kiln flows are unaffected.
+    """
+    if kiln_type != "open":
+        return True, True
+    stages = {
+        e.get("stage")
+        for e in (smoke_evidence or [])
+        if isinstance(e, dict) and e.get("sha256")
+    }
+    photos_ok = REQUIRED_OPEN_KILN_STAGES.issubset(stages)
+    flame_ok = (
+        flame_height_m is not None
+        and 0.0 <= flame_height_m < MAX_OPEN_KILN_FLAME_HEIGHT_M
+    )
+    return photos_ok, flame_ok
+
+
+def derive_ignition_compliance(
+    kiln_type: Optional[str], ignition_energy_type: Optional[str]
+) -> bool:
+    """Rainbow C3b (closed-kiln only): closed kilns must declare ignition energy.
+    Inert for non-closed kiln types."""
+    if kiln_type != "closed":
+        return True
+    return bool(ignition_energy_type)
+
+
 def assemble(
     wet_yield: Optional[float],
     min_temp: Optional[float],
@@ -112,6 +170,10 @@ def assemble(
     *,
     has_lab_hcorg: bool,
     attestation_ok: bool = True,
+    moisture_ok: bool = True,
+    pyrolysis_photos_ok: bool = True,
+    flame_height_ok: bool = True,
+    ignition_ok: bool = True,
 ) -> Corroboration:
     """Combine the derived inputs into a Corroboration, computing provisional
     status and the ordered list of reasons a batch is not yet issuable.
@@ -133,6 +195,14 @@ def assemble(
         reasons.append("assumed_h_corg")
     if not attestation_ok:
         reasons.append("attestation_unverified")
+    if not moisture_ok:
+        reasons.append("insufficient_moisture_samples")
+    if not pyrolysis_photos_ok:
+        reasons.append("missing_pyrolysis_photos")
+    if not flame_height_ok:
+        reasons.append("flame_height_out_of_range")
+    if not ignition_ok:
+        reasons.append("missing_ignition_energy")
     return Corroboration(
         wet_yield_kg=wet_yield,
         min_recorded_temp_c=min_temp,

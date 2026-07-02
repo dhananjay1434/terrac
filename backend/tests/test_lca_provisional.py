@@ -84,7 +84,32 @@ def test_audit_is_deterministic():
         return json.dumps(d, sort_keys=True)
 
     assert _canon(a1) == _canon(a2)
-    assert sign_lca_audit(a1, "test-secret") == sign_lca_audit(a2, "test-secret")
+    # Same batch_uuid + same inputs → same signature (deterministic).
+    bu = "11111111-1111-1111-1111-111111111111"
+    assert sign_lca_audit(a1, "test-secret", batch_uuid=bu) == sign_lca_audit(
+        a2, "test-secret", batch_uuid=bu
+    )
+
+
+def test_signature_is_bound_to_batch_uuid():
+    # Phase 15-B: identical physical inputs but DIFFERENT batch_uuid → different
+    # signature (no cross-batch replay of an issuance signature).
+    kw = dict(
+        wet_yield_kg=115.4,
+        moisture_percent=12.7,
+        min_recorded_temp_c=210.0,
+        transport_distance_km=14.2,
+        h_corg_ratio=0.35,
+    )
+    a1 = calculate_carbon_credit(**kw)
+    a2 = calculate_carbon_credit(**kw)
+    s1 = sign_lca_audit(
+        a1, "test-secret", batch_uuid="aaaaaaaa-0000-0000-0000-000000000001"
+    )
+    s2 = sign_lca_audit(
+        a2, "test-secret", batch_uuid="bbbbbbbb-0000-0000-0000-000000000002"
+    )
+    assert s1 != s2
 
 
 # ---- API-level ------------------------------------------------------------
@@ -157,6 +182,22 @@ async def _corroborate(client, bu, lat=12.9716, lon=77.5946):
         ).encode("utf-8"),
         headers={"X-Idempotency-Key": "app-" + bu[:8]},
     )
+    # Rainbow C2: supply the floor of 10 photographed moisture readings so the
+    # only remaining provisional reason is the assumed H:Corg (cleared by the lab).
+    for i in range(1, 11):
+        await client.post(
+            "/api/v1/moisture",
+            content=json.dumps(
+                {
+                    "reading_uuid": str(uuid4()),
+                    "batch_uuid": bu,
+                    "moisture_percent": 12.0,
+                    "sequence": i,
+                    "sha256_hash": "a" * 64,
+                }
+            ).encode("utf-8"),
+            headers={"X-Idempotency-Key": f"moist-{bu[:6]}-{i}"},
+        )
 
 
 @pytest.mark.asyncio

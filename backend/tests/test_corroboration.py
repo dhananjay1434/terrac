@@ -126,6 +126,90 @@ def test_assumed_hcorg_is_provisional_even_when_inputs_present():
     assert c.reasons == ["assumed_h_corg"]
 
 
+# ---- Rainbow C2: moisture compliance ---------------------------------------
+
+from corroboration import derive_moisture_compliance  # noqa: E402
+
+
+def test_moisture_floor_is_ten_readings():
+    assert derive_moisture_compliance(9, None) == (
+        False,
+        "insufficient_moisture_samples",
+    )
+    assert derive_moisture_compliance(10, None) == (True, None)
+
+
+def test_moisture_one_per_100kg_rule():
+    # 1500 kg biomass → ceil(1500/100)=15 required.
+    assert derive_moisture_compliance(14, 1500.0)[0] is False
+    assert derive_moisture_compliance(15, 1500.0)[0] is True
+    # Small run still needs the floor of 10.
+    assert derive_moisture_compliance(10, 200.0)[0] is True
+
+
+def test_moisture_reason_flips_provisional():
+    ok = assemble(50.0, 300.0, 12.0, has_lab_hcorg=True, moisture_ok=True)
+    assert "insufficient_moisture_samples" not in ok.reasons
+    bad = assemble(50.0, 300.0, 12.0, has_lab_hcorg=True, moisture_ok=False)
+    assert bad.provisional is True
+    assert bad.reasons == ["insufficient_moisture_samples"]
+
+
+# ---- Rainbow C3 / C3b: kiln-type-conditional pyrolysis compliance -----------
+
+from corroboration import (  # noqa: E402
+    derive_pyrolysis_photo_compliance,
+    derive_ignition_compliance,
+)
+
+_ALL_STAGES = [
+    {"stage": "flame_curtain", "sha256": "a"},
+    {"stage": "quenching", "sha256": "b"},
+    {"stage": "flame_height", "sha256": "c"},
+]
+
+
+def test_pyrolysis_checks_inert_for_non_open_kiln():
+    # None or closed kiln → both checks pass regardless of evidence.
+    assert derive_pyrolysis_photo_compliance(None, None, None) == (True, True)
+    assert derive_pyrolysis_photo_compliance("closed", None, None) == (True, True)
+
+
+def test_open_kiln_requires_all_three_photos_and_low_flame():
+    photos_ok, flame_ok = derive_pyrolysis_photo_compliance("open", _ALL_STAGES, 0.4)
+    assert photos_ok and flame_ok
+    # Missing quenching photo.
+    two = [e for e in _ALL_STAGES if e["stage"] != "quenching"]
+    assert derive_pyrolysis_photo_compliance("open", two, 0.4)[0] is False
+    # Flame height too high.
+    assert derive_pyrolysis_photo_compliance("open", _ALL_STAGES, 0.6)[1] is False
+    # Flame height missing.
+    assert derive_pyrolysis_photo_compliance("open", _ALL_STAGES, None)[1] is False
+
+
+def test_ignition_required_only_for_closed_kiln():
+    assert derive_ignition_compliance("closed", None) is False
+    assert derive_ignition_compliance("closed", "syngas") is True
+    assert derive_ignition_compliance("open", None) is True
+    assert derive_ignition_compliance(None, None) is True
+
+
+def test_pyrolysis_reasons_flip_provisional():
+    c = assemble(
+        50.0,
+        300.0,
+        12.0,
+        has_lab_hcorg=True,
+        pyrolysis_photos_ok=False,
+        flame_height_ok=False,
+        ignition_ok=False,
+    )
+    assert c.provisional is True
+    assert "missing_pyrolysis_photos" in c.reasons
+    assert "flame_height_out_of_range" in c.reasons
+    assert "missing_ignition_energy" in c.reasons
+
+
 def test_attestation_ok_defaults_true_and_is_inert():
     # Phase 9-R: default (no enforcement) adds no attestation reason.
     c = assemble(50.0, 300.0, 12.0, has_lab_hcorg=True)

@@ -42,7 +42,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from server import app, get_session
 from models import Base
-from tests.remediation.crypto_utils import sign_request
+from tests.remediation.crypto_utils import sign_request, sign_media
 
 
 # ==================== Fixtures ====================
@@ -205,14 +205,17 @@ async def test_media_upload_correct_hash_returns_200(client, registered_device):
     # Create file-like object
     files = {"file": ("test_photo.jpg", io.BytesIO(file_content), "image/jpeg")}
 
+    dev_id = registered_device["device_id"]
+    bu = str(uuid4())
     response = await client.post(
         "/api/v1/media",
         files=files,
         headers={
             "X-Idempotency-Key": operation_id,
             "X-Declared-SHA256": expected_hash,
-            "X-Batch-UUID": str(uuid4()),
-            "X-Device-Id": registered_device["device_id"],
+            "X-Batch-UUID": bu,
+            "X-Device-Id": dev_id,
+            "X-Signature": sign_media(dev_id, operation_id, expected_hash, bu),
         },
     )
 
@@ -233,14 +236,19 @@ async def test_media_upload_wrong_hash_returns_422(client, registered_device):
 
     files = {"file": ("test_photo.jpg", io.BytesIO(file_content), "image/jpeg")}
 
+    dev_id = registered_device["device_id"]
+    bu = str(uuid4())
     response = await client.post(
         "/api/v1/media",
         files=files,
         headers={
             "X-Idempotency-Key": operation_id,
             "X-Declared-SHA256": wrong_hash,
-            "X-Batch-UUID": str(uuid4()),
-            "X-Device-Id": registered_device["device_id"],
+            "X-Batch-UUID": bu,
+            "X-Device-Id": dev_id,
+            # sign over the (wrong) DECLARED hash so auth passes and we reach the
+            # server-side hash check → 422 sha256_mismatch.
+            "X-Signature": sign_media(dev_id, operation_id, wrong_hash, bu),
         },
     )
 
@@ -258,6 +266,8 @@ async def test_media_duplicate_idempotency_key(client, registered_device):
 
     files1 = {"file": ("photo1.jpg", io.BytesIO(file_content), "image/jpeg")}
 
+    dev_id = registered_device["device_id"]
+    bu = str(uuid4())
     # First upload
     response = await client.post(
         "/api/v1/media",
@@ -265,28 +275,17 @@ async def test_media_duplicate_idempotency_key(client, registered_device):
         headers={
             "X-Idempotency-Key": operation_id,
             "X-Declared-SHA256": expected_hash,
-            "X-Batch-UUID": str(uuid4()),
-            "X-Device-Id": registered_device["device_id"],
+            "X-Batch-UUID": bu,
+            "X-Device-Id": dev_id,
+            "X-Signature": sign_media(dev_id, operation_id, expected_hash, bu),
         },
     )
     response1 = response
     assert response1.status_code == 200
     data1 = response1.json()
 
-    # Second upload with same key
+    # Second upload with same key (same signed canonical → idempotent duplicate)
     files2 = {"file": ("photo2.jpg", io.BytesIO(file_content), "image/jpeg")}
-
-    import json
-
-    dev_id = registered_device["device_id"]
-    sig = sign_request(
-        dev_id,
-        registered_device["b64_key"],
-        "POST",
-        "/api/v1/media",
-        operation_id,
-        None,
-    )
 
     response = await client.post(
         "/api/v1/media",
@@ -294,8 +293,9 @@ async def test_media_duplicate_idempotency_key(client, registered_device):
         headers={
             "X-Idempotency-Key": operation_id,
             "X-Declared-SHA256": expected_hash,
-            "X-Batch-UUID": str(uuid4()),
-            "X-Device-Id": registered_device["device_id"],
+            "X-Batch-UUID": bu,
+            "X-Device-Id": dev_id,
+            "X-Signature": sign_media(dev_id, operation_id, expected_hash, bu),
         },
     )
     response2 = response

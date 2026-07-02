@@ -70,6 +70,22 @@ async def _corroborate(client, bu, lat=12.9716, lon=77.5946):
         ).encode("utf-8"),
         headers={"X-Idempotency-Key": "app-" + bu[:8]},
     )
+    # Rainbow C2: supply the floor of 10 photographed moisture readings so the
+    # only remaining provisional reason is the assumed H:Corg (cleared by the lab).
+    for i in range(1, 11):
+        await client.post(
+            "/api/v1/moisture",
+            content=json.dumps(
+                {
+                    "reading_uuid": str(uuid.uuid4()),
+                    "batch_uuid": bu,
+                    "moisture_percent": 12.0,
+                    "sequence": i,
+                    "sha256_hash": "a" * 64,
+                }
+            ).encode("utf-8"),
+            headers={"X-Idempotency-Key": f"moist-{bu[:6]}-{i}"},
+        )
 
 
 async def _create_batch(client, bu):

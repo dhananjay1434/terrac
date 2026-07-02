@@ -611,6 +611,28 @@ class $BiomassSourcingTable extends BiomassSourcing
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _biomassInputKgMeta = const VerificationMeta(
+    'biomassInputKg',
+  );
+  @override
+  late final GeneratedColumn<double> biomassInputKg = GeneratedColumn<double>(
+    'biomass_input_kg',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _biomassMeasurementMethodMeta =
+      const VerificationMeta('biomassMeasurementMethod');
+  @override
+  late final GeneratedColumn<String> biomassMeasurementMethod =
+      GeneratedColumn<String>(
+        'biomass_measurement_method',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     sourcingUuid,
@@ -628,6 +650,8 @@ class $BiomassSourcingTable extends BiomassSourcing
     azimuth,
     pitch,
     roll,
+    biomassInputKg,
+    biomassMeasurementMethod,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -764,6 +788,24 @@ class $BiomassSourcingTable extends BiomassSourcing
         roll.isAcceptableOrUnknown(data['roll']!, _rollMeta),
       );
     }
+    if (data.containsKey('biomass_input_kg')) {
+      context.handle(
+        _biomassInputKgMeta,
+        biomassInputKg.isAcceptableOrUnknown(
+          data['biomass_input_kg']!,
+          _biomassInputKgMeta,
+        ),
+      );
+    }
+    if (data.containsKey('biomass_measurement_method')) {
+      context.handle(
+        _biomassMeasurementMethodMeta,
+        biomassMeasurementMethod.isAcceptableOrUnknown(
+          data['biomass_measurement_method']!,
+          _biomassMeasurementMethodMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -837,6 +879,14 @@ class $BiomassSourcingTable extends BiomassSourcing
         DriftSqlType.double,
         data['${effectivePrefix}roll'],
       ),
+      biomassInputKg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}biomass_input_kg'],
+      ),
+      biomassMeasurementMethod: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}biomass_measurement_method'],
+      ),
     );
   }
 
@@ -868,6 +918,13 @@ class BiomassSourcingData extends DataClass
   final double? azimuth;
   final double? pitch;
   final double? roll;
+
+  /// Mass of biomass fed to the kiln (kg). Methodology requires the biomass
+  /// AMOUNT, either directly weighed or derived via a yield-conversion ratio.
+  final double? biomassInputKg;
+
+  /// 'direct_weigh' | 'yield_conversion'.
+  final String? biomassMeasurementMethod;
   const BiomassSourcingData({
     required this.sourcingUuid,
     required this.batchUuid,
@@ -884,6 +941,8 @@ class BiomassSourcingData extends DataClass
     this.azimuth,
     this.pitch,
     this.roll,
+    this.biomassInputKg,
+    this.biomassMeasurementMethod,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -919,6 +978,14 @@ class BiomassSourcingData extends DataClass
     if (!nullToAbsent || roll != null) {
       map['roll'] = Variable<double>(roll);
     }
+    if (!nullToAbsent || biomassInputKg != null) {
+      map['biomass_input_kg'] = Variable<double>(biomassInputKg);
+    }
+    if (!nullToAbsent || biomassMeasurementMethod != null) {
+      map['biomass_measurement_method'] = Variable<String>(
+        biomassMeasurementMethod,
+      );
+    }
     return map;
   }
 
@@ -953,6 +1020,12 @@ class BiomassSourcingData extends DataClass
           ? const Value.absent()
           : Value(pitch),
       roll: roll == null && nullToAbsent ? const Value.absent() : Value(roll),
+      biomassInputKg: biomassInputKg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(biomassInputKg),
+      biomassMeasurementMethod: biomassMeasurementMethod == null && nullToAbsent
+          ? const Value.absent()
+          : Value(biomassMeasurementMethod),
     );
   }
 
@@ -981,6 +1054,10 @@ class BiomassSourcingData extends DataClass
       azimuth: serializer.fromJson<double?>(json['azimuth']),
       pitch: serializer.fromJson<double?>(json['pitch']),
       roll: serializer.fromJson<double?>(json['roll']),
+      biomassInputKg: serializer.fromJson<double?>(json['biomassInputKg']),
+      biomassMeasurementMethod: serializer.fromJson<String?>(
+        json['biomassMeasurementMethod'],
+      ),
     );
   }
   @override
@@ -1002,6 +1079,10 @@ class BiomassSourcingData extends DataClass
       'azimuth': serializer.toJson<double?>(azimuth),
       'pitch': serializer.toJson<double?>(pitch),
       'roll': serializer.toJson<double?>(roll),
+      'biomassInputKg': serializer.toJson<double?>(biomassInputKg),
+      'biomassMeasurementMethod': serializer.toJson<String?>(
+        biomassMeasurementMethod,
+      ),
     };
   }
 
@@ -1021,6 +1102,8 @@ class BiomassSourcingData extends DataClass
     Value<double?> azimuth = const Value.absent(),
     Value<double?> pitch = const Value.absent(),
     Value<double?> roll = const Value.absent(),
+    Value<double?> biomassInputKg = const Value.absent(),
+    Value<String?> biomassMeasurementMethod = const Value.absent(),
   }) => BiomassSourcingData(
     sourcingUuid: sourcingUuid ?? this.sourcingUuid,
     batchUuid: batchUuid ?? this.batchUuid,
@@ -1039,6 +1122,12 @@ class BiomassSourcingData extends DataClass
     azimuth: azimuth.present ? azimuth.value : this.azimuth,
     pitch: pitch.present ? pitch.value : this.pitch,
     roll: roll.present ? roll.value : this.roll,
+    biomassInputKg: biomassInputKg.present
+        ? biomassInputKg.value
+        : this.biomassInputKg,
+    biomassMeasurementMethod: biomassMeasurementMethod.present
+        ? biomassMeasurementMethod.value
+        : this.biomassMeasurementMethod,
   );
   BiomassSourcingData copyWithCompanion(BiomassSourcingCompanion data) {
     return BiomassSourcingData(
@@ -1073,6 +1162,12 @@ class BiomassSourcingData extends DataClass
       azimuth: data.azimuth.present ? data.azimuth.value : this.azimuth,
       pitch: data.pitch.present ? data.pitch.value : this.pitch,
       roll: data.roll.present ? data.roll.value : this.roll,
+      biomassInputKg: data.biomassInputKg.present
+          ? data.biomassInputKg.value
+          : this.biomassInputKg,
+      biomassMeasurementMethod: data.biomassMeasurementMethod.present
+          ? data.biomassMeasurementMethod.value
+          : this.biomassMeasurementMethod,
     );
   }
 
@@ -1093,7 +1188,9 @@ class BiomassSourcingData extends DataClass
           ..write('harvestUptimeSeconds: $harvestUptimeSeconds, ')
           ..write('azimuth: $azimuth, ')
           ..write('pitch: $pitch, ')
-          ..write('roll: $roll')
+          ..write('roll: $roll, ')
+          ..write('biomassInputKg: $biomassInputKg, ')
+          ..write('biomassMeasurementMethod: $biomassMeasurementMethod')
           ..write(')'))
         .toString();
   }
@@ -1115,6 +1212,8 @@ class BiomassSourcingData extends DataClass
     azimuth,
     pitch,
     roll,
+    biomassInputKg,
+    biomassMeasurementMethod,
   );
   @override
   bool operator ==(Object other) =>
@@ -1134,7 +1233,9 @@ class BiomassSourcingData extends DataClass
           other.harvestUptimeSeconds == this.harvestUptimeSeconds &&
           other.azimuth == this.azimuth &&
           other.pitch == this.pitch &&
-          other.roll == this.roll);
+          other.roll == this.roll &&
+          other.biomassInputKg == this.biomassInputKg &&
+          other.biomassMeasurementMethod == this.biomassMeasurementMethod);
 }
 
 class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
@@ -1153,6 +1254,8 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
   final Value<double?> azimuth;
   final Value<double?> pitch;
   final Value<double?> roll;
+  final Value<double?> biomassInputKg;
+  final Value<String?> biomassMeasurementMethod;
   final Value<int> rowid;
   const BiomassSourcingCompanion({
     this.sourcingUuid = const Value.absent(),
@@ -1170,6 +1273,8 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
     this.azimuth = const Value.absent(),
     this.pitch = const Value.absent(),
     this.roll = const Value.absent(),
+    this.biomassInputKg = const Value.absent(),
+    this.biomassMeasurementMethod = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BiomassSourcingCompanion.insert({
@@ -1188,6 +1293,8 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
     this.azimuth = const Value.absent(),
     this.pitch = const Value.absent(),
     this.roll = const Value.absent(),
+    this.biomassInputKg = const Value.absent(),
+    this.biomassMeasurementMethod = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : sourcingUuid = Value(sourcingUuid),
        batchUuid = Value(batchUuid),
@@ -1211,6 +1318,8 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
     Expression<double>? azimuth,
     Expression<double>? pitch,
     Expression<double>? roll,
+    Expression<double>? biomassInputKg,
+    Expression<String>? biomassMeasurementMethod,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1231,6 +1340,9 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
       if (azimuth != null) 'azimuth': azimuth,
       if (pitch != null) 'pitch': pitch,
       if (roll != null) 'roll': roll,
+      if (biomassInputKg != null) 'biomass_input_kg': biomassInputKg,
+      if (biomassMeasurementMethod != null)
+        'biomass_measurement_method': biomassMeasurementMethod,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1251,6 +1363,8 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
     Value<double?>? azimuth,
     Value<double?>? pitch,
     Value<double?>? roll,
+    Value<double?>? biomassInputKg,
+    Value<String?>? biomassMeasurementMethod,
     Value<int>? rowid,
   }) {
     return BiomassSourcingCompanion(
@@ -1269,6 +1383,9 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
       azimuth: azimuth ?? this.azimuth,
       pitch: pitch ?? this.pitch,
       roll: roll ?? this.roll,
+      biomassInputKg: biomassInputKg ?? this.biomassInputKg,
+      biomassMeasurementMethod:
+          biomassMeasurementMethod ?? this.biomassMeasurementMethod,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1321,6 +1438,14 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
     if (roll.present) {
       map['roll'] = Variable<double>(roll.value);
     }
+    if (biomassInputKg.present) {
+      map['biomass_input_kg'] = Variable<double>(biomassInputKg.value);
+    }
+    if (biomassMeasurementMethod.present) {
+      map['biomass_measurement_method'] = Variable<String>(
+        biomassMeasurementMethod.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1345,6 +1470,8 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
           ..write('azimuth: $azimuth, ')
           ..write('pitch: $pitch, ')
           ..write('roll: $roll, ')
+          ..write('biomassInputKg: $biomassInputKg, ')
+          ..write('biomassMeasurementMethod: $biomassMeasurementMethod, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1505,6 +1632,59 @@ class $PyrolysisTelemetryTable extends PyrolysisTelemetry
         requiredDuringInsert: false,
         defaultValue: const Constant('[]'),
       );
+  static const VerificationMeta _kilnTypeMeta = const VerificationMeta(
+    'kilnType',
+  );
+  @override
+  late final GeneratedColumn<String> kilnType = GeneratedColumn<String>(
+    'kiln_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _kilnIdMeta = const VerificationMeta('kilnId');
+  @override
+  late final GeneratedColumn<String> kilnId = GeneratedColumn<String>(
+    'kiln_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _flameHeightMMeta = const VerificationMeta(
+    'flameHeightM',
+  );
+  @override
+  late final GeneratedColumn<double> flameHeightM = GeneratedColumn<double>(
+    'flame_height_m',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _ignitionEnergyTypeMeta =
+      const VerificationMeta('ignitionEnergyType');
+  @override
+  late final GeneratedColumn<String> ignitionEnergyType =
+      GeneratedColumn<String>(
+        'ignition_energy_type',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _ignitionEnergyAmountMeta =
+      const VerificationMeta('ignitionEnergyAmount');
+  @override
+  late final GeneratedColumn<double> ignitionEnergyAmount =
+      GeneratedColumn<double>(
+        'ignition_energy_amount',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     telemetryUuid,
@@ -1520,6 +1700,11 @@ class $PyrolysisTelemetryTable extends PyrolysisTelemetry
     pitch,
     roll,
     hwAttestationJson,
+    kilnType,
+    kilnId,
+    flameHeightM,
+    ignitionEnergyType,
+    ignitionEnergyAmount,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1644,6 +1829,45 @@ class $PyrolysisTelemetryTable extends PyrolysisTelemetry
         ),
       );
     }
+    if (data.containsKey('kiln_type')) {
+      context.handle(
+        _kilnTypeMeta,
+        kilnType.isAcceptableOrUnknown(data['kiln_type']!, _kilnTypeMeta),
+      );
+    }
+    if (data.containsKey('kiln_id')) {
+      context.handle(
+        _kilnIdMeta,
+        kilnId.isAcceptableOrUnknown(data['kiln_id']!, _kilnIdMeta),
+      );
+    }
+    if (data.containsKey('flame_height_m')) {
+      context.handle(
+        _flameHeightMMeta,
+        flameHeightM.isAcceptableOrUnknown(
+          data['flame_height_m']!,
+          _flameHeightMMeta,
+        ),
+      );
+    }
+    if (data.containsKey('ignition_energy_type')) {
+      context.handle(
+        _ignitionEnergyTypeMeta,
+        ignitionEnergyType.isAcceptableOrUnknown(
+          data['ignition_energy_type']!,
+          _ignitionEnergyTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('ignition_energy_amount')) {
+      context.handle(
+        _ignitionEnergyAmountMeta,
+        ignitionEnergyAmount.isAcceptableOrUnknown(
+          data['ignition_energy_amount']!,
+          _ignitionEnergyAmountMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1709,6 +1933,26 @@ class $PyrolysisTelemetryTable extends PyrolysisTelemetry
         DriftSqlType.string,
         data['${effectivePrefix}hw_attestation_json'],
       )!,
+      kilnType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kiln_type'],
+      ),
+      kilnId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kiln_id'],
+      ),
+      flameHeightM: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}flame_height_m'],
+      ),
+      ignitionEnergyType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ignition_energy_type'],
+      ),
+      ignitionEnergyAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}ignition_energy_amount'],
+      ),
     );
   }
 
@@ -1738,6 +1982,20 @@ class PyrolysisTelemetryData extends DataClass
   /// temp(4) + ecdsaSig(64). The server verifies each signature against the
   /// device's registered public key.
   final String hwAttestationJson;
+
+  /// 'open' | 'closed'. The Rainbow methodology branches on kiln type (ignition
+  /// energy, pyrolysis-photo requirements, PAH). Nullable for backward compat.
+  final String? kilnType;
+
+  /// Stable kiln identifier / QR (links a run to the project kiln registry).
+  final String? kilnId;
+
+  /// Measured flame height (m); open-kiln methodology requires < 0.5 m.
+  final double? flameHeightM;
+
+  /// Ignition energy inputs — closed-kiln only (type + amount incl. syngas).
+  final String? ignitionEnergyType;
+  final double? ignitionEnergyAmount;
   const PyrolysisTelemetryData({
     required this.telemetryUuid,
     required this.batchUuid,
@@ -1752,6 +2010,11 @@ class PyrolysisTelemetryData extends DataClass
     this.pitch,
     this.roll,
     required this.hwAttestationJson,
+    this.kilnType,
+    this.kilnId,
+    this.flameHeightM,
+    this.ignitionEnergyType,
+    this.ignitionEnergyAmount,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1779,6 +2042,21 @@ class PyrolysisTelemetryData extends DataClass
       map['roll'] = Variable<double>(roll);
     }
     map['hw_attestation_json'] = Variable<String>(hwAttestationJson);
+    if (!nullToAbsent || kilnType != null) {
+      map['kiln_type'] = Variable<String>(kilnType);
+    }
+    if (!nullToAbsent || kilnId != null) {
+      map['kiln_id'] = Variable<String>(kilnId);
+    }
+    if (!nullToAbsent || flameHeightM != null) {
+      map['flame_height_m'] = Variable<double>(flameHeightM);
+    }
+    if (!nullToAbsent || ignitionEnergyType != null) {
+      map['ignition_energy_type'] = Variable<String>(ignitionEnergyType);
+    }
+    if (!nullToAbsent || ignitionEnergyAmount != null) {
+      map['ignition_energy_amount'] = Variable<double>(ignitionEnergyAmount);
+    }
     return map;
   }
 
@@ -1803,6 +2081,21 @@ class PyrolysisTelemetryData extends DataClass
           : Value(pitch),
       roll: roll == null && nullToAbsent ? const Value.absent() : Value(roll),
       hwAttestationJson: Value(hwAttestationJson),
+      kilnType: kilnType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(kilnType),
+      kilnId: kilnId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(kilnId),
+      flameHeightM: flameHeightM == null && nullToAbsent
+          ? const Value.absent()
+          : Value(flameHeightM),
+      ignitionEnergyType: ignitionEnergyType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ignitionEnergyType),
+      ignitionEnergyAmount: ignitionEnergyAmount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ignitionEnergyAmount),
     );
   }
 
@@ -1829,6 +2122,15 @@ class PyrolysisTelemetryData extends DataClass
       pitch: serializer.fromJson<double?>(json['pitch']),
       roll: serializer.fromJson<double?>(json['roll']),
       hwAttestationJson: serializer.fromJson<String>(json['hwAttestationJson']),
+      kilnType: serializer.fromJson<String?>(json['kilnType']),
+      kilnId: serializer.fromJson<String?>(json['kilnId']),
+      flameHeightM: serializer.fromJson<double?>(json['flameHeightM']),
+      ignitionEnergyType: serializer.fromJson<String?>(
+        json['ignitionEnergyType'],
+      ),
+      ignitionEnergyAmount: serializer.fromJson<double?>(
+        json['ignitionEnergyAmount'],
+      ),
     );
   }
   @override
@@ -1850,6 +2152,11 @@ class PyrolysisTelemetryData extends DataClass
       'pitch': serializer.toJson<double?>(pitch),
       'roll': serializer.toJson<double?>(roll),
       'hwAttestationJson': serializer.toJson<String>(hwAttestationJson),
+      'kilnType': serializer.toJson<String?>(kilnType),
+      'kilnId': serializer.toJson<String?>(kilnId),
+      'flameHeightM': serializer.toJson<double?>(flameHeightM),
+      'ignitionEnergyType': serializer.toJson<String?>(ignitionEnergyType),
+      'ignitionEnergyAmount': serializer.toJson<double?>(ignitionEnergyAmount),
     };
   }
 
@@ -1867,6 +2174,11 @@ class PyrolysisTelemetryData extends DataClass
     Value<double?> pitch = const Value.absent(),
     Value<double?> roll = const Value.absent(),
     String? hwAttestationJson,
+    Value<String?> kilnType = const Value.absent(),
+    Value<String?> kilnId = const Value.absent(),
+    Value<double?> flameHeightM = const Value.absent(),
+    Value<String?> ignitionEnergyType = const Value.absent(),
+    Value<double?> ignitionEnergyAmount = const Value.absent(),
   }) => PyrolysisTelemetryData(
     telemetryUuid: telemetryUuid ?? this.telemetryUuid,
     batchUuid: batchUuid ?? this.batchUuid,
@@ -1884,6 +2196,15 @@ class PyrolysisTelemetryData extends DataClass
     pitch: pitch.present ? pitch.value : this.pitch,
     roll: roll.present ? roll.value : this.roll,
     hwAttestationJson: hwAttestationJson ?? this.hwAttestationJson,
+    kilnType: kilnType.present ? kilnType.value : this.kilnType,
+    kilnId: kilnId.present ? kilnId.value : this.kilnId,
+    flameHeightM: flameHeightM.present ? flameHeightM.value : this.flameHeightM,
+    ignitionEnergyType: ignitionEnergyType.present
+        ? ignitionEnergyType.value
+        : this.ignitionEnergyType,
+    ignitionEnergyAmount: ignitionEnergyAmount.present
+        ? ignitionEnergyAmount.value
+        : this.ignitionEnergyAmount,
   );
   PyrolysisTelemetryData copyWithCompanion(PyrolysisTelemetryCompanion data) {
     return PyrolysisTelemetryData(
@@ -1914,6 +2235,17 @@ class PyrolysisTelemetryData extends DataClass
       hwAttestationJson: data.hwAttestationJson.present
           ? data.hwAttestationJson.value
           : this.hwAttestationJson,
+      kilnType: data.kilnType.present ? data.kilnType.value : this.kilnType,
+      kilnId: data.kilnId.present ? data.kilnId.value : this.kilnId,
+      flameHeightM: data.flameHeightM.present
+          ? data.flameHeightM.value
+          : this.flameHeightM,
+      ignitionEnergyType: data.ignitionEnergyType.present
+          ? data.ignitionEnergyType.value
+          : this.ignitionEnergyType,
+      ignitionEnergyAmount: data.ignitionEnergyAmount.present
+          ? data.ignitionEnergyAmount.value
+          : this.ignitionEnergyAmount,
     );
   }
 
@@ -1932,7 +2264,12 @@ class PyrolysisTelemetryData extends DataClass
           ..write('azimuth: $azimuth, ')
           ..write('pitch: $pitch, ')
           ..write('roll: $roll, ')
-          ..write('hwAttestationJson: $hwAttestationJson')
+          ..write('hwAttestationJson: $hwAttestationJson, ')
+          ..write('kilnType: $kilnType, ')
+          ..write('kilnId: $kilnId, ')
+          ..write('flameHeightM: $flameHeightM, ')
+          ..write('ignitionEnergyType: $ignitionEnergyType, ')
+          ..write('ignitionEnergyAmount: $ignitionEnergyAmount')
           ..write(')'))
         .toString();
   }
@@ -1952,6 +2289,11 @@ class PyrolysisTelemetryData extends DataClass
     pitch,
     roll,
     hwAttestationJson,
+    kilnType,
+    kilnId,
+    flameHeightM,
+    ignitionEnergyType,
+    ignitionEnergyAmount,
   );
   @override
   bool operator ==(Object other) =>
@@ -1969,7 +2311,12 @@ class PyrolysisTelemetryData extends DataClass
           other.azimuth == this.azimuth &&
           other.pitch == this.pitch &&
           other.roll == this.roll &&
-          other.hwAttestationJson == this.hwAttestationJson);
+          other.hwAttestationJson == this.hwAttestationJson &&
+          other.kilnType == this.kilnType &&
+          other.kilnId == this.kilnId &&
+          other.flameHeightM == this.flameHeightM &&
+          other.ignitionEnergyType == this.ignitionEnergyType &&
+          other.ignitionEnergyAmount == this.ignitionEnergyAmount);
 }
 
 class PyrolysisTelemetryCompanion
@@ -1987,6 +2334,11 @@ class PyrolysisTelemetryCompanion
   final Value<double?> pitch;
   final Value<double?> roll;
   final Value<String> hwAttestationJson;
+  final Value<String?> kilnType;
+  final Value<String?> kilnId;
+  final Value<double?> flameHeightM;
+  final Value<String?> ignitionEnergyType;
+  final Value<double?> ignitionEnergyAmount;
   final Value<int> rowid;
   const PyrolysisTelemetryCompanion({
     this.telemetryUuid = const Value.absent(),
@@ -2002,6 +2354,11 @@ class PyrolysisTelemetryCompanion
     this.pitch = const Value.absent(),
     this.roll = const Value.absent(),
     this.hwAttestationJson = const Value.absent(),
+    this.kilnType = const Value.absent(),
+    this.kilnId = const Value.absent(),
+    this.flameHeightM = const Value.absent(),
+    this.ignitionEnergyType = const Value.absent(),
+    this.ignitionEnergyAmount = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PyrolysisTelemetryCompanion.insert({
@@ -2018,6 +2375,11 @@ class PyrolysisTelemetryCompanion
     this.pitch = const Value.absent(),
     this.roll = const Value.absent(),
     this.hwAttestationJson = const Value.absent(),
+    this.kilnType = const Value.absent(),
+    this.kilnId = const Value.absent(),
+    this.flameHeightM = const Value.absent(),
+    this.ignitionEnergyType = const Value.absent(),
+    this.ignitionEnergyAmount = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : telemetryUuid = Value(telemetryUuid),
        batchUuid = Value(batchUuid),
@@ -2039,6 +2401,11 @@ class PyrolysisTelemetryCompanion
     Expression<double>? pitch,
     Expression<double>? roll,
     Expression<String>? hwAttestationJson,
+    Expression<String>? kilnType,
+    Expression<String>? kilnId,
+    Expression<double>? flameHeightM,
+    Expression<String>? ignitionEnergyType,
+    Expression<double>? ignitionEnergyAmount,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2057,6 +2424,13 @@ class PyrolysisTelemetryCompanion
       if (pitch != null) 'pitch': pitch,
       if (roll != null) 'roll': roll,
       if (hwAttestationJson != null) 'hw_attestation_json': hwAttestationJson,
+      if (kilnType != null) 'kiln_type': kilnType,
+      if (kilnId != null) 'kiln_id': kilnId,
+      if (flameHeightM != null) 'flame_height_m': flameHeightM,
+      if (ignitionEnergyType != null)
+        'ignition_energy_type': ignitionEnergyType,
+      if (ignitionEnergyAmount != null)
+        'ignition_energy_amount': ignitionEnergyAmount,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2075,6 +2449,11 @@ class PyrolysisTelemetryCompanion
     Value<double?>? pitch,
     Value<double?>? roll,
     Value<String>? hwAttestationJson,
+    Value<String?>? kilnType,
+    Value<String?>? kilnId,
+    Value<double?>? flameHeightM,
+    Value<String?>? ignitionEnergyType,
+    Value<double?>? ignitionEnergyAmount,
     Value<int>? rowid,
   }) {
     return PyrolysisTelemetryCompanion(
@@ -2092,6 +2471,11 @@ class PyrolysisTelemetryCompanion
       pitch: pitch ?? this.pitch,
       roll: roll ?? this.roll,
       hwAttestationJson: hwAttestationJson ?? this.hwAttestationJson,
+      kilnType: kilnType ?? this.kilnType,
+      kilnId: kilnId ?? this.kilnId,
+      flameHeightM: flameHeightM ?? this.flameHeightM,
+      ignitionEnergyType: ignitionEnergyType ?? this.ignitionEnergyType,
+      ignitionEnergyAmount: ignitionEnergyAmount ?? this.ignitionEnergyAmount,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2140,6 +2524,23 @@ class PyrolysisTelemetryCompanion
     if (hwAttestationJson.present) {
       map['hw_attestation_json'] = Variable<String>(hwAttestationJson.value);
     }
+    if (kilnType.present) {
+      map['kiln_type'] = Variable<String>(kilnType.value);
+    }
+    if (kilnId.present) {
+      map['kiln_id'] = Variable<String>(kilnId.value);
+    }
+    if (flameHeightM.present) {
+      map['flame_height_m'] = Variable<double>(flameHeightM.value);
+    }
+    if (ignitionEnergyType.present) {
+      map['ignition_energy_type'] = Variable<String>(ignitionEnergyType.value);
+    }
+    if (ignitionEnergyAmount.present) {
+      map['ignition_energy_amount'] = Variable<double>(
+        ignitionEnergyAmount.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2162,6 +2563,11 @@ class PyrolysisTelemetryCompanion
           ..write('pitch: $pitch, ')
           ..write('roll: $roll, ')
           ..write('hwAttestationJson: $hwAttestationJson, ')
+          ..write('kilnType: $kilnType, ')
+          ..write('kilnId: $kilnId, ')
+          ..write('flameHeightM: $flameHeightM, ')
+          ..write('ignitionEnergyType: $ignitionEnergyType, ')
+          ..write('ignitionEnergyAmount: $ignitionEnergyAmount, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4491,6 +4897,539 @@ class MediaCapturesCompanion extends UpdateCompanion<MediaCapture> {
   }
 }
 
+class $MoistureReadingsTable extends MoistureReadings
+    with TableInfo<$MoistureReadingsTable, MoistureReading> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MoistureReadingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _readingUuidMeta = const VerificationMeta(
+    'readingUuid',
+  );
+  @override
+  late final GeneratedColumn<String> readingUuid = GeneratedColumn<String>(
+    'reading_uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _batchUuidMeta = const VerificationMeta(
+    'batchUuid',
+  );
+  @override
+  late final GeneratedColumn<String> batchUuid = GeneratedColumn<String>(
+    'batch_uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES system_metadata (batch_uuid)',
+    ),
+  );
+  static const VerificationMeta _moisturePercentMeta = const VerificationMeta(
+    'moisturePercent',
+  );
+  @override
+  late final GeneratedColumn<double> moisturePercent = GeneratedColumn<double>(
+    'moisture_percent',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sequenceMeta = const VerificationMeta(
+    'sequence',
+  );
+  @override
+  late final GeneratedColumn<int> sequence = GeneratedColumn<int>(
+    'sequence',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sandboxPathMeta = const VerificationMeta(
+    'sandboxPath',
+  );
+  @override
+  late final GeneratedColumn<String> sandboxPath = GeneratedColumn<String>(
+    'sandbox_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sha256HashMeta = const VerificationMeta(
+    'sha256Hash',
+  );
+  @override
+  late final GeneratedColumn<String> sha256Hash = GeneratedColumn<String>(
+    'sha256_hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    readingUuid,
+    batchUuid,
+    moisturePercent,
+    sequence,
+    sandboxPath,
+    sha256Hash,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'moisture_readings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MoistureReading> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('reading_uuid')) {
+      context.handle(
+        _readingUuidMeta,
+        readingUuid.isAcceptableOrUnknown(
+          data['reading_uuid']!,
+          _readingUuidMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_readingUuidMeta);
+    }
+    if (data.containsKey('batch_uuid')) {
+      context.handle(
+        _batchUuidMeta,
+        batchUuid.isAcceptableOrUnknown(data['batch_uuid']!, _batchUuidMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_batchUuidMeta);
+    }
+    if (data.containsKey('moisture_percent')) {
+      context.handle(
+        _moisturePercentMeta,
+        moisturePercent.isAcceptableOrUnknown(
+          data['moisture_percent']!,
+          _moisturePercentMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_moisturePercentMeta);
+    }
+    if (data.containsKey('sequence')) {
+      context.handle(
+        _sequenceMeta,
+        sequence.isAcceptableOrUnknown(data['sequence']!, _sequenceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sequenceMeta);
+    }
+    if (data.containsKey('sandbox_path')) {
+      context.handle(
+        _sandboxPathMeta,
+        sandboxPath.isAcceptableOrUnknown(
+          data['sandbox_path']!,
+          _sandboxPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sha256_hash')) {
+      context.handle(
+        _sha256HashMeta,
+        sha256Hash.isAcceptableOrUnknown(data['sha256_hash']!, _sha256HashMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {readingUuid},
+    {batchUuid, sequence},
+  ];
+  @override
+  MoistureReading map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MoistureReading(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      readingUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reading_uuid'],
+      )!,
+      batchUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}batch_uuid'],
+      )!,
+      moisturePercent: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}moisture_percent'],
+      )!,
+      sequence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sequence'],
+      )!,
+      sandboxPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sandbox_path'],
+      ),
+      sha256Hash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sha256_hash'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $MoistureReadingsTable createAlias(String alias) {
+    return $MoistureReadingsTable(attachedDatabase, alias);
+  }
+}
+
+class MoistureReading extends DataClass implements Insertable<MoistureReading> {
+  final int id;
+  final String readingUuid;
+  final String batchUuid;
+  final double moisturePercent;
+
+  /// Ordinal within the run (1..N). Unique per batch so retakes don't duplicate.
+  final int sequence;
+
+  /// Sandboxed photo of the meter reading + its SHA-256 (uploaded via /media).
+  final String? sandboxPath;
+  final String? sha256Hash;
+  final String createdAt;
+  const MoistureReading({
+    required this.id,
+    required this.readingUuid,
+    required this.batchUuid,
+    required this.moisturePercent,
+    required this.sequence,
+    this.sandboxPath,
+    this.sha256Hash,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['reading_uuid'] = Variable<String>(readingUuid);
+    map['batch_uuid'] = Variable<String>(batchUuid);
+    map['moisture_percent'] = Variable<double>(moisturePercent);
+    map['sequence'] = Variable<int>(sequence);
+    if (!nullToAbsent || sandboxPath != null) {
+      map['sandbox_path'] = Variable<String>(sandboxPath);
+    }
+    if (!nullToAbsent || sha256Hash != null) {
+      map['sha256_hash'] = Variable<String>(sha256Hash);
+    }
+    map['created_at'] = Variable<String>(createdAt);
+    return map;
+  }
+
+  MoistureReadingsCompanion toCompanion(bool nullToAbsent) {
+    return MoistureReadingsCompanion(
+      id: Value(id),
+      readingUuid: Value(readingUuid),
+      batchUuid: Value(batchUuid),
+      moisturePercent: Value(moisturePercent),
+      sequence: Value(sequence),
+      sandboxPath: sandboxPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sandboxPath),
+      sha256Hash: sha256Hash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sha256Hash),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory MoistureReading.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MoistureReading(
+      id: serializer.fromJson<int>(json['id']),
+      readingUuid: serializer.fromJson<String>(json['readingUuid']),
+      batchUuid: serializer.fromJson<String>(json['batchUuid']),
+      moisturePercent: serializer.fromJson<double>(json['moisturePercent']),
+      sequence: serializer.fromJson<int>(json['sequence']),
+      sandboxPath: serializer.fromJson<String?>(json['sandboxPath']),
+      sha256Hash: serializer.fromJson<String?>(json['sha256Hash']),
+      createdAt: serializer.fromJson<String>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'readingUuid': serializer.toJson<String>(readingUuid),
+      'batchUuid': serializer.toJson<String>(batchUuid),
+      'moisturePercent': serializer.toJson<double>(moisturePercent),
+      'sequence': serializer.toJson<int>(sequence),
+      'sandboxPath': serializer.toJson<String?>(sandboxPath),
+      'sha256Hash': serializer.toJson<String?>(sha256Hash),
+      'createdAt': serializer.toJson<String>(createdAt),
+    };
+  }
+
+  MoistureReading copyWith({
+    int? id,
+    String? readingUuid,
+    String? batchUuid,
+    double? moisturePercent,
+    int? sequence,
+    Value<String?> sandboxPath = const Value.absent(),
+    Value<String?> sha256Hash = const Value.absent(),
+    String? createdAt,
+  }) => MoistureReading(
+    id: id ?? this.id,
+    readingUuid: readingUuid ?? this.readingUuid,
+    batchUuid: batchUuid ?? this.batchUuid,
+    moisturePercent: moisturePercent ?? this.moisturePercent,
+    sequence: sequence ?? this.sequence,
+    sandboxPath: sandboxPath.present ? sandboxPath.value : this.sandboxPath,
+    sha256Hash: sha256Hash.present ? sha256Hash.value : this.sha256Hash,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  MoistureReading copyWithCompanion(MoistureReadingsCompanion data) {
+    return MoistureReading(
+      id: data.id.present ? data.id.value : this.id,
+      readingUuid: data.readingUuid.present
+          ? data.readingUuid.value
+          : this.readingUuid,
+      batchUuid: data.batchUuid.present ? data.batchUuid.value : this.batchUuid,
+      moisturePercent: data.moisturePercent.present
+          ? data.moisturePercent.value
+          : this.moisturePercent,
+      sequence: data.sequence.present ? data.sequence.value : this.sequence,
+      sandboxPath: data.sandboxPath.present
+          ? data.sandboxPath.value
+          : this.sandboxPath,
+      sha256Hash: data.sha256Hash.present
+          ? data.sha256Hash.value
+          : this.sha256Hash,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MoistureReading(')
+          ..write('id: $id, ')
+          ..write('readingUuid: $readingUuid, ')
+          ..write('batchUuid: $batchUuid, ')
+          ..write('moisturePercent: $moisturePercent, ')
+          ..write('sequence: $sequence, ')
+          ..write('sandboxPath: $sandboxPath, ')
+          ..write('sha256Hash: $sha256Hash, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    readingUuid,
+    batchUuid,
+    moisturePercent,
+    sequence,
+    sandboxPath,
+    sha256Hash,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MoistureReading &&
+          other.id == this.id &&
+          other.readingUuid == this.readingUuid &&
+          other.batchUuid == this.batchUuid &&
+          other.moisturePercent == this.moisturePercent &&
+          other.sequence == this.sequence &&
+          other.sandboxPath == this.sandboxPath &&
+          other.sha256Hash == this.sha256Hash &&
+          other.createdAt == this.createdAt);
+}
+
+class MoistureReadingsCompanion extends UpdateCompanion<MoistureReading> {
+  final Value<int> id;
+  final Value<String> readingUuid;
+  final Value<String> batchUuid;
+  final Value<double> moisturePercent;
+  final Value<int> sequence;
+  final Value<String?> sandboxPath;
+  final Value<String?> sha256Hash;
+  final Value<String> createdAt;
+  const MoistureReadingsCompanion({
+    this.id = const Value.absent(),
+    this.readingUuid = const Value.absent(),
+    this.batchUuid = const Value.absent(),
+    this.moisturePercent = const Value.absent(),
+    this.sequence = const Value.absent(),
+    this.sandboxPath = const Value.absent(),
+    this.sha256Hash = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  MoistureReadingsCompanion.insert({
+    this.id = const Value.absent(),
+    required String readingUuid,
+    required String batchUuid,
+    required double moisturePercent,
+    required int sequence,
+    this.sandboxPath = const Value.absent(),
+    this.sha256Hash = const Value.absent(),
+    required String createdAt,
+  }) : readingUuid = Value(readingUuid),
+       batchUuid = Value(batchUuid),
+       moisturePercent = Value(moisturePercent),
+       sequence = Value(sequence),
+       createdAt = Value(createdAt);
+  static Insertable<MoistureReading> custom({
+    Expression<int>? id,
+    Expression<String>? readingUuid,
+    Expression<String>? batchUuid,
+    Expression<double>? moisturePercent,
+    Expression<int>? sequence,
+    Expression<String>? sandboxPath,
+    Expression<String>? sha256Hash,
+    Expression<String>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (readingUuid != null) 'reading_uuid': readingUuid,
+      if (batchUuid != null) 'batch_uuid': batchUuid,
+      if (moisturePercent != null) 'moisture_percent': moisturePercent,
+      if (sequence != null) 'sequence': sequence,
+      if (sandboxPath != null) 'sandbox_path': sandboxPath,
+      if (sha256Hash != null) 'sha256_hash': sha256Hash,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  MoistureReadingsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? readingUuid,
+    Value<String>? batchUuid,
+    Value<double>? moisturePercent,
+    Value<int>? sequence,
+    Value<String?>? sandboxPath,
+    Value<String?>? sha256Hash,
+    Value<String>? createdAt,
+  }) {
+    return MoistureReadingsCompanion(
+      id: id ?? this.id,
+      readingUuid: readingUuid ?? this.readingUuid,
+      batchUuid: batchUuid ?? this.batchUuid,
+      moisturePercent: moisturePercent ?? this.moisturePercent,
+      sequence: sequence ?? this.sequence,
+      sandboxPath: sandboxPath ?? this.sandboxPath,
+      sha256Hash: sha256Hash ?? this.sha256Hash,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (readingUuid.present) {
+      map['reading_uuid'] = Variable<String>(readingUuid.value);
+    }
+    if (batchUuid.present) {
+      map['batch_uuid'] = Variable<String>(batchUuid.value);
+    }
+    if (moisturePercent.present) {
+      map['moisture_percent'] = Variable<double>(moisturePercent.value);
+    }
+    if (sequence.present) {
+      map['sequence'] = Variable<int>(sequence.value);
+    }
+    if (sandboxPath.present) {
+      map['sandbox_path'] = Variable<String>(sandboxPath.value);
+    }
+    if (sha256Hash.present) {
+      map['sha256_hash'] = Variable<String>(sha256Hash.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MoistureReadingsCompanion(')
+          ..write('id: $id, ')
+          ..write('readingUuid: $readingUuid, ')
+          ..write('batchUuid: $batchUuid, ')
+          ..write('moisturePercent: $moisturePercent, ')
+          ..write('sequence: $sequence, ')
+          ..write('sandboxPath: $sandboxPath, ')
+          ..write('sha256Hash: $sha256Hash, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4505,6 +5444,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $EndUseApplicationTable(this);
   late final $SyncOutboxTable syncOutbox = $SyncOutboxTable(this);
   late final $MediaCapturesTable mediaCaptures = $MediaCapturesTable(this);
+  late final $MoistureReadingsTable moistureReadings = $MoistureReadingsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4517,6 +5459,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     endUseApplication,
     syncOutbox,
     mediaCaptures,
+    moistureReadings,
   ];
 }
 
@@ -4688,6 +5631,31 @@ final class $$SystemMetadataTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$MoistureReadingsTable, List<MoistureReading>>
+  _moistureReadingsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.moistureReadings,
+    aliasName: $_aliasNameGenerator(
+      db.systemMetadata.batchUuid,
+      db.moistureReadings.batchUuid,
+    ),
+  );
+
+  $$MoistureReadingsTableProcessedTableManager get moistureReadingsRefs {
+    final manager =
+        $$MoistureReadingsTableTableManager($_db, $_db.moistureReadings).filter(
+          (f) => f.batchUuid.batchUuid.sqlEquals(
+            $_itemColumn<String>('batch_uuid')!,
+          ),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _moistureReadingsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$SystemMetadataTableFilterComposer
@@ -4845,6 +5813,31 @@ class $$SystemMetadataTableFilterComposer
           }) => $$MediaCapturesTableFilterComposer(
             $db: $db,
             $table: $db.mediaCaptures,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> moistureReadingsRefs(
+    Expression<bool> Function($$MoistureReadingsTableFilterComposer f) f,
+  ) {
+    final $$MoistureReadingsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.moistureReadings,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MoistureReadingsTableFilterComposer(
+            $db: $db,
+            $table: $db.moistureReadings,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5054,6 +6047,31 @@ class $$SystemMetadataTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> moistureReadingsRefs<T extends Object>(
+    Expression<T> Function($$MoistureReadingsTableAnnotationComposer a) f,
+  ) {
+    final $$MoistureReadingsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.moistureReadings,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MoistureReadingsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.moistureReadings,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$SystemMetadataTableTableManager
@@ -5075,6 +6093,7 @@ class $$SystemMetadataTableTableManager
             bool yieldMetricsRefs,
             bool endUseApplicationRefs,
             bool mediaCapturesRefs,
+            bool moistureReadingsRefs,
           })
         > {
   $$SystemMetadataTableTableManager(
@@ -5141,6 +6160,7 @@ class $$SystemMetadataTableTableManager
                 yieldMetricsRefs = false,
                 endUseApplicationRefs = false,
                 mediaCapturesRefs = false,
+                moistureReadingsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -5150,6 +6170,7 @@ class $$SystemMetadataTableTableManager
                     if (yieldMetricsRefs) db.yieldMetrics,
                     if (endUseApplicationRefs) db.endUseApplication,
                     if (mediaCapturesRefs) db.mediaCaptures,
+                    if (moistureReadingsRefs) db.moistureReadings,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -5259,6 +6280,27 @@ class $$SystemMetadataTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (moistureReadingsRefs)
+                        await $_getPrefetchedData<
+                          SystemMetadataData,
+                          $SystemMetadataTable,
+                          MoistureReading
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SystemMetadataTableReferences
+                              ._moistureReadingsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SystemMetadataTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).moistureReadingsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.batchUuid == item.batchUuid,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -5285,6 +6327,7 @@ typedef $$SystemMetadataTableProcessedTableManager =
         bool yieldMetricsRefs,
         bool endUseApplicationRefs,
         bool mediaCapturesRefs,
+        bool moistureReadingsRefs,
       })
     >;
 typedef $$BiomassSourcingTableCreateCompanionBuilder =
@@ -5304,6 +6347,8 @@ typedef $$BiomassSourcingTableCreateCompanionBuilder =
       Value<double?> azimuth,
       Value<double?> pitch,
       Value<double?> roll,
+      Value<double?> biomassInputKg,
+      Value<String?> biomassMeasurementMethod,
       Value<int> rowid,
     });
 typedef $$BiomassSourcingTableUpdateCompanionBuilder =
@@ -5323,6 +6368,8 @@ typedef $$BiomassSourcingTableUpdateCompanionBuilder =
       Value<double?> azimuth,
       Value<double?> pitch,
       Value<double?> roll,
+      Value<double?> biomassInputKg,
+      Value<String?> biomassMeasurementMethod,
       Value<int> rowid,
     });
 
@@ -5441,6 +6488,16 @@ class $$BiomassSourcingTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<double> get biomassInputKg => $composableBuilder(
+    column: $table.biomassInputKg,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get biomassMeasurementMethod => $composableBuilder(
+    column: $table.biomassMeasurementMethod,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$SystemMetadataTableFilterComposer get batchUuid {
     final $$SystemMetadataTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -5544,6 +6601,16 @@ class $$BiomassSourcingTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get biomassInputKg => $composableBuilder(
+    column: $table.biomassInputKg,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get biomassMeasurementMethod => $composableBuilder(
+    column: $table.biomassMeasurementMethod,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SystemMetadataTableOrderingComposer get batchUuid {
     final $$SystemMetadataTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -5635,6 +6702,16 @@ class $$BiomassSourcingTableAnnotationComposer
   GeneratedColumn<double> get roll =>
       $composableBuilder(column: $table.roll, builder: (column) => column);
 
+  GeneratedColumn<double> get biomassInputKg => $composableBuilder(
+    column: $table.biomassInputKg,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get biomassMeasurementMethod => $composableBuilder(
+    column: $table.biomassMeasurementMethod,
+    builder: (column) => column,
+  );
+
   $$SystemMetadataTableAnnotationComposer get batchUuid {
     final $$SystemMetadataTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -5704,6 +6781,8 @@ class $$BiomassSourcingTableTableManager
                 Value<double?> azimuth = const Value.absent(),
                 Value<double?> pitch = const Value.absent(),
                 Value<double?> roll = const Value.absent(),
+                Value<double?> biomassInputKg = const Value.absent(),
+                Value<String?> biomassMeasurementMethod = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BiomassSourcingCompanion(
                 sourcingUuid: sourcingUuid,
@@ -5721,6 +6800,8 @@ class $$BiomassSourcingTableTableManager
                 azimuth: azimuth,
                 pitch: pitch,
                 roll: roll,
+                biomassInputKg: biomassInputKg,
+                biomassMeasurementMethod: biomassMeasurementMethod,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5740,6 +6821,8 @@ class $$BiomassSourcingTableTableManager
                 Value<double?> azimuth = const Value.absent(),
                 Value<double?> pitch = const Value.absent(),
                 Value<double?> roll = const Value.absent(),
+                Value<double?> biomassInputKg = const Value.absent(),
+                Value<String?> biomassMeasurementMethod = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BiomassSourcingCompanion.insert(
                 sourcingUuid: sourcingUuid,
@@ -5757,6 +6840,8 @@ class $$BiomassSourcingTableTableManager
                 azimuth: azimuth,
                 pitch: pitch,
                 roll: roll,
+                biomassInputKg: biomassInputKg,
+                biomassMeasurementMethod: biomassMeasurementMethod,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -5843,6 +6928,11 @@ typedef $$PyrolysisTelemetryTableCreateCompanionBuilder =
       Value<double?> pitch,
       Value<double?> roll,
       Value<String> hwAttestationJson,
+      Value<String?> kilnType,
+      Value<String?> kilnId,
+      Value<double?> flameHeightM,
+      Value<String?> ignitionEnergyType,
+      Value<double?> ignitionEnergyAmount,
       Value<int> rowid,
     });
 typedef $$PyrolysisTelemetryTableUpdateCompanionBuilder =
@@ -5860,6 +6950,11 @@ typedef $$PyrolysisTelemetryTableUpdateCompanionBuilder =
       Value<double?> pitch,
       Value<double?> roll,
       Value<String> hwAttestationJson,
+      Value<String?> kilnType,
+      Value<String?> kilnId,
+      Value<double?> flameHeightM,
+      Value<String?> ignitionEnergyType,
+      Value<double?> ignitionEnergyAmount,
       Value<int> rowid,
     });
 
@@ -5968,6 +7063,31 @@ class $$PyrolysisTelemetryTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get kilnType => $composableBuilder(
+    column: $table.kilnType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kilnId => $composableBuilder(
+    column: $table.kilnId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get flameHeightM => $composableBuilder(
+    column: $table.flameHeightM,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ignitionEnergyType => $composableBuilder(
+    column: $table.ignitionEnergyType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get ignitionEnergyAmount => $composableBuilder(
+    column: $table.ignitionEnergyAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$SystemMetadataTableFilterComposer get batchUuid {
     final $$SystemMetadataTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -6061,6 +7181,31 @@ class $$PyrolysisTelemetryTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get kilnType => $composableBuilder(
+    column: $table.kilnType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kilnId => $composableBuilder(
+    column: $table.kilnId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get flameHeightM => $composableBuilder(
+    column: $table.flameHeightM,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ignitionEnergyType => $composableBuilder(
+    column: $table.ignitionEnergyType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get ignitionEnergyAmount => $composableBuilder(
+    column: $table.ignitionEnergyAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SystemMetadataTableOrderingComposer get batchUuid {
     final $$SystemMetadataTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -6144,6 +7289,27 @@ class $$PyrolysisTelemetryTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get kilnType =>
+      $composableBuilder(column: $table.kilnType, builder: (column) => column);
+
+  GeneratedColumn<String> get kilnId =>
+      $composableBuilder(column: $table.kilnId, builder: (column) => column);
+
+  GeneratedColumn<double> get flameHeightM => $composableBuilder(
+    column: $table.flameHeightM,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get ignitionEnergyType => $composableBuilder(
+    column: $table.ignitionEnergyType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get ignitionEnergyAmount => $composableBuilder(
+    column: $table.ignitionEnergyAmount,
+    builder: (column) => column,
+  );
+
   $$SystemMetadataTableAnnotationComposer get batchUuid {
     final $$SystemMetadataTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -6214,6 +7380,11 @@ class $$PyrolysisTelemetryTableTableManager
                 Value<double?> pitch = const Value.absent(),
                 Value<double?> roll = const Value.absent(),
                 Value<String> hwAttestationJson = const Value.absent(),
+                Value<String?> kilnType = const Value.absent(),
+                Value<String?> kilnId = const Value.absent(),
+                Value<double?> flameHeightM = const Value.absent(),
+                Value<String?> ignitionEnergyType = const Value.absent(),
+                Value<double?> ignitionEnergyAmount = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PyrolysisTelemetryCompanion(
                 telemetryUuid: telemetryUuid,
@@ -6229,6 +7400,11 @@ class $$PyrolysisTelemetryTableTableManager
                 pitch: pitch,
                 roll: roll,
                 hwAttestationJson: hwAttestationJson,
+                kilnType: kilnType,
+                kilnId: kilnId,
+                flameHeightM: flameHeightM,
+                ignitionEnergyType: ignitionEnergyType,
+                ignitionEnergyAmount: ignitionEnergyAmount,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6246,6 +7422,11 @@ class $$PyrolysisTelemetryTableTableManager
                 Value<double?> pitch = const Value.absent(),
                 Value<double?> roll = const Value.absent(),
                 Value<String> hwAttestationJson = const Value.absent(),
+                Value<String?> kilnType = const Value.absent(),
+                Value<String?> kilnId = const Value.absent(),
+                Value<double?> flameHeightM = const Value.absent(),
+                Value<String?> ignitionEnergyType = const Value.absent(),
+                Value<double?> ignitionEnergyAmount = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PyrolysisTelemetryCompanion.insert(
                 telemetryUuid: telemetryUuid,
@@ -6261,6 +7442,11 @@ class $$PyrolysisTelemetryTableTableManager
                 pitch: pitch,
                 roll: roll,
                 hwAttestationJson: hwAttestationJson,
+                kilnType: kilnType,
+                kilnId: kilnId,
+                flameHeightM: flameHeightM,
+                ignitionEnergyType: ignitionEnergyType,
+                ignitionEnergyAmount: ignitionEnergyAmount,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7824,6 +9010,396 @@ typedef $$MediaCapturesTableProcessedTableManager =
       MediaCapture,
       PrefetchHooks Function({bool batchUuid})
     >;
+typedef $$MoistureReadingsTableCreateCompanionBuilder =
+    MoistureReadingsCompanion Function({
+      Value<int> id,
+      required String readingUuid,
+      required String batchUuid,
+      required double moisturePercent,
+      required int sequence,
+      Value<String?> sandboxPath,
+      Value<String?> sha256Hash,
+      required String createdAt,
+    });
+typedef $$MoistureReadingsTableUpdateCompanionBuilder =
+    MoistureReadingsCompanion Function({
+      Value<int> id,
+      Value<String> readingUuid,
+      Value<String> batchUuid,
+      Value<double> moisturePercent,
+      Value<int> sequence,
+      Value<String?> sandboxPath,
+      Value<String?> sha256Hash,
+      Value<String> createdAt,
+    });
+
+final class $$MoistureReadingsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $MoistureReadingsTable, MoistureReading> {
+  $$MoistureReadingsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $SystemMetadataTable _batchUuidTable(_$AppDatabase db) =>
+      db.systemMetadata.createAlias(
+        $_aliasNameGenerator(
+          db.moistureReadings.batchUuid,
+          db.systemMetadata.batchUuid,
+        ),
+      );
+
+  $$SystemMetadataTableProcessedTableManager get batchUuid {
+    final $_column = $_itemColumn<String>('batch_uuid')!;
+
+    final manager = $$SystemMetadataTableTableManager(
+      $_db,
+      $_db.systemMetadata,
+    ).filter((f) => f.batchUuid.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_batchUuidTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$MoistureReadingsTableFilterComposer
+    extends Composer<_$AppDatabase, $MoistureReadingsTable> {
+  $$MoistureReadingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get readingUuid => $composableBuilder(
+    column: $table.readingUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get moisturePercent => $composableBuilder(
+    column: $table.moisturePercent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sequence => $composableBuilder(
+    column: $table.sequence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sandboxPath => $composableBuilder(
+    column: $table.sandboxPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sha256Hash => $composableBuilder(
+    column: $table.sha256Hash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$SystemMetadataTableFilterComposer get batchUuid {
+    final $$SystemMetadataTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.systemMetadata,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SystemMetadataTableFilterComposer(
+            $db: $db,
+            $table: $db.systemMetadata,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MoistureReadingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MoistureReadingsTable> {
+  $$MoistureReadingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get readingUuid => $composableBuilder(
+    column: $table.readingUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get moisturePercent => $composableBuilder(
+    column: $table.moisturePercent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sequence => $composableBuilder(
+    column: $table.sequence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sandboxPath => $composableBuilder(
+    column: $table.sandboxPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sha256Hash => $composableBuilder(
+    column: $table.sha256Hash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$SystemMetadataTableOrderingComposer get batchUuid {
+    final $$SystemMetadataTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.systemMetadata,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SystemMetadataTableOrderingComposer(
+            $db: $db,
+            $table: $db.systemMetadata,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MoistureReadingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MoistureReadingsTable> {
+  $$MoistureReadingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get readingUuid => $composableBuilder(
+    column: $table.readingUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get moisturePercent => $composableBuilder(
+    column: $table.moisturePercent,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sequence =>
+      $composableBuilder(column: $table.sequence, builder: (column) => column);
+
+  GeneratedColumn<String> get sandboxPath => $composableBuilder(
+    column: $table.sandboxPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sha256Hash => $composableBuilder(
+    column: $table.sha256Hash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$SystemMetadataTableAnnotationComposer get batchUuid {
+    final $$SystemMetadataTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.systemMetadata,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SystemMetadataTableAnnotationComposer(
+            $db: $db,
+            $table: $db.systemMetadata,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MoistureReadingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MoistureReadingsTable,
+          MoistureReading,
+          $$MoistureReadingsTableFilterComposer,
+          $$MoistureReadingsTableOrderingComposer,
+          $$MoistureReadingsTableAnnotationComposer,
+          $$MoistureReadingsTableCreateCompanionBuilder,
+          $$MoistureReadingsTableUpdateCompanionBuilder,
+          (MoistureReading, $$MoistureReadingsTableReferences),
+          MoistureReading,
+          PrefetchHooks Function({bool batchUuid})
+        > {
+  $$MoistureReadingsTableTableManager(
+    _$AppDatabase db,
+    $MoistureReadingsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MoistureReadingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MoistureReadingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MoistureReadingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> readingUuid = const Value.absent(),
+                Value<String> batchUuid = const Value.absent(),
+                Value<double> moisturePercent = const Value.absent(),
+                Value<int> sequence = const Value.absent(),
+                Value<String?> sandboxPath = const Value.absent(),
+                Value<String?> sha256Hash = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+              }) => MoistureReadingsCompanion(
+                id: id,
+                readingUuid: readingUuid,
+                batchUuid: batchUuid,
+                moisturePercent: moisturePercent,
+                sequence: sequence,
+                sandboxPath: sandboxPath,
+                sha256Hash: sha256Hash,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String readingUuid,
+                required String batchUuid,
+                required double moisturePercent,
+                required int sequence,
+                Value<String?> sandboxPath = const Value.absent(),
+                Value<String?> sha256Hash = const Value.absent(),
+                required String createdAt,
+              }) => MoistureReadingsCompanion.insert(
+                id: id,
+                readingUuid: readingUuid,
+                batchUuid: batchUuid,
+                moisturePercent: moisturePercent,
+                sequence: sequence,
+                sandboxPath: sandboxPath,
+                sha256Hash: sha256Hash,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$MoistureReadingsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({batchUuid = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (batchUuid) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.batchUuid,
+                                referencedTable:
+                                    $$MoistureReadingsTableReferences
+                                        ._batchUuidTable(db),
+                                referencedColumn:
+                                    $$MoistureReadingsTableReferences
+                                        ._batchUuidTable(db)
+                                        .batchUuid,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$MoistureReadingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MoistureReadingsTable,
+      MoistureReading,
+      $$MoistureReadingsTableFilterComposer,
+      $$MoistureReadingsTableOrderingComposer,
+      $$MoistureReadingsTableAnnotationComposer,
+      $$MoistureReadingsTableCreateCompanionBuilder,
+      $$MoistureReadingsTableUpdateCompanionBuilder,
+      (MoistureReading, $$MoistureReadingsTableReferences),
+      MoistureReading,
+      PrefetchHooks Function({bool batchUuid})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7842,4 +9418,6 @@ class $AppDatabaseManager {
       $$SyncOutboxTableTableManager(_db, _db.syncOutbox);
   $$MediaCapturesTableTableManager get mediaCaptures =>
       $$MediaCapturesTableTableManager(_db, _db.mediaCaptures);
+  $$MoistureReadingsTableTableManager get moistureReadings =>
+      $$MoistureReadingsTableTableManager(_db, _db.moistureReadings);
 }

@@ -289,11 +289,18 @@ import hmac
 import hashlib
 
 
-def sign_lca_audit(audit: LCAAudit, secret: str) -> str:
-    """Sign the LCA audit using HMAC SHA-256."""
-    # Create a deterministic dictionary of the audit without the signature itself
+def sign_lca_audit(audit: LCAAudit, secret: str, *, batch_uuid: str) -> str:
+    """Sign the LCA audit using HMAC SHA-256, bound to the batch identity.
+
+    Phase 15-B: the signature MUST include `batch_uuid` so two batches with
+    identical physical inputs do NOT produce the same signature (which previously
+    allowed cross-batch replay of an issuance signature). `batch_uuid` is required
+    keyword-only — callers cannot forget it.
+    """
+    # Deterministic dict of the physical audit (minus the signature field) + the
+    # batch identity that scopes this signature to exactly one minting event.
     data = {k: v for k, v in audit.__dict__.items() if k != "audit_signature"}
-    # Sort keys for deterministic JSON serialization
+    data["batch_uuid"] = str(batch_uuid)
     payload_str = json.dumps(data, sort_keys=True)
     signature = hmac.new(
         secret.encode(), payload_str.encode(), hashlib.sha256

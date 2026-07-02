@@ -390,6 +390,229 @@ CORS `allow_headers` still advertised the dead `X-Hmac-Signature` and omitted th
 
 ---
 
+## Phase C3 / C3b — Rainbow compliance: pyrolysis evidence + ignition energy  `[COMPLIANCE]`  ✅ DONE
+
+**Requirement:** open-kiln — photos of **flame curtain / quenching / flame height** and **flame height
+< 0.5 m**; closed-kiln — **ignition energy inputs**. Kiln-type-conditional (keyed off C0 `kiln_type`).
+Additive; **no server migration** (fields live in the telemetry `payload_json`, which
+`recompute_batch_credit` already reads).
+
+**Changes**
+- Client `PyrolysisTelemetry`: nullable `flameHeightM`, `ignitionEnergyType`, `ignitionEnergyAmount`.
+  `schemaVersion` 18→19; additive `if (from<19)` migration; header v19. Writer params. `.g.dart` regenerated.
+- Server `TelemetryPayload`: optional `flame_height_m` (`ge=0,le=5`), `ignition_energy_type`,
+  `ignition_energy_amount` (persisted in payload_json).
+- Compliance (pure, `corroboration.py`): `derive_pyrolysis_photo_compliance(kiln_type, smoke_evidence,
+  flame_height_m)` → `(photos_ok, flame_height_ok)` (open-kiln requires the 3 tagged photographed stages
+  + flame height < 0.5 m); `derive_ignition_compliance(kiln_type, ignition_energy_type)` (closed-kiln
+  requires ignition energy). **Both inert unless `kiln_type` is explicitly `open`/`closed`** — so all
+  existing flows (which don't set kiln_type) are unaffected. `assemble` gains `pyrolysis_photos_ok`,
+  `flame_height_ok`, `ignition_ok` → reasons `missing_pyrolysis_photos` / `flame_height_out_of_range` /
+  `missing_ignition_energy`. Wired into `recompute_batch_credit` from `tel_payload`.
+
+**Tests:** `test_corroboration.py` — inert for non-open/closed; open-kiln needs all 3 photos + low flame;
+closed-kiln needs ignition; reasons flip provisional.
+
+**Gate:** codegen exit 0 (`flameHeightM` generated); backend `pytest` → **1 failed, 208 passed,
+1 skipped** (the 1 pre-existing `test_p0_21_hmac_secret`; **0 new failures**); `flutter analyze` 25 /
+0 errors; `flutter test` **149 passed**; `ruff`+`dart format` applied. No server migration
+(client migration v19 only; `migration_test.dart` covers v1→19).
+
+**Intended commit:** `feat(dmrv): kiln-conditional pyrolysis photo/flame-height + ignition compliance (Rainbow C3/C3b)`
+
+---
+
+## Phase C2 — Rainbow compliance: multi-sample moisture capture  `[COMPLIANCE]`  ✅ DONE
+
+**Requirement:** handheld moisture meter, **≥1 reading per 100 kg of biomass, min 10 per run, each
+photographed.** Previously only a single `moisture_percent`. This was the biggest data gap. Additive.
+
+**Changes**
+- Client `tables.dart`: new `MoistureReadings` table (one row per reading: `readingUuid`, `batchUuid`,
+  `moisturePercent`, `sequence`, photo `sandboxPath`/`sha256Hash`; unique `{readingUuid}` and
+  `{batchUuid, sequence}`). Registered in `@DriftDatabase`; `schemaVersion` 17→18; additive
+  `createTable` migration; header v18. `.g.dart` regenerated.
+- Client writer `insertMoistureReadingWithOutbox` (atomic domain-row + outbox, `targetTable
+  'moisture_readings'`). The photo rides the **existing two-phase signed `/media` path** (payload carries
+  `photo_path`/`sha256_hash`) — no new media plumbing. `kEndpointByTable` maps `moisture_readings` →
+  `moisture`.
+- Server: `MoistureReading` model (batch_uuid **indexed, not unique** — many per batch); `MoisturePayload`
+  (strict) + `POST /api/v1/moisture` (signed) persisting by `reading_uuid`, then `_recompute_if_batch_exists`.
+  Alembic migration `f6a7b8c9d0e1` (create table + indexes, reversible).
+- Compliance: pure `corroboration.derive_moisture_compliance(photographed_count, biomass_input_kg)` —
+  compliant iff `count >= max(10, ceil(biomass/100))`. `recompute_batch_credit` counts *photographed*
+  moisture rows and passes `moisture_ok` to `assemble`, which adds `insufficient_moisture_samples` to
+  `provisional_reasons` when short. The batch stays PROVISIONAL until the moisture rule is met (issuance
+  gate reuse — no new mechanism).
+
+**Tests:** `test_corroboration.py` unit (floor of 10; the ≥1/100 kg rule; reason flips provisional);
+`test_moisture_flow.py` (9 readings → `insufficient_moisture_samples`; 10 → cleared). **Disclosed
+migrations:** `test_lab_hcorg_channel.py` and `test_corroboration_flow.py` now post 10 moisture readings
+so their exact-reason / not-provisional assertions still hold under the new rule.
+
+**Gate:** codegen exit 0 (`MoistureReadings` generated); alembic single head `f6a7b8c9d0e1`, up/down/up
+clean; backend `pytest` → **1 failed, 204 passed, 1 skipped** (the 1 pre-existing `test_p0_21_hmac_secret`;
+**0 new failures**); `flutter test` **149 passed**; `flutter analyze` **0 errors in the real app**;
+`ruff`+`dart format` applied.
+
+**Incidental (disclosed):** the untracked duplicate `New folder/` repo copy reappeared (session
+interruption) and produced 129 analyzer errors purely within itself (no generated code). Deleted the
+cruft, and added an `analyzer.exclude` for `New folder/**` / `uploaded/**` / `scratch/**` in
+`analysis_options.yaml` so a stray duplicate can never pollute `flutter analyze` again. No real-app
+error was involved.
+
+**Intended commit:** `feat(dmrv): per-reading moisture capture + ≥1/100kg compliance rule (Rainbow C2)`
+
+---
+
+## Phase C1 — Rainbow compliance: biomass input amount + method  `[COMPLIANCE]`  ✅ DONE
+
+**Requirement:** "type and **amount** of biomass input (direct weighing or yield conversion ratio)."
+Additive/non-breaking.
+
+**Changes**
+- Client `tables.dart` `BiomassSourcing`: nullable `biomassInputKg` + `biomassMeasurementMethod`.
+  `schemaVersion` 16→17; additive `if (from<17)` migration; header v17. `.g.dart` regenerated.
+- Client `insertBiomassSourcingWithOutbox`: optional params → companion + outbox payload.
+- Server `BatchPayload`: optional `biomass_input_kg` (`ge=0,le=1e6`) + `biomass_measurement_method:
+  Literal["direct_weigh","yield_conversion"]`. `Batch` model gains both nullable columns; `create_batch`
+  persists them. Alembic migration `e5f6a7b8c9d0` (additive, reversible).
+- Compliance reason (`missing_biomass_input` / `missing_conversion_factor`) is wired in the C10 capstone;
+  C1 is data capture + persistence only.
+
+**Tests:** `test_biomass_input.py` — persists on `Batch`; invalid method enum → 422; omission still 201.
+
+**Gate:** codegen exit 0 (`biomassInputKg` generated); alembic single head `e5f6a7b8c9d0`, up/down/up clean;
+backend `pytest` → **1 failed, 199 passed, 1 skipped** (the 1 pre-existing `test_p0_21_hmac_secret`;
+**0 new failures**); `flutter analyze` 25 / 0 errors; `flutter test` **149 passed**;
+`ruff`+`dart format` applied.
+
+**Intended commit:** `feat(dmrv): capture biomass input amount + measurement method (Rainbow C1)`
+
+---
+
+## Phase C0 — Rainbow compliance: kiln type/id foundation  `[COMPLIANCE]`  ✅ DONE
+
+**Scope:** first Rainbow BiCRS methodology-compliance phase (spec:
+`terracipher_reports/RAINBOW_COMPLIANCE_PROMPT.md`). Additive/non-breaking: the open-vs-closed kiln
+dimension that later phases branch on.
+
+**Changes**
+- Client `tables.dart`: `PyrolysisTelemetry` gains nullable `kilnType` (`'open'|'closed'`) + `kilnId`.
+  `schemaVersion` 15→16; `onUpgrade` `if (from<16)` adds both columns (additive); header history updated.
+  Drift `.g.dart` regenerated via `build_runner` (verified working in-env).
+- Client `pyrolysis_writer.dart`: optional `kilnType`/`kilnId` params → companion + outbox payload.
+- Server `TelemetryPayload`: optional `kiln_type: Literal["open","closed"]` + `kiln_id` (bounded);
+  persisted in `payload_json` (side table is schemaless-blob, no server migration needed).
+
+**Tests:** `test_endpoint_schemas.py::test_kiln_type_persists_and_is_validated` — valid `open` persists
++ round-trips; invalid `banana` → 422. `migration_test.dart` covers v1→16.
+
+**Gate**
+- Codegen `build_runner` exit 0; `kilnType` present in generated code. `python -c import server` clean.
+- Backend `pytest` → **1 failed, 196 passed, 1 skipped** — the 1 is pre-existing `test_p0_21_hmac_secret`;
+  **0 new failures**. `flutter analyze` → **25 / 0 errors** (down from 34: `build_runner
+  --delete-conflicting-outputs` cleaned untracked junk at repo root — `scratch/`, `test_pragma.dart`,
+  `test_quote.dart` — none version-controlled, no committed-tree impact); `flutter test` **149 passed**.
+- **Incidental (disclosed):** two hygiene tests (`test_p0_17_no_hardcoded_db_default`,
+  `test_p1_20_uploads_in_gitignore`) asserted against an untracked duplicate repo copy under
+  `uploaded/New folder/` (same cruft class as the deleted top-level `New folder/`). `build_runner`
+  cleaned that cruft, so the tests were **retargeted to the real `backend/db.py` and repo-root
+  `.gitignore`** — which genuinely satisfy the assertions. No tracked file was deleted.
+- `ruff` + `dart format` applied.
+
+**Intended commit:** `feat(dmrv): kiln type/id foundation for Rainbow compliance (C0)`
+
+---
+
+## Phase 16 — Field reliability & data-loss cluster (post-audit P1)  `[FIX]`  ✅ DONE
+
+**Scope:** the non-attacker-driven data-integrity/data-loss findings from the full re-audit. Spec:
+`terracipher_reports/PHASE_15_17_AUTHENTICITY_FIXES.md` (Phase 16). Mostly `lib/`; 16D also touches `server.py`.
+
+- **16A — atomic outbox row-lease.** The WorkManager background isolate and the foreground loop each had
+  their own `SyncQueueManager`/`_isSyncing`, so both could grab the same PENDING row (double POST / double
+  media upload / delete-under-the-other-worker). `_triggerSync` now (1) reclaims stale `PROCESSING` leases
+  (>120 s) back to PENDING, (2) atomically claims each row `PENDING→PROCESSING` via `customUpdate`
+  (`WHERE status='PENDING'`) and skips if 0 rows were claimed, (3) releases `PROCESSING→PENDING` on transient
+  failure. Success→SYNCED, permanent→FAILED_PERMANENTLY unchanged.
+- **16B — stamp before delete.** `_uploadMedia` now stamps `media_synced_at` **before** `file.delete()`;
+  a crash between delete and commit no longer reports server-accepted evidence as a permanent failure.
+- **16C — 401/403 are retryable.** Both JSON and media classifiers treat 401/403 (enrollment/clock/
+  signature races) as transient (retry w/ backoff) instead of `FAILED_PERMANENTLY`; 422/other-4xx stay
+  permanent. Prevents silent field data-loss for a device that syncs before registration propagates.
+- **16D — `closeBatch` propagates.** It now enqueues a signed `system_metadata` outbox row atomically with
+  the `CLOSED_PENDING_UPLOAD` update, and the server `/metadata` endpoint **upserts** on `batch_uuid`
+  conflict (was a silent no-op) so the close actually reaches the server.
+- **16E — `secureWipe` hardening.** Deletes key material **first**, guards a process-level
+  `_dbWipeInProgress` latch that makes `_openConnection` refuse to re-open mid-wipe (no "ghost DB"),
+  `PRAGMA secure_delete=ON` at **open** time (whole-life page zeroing, not just at wipe), and
+  `PRAGMA wal_checkpoint(TRUNCATE)` before close so no plaintext WAL frames survive.
+- **16F — migration data-loss.** v11 timestamp normalizer no longer `STRFTIME`s offset timestamps to NULL
+  (leaves valid `+HH:MM` instants untouched); v15 pre-cleans any non-JSON legacy content in the three
+  telemetry JSON columns before the `json_valid` `TableMigration`, so one malformed row can't abort the
+  upgrade and brick the DB.
+
+**Tests:** `test_metadata_upsert.py` (new, 16D server); existing `test/data/local/migration_test.dart`
+(guards the customStatement path) green; full client suite exercises the sync loop. No existing test broke.
+
+**Gate**
+- Backend `pytest` → **1 failed, 195 passed, 1 skipped** — the 1 is pre-existing `test_p0_21_hmac_secret`;
+  **0 new failures**. `flutter analyze` → **34 / 0 errors** (baseline). `flutter test` → **149 passed, 2 skipped**.
+  Migration test green. `ruff` + `dart format` applied.
+
+**Intended commit:** `fix(client): outbox row-lease, crash-safe media stamp, retryable 403, wipe hardening, migration data-loss (Phase 16)`
+
+---
+
+## Phase 15 — Authenticity (post-audit P0)  `[FIX]`  ✅ DONE
+
+**Scope:** the "mint-money" holes from the full brutal re-audit. Spec:
+`terracipher_reports/PHASE_15_17_AUTHENTICITY_FIXES.md`. Cross-stack (backend + `lib/`).
+
+**15A — Sign the media evidence channel (CRITICAL).** `/api/v1/media` was the only state-changing
+endpoint with no Ed25519 auth — the evidence photos were anonymous. Added `verify_media_signature`
+(server) over a FROZEN media canonical `POST\n/api/v1/media\n{idem}\n{declared_sha256_lower}\n{batch_uuid}\n{device_id}`
+(signs the DECLARED hash, not the non-reproducible multipart body; the endpoint still enforces
+calculated==declared). `upload_media` now `Depends(verify_media_signature)`, parses `X-Batch-UUID` safely
+(**400** not 500 on malformed), and binds ownership (**403 not_your_batch** if `batch.device_id != device`).
+Client `_uploadMedia` now signs via new `CryptoSigner.signMediaUpload`; canonical frozen in a comment on
+both sides. New `test_media_auth.py` (unsigned→401, wrong-hash-sig→403, malformed-uuid→400, non-owner→403,
+happy path→200+anchors).
+
+**15B — Bind the issuance signature to the batch (CRITICAL).** `sign_lca_audit` HMAC'd only the physical
+inputs, so identical inputs → identical signature across batches. Now `sign_lca_audit(..., *, batch_uuid)`
+includes `batch_uuid` in the signed payload. New test: same inputs + different batch → different signature.
+
+**15C — Bound the self-asserted credit inputs (HIGH).** `YieldPayload.wet_yield_weight_kg` →
+`Field(gt=0, le=100_000)` (+ dry-yield bound); `TelemetryPayload.temperature_readings` gets a per-value
+`[-50,1500]` validator (a constant `200.0` array can no longer inflate the CH₄ gate with absurd values).
+Kiln-capacity cross-check documented as a follow-up (needs a domain-defined ratio — not invented).
+
+**15D — Enforce `lab_h_corg` at the DB (P0-).** Added a `CHECK (lab_h_corg IS NULL OR 0.1..1.5)` on
+`batches` (model `__table_args__` + reversible migration `d4e5f6a7b8c9`) so the range holds even if a
+future write path bypasses the API model. H:Corg 0.4 tier cliff **flagged to methodology owner** (not
+silently changed) and pinned by a test.
+
+**Affected tests migrated (disclosed — media now requires a signature):** `test_gps_corroboration.py`,
+`test_media_anchoring.py`, `test_media_path_leak.py`, `test_api.py` (media), `test_p0_25_anchor.py`,
+`test_hardening.py` (4 media cases), `test_p0_24_upload_limit.py` — all now sign via the new
+`crypto_utils.sign_media` helper with an enrolled, batch-owning device. No assertion weakened (the
+invalid-device / missing-device cases assert rejection across {400,401,403}).
+
+**Gate**
+- `grep "Depends(verify_media_signature)"` present; `grep "batch_uuid" lca_engine.py` in signed payload.
+- New: `test_media_auth.py` (6), `test_lab_hcorg_db_constraint.py` (3), signature-uniqueness + yield/temp
+  bound cases — all green.
+- Full backend `pytest` → **1 failed, 194 passed, 1 skipped** — the 1 is the documented pre-existing
+  `test_p0_21_hmac_secret`; **0 new failures**. `flutter analyze` 34 / 0 errors; `flutter test`
+  149 passed / 2 skipped (client `_uploadMedia` + `signMediaUpload` changes). Migration up/down/up clean,
+  single head `d4e5f6a7b8c9`. `ruff` + `dart format` applied.
+
+**Intended commit:** `fix(dmrv): authenticate media channel + bind issuance signature + bound credit inputs (Phase 15)`
+
+---
+
 ## Phase 11-R — Bound string fields and total request body size  `[FIX]`  ✅ DONE
 
 **Scope:** `backend/server.py` (the four Phase-11 models + a body-size middleware),
