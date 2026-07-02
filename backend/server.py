@@ -789,6 +789,50 @@ async def _assert_batch_ownership(
         )
 
 
+async def _upsert_one_to_one_evidence(
+    session: AsyncSession,
+    model,
+    *,
+    uuid_attr: str,
+    uuid_value: str,
+    batch_uuid: str,
+    payload_json: str,
+) -> dict:
+    """Recover from an IntegrityError on a one-to-one evidence table
+    (telemetry / yield / application: both `<x>_uuid` AND `batch_uuid` are UNIQUE).
+
+    The commit can collide on either unique key, and the two cases mean different
+    things:
+      * same `<x>_uuid` again  -> a genuine idempotent retry of the SAME record.
+        No-op; report duplicate. (Overwriting would be pointless and would reset
+        received_at semantics.)
+      * different `<x>_uuid`, same `batch_uuid` -> a CORRECTION / resubmission for
+        the batch. Pre-fix this was silently dropped as `duplicate` — the batch
+        kept the first (possibly attacker- or stale-) value and the real one was
+        lost. Now we UPDATE the existing row in place so the corrected evidence
+        wins and the credit re-derives from it.
+      * `<x>_uuid` collides against a row on a DIFFERENT batch (pathological UUID
+        reuse) -> there is no batch row to upsert; report duplicate rather than
+        clobber another batch's record.
+
+    The caller must have already rolled back the failed insert. Returns the JSON
+    response body; caller commits + recomputes on the `updated` path.
+    """
+    await session.rollback()
+    existing = (
+        await session.execute(select(model).where(model.batch_uuid == batch_uuid))
+    ).scalar_one_or_none()
+    if existing is None or getattr(existing, uuid_attr) == uuid_value:
+        # Same-record retry, or a cross-batch <x>_uuid clash we must not clobber.
+        return {"status": "success", "duplicate": True}
+    # Correction for this batch: overwrite the natural key + payload in place.
+    setattr(existing, uuid_attr, uuid_value)
+    existing.payload_json = payload_json
+    await session.commit()
+    await _recompute_if_batch_exists(session, batch_uuid)
+    return {"status": "success", "updated": True}
+
+
 async def _recompute_if_batch_exists(
     session: AsyncSession, batch_uuid_str: str
 ) -> None:
@@ -1306,17 +1350,24 @@ async def create_telemetry(
     session: AsyncSession = Depends(get_session),
 ):
     await _assert_batch_ownership(session, payload.batch_uuid, device_id)
+    payload_json = json.dumps(payload.model_dump(mode="json"))
     row = PyrolysisTelemetry(
         telemetry_uuid=payload.telemetry_uuid,
         batch_uuid=payload.batch_uuid,
-        payload_json=json.dumps(payload.model_dump(mode="json")),
+        payload_json=payload_json,
     )
     session.add(row)
     try:
         await session.commit()
     except IntegrityError:
-        await session.rollback()
-        return {"status": "success", "duplicate": True}
+        return await _upsert_one_to_one_evidence(
+            session,
+            PyrolysisTelemetry,
+            uuid_attr="telemetry_uuid",
+            uuid_value=payload.telemetry_uuid,
+            batch_uuid=payload.batch_uuid,
+            payload_json=payload_json,
+        )
     await _recompute_if_batch_exists(session, payload.batch_uuid)
     return {"status": "success", "duplicate": False}
 
@@ -1328,17 +1379,24 @@ async def create_yield(
     session: AsyncSession = Depends(get_session),
 ):
     await _assert_batch_ownership(session, payload.batch_uuid, device_id)
+    payload_json = json.dumps(payload.model_dump(mode="json"))
     row = YieldMetrics(
         yield_uuid=payload.yield_uuid,
         batch_uuid=payload.batch_uuid,
-        payload_json=json.dumps(payload.model_dump(mode="json")),
+        payload_json=payload_json,
     )
     session.add(row)
     try:
         await session.commit()
     except IntegrityError:
-        await session.rollback()
-        return {"status": "success", "duplicate": True}
+        return await _upsert_one_to_one_evidence(
+            session,
+            YieldMetrics,
+            uuid_attr="yield_uuid",
+            uuid_value=payload.yield_uuid,
+            batch_uuid=payload.batch_uuid,
+            payload_json=payload_json,
+        )
     await _recompute_if_batch_exists(session, payload.batch_uuid)
     return {"status": "success", "duplicate": False}
 
@@ -1380,17 +1438,24 @@ async def create_application(
     session: AsyncSession = Depends(get_session),
 ):
     await _assert_batch_ownership(session, payload.batch_uuid, device_id)
+    payload_json = json.dumps(payload.model_dump(mode="json"))
     row = EndUseApplication(
         application_uuid=payload.application_uuid,
         batch_uuid=payload.batch_uuid,
-        payload_json=json.dumps(payload.model_dump(mode="json")),
+        payload_json=payload_json,
     )
     session.add(row)
     try:
         await session.commit()
     except IntegrityError:
-        await session.rollback()
-        return {"status": "success", "duplicate": True}
+        return await _upsert_one_to_one_evidence(
+            session,
+            EndUseApplication,
+            uuid_attr="application_uuid",
+            uuid_value=payload.application_uuid,
+            batch_uuid=payload.batch_uuid,
+            payload_json=payload_json,
+        )
     # Transport distance is derived from this application's GPS inside
     # recompute_batch_credit (see corroboration.derive_transport_km).
     await _recompute_if_batch_exists(session, payload.batch_uuid)

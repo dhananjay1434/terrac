@@ -432,6 +432,39 @@ still apply (see the C6 transport cross-check + attestation TODO).
 
 ---
 
+## Phase 17b — Upsert one-to-one evidence corrections (no silent drop)  `[INTEGRITY]`  ✅ DONE
+
+**Finding (the follow-up deferred from Phase 17):** `telemetry` / `yield` / `application` each have BOTH
+`<x>_uuid` AND `batch_uuid` UNIQUE. Their handlers caught *every* IntegrityError and returned
+`{"duplicate": true}`. So a legitimate **correction** — a resubmission for the same batch under a new
+`<x>_uuid` (e.g. a re-weighed yield) — collided on `batch_uuid` and was **silently dropped**: the batch
+kept the first (stale, or in the pre-Phase-17 threat model attacker-injected) value and the corrected
+one was lost, with a success response. The credit never re-derived. `/metadata` already upserted; these
+three did not.
+
+**Fix:** shared `_upsert_one_to_one_evidence(session, model, uuid_attr, uuid_value, batch_uuid,
+payload_json)`, called on IntegrityError by all three handlers. It discriminates the two collision
+sources (only possible now because both keys are unique):
+  * same `<x>_uuid` again → genuine idempotent retry → `{"duplicate": true}` (no-op).
+  * different `<x>_uuid`, same `batch_uuid` → **correction → UPDATE the row in place** (overwrite the
+    natural key + payload), commit, and `_recompute_if_batch_exists` so the credit re-derives →
+    `{"updated": true}`.
+  * `<x>_uuid` collides against a row on a *different* batch (pathological UUID reuse) → no batch row to
+    upsert → `{"duplicate": true}` (do not clobber another batch's record).
+Complements Phase 17: the foreign device is already rejected *before* the insert, so this closes the
+residual risk of an honest owner's correction being swallowed.
+
+**Tests:** `test_evidence_upsert.py` — same-uuid retry stays `duplicate`; a correction under a new uuid
+returns `updated`, leaves exactly ONE row carrying the new value, and (for yield) the batch's
+`wet_yield_kg` credit input actually changes 100→250 (pre-fix it stayed 100).
+
+**Gate:** backend `pytest` → **1 failed, 219 passed, 1 skipped** (+4 new tests; the 1 failure is the
+pre-existing `test_p0_21_hmac_secret`; **0 new failures**). Server-only. `ruff format` applied.
+
+**Intended commit:** `fix(integrity): upsert one-to-one evidence corrections instead of silently dropping them`
+
+---
+
 ## Phase C4 — Rainbow compliance: site composite pile sub-sample  `[COMPLIANCE]`  ✅ DONE
 
 **Requirement:** a biochar sub-sample set aside per run, tagged with **date/time, GPS, kiln ID/QR,
