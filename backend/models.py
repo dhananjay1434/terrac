@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     ForeignKey,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -232,6 +233,50 @@ class ScaleCalibration(Base):
     valid_until: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    report_sha256: Mapped[str] = mapped_column(String(64), nullable=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class AnnualVerification(Base):
+    """Rainbow compliance C9: annual / per-verification project inputs.
+
+    Keyed by (project_id, year) — the methodology captures these "annually or when
+    feedstock changes": methane emission rate (3 runs), PAH / heavy metals (PAH
+    mandatory for closed kilns), biomass leakage assessment, biomass→biochar
+    conversion factor, dry bulk density per site, plus the per-verification
+    quality-oversight report. Admin-authenticated; upsert on (project_id, year).
+
+    All fields are DATA CAPTURE only in C9. The credit-affecting ones (methane
+    rate → CH4 penalty; conversion_factor → C1 yield_conversion) are NOT wired into
+    the credit here — that needs methodology sign-off and its own gated phase (same
+    discipline as C6 transport). The compliance reasons (missing_annual_methane /
+    missing_pah) are deferred to the C10 unified gate.
+    """
+
+    __tablename__ = "annual_verifications"
+    __table_args__ = (
+        UniqueConstraint("project_id", "year", name="uq_annual_verif_project_year"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    # Credit-relevant (captured, not yet wired): methane rate + conversion factor.
+    methane_rate_g_per_kg: Mapped[float] = mapped_column(Float, nullable=True)
+    methane_run_count: Mapped[int] = mapped_column(Integer, nullable=True)
+    conversion_factor: Mapped[float] = mapped_column(Float, nullable=True)
+    # PAH / heavy-metals composite sample (closed-kiln PAH is mandatory).
+    pah_measured: Mapped[bool] = mapped_column(nullable=True)
+    heavy_metals_measured: Mapped[bool] = mapped_column(nullable=True)
+    # Leakage assessment + dry bulk density per site.
+    leakage_assessment_done: Mapped[bool] = mapped_column(nullable=True)
+    dry_bulk_density: Mapped[float] = mapped_column(Float, nullable=True)
+    # Per-verification quality-oversight report (artifact via signed /media).
+    quality_oversight_sha256: Mapped[str] = mapped_column(String(64), nullable=True)
     report_sha256: Mapped[str] = mapped_column(String(64), nullable=True)
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
     received_at: Mapped[datetime] = mapped_column(

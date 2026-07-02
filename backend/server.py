@@ -47,6 +47,7 @@ import piexif
 
 from db import get_session, init_db
 from models import (
+    AnnualVerification,
     Batch,
     CompositePileSample,
     DeviceKey,
@@ -1831,3 +1832,87 @@ async def register_scale_calibration(
         await session.rollback()
         return {"status": "ok", "duplicate": True}
     return {"status": "ok", "duplicate": False}
+
+
+# ==================== C9: annual verification (admin) ====================
+# Annual / per-verification project inputs, keyed by (project_id, year). Admin-
+# authenticated. DATA CAPTURE only: the credit-affecting fields (methane rate →
+# CH4 penalty; conversion_factor → C1 yield_conversion) are NOT wired into the
+# credit here — that needs methodology sign-off and its own gated phase (same
+# discipline as C6 transport). Compliance reasons (missing_annual_methane /
+# missing_pah) are deferred to the C10 unified gate.
+
+
+class AnnualVerificationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    project_id: str = Field(..., min_length=1, max_length=128)
+    year: int = Field(..., ge=2000, le=2100)
+    # Methane emission rate over >= 3 representative runs (independent provider).
+    methane_rate_g_per_kg: Optional[float] = Field(None, ge=0.0, le=100_000.0)
+    methane_run_count: Optional[int] = Field(None, ge=0)
+    # Biomass->biochar conversion factor (if not directly weighing biomass).
+    conversion_factor: Optional[float] = Field(None, gt=0.0, le=100.0)
+    pah_measured: Optional[bool] = None
+    heavy_metals_measured: Optional[bool] = None
+    leakage_assessment_done: Optional[bool] = None
+    dry_bulk_density: Optional[float] = Field(None, gt=0.0, le=2000.0)
+    quality_oversight_sha256: Optional[str] = Field(None, min_length=64, max_length=64)
+    report_sha256: Optional[str] = Field(None, min_length=64, max_length=64)
+
+
+@app.post("/api/v1/admin/annual-verification", status_code=status.HTTP_200_OK)
+async def register_annual_verification(
+    payload: AnnualVerificationRequest,
+    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Register/update the annual verification record for a (project_id, year).
+    Upsert — the methodology captures these annually / when feedstock changes, so
+    a re-POST for the same project-year updates the existing record."""
+    _require_admin(x_admin_secret)
+    existing = (
+        await session.execute(
+            select(AnnualVerification).where(
+                AnnualVerification.project_id == payload.project_id,
+                AnnualVerification.year == payload.year,
+            )
+        )
+    ).scalar_one_or_none()
+    fields = dict(
+        methane_rate_g_per_kg=payload.methane_rate_g_per_kg,
+        methane_run_count=payload.methane_run_count,
+        conversion_factor=payload.conversion_factor,
+        pah_measured=payload.pah_measured,
+        heavy_metals_measured=payload.heavy_metals_measured,
+        leakage_assessment_done=payload.leakage_assessment_done,
+        dry_bulk_density=payload.dry_bulk_density,
+        quality_oversight_sha256=payload.quality_oversight_sha256,
+        report_sha256=payload.report_sha256,
+    )
+    payload_json = json.dumps(payload.model_dump(mode="json"))
+    if existing is None:
+        session.add(
+            AnnualVerification(
+                project_id=payload.project_id,
+                year=payload.year,
+                payload_json=payload_json,
+                **fields,
+            )
+        )
+        await session.commit()
+        return {
+            "status": "ok",
+            "project_id": payload.project_id,
+            "year": payload.year,
+            "updated": False,
+        }
+    for k, v in fields.items():
+        setattr(existing, k, v)
+    existing.payload_json = payload_json
+    await session.commit()
+    return {
+        "status": "ok",
+        "project_id": payload.project_id,
+        "year": payload.year,
+        "updated": True,
+    }

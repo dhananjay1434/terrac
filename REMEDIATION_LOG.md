@@ -465,6 +465,49 @@ pre-existing `test_p0_21_hmac_secret`; **0 new failures**). Server-only. `ruff f
 
 ---
 
+## Phase C9 — Rainbow compliance: annual verification inputs (admin)  `[V][ADMIN]`  ✅ DONE
+
+**Requirement (annually / when feedstock changes; + per verification):** methane emission rate (3
+representative runs, independent provider), PAH / heavy-metals composite (PAH mandatory closed-kiln),
+biomass→biochar conversion factor, updated biomass leakage assessment, dry bulk density per site, and the
+per-verification quality-oversight report. Project-level, admin-authenticated. **Server-only, no client
+change.**
+
+**Scope decision (agreed, mirrors C6/C8):** DATA CAPTURE only. The credit-affecting fields are captured
+but **NOT wired into the credit** here — the measured methane rate could replace the temperature-heuristic
+CH4 penalty (`step7_ch4_penalty`) and the `conversion_factor` feeds C1's `yield_conversion` method; both
+need methodology sign-off and their own gated phase (same discipline as C6 transport emissions). The
+compliance reasons (`missing_annual_methane`, `missing_pah`) are deferred to the C10 unified gate. A test
+asserts recording an annual verification changes no batch's provisional status.
+
+**Changes**
+- Model + Alembic `e1f2a3b4c5d6`: one `annual_verifications` table keyed by a UNIQUE `(project_id, year)`
+  — methane_rate_g_per_kg / methane_run_count / conversion_factor / pah_measured /
+  heavy_metals_measured / leakage_assessment_done / dry_bulk_density / quality_oversight_sha256 /
+  report_sha256 (+ payload_json). Report artifacts via the signed `/media` channel.
+- Server: `POST /api/v1/admin/annual-verification` (admin-auth via `_require_admin`), **upsert on
+  (project_id, year)** → `{updated: bool}` — the methodology captures these annually / when feedstock
+  changes, so a re-POST updates the year's record. Strict `AnnualVerificationRequest` (range-checked:
+  year 2000–2100, conversion_factor > 0, etc.).
+
+**Tests:** `test_annual_verification_c9.py` — admin-required (401); register-then-update is an upsert (one
+row, latest values); distinct years are separate rows; range checks (conversion_factor > 0, year bounds →
+422); recording a verification does NOT gate any batch (reasons deferred to C10).
+
+**Gate:** Alembic `up→down base→up` clean (aiosqlite); backend `pytest` → **1 failed, 251 passed,
+1 skipped** (+5 new; the 1 failure is the pre-existing `test_p0_21_hmac_secret`; **0 new failures**);
+`flutter analyze` 25 / 0 errors; `flutter test` unchanged (server-only); `ruff format` applied. **No client
+migration.**
+
+**Follow-ups (C10 + a dedicated credit phase):** wire `missing_annual_methane` (no current-period methane
+record) and `missing_pah` (closed-kiln batch in a period lacking PAH) into the C10 gate; and — with
+methodology sign-off — feed the measured methane rate into the CH4 penalty and the conversion factor into
+C1 yield_conversion (credit-math change, own gated phase, like the C6 `TRANSPORT_EVENTS_ENFORCED` flip).
+
+**Intended commit:** `feat(dmrv): annual verification inputs — methane/PAH/leakage/conversion (Rainbow C9)`
+
+---
+
 ## Phase C8 — Rainbow compliance: project registry (admin console)  `[ADMIN]`  ✅ DONE
 
 **Requirement (project setup, once / updated on change):** infrastructure & machinery data (kiln
