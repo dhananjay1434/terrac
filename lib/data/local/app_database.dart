@@ -34,6 +34,7 @@ const _uuid = Uuid();
     MediaCaptures,
     MoistureReadings,
     CompositePileSamples,
+    TransportEvents,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -43,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 22;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -226,6 +227,10 @@ class AppDatabase extends _$AppDatabase {
         );
         await m.addColumn(endUseApplication, endUseApplication.buyerName);
         await m.addColumn(endUseApplication, endUseApplication.buyerContact);
+      }
+      if (from < 22) {
+        // Rainbow compliance C6: per transport-event table.
+        await m.createTable(transportEvents);
       }
     },
   );
@@ -459,6 +464,52 @@ class AppDatabase extends _$AppDatabase {
     return sampleUuid;
   }
 
+  /// Rainbow compliance C6: persist one transport event (biomass or biochar leg),
+  /// atomically enqueued. Routes to the /transport endpoint. No photo — this is a
+  /// pure data record (distance/weight/vehicle/fuel).
+  Future<String> insertTransportEventWithOutbox({
+    required String batchUuid,
+    required String material, // 'biomass' | 'biochar'
+    double? distanceKm,
+    double? weightKg,
+    String? vehicleType,
+    String? fuelType,
+    double? fuelAmountLitres,
+    String? occurredAt,
+  }) async {
+    final eventUuid = _uuid.v4();
+    final companion = TransportEventsCompanion.insert(
+      eventUuid: eventUuid,
+      batchUuid: batchUuid,
+      material: material,
+      distanceKm: Value(distanceKm),
+      weightKg: Value(weightKg),
+      vehicleType: Value(vehicleType),
+      fuelType: Value(fuelType),
+      fuelAmountLitres: Value(fuelAmountLitres),
+      occurredAt: Value(occurredAt),
+      createdAt: DateTime.now().toUtc().toIso8601String(),
+    );
+    final payload = <String, dynamic>{
+      'event_uuid': eventUuid,
+      'batch_uuid': batchUuid,
+      'material': material,
+      'distance_km': distanceKm,
+      'weight_kg': weightKg,
+      'vehicle_type': vehicleType,
+      'fuel_type': fuelType,
+      'fuel_amount_litres': fuelAmountLitres,
+      'occurred_at': occurredAt,
+    };
+    await insertWithOutbox(
+      batchUuid: batchUuid,
+      targetTable: 'transport_events',
+      payload: payload,
+      insertRow: () => into(transportEvents).insert(companion),
+    );
+    return eventUuid;
+  }
+
   /// Raw parameterized telemetry query — TEST-ONLY. Gated behind
   /// [visibleForTesting] so it cannot be called from production code (Phase 12).
   /// Uses a bound variable (no string interpolation), so it is injection-safe.
@@ -497,6 +548,7 @@ class AppDatabase extends _$AppDatabase {
         await delete(mediaCaptures).go();
         await delete(moistureReadings).go();
         await delete(compositePileSamples).go();
+        await delete(transportEvents).go();
       });
       await customStatement('VACUUM;');
       // 16E: fold WAL frames back into the (now-scrubbed) main file and truncate

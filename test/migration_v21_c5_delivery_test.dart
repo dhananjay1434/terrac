@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dmrv_app/data/local/app_database.dart';
@@ -9,7 +8,9 @@ import 'package:dmrv_app/data/local/app_database.dart';
 void main() {
   test('v21 end_use_application carries delivery + buyer columns', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
-    expect(db.schemaVersion, 21);
+    // schemaVersion is the single latest version (>= the one that introduced
+    // these columns); assert the C5 COLUMNS exist, not a pinned number.
+    expect(db.schemaVersion, greaterThanOrEqualTo(21));
 
     // A raw insert naming the new columns proves they exist in the built schema.
     await db.customStatement(

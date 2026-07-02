@@ -465,6 +465,59 @@ pre-existing `test_p0_21_hmac_secret`; **0 new failures**). Server-only. `ruff f
 
 ---
 
+## Phase C6 — Rainbow compliance: transport events  `[COMPLIANCE]` ⚠ TOUCHES CREDIT MATH  ✅ DONE
+
+**Requirement:** per transport event — **distance, weight, vehicle type, fuel consumed**, separately for
+**biomass** and **biochar**. New one-to-many channel. Additive.
+
+**Landing decision (credit-safety):** the Rainbow methodology annexes provide **no numeric fuel emission
+factors** (the doc lists only the required per-event data). Per the C6 rule we do NOT invent factors.
+So this phase lands the FULL data channel + emissions plumbing but keeps it **AUDIT-ONLY** — it adds
+**zero movement to any issued credit**:
+  * `emission_factors.py` — the single audited factor module, every constant marked `TODO(cite)` and
+    `TRANSPORT_EVENTS_ENFORCED = False`. `fuel_emissions_kg_co2e(fuel_type, litres)` is the pure per-leg
+    math (unknown fuel → most-conservative/highest known factor).
+  * `recompute_batch_credit` sums per-leg fuel emissions and runs a GPS-vs-reported **under-reporting
+    cross-check** (reported legs < 50% of the production→application haversine → flag). Both are written
+    to `lca_audit_json.transport_events` (event_count / fuel_co2e_kg / reported_km / gps_km /
+    underreported_flag). The GPS-haversine transport penalty in the LCA stays authoritative; the credit
+    and the issuance HMAC signature (which signs only the LCA dataclass) are unchanged. The cross-check
+    flag is deliberately NOT added to `provisional_reasons` — it is a review signal, not an issuance gate.
+
+**Changes**
+- Client: new Drift table `TransportEvents` (`eventUuid` unique, `batchUuid` FK/indexed, `material`
+  'biomass'|'biochar', distance/weight/vehicle/fuel/amount, occurredAt). `schemaVersion` 21→22; additive
+  `createTable` migration; header v22. Writer `insertTransportEventWithOutbox`; `kEndpointByTable` adds
+  `transport_events → transport`; added to `secureWipe`. `.g.dart` regenerated.
+- Server: `TransportEvent` model (`event_uuid` unique, `batch_uuid` indexed — many per batch); Alembic
+  `b8c9d0e1f2a3` (down_revision `a7b8c9d0e1f2`). Strict `TransportEventPayload` + signed,
+  ownership-guarded `POST /api/v1/transport` (dedupe on IntegrityError, like moisture/composite).
+
+**Tests:** `test_transport_events_flow.py` — fuel-emissions unit (zero when amount missing; scales with
+litres; unknown fuel conservative); **guard test that `TRANSPORT_EVENTS_ENFORCED is False`**; many-per-batch
+persist + audit block populated; **credit does NOT change** when a 100 L leg is added; under-reporting
+raises the audit flag but does NOT appear in provisional_reasons. Client
+`migration_v22_c6_transport_test.dart` locks the v22 table shape.
+
+**Gate:** Alembic `up→down base→up` clean (aiosqlite); codegen exit 0; backend `pytest` → **1 failed,
+229 passed, 1 skipped** (+6 new; the 1 failure is the pre-existing `test_p0_21_hmac_secret`; **0 new
+failures** — notably NO LCA/corroboration test moved, confirming the credit math is untouched); `flutter
+analyze` 25 / 0 errors; `flutter test` **151 passed, 2 skipped**; `ruff`+`dart format` applied.
+
+**Drive-by fix:** the C5 `migration_v21_c5_delivery_test.dart` pinned `expect(schemaVersion, 21)`, which
+this phase's bump to 22 broke (schemaVersion is a single latest-version global). Changed both v21/v22
+schema-shape tests to `greaterThanOrEqualTo(...)` so they assert the columns/table exist, not a version
+number, and removed an unused import. Caught by the gate before commit.
+
+**FOLLOW-UP (open):** cite the real Rainbow fuel emission factors in `emission_factors.py`, get
+methodology-owner sign-off, then flip `TRANSPORT_EVENTS_ENFORCED = True` and wire the summed emissions
+into the LCA (replacing/augmenting the GPS-haversine penalty). That flip is a deliberate credit-math
+change and needs its own gated phase + LCA test review.
+
+**Intended commit:** `feat(dmrv): transport-event evidence channel + audit-only emissions/cross-check (Rainbow C6)`
+
+---
+
 ## Phase C5 — Rainbow compliance: delivery records + buyer identity  `[COMPLIANCE]`  ✅ DONE
 
 **Requirement:** delivery tracking (date, amount, batch id) + **buyer/end-user name + contact**. Additive;

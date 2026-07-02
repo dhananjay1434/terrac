@@ -55,6 +55,7 @@ const Map<String, String> kEndpointByTable = <String, String>{
   'end_use_application': 'application',
   'moisture_readings': 'moisture',
   'composite_pile_samples': 'composite-sample',
+  'transport_events': 'transport',
 };
 
 /// Resolve the sync endpoint for [targetTable]. Throws [StateError] for an

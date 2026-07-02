@@ -6330,6 +6330,685 @@ class CompositePileSamplesCompanion
   }
 }
 
+class $TransportEventsTable extends TransportEvents
+    with TableInfo<$TransportEventsTable, TransportEvent> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TransportEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _eventUuidMeta = const VerificationMeta(
+    'eventUuid',
+  );
+  @override
+  late final GeneratedColumn<String> eventUuid = GeneratedColumn<String>(
+    'event_uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _batchUuidMeta = const VerificationMeta(
+    'batchUuid',
+  );
+  @override
+  late final GeneratedColumn<String> batchUuid = GeneratedColumn<String>(
+    'batch_uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES system_metadata (batch_uuid)',
+    ),
+  );
+  static const VerificationMeta _materialMeta = const VerificationMeta(
+    'material',
+  );
+  @override
+  late final GeneratedColumn<String> material = GeneratedColumn<String>(
+    'material',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _distanceKmMeta = const VerificationMeta(
+    'distanceKm',
+  );
+  @override
+  late final GeneratedColumn<double> distanceKm = GeneratedColumn<double>(
+    'distance_km',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _weightKgMeta = const VerificationMeta(
+    'weightKg',
+  );
+  @override
+  late final GeneratedColumn<double> weightKg = GeneratedColumn<double>(
+    'weight_kg',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _vehicleTypeMeta = const VerificationMeta(
+    'vehicleType',
+  );
+  @override
+  late final GeneratedColumn<String> vehicleType = GeneratedColumn<String>(
+    'vehicle_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fuelTypeMeta = const VerificationMeta(
+    'fuelType',
+  );
+  @override
+  late final GeneratedColumn<String> fuelType = GeneratedColumn<String>(
+    'fuel_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fuelAmountLitresMeta = const VerificationMeta(
+    'fuelAmountLitres',
+  );
+  @override
+  late final GeneratedColumn<double> fuelAmountLitres = GeneratedColumn<double>(
+    'fuel_amount_litres',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _occurredAtMeta = const VerificationMeta(
+    'occurredAt',
+  );
+  @override
+  late final GeneratedColumn<String> occurredAt = GeneratedColumn<String>(
+    'occurred_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    eventUuid,
+    batchUuid,
+    material,
+    distanceKm,
+    weightKg,
+    vehicleType,
+    fuelType,
+    fuelAmountLitres,
+    occurredAt,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'transport_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TransportEvent> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('event_uuid')) {
+      context.handle(
+        _eventUuidMeta,
+        eventUuid.isAcceptableOrUnknown(data['event_uuid']!, _eventUuidMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventUuidMeta);
+    }
+    if (data.containsKey('batch_uuid')) {
+      context.handle(
+        _batchUuidMeta,
+        batchUuid.isAcceptableOrUnknown(data['batch_uuid']!, _batchUuidMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_batchUuidMeta);
+    }
+    if (data.containsKey('material')) {
+      context.handle(
+        _materialMeta,
+        material.isAcceptableOrUnknown(data['material']!, _materialMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_materialMeta);
+    }
+    if (data.containsKey('distance_km')) {
+      context.handle(
+        _distanceKmMeta,
+        distanceKm.isAcceptableOrUnknown(data['distance_km']!, _distanceKmMeta),
+      );
+    }
+    if (data.containsKey('weight_kg')) {
+      context.handle(
+        _weightKgMeta,
+        weightKg.isAcceptableOrUnknown(data['weight_kg']!, _weightKgMeta),
+      );
+    }
+    if (data.containsKey('vehicle_type')) {
+      context.handle(
+        _vehicleTypeMeta,
+        vehicleType.isAcceptableOrUnknown(
+          data['vehicle_type']!,
+          _vehicleTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fuel_type')) {
+      context.handle(
+        _fuelTypeMeta,
+        fuelType.isAcceptableOrUnknown(data['fuel_type']!, _fuelTypeMeta),
+      );
+    }
+    if (data.containsKey('fuel_amount_litres')) {
+      context.handle(
+        _fuelAmountLitresMeta,
+        fuelAmountLitres.isAcceptableOrUnknown(
+          data['fuel_amount_litres']!,
+          _fuelAmountLitresMeta,
+        ),
+      );
+    }
+    if (data.containsKey('occurred_at')) {
+      context.handle(
+        _occurredAtMeta,
+        occurredAt.isAcceptableOrUnknown(data['occurred_at']!, _occurredAtMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {eventUuid},
+  ];
+  @override
+  TransportEvent map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TransportEvent(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      eventUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_uuid'],
+      )!,
+      batchUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}batch_uuid'],
+      )!,
+      material: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}material'],
+      )!,
+      distanceKm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}distance_km'],
+      ),
+      weightKg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}weight_kg'],
+      ),
+      vehicleType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}vehicle_type'],
+      ),
+      fuelType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fuel_type'],
+      ),
+      fuelAmountLitres: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fuel_amount_litres'],
+      ),
+      occurredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}occurred_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $TransportEventsTable createAlias(String alias) {
+    return $TransportEventsTable(attachedDatabase, alias);
+  }
+}
+
+class TransportEvent extends DataClass implements Insertable<TransportEvent> {
+  final int id;
+  final String eventUuid;
+  final String batchUuid;
+
+  /// 'biomass' | 'biochar' — which leg of the chain this event covers.
+  final String material;
+  final double? distanceKm;
+  final double? weightKg;
+  final String? vehicleType;
+
+  /// Fuel type (e.g. 'diesel') + amount in litres consumed on this leg.
+  final String? fuelType;
+  final double? fuelAmountLitres;
+  final String? occurredAt;
+  final String createdAt;
+  const TransportEvent({
+    required this.id,
+    required this.eventUuid,
+    required this.batchUuid,
+    required this.material,
+    this.distanceKm,
+    this.weightKg,
+    this.vehicleType,
+    this.fuelType,
+    this.fuelAmountLitres,
+    this.occurredAt,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['event_uuid'] = Variable<String>(eventUuid);
+    map['batch_uuid'] = Variable<String>(batchUuid);
+    map['material'] = Variable<String>(material);
+    if (!nullToAbsent || distanceKm != null) {
+      map['distance_km'] = Variable<double>(distanceKm);
+    }
+    if (!nullToAbsent || weightKg != null) {
+      map['weight_kg'] = Variable<double>(weightKg);
+    }
+    if (!nullToAbsent || vehicleType != null) {
+      map['vehicle_type'] = Variable<String>(vehicleType);
+    }
+    if (!nullToAbsent || fuelType != null) {
+      map['fuel_type'] = Variable<String>(fuelType);
+    }
+    if (!nullToAbsent || fuelAmountLitres != null) {
+      map['fuel_amount_litres'] = Variable<double>(fuelAmountLitres);
+    }
+    if (!nullToAbsent || occurredAt != null) {
+      map['occurred_at'] = Variable<String>(occurredAt);
+    }
+    map['created_at'] = Variable<String>(createdAt);
+    return map;
+  }
+
+  TransportEventsCompanion toCompanion(bool nullToAbsent) {
+    return TransportEventsCompanion(
+      id: Value(id),
+      eventUuid: Value(eventUuid),
+      batchUuid: Value(batchUuid),
+      material: Value(material),
+      distanceKm: distanceKm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(distanceKm),
+      weightKg: weightKg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weightKg),
+      vehicleType: vehicleType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(vehicleType),
+      fuelType: fuelType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fuelType),
+      fuelAmountLitres: fuelAmountLitres == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fuelAmountLitres),
+      occurredAt: occurredAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(occurredAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory TransportEvent.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TransportEvent(
+      id: serializer.fromJson<int>(json['id']),
+      eventUuid: serializer.fromJson<String>(json['eventUuid']),
+      batchUuid: serializer.fromJson<String>(json['batchUuid']),
+      material: serializer.fromJson<String>(json['material']),
+      distanceKm: serializer.fromJson<double?>(json['distanceKm']),
+      weightKg: serializer.fromJson<double?>(json['weightKg']),
+      vehicleType: serializer.fromJson<String?>(json['vehicleType']),
+      fuelType: serializer.fromJson<String?>(json['fuelType']),
+      fuelAmountLitres: serializer.fromJson<double?>(json['fuelAmountLitres']),
+      occurredAt: serializer.fromJson<String?>(json['occurredAt']),
+      createdAt: serializer.fromJson<String>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'eventUuid': serializer.toJson<String>(eventUuid),
+      'batchUuid': serializer.toJson<String>(batchUuid),
+      'material': serializer.toJson<String>(material),
+      'distanceKm': serializer.toJson<double?>(distanceKm),
+      'weightKg': serializer.toJson<double?>(weightKg),
+      'vehicleType': serializer.toJson<String?>(vehicleType),
+      'fuelType': serializer.toJson<String?>(fuelType),
+      'fuelAmountLitres': serializer.toJson<double?>(fuelAmountLitres),
+      'occurredAt': serializer.toJson<String?>(occurredAt),
+      'createdAt': serializer.toJson<String>(createdAt),
+    };
+  }
+
+  TransportEvent copyWith({
+    int? id,
+    String? eventUuid,
+    String? batchUuid,
+    String? material,
+    Value<double?> distanceKm = const Value.absent(),
+    Value<double?> weightKg = const Value.absent(),
+    Value<String?> vehicleType = const Value.absent(),
+    Value<String?> fuelType = const Value.absent(),
+    Value<double?> fuelAmountLitres = const Value.absent(),
+    Value<String?> occurredAt = const Value.absent(),
+    String? createdAt,
+  }) => TransportEvent(
+    id: id ?? this.id,
+    eventUuid: eventUuid ?? this.eventUuid,
+    batchUuid: batchUuid ?? this.batchUuid,
+    material: material ?? this.material,
+    distanceKm: distanceKm.present ? distanceKm.value : this.distanceKm,
+    weightKg: weightKg.present ? weightKg.value : this.weightKg,
+    vehicleType: vehicleType.present ? vehicleType.value : this.vehicleType,
+    fuelType: fuelType.present ? fuelType.value : this.fuelType,
+    fuelAmountLitres: fuelAmountLitres.present
+        ? fuelAmountLitres.value
+        : this.fuelAmountLitres,
+    occurredAt: occurredAt.present ? occurredAt.value : this.occurredAt,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  TransportEvent copyWithCompanion(TransportEventsCompanion data) {
+    return TransportEvent(
+      id: data.id.present ? data.id.value : this.id,
+      eventUuid: data.eventUuid.present ? data.eventUuid.value : this.eventUuid,
+      batchUuid: data.batchUuid.present ? data.batchUuid.value : this.batchUuid,
+      material: data.material.present ? data.material.value : this.material,
+      distanceKm: data.distanceKm.present
+          ? data.distanceKm.value
+          : this.distanceKm,
+      weightKg: data.weightKg.present ? data.weightKg.value : this.weightKg,
+      vehicleType: data.vehicleType.present
+          ? data.vehicleType.value
+          : this.vehicleType,
+      fuelType: data.fuelType.present ? data.fuelType.value : this.fuelType,
+      fuelAmountLitres: data.fuelAmountLitres.present
+          ? data.fuelAmountLitres.value
+          : this.fuelAmountLitres,
+      occurredAt: data.occurredAt.present
+          ? data.occurredAt.value
+          : this.occurredAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TransportEvent(')
+          ..write('id: $id, ')
+          ..write('eventUuid: $eventUuid, ')
+          ..write('batchUuid: $batchUuid, ')
+          ..write('material: $material, ')
+          ..write('distanceKm: $distanceKm, ')
+          ..write('weightKg: $weightKg, ')
+          ..write('vehicleType: $vehicleType, ')
+          ..write('fuelType: $fuelType, ')
+          ..write('fuelAmountLitres: $fuelAmountLitres, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    eventUuid,
+    batchUuid,
+    material,
+    distanceKm,
+    weightKg,
+    vehicleType,
+    fuelType,
+    fuelAmountLitres,
+    occurredAt,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TransportEvent &&
+          other.id == this.id &&
+          other.eventUuid == this.eventUuid &&
+          other.batchUuid == this.batchUuid &&
+          other.material == this.material &&
+          other.distanceKm == this.distanceKm &&
+          other.weightKg == this.weightKg &&
+          other.vehicleType == this.vehicleType &&
+          other.fuelType == this.fuelType &&
+          other.fuelAmountLitres == this.fuelAmountLitres &&
+          other.occurredAt == this.occurredAt &&
+          other.createdAt == this.createdAt);
+}
+
+class TransportEventsCompanion extends UpdateCompanion<TransportEvent> {
+  final Value<int> id;
+  final Value<String> eventUuid;
+  final Value<String> batchUuid;
+  final Value<String> material;
+  final Value<double?> distanceKm;
+  final Value<double?> weightKg;
+  final Value<String?> vehicleType;
+  final Value<String?> fuelType;
+  final Value<double?> fuelAmountLitres;
+  final Value<String?> occurredAt;
+  final Value<String> createdAt;
+  const TransportEventsCompanion({
+    this.id = const Value.absent(),
+    this.eventUuid = const Value.absent(),
+    this.batchUuid = const Value.absent(),
+    this.material = const Value.absent(),
+    this.distanceKm = const Value.absent(),
+    this.weightKg = const Value.absent(),
+    this.vehicleType = const Value.absent(),
+    this.fuelType = const Value.absent(),
+    this.fuelAmountLitres = const Value.absent(),
+    this.occurredAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  TransportEventsCompanion.insert({
+    this.id = const Value.absent(),
+    required String eventUuid,
+    required String batchUuid,
+    required String material,
+    this.distanceKm = const Value.absent(),
+    this.weightKg = const Value.absent(),
+    this.vehicleType = const Value.absent(),
+    this.fuelType = const Value.absent(),
+    this.fuelAmountLitres = const Value.absent(),
+    this.occurredAt = const Value.absent(),
+    required String createdAt,
+  }) : eventUuid = Value(eventUuid),
+       batchUuid = Value(batchUuid),
+       material = Value(material),
+       createdAt = Value(createdAt);
+  static Insertable<TransportEvent> custom({
+    Expression<int>? id,
+    Expression<String>? eventUuid,
+    Expression<String>? batchUuid,
+    Expression<String>? material,
+    Expression<double>? distanceKm,
+    Expression<double>? weightKg,
+    Expression<String>? vehicleType,
+    Expression<String>? fuelType,
+    Expression<double>? fuelAmountLitres,
+    Expression<String>? occurredAt,
+    Expression<String>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (eventUuid != null) 'event_uuid': eventUuid,
+      if (batchUuid != null) 'batch_uuid': batchUuid,
+      if (material != null) 'material': material,
+      if (distanceKm != null) 'distance_km': distanceKm,
+      if (weightKg != null) 'weight_kg': weightKg,
+      if (vehicleType != null) 'vehicle_type': vehicleType,
+      if (fuelType != null) 'fuel_type': fuelType,
+      if (fuelAmountLitres != null) 'fuel_amount_litres': fuelAmountLitres,
+      if (occurredAt != null) 'occurred_at': occurredAt,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  TransportEventsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? eventUuid,
+    Value<String>? batchUuid,
+    Value<String>? material,
+    Value<double?>? distanceKm,
+    Value<double?>? weightKg,
+    Value<String?>? vehicleType,
+    Value<String?>? fuelType,
+    Value<double?>? fuelAmountLitres,
+    Value<String?>? occurredAt,
+    Value<String>? createdAt,
+  }) {
+    return TransportEventsCompanion(
+      id: id ?? this.id,
+      eventUuid: eventUuid ?? this.eventUuid,
+      batchUuid: batchUuid ?? this.batchUuid,
+      material: material ?? this.material,
+      distanceKm: distanceKm ?? this.distanceKm,
+      weightKg: weightKg ?? this.weightKg,
+      vehicleType: vehicleType ?? this.vehicleType,
+      fuelType: fuelType ?? this.fuelType,
+      fuelAmountLitres: fuelAmountLitres ?? this.fuelAmountLitres,
+      occurredAt: occurredAt ?? this.occurredAt,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (eventUuid.present) {
+      map['event_uuid'] = Variable<String>(eventUuid.value);
+    }
+    if (batchUuid.present) {
+      map['batch_uuid'] = Variable<String>(batchUuid.value);
+    }
+    if (material.present) {
+      map['material'] = Variable<String>(material.value);
+    }
+    if (distanceKm.present) {
+      map['distance_km'] = Variable<double>(distanceKm.value);
+    }
+    if (weightKg.present) {
+      map['weight_kg'] = Variable<double>(weightKg.value);
+    }
+    if (vehicleType.present) {
+      map['vehicle_type'] = Variable<String>(vehicleType.value);
+    }
+    if (fuelType.present) {
+      map['fuel_type'] = Variable<String>(fuelType.value);
+    }
+    if (fuelAmountLitres.present) {
+      map['fuel_amount_litres'] = Variable<double>(fuelAmountLitres.value);
+    }
+    if (occurredAt.present) {
+      map['occurred_at'] = Variable<String>(occurredAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TransportEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('eventUuid: $eventUuid, ')
+          ..write('batchUuid: $batchUuid, ')
+          ..write('material: $material, ')
+          ..write('distanceKm: $distanceKm, ')
+          ..write('weightKg: $weightKg, ')
+          ..write('vehicleType: $vehicleType, ')
+          ..write('fuelType: $fuelType, ')
+          ..write('fuelAmountLitres: $fuelAmountLitres, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6349,6 +7028,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $CompositePileSamplesTable compositePileSamples =
       $CompositePileSamplesTable(this);
+  late final $TransportEventsTable transportEvents = $TransportEventsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6363,6 +7045,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     mediaCaptures,
     moistureReadings,
     compositePileSamples,
+    transportEvents,
   ];
 }
 
@@ -6592,6 +7275,31 @@ final class $$SystemMetadataTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$TransportEventsTable, List<TransportEvent>>
+  _transportEventsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.transportEvents,
+    aliasName: $_aliasNameGenerator(
+      db.systemMetadata.batchUuid,
+      db.transportEvents.batchUuid,
+    ),
+  );
+
+  $$TransportEventsTableProcessedTableManager get transportEventsRefs {
+    final manager =
+        $$TransportEventsTableTableManager($_db, $_db.transportEvents).filter(
+          (f) => f.batchUuid.batchUuid.sqlEquals(
+            $_itemColumn<String>('batch_uuid')!,
+          ),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _transportEventsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$SystemMetadataTableFilterComposer
@@ -6799,6 +7507,31 @@ class $$SystemMetadataTableFilterComposer
           }) => $$CompositePileSamplesTableFilterComposer(
             $db: $db,
             $table: $db.compositePileSamples,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> transportEventsRefs(
+    Expression<bool> Function($$TransportEventsTableFilterComposer f) f,
+  ) {
+    final $$TransportEventsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.transportEvents,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransportEventsTableFilterComposer(
+            $db: $db,
+            $table: $db.transportEvents,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -7059,6 +7792,31 @@ class $$SystemMetadataTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> transportEventsRefs<T extends Object>(
+    Expression<T> Function($$TransportEventsTableAnnotationComposer a) f,
+  ) {
+    final $$TransportEventsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.transportEvents,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransportEventsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.transportEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$SystemMetadataTableTableManager
@@ -7082,6 +7840,7 @@ class $$SystemMetadataTableTableManager
             bool mediaCapturesRefs,
             bool moistureReadingsRefs,
             bool compositePileSamplesRefs,
+            bool transportEventsRefs,
           })
         > {
   $$SystemMetadataTableTableManager(
@@ -7150,6 +7909,7 @@ class $$SystemMetadataTableTableManager
                 mediaCapturesRefs = false,
                 moistureReadingsRefs = false,
                 compositePileSamplesRefs = false,
+                transportEventsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -7161,6 +7921,7 @@ class $$SystemMetadataTableTableManager
                     if (mediaCapturesRefs) db.mediaCaptures,
                     if (moistureReadingsRefs) db.moistureReadings,
                     if (compositePileSamplesRefs) db.compositePileSamples,
+                    if (transportEventsRefs) db.transportEvents,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -7312,6 +8073,27 @@ class $$SystemMetadataTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (transportEventsRefs)
+                        await $_getPrefetchedData<
+                          SystemMetadataData,
+                          $SystemMetadataTable,
+                          TransportEvent
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SystemMetadataTableReferences
+                              ._transportEventsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SystemMetadataTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).transportEventsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.batchUuid == item.batchUuid,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -7340,6 +8122,7 @@ typedef $$SystemMetadataTableProcessedTableManager =
         bool mediaCapturesRefs,
         bool moistureReadingsRefs,
         bool compositePileSamplesRefs,
+        bool transportEventsRefs,
       })
     >;
 typedef $$BiomassSourcingTableCreateCompanionBuilder =
@@ -10949,6 +11732,453 @@ typedef $$CompositePileSamplesTableProcessedTableManager =
       CompositePileSample,
       PrefetchHooks Function({bool batchUuid})
     >;
+typedef $$TransportEventsTableCreateCompanionBuilder =
+    TransportEventsCompanion Function({
+      Value<int> id,
+      required String eventUuid,
+      required String batchUuid,
+      required String material,
+      Value<double?> distanceKm,
+      Value<double?> weightKg,
+      Value<String?> vehicleType,
+      Value<String?> fuelType,
+      Value<double?> fuelAmountLitres,
+      Value<String?> occurredAt,
+      required String createdAt,
+    });
+typedef $$TransportEventsTableUpdateCompanionBuilder =
+    TransportEventsCompanion Function({
+      Value<int> id,
+      Value<String> eventUuid,
+      Value<String> batchUuid,
+      Value<String> material,
+      Value<double?> distanceKm,
+      Value<double?> weightKg,
+      Value<String?> vehicleType,
+      Value<String?> fuelType,
+      Value<double?> fuelAmountLitres,
+      Value<String?> occurredAt,
+      Value<String> createdAt,
+    });
+
+final class $$TransportEventsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $TransportEventsTable, TransportEvent> {
+  $$TransportEventsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $SystemMetadataTable _batchUuidTable(_$AppDatabase db) =>
+      db.systemMetadata.createAlias(
+        $_aliasNameGenerator(
+          db.transportEvents.batchUuid,
+          db.systemMetadata.batchUuid,
+        ),
+      );
+
+  $$SystemMetadataTableProcessedTableManager get batchUuid {
+    final $_column = $_itemColumn<String>('batch_uuid')!;
+
+    final manager = $$SystemMetadataTableTableManager(
+      $_db,
+      $_db.systemMetadata,
+    ).filter((f) => f.batchUuid.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_batchUuidTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TransportEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $TransportEventsTable> {
+  $$TransportEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventUuid => $composableBuilder(
+    column: $table.eventUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get material => $composableBuilder(
+    column: $table.material,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get weightKg => $composableBuilder(
+    column: $table.weightKg,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get vehicleType => $composableBuilder(
+    column: $table.vehicleType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fuelType => $composableBuilder(
+    column: $table.fuelType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fuelAmountLitres => $composableBuilder(
+    column: $table.fuelAmountLitres,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$SystemMetadataTableFilterComposer get batchUuid {
+    final $$SystemMetadataTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.systemMetadata,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SystemMetadataTableFilterComposer(
+            $db: $db,
+            $table: $db.systemMetadata,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TransportEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TransportEventsTable> {
+  $$TransportEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventUuid => $composableBuilder(
+    column: $table.eventUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get material => $composableBuilder(
+    column: $table.material,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get weightKg => $composableBuilder(
+    column: $table.weightKg,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get vehicleType => $composableBuilder(
+    column: $table.vehicleType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fuelType => $composableBuilder(
+    column: $table.fuelType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fuelAmountLitres => $composableBuilder(
+    column: $table.fuelAmountLitres,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$SystemMetadataTableOrderingComposer get batchUuid {
+    final $$SystemMetadataTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.systemMetadata,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SystemMetadataTableOrderingComposer(
+            $db: $db,
+            $table: $db.systemMetadata,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TransportEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TransportEventsTable> {
+  $$TransportEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get eventUuid =>
+      $composableBuilder(column: $table.eventUuid, builder: (column) => column);
+
+  GeneratedColumn<String> get material =>
+      $composableBuilder(column: $table.material, builder: (column) => column);
+
+  GeneratedColumn<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get weightKg =>
+      $composableBuilder(column: $table.weightKg, builder: (column) => column);
+
+  GeneratedColumn<String> get vehicleType => $composableBuilder(
+    column: $table.vehicleType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fuelType =>
+      $composableBuilder(column: $table.fuelType, builder: (column) => column);
+
+  GeneratedColumn<double> get fuelAmountLitres => $composableBuilder(
+    column: $table.fuelAmountLitres,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$SystemMetadataTableAnnotationComposer get batchUuid {
+    final $$SystemMetadataTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.batchUuid,
+      referencedTable: $db.systemMetadata,
+      getReferencedColumn: (t) => t.batchUuid,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SystemMetadataTableAnnotationComposer(
+            $db: $db,
+            $table: $db.systemMetadata,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TransportEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TransportEventsTable,
+          TransportEvent,
+          $$TransportEventsTableFilterComposer,
+          $$TransportEventsTableOrderingComposer,
+          $$TransportEventsTableAnnotationComposer,
+          $$TransportEventsTableCreateCompanionBuilder,
+          $$TransportEventsTableUpdateCompanionBuilder,
+          (TransportEvent, $$TransportEventsTableReferences),
+          TransportEvent,
+          PrefetchHooks Function({bool batchUuid})
+        > {
+  $$TransportEventsTableTableManager(
+    _$AppDatabase db,
+    $TransportEventsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TransportEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TransportEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TransportEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> eventUuid = const Value.absent(),
+                Value<String> batchUuid = const Value.absent(),
+                Value<String> material = const Value.absent(),
+                Value<double?> distanceKm = const Value.absent(),
+                Value<double?> weightKg = const Value.absent(),
+                Value<String?> vehicleType = const Value.absent(),
+                Value<String?> fuelType = const Value.absent(),
+                Value<double?> fuelAmountLitres = const Value.absent(),
+                Value<String?> occurredAt = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+              }) => TransportEventsCompanion(
+                id: id,
+                eventUuid: eventUuid,
+                batchUuid: batchUuid,
+                material: material,
+                distanceKm: distanceKm,
+                weightKg: weightKg,
+                vehicleType: vehicleType,
+                fuelType: fuelType,
+                fuelAmountLitres: fuelAmountLitres,
+                occurredAt: occurredAt,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String eventUuid,
+                required String batchUuid,
+                required String material,
+                Value<double?> distanceKm = const Value.absent(),
+                Value<double?> weightKg = const Value.absent(),
+                Value<String?> vehicleType = const Value.absent(),
+                Value<String?> fuelType = const Value.absent(),
+                Value<double?> fuelAmountLitres = const Value.absent(),
+                Value<String?> occurredAt = const Value.absent(),
+                required String createdAt,
+              }) => TransportEventsCompanion.insert(
+                id: id,
+                eventUuid: eventUuid,
+                batchUuid: batchUuid,
+                material: material,
+                distanceKm: distanceKm,
+                weightKg: weightKg,
+                vehicleType: vehicleType,
+                fuelType: fuelType,
+                fuelAmountLitres: fuelAmountLitres,
+                occurredAt: occurredAt,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TransportEventsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({batchUuid = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (batchUuid) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.batchUuid,
+                                referencedTable:
+                                    $$TransportEventsTableReferences
+                                        ._batchUuidTable(db),
+                                referencedColumn:
+                                    $$TransportEventsTableReferences
+                                        ._batchUuidTable(db)
+                                        .batchUuid,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TransportEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TransportEventsTable,
+      TransportEvent,
+      $$TransportEventsTableFilterComposer,
+      $$TransportEventsTableOrderingComposer,
+      $$TransportEventsTableAnnotationComposer,
+      $$TransportEventsTableCreateCompanionBuilder,
+      $$TransportEventsTableUpdateCompanionBuilder,
+      (TransportEvent, $$TransportEventsTableReferences),
+      TransportEvent,
+      PrefetchHooks Function({bool batchUuid})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -10971,4 +12201,6 @@ class $AppDatabaseManager {
       $$MoistureReadingsTableTableManager(_db, _db.moistureReadings);
   $$CompositePileSamplesTableTableManager get compositePileSamples =>
       $$CompositePileSamplesTableTableManager(_db, _db.compositePileSamples);
+  $$TransportEventsTableTableManager get transportEvents =>
+      $$TransportEventsTableTableManager(_db, _db.transportEvents);
 }

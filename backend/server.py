@@ -56,8 +56,10 @@ from models import (
     MoistureReading,
     PyrolysisTelemetry,
     SystemMetadata,
+    TransportEvent,
     YieldMetrics,
 )
+from emission_factors import TRANSPORT_EVENTS_ENFORCED, fuel_emissions_kg_co2e
 from lca_engine import CORG_TABLE, calculate_carbon_credit, sign_lca_audit
 from corroboration import (
     assemble,
@@ -695,6 +697,35 @@ async def recompute_batch_credit(
     # payload. Inert by default (enforced at the C10 unified gate).
     delivery_ok, buyer_ok = derive_delivery_compliance(app_payload)
 
+    # Rainbow C6: transport events. AUDIT-ONLY while TRANSPORT_EVENTS_ENFORCED is
+    # False — we sum the per-leg fuel emissions and run a GPS-vs-reported
+    # under-reporting cross-check, but neither touches the issued credit (the
+    # GPS-haversine transport penalty in the LCA stays authoritative until the
+    # methodology's real fuel emission factors are cited; see emission_factors.py).
+    te_rows = (
+        (
+            await session.execute(
+                select(TransportEvent).where(TransportEvent.batch_uuid == buid)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    te_payloads = [json.loads(r.payload_json) for r in te_rows]
+    transport_fuel_co2e_kg = sum(
+        fuel_emissions_kg_co2e(p.get("fuel_type"), p.get("fuel_amount_litres"))
+        for p in te_payloads
+    )
+    reported_transport_km = sum((p.get("distance_km") or 0.0) for p in te_payloads)
+    # Cross-check: the GPS-derived transport (production→application haversine) is
+    # a lower bound on real hauling; if the operator's REPORTED legs sum to far
+    # less than the GPS distance, the fuel/transport burden is being under-stated.
+    # Flag for review (audit-only) — never gates issuance here.
+    gps_km = transport if transport is not None else 0.0
+    transport_underreported = bool(
+        te_payloads and gps_km > 0.0 and reported_transport_km < 0.5 * gps_km
+    )
+
     effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
     corr = assemble(
         wet_yield,
@@ -745,7 +776,18 @@ async def recompute_batch_credit(
     batch.provisional_reasons = json.dumps(corr.reasons)
     batch.net_credit_t_co2e = lca.net_credit_t_co2e
     batch.lca_methodology_version = lca.methodology_version
-    batch.lca_audit_json = json.dumps({k: v for k, v in lca.__dict__.items()})
+    # Rainbow C6 audit trail (audit-only; not part of the signed credit while
+    # transport events are unenforced — see emission_factors.TRANSPORT_EVENTS_ENFORCED).
+    audit = {k: v for k, v in lca.__dict__.items()}
+    audit["transport_events"] = {
+        "enforced": TRANSPORT_EVENTS_ENFORCED,
+        "event_count": len(te_payloads),
+        "fuel_co2e_kg": transport_fuel_co2e_kg,
+        "reported_transport_km": reported_transport_km,
+        "gps_transport_km": gps_km,
+        "underreported_flag": transport_underreported,
+    }
+    batch.lca_audit_json = json.dumps(audit)
     # Phase 8-R: only a fully-corroborated, non-provisional batch carries an
     # issuance signature. A provisional audit must never look issuable downstream.
     batch.lca_signature = (
@@ -1311,6 +1353,20 @@ class CompositeSamplePayload(BaseModel):
     sha256_hash: Optional[str] = Field(None, min_length=64, max_length=64)
 
 
+class TransportEventPayload(BaseModel):
+    # Rainbow compliance C6: one transport leg (many per batch).
+    model_config = ConfigDict(extra="forbid")
+    event_uuid: str = Field(..., max_length=64)
+    batch_uuid: str = Field(..., max_length=64)
+    material: Literal["biomass", "biochar"]
+    distance_km: Optional[float] = Field(None, ge=0.0, le=20000.0)
+    weight_kg: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
+    vehicle_type: Optional[str] = Field(None, max_length=128)
+    fuel_type: Optional[str] = Field(None, max_length=64)
+    fuel_amount_litres: Optional[float] = Field(None, ge=0.0, le=100_000.0)
+    occurred_at: Optional[str] = Field(None, max_length=64)
+
+
 @app.post("/api/v1/moisture", status_code=status.HTTP_201_CREATED)
 async def create_moisture(
     payload: MoisturePayload,
@@ -1353,6 +1409,30 @@ async def create_composite_sample(
         await session.rollback()
         return {"status": "success", "duplicate": True}
     # New sub-sample may satisfy the C4 composite-sample compliance rule.
+    await _recompute_if_batch_exists(session, payload.batch_uuid)
+    return {"status": "success", "duplicate": False}
+
+
+@app.post("/api/v1/transport", status_code=status.HTTP_201_CREATED)
+async def create_transport_event(
+    payload: TransportEventPayload,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+):
+    await _assert_batch_ownership(session, payload.batch_uuid, device_id)
+    row = TransportEvent(
+        event_uuid=payload.event_uuid,
+        batch_uuid=payload.batch_uuid,
+        payload_json=json.dumps(payload.model_dump(mode="json")),
+    )
+    session.add(row)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return {"status": "success", "duplicate": True}
+    # Recompute so the (audit-only until enforced) transport emissions + the
+    # GPS-vs-reported cross-check refresh as legs arrive.
     await _recompute_if_batch_exists(session, payload.batch_uuid)
     return {"status": "success", "duplicate": False}
 

@@ -1,10 +1,10 @@
 import 'package:drift/drift.dart';
 
 /// =============================================================================
-/// Kon-Tiki Biochar dMRV — Local Drift Schema  (schemaVersion = 21)
+/// Kon-Tiki Biochar dMRV — Local Drift Schema  (schemaVersion = 22)
 /// =============================================================================
 ///
-/// The authoritative version is `AppDatabase.schemaVersion` (currently 21). Keep
+/// The authoritative version is `AppDatabase.schemaVersion` (currently 22). Keep
 /// this header in sync with it. `onUpgrade` applies cumulative `if (from < N)`
 /// blocks, so v5, v13 and v14 have no dedicated block (nothing new landed there).
 ///
@@ -37,6 +37,7 @@ import 'package:drift/drift.dart';
 ///   v19:            flame_height_m + ignition_energy_type/amount on pyrolysis_telemetry (Rainbow C3/C3b).
 ///   v20:            composite_pile_samples table — site composite sub-sample + photo (Rainbow C4).
 ///   v21:            delivery + buyer identity on end_use_application (Rainbow C5).
+///   v22:            transport_events table — per-event distance/weight/fuel (Rainbow C6).
 /// =============================================================================
 
 class SystemMetadata extends Table {
@@ -305,5 +306,33 @@ class CompositePileSamples extends Table {
   @override
   List<Set<Column>> get uniqueKeys => [
     {sampleUuid},
+  ];
+}
+
+/// v22 — Rainbow compliance C6: per transport-event record (many per batch).
+/// The methodology requires distance, weight, vehicle type and fuel consumed for
+/// EACH transport leg, separately for biomass and biochar. One row per event.
+class TransportEvents extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get eventUuid => text()();
+  TextColumn get batchUuid => text().references(SystemMetadata, #batchUuid)();
+
+  /// 'biomass' | 'biochar' — which leg of the chain this event covers.
+  TextColumn get material => text()();
+
+  RealColumn get distanceKm => real().nullable()();
+  RealColumn get weightKg => real().nullable()();
+  TextColumn get vehicleType => text().nullable()();
+
+  /// Fuel type (e.g. 'diesel') + amount in litres consumed on this leg.
+  TextColumn get fuelType => text().nullable()();
+  RealColumn get fuelAmountLitres => real().nullable()();
+
+  TextColumn get occurredAt => text().nullable()();
+  TextColumn get createdAt => text()();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+    {eventUuid},
   ];
 }

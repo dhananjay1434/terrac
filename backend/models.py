@@ -130,6 +130,28 @@ class CompositePileSample(Base):
     )
 
 
+class TransportEvent(Base):
+    """Rainbow compliance C6: one transport event (many per batch).
+
+    The methodology requires distance, weight, vehicle type and fuel consumed for
+    each transport leg, separately for biomass and biochar. `event_uuid` is
+    unique; `batch_uuid` is indexed but NOT unique (many legs per batch).
+    """
+
+    __tablename__ = "transport_events"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_uuid: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, index=True
+    )
+    batch_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class Batch(Base):
     __tablename__ = "batches"
 
