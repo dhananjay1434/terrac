@@ -94,6 +94,11 @@ class LCAAudit:
     # A provisional credit must never be issued as final.
     provisional: bool = True
 
+    # C7: True when corg_pct came from the species CONSTANT (CORG_TABLE) rather
+    # than a lab-measured organic-carbon value. Like `provisional` for H:Corg,
+    # an assumed-Corg credit must not be issued as final.
+    corg_assumed: bool = True
+
     audit_signature: str | None = None
 
 
@@ -222,6 +227,7 @@ def calculate_carbon_credit(
     transport_distance_km: float = 0.0,
     feedstock_species: str = "Lantana_camara",
     h_corg_ratio: float | None = None,
+    corg_override: float | None = None,
 ) -> LCAAudit:
     """Execute the complete 8-step CSI LCA pipeline.
 
@@ -232,11 +238,19 @@ def calculate_carbon_credit(
         transport_distance_km: Haversine GPS distance, production site → application field (km)
         feedstock_species:     CSI positive-list species key
         h_corg_ratio:          Lab-derived H:Corg molar ratio (default 0.35 for Lantana)
+        corg_override:         Lab-measured organic-carbon fraction (0–1). When
+                               supplied it REPLACES the species-constant CORG_TABLE
+                               lookup (C7); when None the constant is used and the
+                               result is marked corg_assumed (not issuable).
 
     Returns:
         LCAAudit dataclass with full calculation trail.
     """
-    corg = get_corg(feedstock_species)
+    # C7: prefer a lab-measured Corg over the species constant. The constant was
+    # the same class of self-asserted assumption as the old H:Corg — a lab value
+    # is authoritative; its absence keeps the credit provisional (corg_assumed).
+    corg_assumed = corg_override is None
+    corg = get_corg(feedstock_species) if corg_override is None else corg_override
 
     # Phase 8: a credit computed without a lab-measured H:Corg is PROVISIONAL —
     # it falls back to the conservative 0.35 assumption but must never be
@@ -281,6 +295,7 @@ def calculate_carbon_credit(
         ch4_penalty_kg=ch4,
         net_credit_t_co2e=net,
         provisional=provisional,
+        corg_assumed=corg_assumed,
     )
 
 

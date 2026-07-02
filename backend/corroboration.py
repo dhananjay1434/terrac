@@ -210,6 +210,7 @@ def assemble(
     transport: Optional[float],
     *,
     has_lab_hcorg: bool,
+    has_lab_corg: bool = True,
     attestation_ok: bool = True,
     moisture_ok: bool = True,
     pyrolysis_photos_ok: bool = True,
@@ -237,6 +238,8 @@ def assemble(
         reasons.append("transport_uncorroborated")
     if not has_lab_hcorg:
         reasons.append("assumed_h_corg")
+    if not has_lab_corg:
+        reasons.append("assumed_corg")
     if not attestation_ok:
         reasons.append("attestation_unverified")
     if not moisture_ok:

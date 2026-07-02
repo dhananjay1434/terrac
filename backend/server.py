@@ -558,6 +558,40 @@ class LabHCorgRequest(BaseModel):
     lab_h_corg: float = Field(..., ge=0.1, le=1.5)
 
 
+class LabResultsRequest(BaseModel):
+    """C7 full per-batch lab-results channel (admin-authenticated, range-checked).
+
+    All fields optional so a lab can report incrementally. `organic_carbon_pct` is
+    the credit-affecting one (replaces the species CORG_TABLE constant); `lab_h_corg`
+    is accepted here too so a single lab report can supply both permanence inputs.
+    The rest are captured for verification / the 1000-year pathway (gated to C8).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    batch_uuid: UUID
+    lab_h_corg: Optional[float] = Field(None, ge=0.1, le=1.5)
+    # Organic carbon as a FRACTION in (0, 1] (e.g. Lantana ~0.60), matching CORG_TABLE.
+    organic_carbon_pct: Optional[float] = Field(None, gt=0.0, le=1.0)
+    # Biochar moisture: the methodology requires >= 3 samples when measured by mass.
+    biochar_moisture_samples: Optional[list[float]] = Field(
+        None, min_length=3, max_length=100
+    )
+    dry_bulk_density: Optional[float] = Field(None, gt=0.0, le=2000.0)
+    # 1000-year pathway inputs (data capture only in C7; pathway gated to C8).
+    inertinite_pct: Optional[float] = Field(None, ge=0.0, le=100.0)
+    residual_corg_pct: Optional[float] = Field(None, ge=0.0, le=100.0)
+    ro_measurements_count: Optional[int] = Field(None, ge=0)
+
+    @field_validator("biochar_moisture_samples")
+    @classmethod
+    def _validate_moisture_samples(
+        cls, v: Optional[list[float]]
+    ) -> Optional[list[float]]:
+        if v is not None and any((m < 0.0 or m > 100.0) for m in v):
+            raise ValueError("biochar_moisture_samples must be percentages in [0, 100]")
+        return v
+
+
 @app.post("/api/v1/admin/lab-hcorg", status_code=status.HTTP_200_OK)
 async def ingest_lab_hcorg(
     payload: LabHCorgRequest,
@@ -592,8 +626,70 @@ async def ingest_lab_hcorg(
     }
 
 
+@app.post("/api/v1/admin/lab", status_code=status.HTTP_200_OK)
+async def ingest_lab_results(
+    payload: LabResultsRequest,
+    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    session: AsyncSession = Depends(get_session),
+):
+    """C7 full lab-results channel (admin-authenticated).
+
+    Widens the Phase-8-R /admin/lab-hcorg endpoint to the full per-batch lab set.
+    `organic_carbon_pct` is authoritative and REPLACES the species CORG_TABLE
+    constant in the credit (its absence keeps the batch provisional via
+    `assumed_corg`, mirroring `assumed_h_corg`). The remaining fields are captured
+    for verification / the 1000-year pathway (gated to C8). Lab data must NEVER be
+    device-asserted — same admin-secret + range-check discipline as lab-hcorg.
+    """
+    if not hmac.compare_digest(x_admin_secret, _ADMIN_SECRET):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthorized"
+        )
+    batch = (
+        await session.execute(
+            select(Batch).where(Batch.batch_uuid == payload.batch_uuid)
+        )
+    ).scalar_one_or_none()
+    if batch is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="unknown_batch"
+        )
+
+    # Persist the non-credit verification fields directly (recompute reads the
+    # credit-affecting organic_carbon_pct via the lab_corg kwarg below).
+    if payload.biochar_moisture_samples is not None:
+        batch.biochar_moisture_samples_json = json.dumps(
+            payload.biochar_moisture_samples
+        )
+    if payload.dry_bulk_density is not None:
+        batch.dry_bulk_density = payload.dry_bulk_density
+    if payload.inertinite_pct is not None:
+        batch.inertinite_pct = payload.inertinite_pct
+    if payload.residual_corg_pct is not None:
+        batch.residual_corg_pct = payload.residual_corg_pct
+    if payload.ro_measurements_count is not None:
+        batch.ro_measurements_count = payload.ro_measurements_count
+
+    await recompute_batch_credit(
+        session,
+        batch,
+        lab_h_corg=payload.lab_h_corg,
+        lab_corg=payload.organic_carbon_pct,
+    )
+    await session.commit()
+    return {
+        "status": "ok",
+        "batch_uuid": str(payload.batch_uuid),
+        "provisional": batch.provisional,
+    }
+
+
 async def recompute_batch_credit(
-    session: AsyncSession, batch: Batch, *, lab_h_corg: Optional[float] = None
+    session: AsyncSession,
+    batch: Batch,
+    *,
+    lab_h_corg: Optional[float] = None,
+    lab_corg: Optional[float] = None,
 ) -> None:
     """Corroborate a batch's credit inputs from the telemetry/yield/application
     streams, recompute the LCA credit, and update the batch row in place.
@@ -727,11 +823,14 @@ async def recompute_batch_credit(
     )
 
     effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
+    # C7: prefer a lab-measured organic-carbon fraction over the species constant.
+    effective_corg = lab_corg if lab_corg is not None else batch.organic_carbon_pct
     corr = assemble(
         wet_yield,
         min_temp,
         transport,
         has_lab_hcorg=effective_lab is not None,
+        has_lab_corg=effective_corg is not None,
         attestation_ok=attestation_ok,
         moisture_ok=moisture_ok,
         pyrolysis_photos_ok=photos_ok,
@@ -745,6 +844,8 @@ async def recompute_batch_credit(
     kwargs = {}
     if effective_lab is not None:
         kwargs["h_corg_ratio"] = effective_lab
+    if effective_corg is not None:
+        kwargs["corg_override"] = effective_corg
 
     lca = calculate_carbon_credit(
         wet_yield_kg=corr.wet_yield_kg if corr.wet_yield_kg is not None else 0.0,
@@ -771,8 +872,10 @@ async def recompute_batch_credit(
     )
     if lab_h_corg is not None:
         batch.lab_h_corg = lab_h_corg
-    # Provisional if any input is uncorroborated OR H:Corg was assumed.
-    batch.provisional = corr.provisional or lca.provisional
+    if lab_corg is not None:
+        batch.organic_carbon_pct = lab_corg
+    # Provisional if any input is uncorroborated OR H:Corg / Corg was assumed.
+    batch.provisional = corr.provisional or lca.provisional or lca.corg_assumed
     batch.provisional_reasons = json.dumps(corr.reasons)
     batch.net_credit_t_co2e = lca.net_credit_t_co2e
     batch.lca_methodology_version = lca.methodology_version

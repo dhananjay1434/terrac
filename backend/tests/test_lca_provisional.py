@@ -201,10 +201,11 @@ async def _corroborate(client, bu, lat=12.9716, lon=77.5946):
 
 
 @pytest.mark.asyncio
-async def test_batch_with_lab_hcorg_is_not_provisional(client):
-    # Phase 8-R: not-provisional requires fully-corroborated physical inputs AND a
-    # lab H:Corg supplied via the authenticated /admin/lab-hcorg channel (NOT the
-    # device batch payload, which no longer accepts lab_h_corg).
+async def test_batch_with_full_lab_is_not_provisional(client):
+    # Phase 8-R + C7: not-provisional requires fully-corroborated physical inputs
+    # AND both lab permanence inputs (H:Corg + organic Corg) via the authenticated
+    # /admin/lab channel (NOT the device batch payload). H:Corg alone no longer
+    # suffices — organic Corg was previously a species-constant assumption.
     bu = str(uuid4())
     lat, lon = 12.9716, 77.5946
     await _corroborate(client, bu, lat, lon)
@@ -219,12 +220,24 @@ async def test_batch_with_lab_hcorg_is_not_provisional(client):
         },
     )
     assert r.status_code == 201, r.text
-    assert r.json()["provisional"] is True  # still assumed_h_corg until lab supplies it
+    assert r.json()["provisional"] is True  # assumed_h_corg + assumed_corg
 
-    lab = await client.post(
+    # H:Corg alone: still provisional (Corg assumed).
+    lab1 = await client.post(
         "/api/v1/admin/lab-hcorg",
         content=json.dumps({"batch_uuid": bu, "lab_h_corg": 0.3}).encode("utf-8"),
         headers={"X-Admin-Secret": "test-admin-secret"},
     )
-    assert lab.status_code == 200, lab.text
-    assert lab.json()["provisional"] is False
+    assert lab1.status_code == 200, lab1.text
+    assert lab1.json()["provisional"] is True
+
+    # Full lab (H:Corg + Corg): now issuable.
+    lab2 = await client.post(
+        "/api/v1/admin/lab",
+        content=json.dumps(
+            {"batch_uuid": bu, "lab_h_corg": 0.3, "organic_carbon_pct": 0.60}
+        ).encode("utf-8"),
+        headers={"X-Admin-Secret": "test-admin-secret"},
+    )
+    assert lab2.status_code == 200, lab2.text
+    assert lab2.json()["provisional"] is False

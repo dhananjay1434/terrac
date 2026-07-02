@@ -145,6 +145,7 @@ async def test_credit_converges_as_evidence_arrives(
     assert batch.min_recorded_temp_c == 650.0
     assert batch.transport_distance_km > 100.0
     assert batch.net_credit_t_co2e != 0.0
-    # Still provisional ONLY because no lab H:Corg was supplied.
-    assert json.loads(batch.provisional_reasons) == ["assumed_h_corg"]
+    # Still provisional ONLY because the lab permanence inputs are unsupplied:
+    # H:Corg (Phase 8-R) and organic Corg (C7 — previously a species constant).
+    assert json.loads(batch.provisional_reasons) == ["assumed_h_corg", "assumed_corg"]
     assert batch.provisional is True

@@ -145,16 +145,46 @@ async def test_lab_endpoint_unknown_batch_404(client, registered_device):
     assert r.status_code == 404, r.text
 
 
-async def test_lab_endpoint_clears_provisional_on_corroborated_batch(
+async def test_lab_hcorg_alone_leaves_only_assumed_corg(
     client, registered_device, session_factory
 ):
+    # C7 strengthened the invariant: lab H:Corg alone no longer clears provisional
+    # because organic Corg is still the species-CONSTANT assumption. The only
+    # remaining reason must be exactly 'assumed_corg'.
     bu = str(uuid.uuid4())
     await _corroborate(client, bu)
-    await _create_batch(client, bu)  # provisional: only 'assumed_h_corg' remains
+    await _create_batch(client, bu)  # provisional: assumed_h_corg + assumed_corg
 
     r = await client.post(
         "/api/v1/admin/lab-hcorg",
         content=json.dumps({"batch_uuid": bu, "lab_h_corg": 0.3}).encode("utf-8"),
+        headers=_ADMIN,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["provisional"] is True  # C7: Corg still assumed
+
+    async with session_factory() as s:
+        batch = (
+            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+        ).scalar_one()
+    assert batch.provisional is True
+    assert batch.lab_h_corg == 0.3
+    assert json.loads(batch.provisional_reasons) == ["assumed_corg"]
+
+
+async def test_full_lab_channel_clears_provisional(
+    client, registered_device, session_factory
+):
+    # C7: a fully-corroborated batch with BOTH lab H:Corg and lab Corg is issuable.
+    bu = str(uuid.uuid4())
+    await _corroborate(client, bu)
+    await _create_batch(client, bu)
+
+    r = await client.post(
+        "/api/v1/admin/lab",
+        content=json.dumps(
+            {"batch_uuid": bu, "lab_h_corg": 0.3, "organic_carbon_pct": 0.60}
+        ).encode("utf-8"),
         headers=_ADMIN,
     )
     assert r.status_code == 200, r.text
@@ -166,6 +196,7 @@ async def test_lab_endpoint_clears_provisional_on_corroborated_batch(
         ).scalar_one()
     assert batch.provisional is False
     assert batch.lab_h_corg == 0.3
+    assert batch.organic_carbon_pct == 0.60
     assert batch.net_credit_t_co2e != 0.0
     # Phase 8-R: a non-provisional batch now carries an issuance signature.
     assert batch.lca_signature is not None and batch.lca_signature != ""

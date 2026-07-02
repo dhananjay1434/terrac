@@ -465,6 +465,56 @@ pre-existing `test_p0_21_hmac_secret`; **0 new failures**). Server-only. `ruff f
 
 ---
 
+## Phase C7 — Rainbow compliance: per-batch lab results (admin channel)  `[V]` ⚠ TOUCHES CREDIT MATH  ✅ DONE
+
+**Requirement `[V]`:** per-batch lab data — organic **Corg** (elemental), **H:Corg**, biochar moisture
+(≥3 samples), dry bulk density, inertinite + residual Corg (1000-yr pathway, ≥500 Ro). `[V]` = verification
+only → **admin-authenticated, never device-asserted** (same discipline as Phase 8-R `ingest_lab_hcorg`).
+**No client change** (lab data never comes from the device).
+
+**Integrity fix (the point of C7):** organic **Corg was a hardcoded species CONSTANT** (`lca_engine.CORG_TABLE`)
+— the same class of self-asserted assumption the H:Corg channel already closed. C7 makes a lab-measured
+Corg authoritative and PREFERRED in the credit; its absence keeps the batch provisional via a new
+`assumed_corg` reason (mirroring `assumed_h_corg`).
+
+**Changes**
+- LCA (`lca_engine.py`): `calculate_carbon_credit(..., corg_override=None)` — when supplied it REPLACES
+  the `get_corg(species)` constant; `LCAAudit.corg_assumed` records which was used (True = species constant).
+- Corroboration: `assemble(..., has_lab_corg=True)` → `assumed_corg` reason. Default True so pure callers
+  are unaffected; `recompute_batch_credit` passes `effective_corg is not None`.
+- Server: `recompute_batch_credit(..., lab_corg=None)` threads Corg through (prefers arg, else
+  `batch.organic_carbon_pct`), passes `corg_override` to the LCA, and folds `lca.corg_assumed` into
+  `batch.provisional`. New `POST /api/v1/admin/lab` (admin-auth) accepting `LabResultsRequest`
+  (lab_h_corg, organic_carbon_pct (0,1], biochar_moisture_samples min 3, dry_bulk_density, inertinite_pct,
+  residual_corg_pct, ro_measurements_count — all range-checked). `/admin/lab-hcorg` kept as-is
+  (back-compat). Persists the verification fields on `Batch`.
+- Model + Alembic `c9d0e1f2a3b4`: nullable `organic_carbon_pct`, `biochar_moisture_samples_json`,
+  `dry_bulk_density`, `inertinite_pct`, `residual_corg_pct`, `ro_measurements_count` on `batches`, plus a
+  DB CHECK `organic_carbon_pct IN (0, 1]` (mirrors the lab_h_corg guard; added via `batch_alter_table` for
+  SQLite compat). 1000-yr inertinite pathway is DATA-CAPTURE ONLY here — the alternate permanence pathway
+  is a project election gated to C8.
+
+**Invariant change (intended, breaking for two old tests):** a fully-issuable (non-provisional) credit
+now requires BOTH lab H:Corg AND lab Corg. Two Phase-8-R tests asserted H:Corg-alone cleared provisional;
+updated to the C7 invariant (H:Corg-alone leaves exactly `assumed_corg`; the full `/admin/lab` with both
+clears it). `test_corroboration_flow` fully-corroborated reasons updated `["assumed_h_corg"]` →
+`["assumed_h_corg","assumed_corg"]`. These were caught by the gate, diagnosed, and updated deliberately —
+not worked around.
+
+**Tests:** `test_lab_results_c7.py` — corg_override replaces the constant + changes the credit
+(`corg_assumed` flips); `/admin/lab` clears `assumed_corg` and recomputes; persists the verification
+fields; admin-required (401); range checks (Corg>1 → 422, <3 moisture samples → 422); unknown batch 404.
+Plus the two updated invariant tests + the new full-channel issuance test.
+
+**Gate:** Alembic `up→down base→up` clean (aiosqlite); backend `pytest` → **1 failed, 236 passed,
+1 skipped** (+7 net new; the 1 failure is the pre-existing `test_p0_21_hmac_secret`; **0 new failures**);
+`flutter analyze` 25 / 0 errors; `flutter test` unchanged (server-only phase); `ruff format` applied.
+**No client migration** (server-only).
+
+**Intended commit:** `feat(dmrv): per-batch lab results channel; lab Corg replaces species constant (Rainbow C7)`
+
+---
+
 ## Phase C6 — Rainbow compliance: transport events  `[COMPLIANCE]` ⚠ TOUCHES CREDIT MATH  ✅ DONE
 
 **Requirement:** per transport event — **distance, weight, vehicle type, fuel consumed**, separately for

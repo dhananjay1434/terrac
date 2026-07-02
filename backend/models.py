@@ -162,6 +162,13 @@ class Batch(Base):
             "lab_h_corg IS NULL OR (lab_h_corg >= 0.1 AND lab_h_corg <= 1.5)",
             name="ck_batches_lab_h_corg_range",
         ),
+        # C7: organic carbon is a fraction in (0, 1]. The DB enforces the invariant
+        # regardless of write path (mirrors the lab_h_corg guard).
+        CheckConstraint(
+            "organic_carbon_pct IS NULL "
+            "OR (organic_carbon_pct > 0.0 AND organic_carbon_pct <= 1.0)",
+            name="ck_batches_organic_carbon_pct_range",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -208,6 +215,17 @@ class Batch(Base):
     # conservative 0.35 assumption and is PROVISIONAL). Persisted so recompute
     # from a later evidence stream does not lose a previously-ingested lab value.
     lab_h_corg: Mapped[float] = mapped_column(Float, nullable=True)
+
+    # Rainbow compliance C7: per-batch lab results (admin-authenticated channel).
+    # organic_carbon_pct is CREDIT-AFFECTING — when present it replaces the species
+    # CORG_TABLE constant in the LCA; its absence keeps the batch provisional
+    # (assumed_corg). The rest are captured for verification / the 1000-yr pathway.
+    organic_carbon_pct: Mapped[float] = mapped_column(Float, nullable=True)
+    biochar_moisture_samples_json: Mapped[str] = mapped_column(Text, nullable=True)
+    dry_bulk_density: Mapped[float] = mapped_column(Float, nullable=True)
+    inertinite_pct: Mapped[float] = mapped_column(Float, nullable=True)
+    residual_corg_pct: Mapped[float] = mapped_column(Float, nullable=True)
+    ro_measurements_count: Mapped[int] = mapped_column(Integer, nullable=True)
 
     # Rainbow compliance C1: biomass input amount + measurement method.
     biomass_input_kg: Mapped[float] = mapped_column(Float, nullable=True)
