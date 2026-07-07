@@ -68,6 +68,7 @@ from emission_factors import TRANSPORT_EVENTS_ENFORCED, fuel_emissions_kg_co2e
 from lca_engine import CORG_TABLE, calculate_carbon_credit, sign_lca_audit
 from corroboration import (
     assemble,
+    derive_annual_methane_compliance,
     derive_biomass_compliance,
     derive_composite_sample_compliance,
     derive_delivery_compliance,
@@ -913,18 +914,38 @@ async def recompute_batch_credit(
         if _sc_reason:
             c10_reasons.append(_sc_reason)
 
-    # C9: PAH is mandatory for closed kilns. Resolve from the batch's project-year
-    # verification IF a project linkage exists; absent linkage, evaluate against
-    # any verification carrying a PAH flag is not possible, so PAH is only gated
-    # when kiln_type == 'closed' AND we can resolve it — dormant otherwise.
-    # (kiln registration above already ties the batch to a kiln; project linkage
-    # is the missing piece for the annual/scale checks — see follow-up.)
-    pah_measured = False  # no batch→project linkage yet; stays dormant unless closed
-    _pah_ok, _pah_reason = derive_pah_compliance(
-        kiln_type, pah_measured, enforced=False
-    )
-    if _pah_reason:
-        c10_reasons.append(_pah_reason)
+    # C9 (T1.3): the batch's project must have a methane verification (>= 3
+    # representative runs) for the batch's production year. Inert when the batch
+    # has no project linkage. The verification row is reused by the PAH gate
+    # below. Year policy: harvest-timestamp year (production vintage) — flagged
+    # to the methodology owner in the T1.3 PR.
+    annual_verif = None
+    if batch.project_id:
+        _verif_year = batch.harvest_timestamp.year
+        annual_verif = (
+            await session.execute(
+                select(AnnualVerification).where(
+                    AnnualVerification.project_id == batch.project_id,
+                    AnnualVerification.year == _verif_year,
+                )
+            )
+        ).scalar_one_or_none()
+        _am_ok, _am_reason = derive_annual_methane_compliance(
+            annual_verif.methane_run_count if annual_verif else None
+        )
+        if _am_reason:
+            c10_reasons.append(_am_reason)
+
+    # C9 (T1.4): PAH measurement is mandatory for closed kilns, resolved from the
+    # project-year verification fetched above. Inert when the batch has no project
+    # linkage or kiln_type isn't explicitly 'closed' (the deriver also guards
+    # kiln-conditionality). The deriver now runs under the default
+    # COMPLIANCE_ENFORCED policy — the previous hardcoded bypass is removed.
+    if batch.project_id and kiln_type == "closed":
+        _pah_measured = bool(annual_verif and annual_verif.pah_measured)
+        _pah_ok, _pah_reason = derive_pah_compliance(kiln_type, _pah_measured)
+        if _pah_reason:
+            c10_reasons.append(_pah_reason)
 
     effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
     # C7: prefer a lab-measured organic-carbon fraction over the species constant.
