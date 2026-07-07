@@ -2110,12 +2110,28 @@ async def batch_compliance(
 
     reasons = json.loads(batch.provisional_reasons or "[]")
     reason_set = set(reasons)
+
+    # T1.10: per-item enforcement provenance so a verifier can tell "checked and
+    # passed" from "not applicable to this batch". 'enforced' = the gate can fire
+    # for this batch; 'inert_no_linkage' = needs project/scale linkage this batch
+    # lacks; 'awaiting_methodology' = code path exists but is flag-gated pending
+    # Rainbow sign-off (device attestation).
+    def _enforcement(code: str) -> str:
+        if code == "scale_calibration_expired" and not batch.scale_id:
+            return "inert_no_linkage"
+        if code in ("missing_annual_methane", "missing_pah") and not batch.project_id:
+            return "inert_no_linkage"
+        if code == "attestation_unverified" and not _ATTESTATION_ENFORCED:
+            return "awaiting_methodology"
+        return "enforced"
+
     checklist = [
         {
             "code": code,
             "section": section,
             "label": label,
             "ok": code not in reason_set,
+            "enforcement": _enforcement(code),
         }
         for code, section, label in _COMPLIANCE_CATALOG
     ]

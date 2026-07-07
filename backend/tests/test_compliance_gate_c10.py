@@ -212,3 +212,55 @@ async def test_compliance_endpoint_requires_admin(client, registered_device):
 async def test_compliance_endpoint_unknown_batch_404(client, registered_device):
     r = await client.get(f"/api/v1/batches/{uuid.uuid4()}/compliance", headers=_ADMIN)
     assert r.status_code == 404, r.text
+
+
+# ---- T1.10: per-item enforcement provenance ----------------------------
+
+
+async def _simple_batch(client, bu, *, project_id=None, scale_id=None):
+    payload = {
+        "batch_uuid": bu,
+        "feedstock_species": "Lantana_camara",
+        "harvest_timestamp": datetime.now(timezone.utc).isoformat(),
+        "moisture_percent": 12.0,
+        "harvest_uptime_seconds": 100,
+    }
+    if project_id is not None:
+        payload["project_id"] = project_id
+    if scale_id is not None:
+        payload["scale_id"] = scale_id
+    await client.post(
+        "/api/v1/batches",
+        content=json.dumps(payload).encode("utf-8"),
+        headers={"X-Idempotency-Key": "b-" + bu[:8]},
+    )
+
+
+def _by_code(checklist):
+    return {item["code"]: item for item in checklist}
+
+
+async def test_provenance_enforced_for_linked_batch(client, registered_device):
+    bu = str(uuid.uuid4())
+    await _simple_batch(client, bu, project_id="P-PROV-1", scale_id="S-PROV-1")
+    r = await client.get(f"/api/v1/batches/{bu}/compliance", headers=_ADMIN)
+    assert r.status_code == 200, r.text
+    items = _by_code(r.json()["checklist"])
+    assert items["scale_calibration_expired"]["enforcement"] == "enforced"
+    assert items["missing_annual_methane"]["enforcement"] == "enforced"
+    assert items["missing_pah"]["enforcement"] == "enforced"
+
+
+async def test_provenance_inert_for_unlinked_batch(client, registered_device):
+    bu = str(uuid.uuid4())
+    await _simple_batch(client, bu)  # no linkage
+    r = await client.get(f"/api/v1/batches/{bu}/compliance", headers=_ADMIN)
+    assert r.status_code == 200, r.text
+    items = _by_code(r.json()["checklist"])
+    assert items["scale_calibration_expired"]["enforcement"] == "inert_no_linkage"
+    assert items["missing_annual_methane"]["enforcement"] == "inert_no_linkage"
+    assert items["missing_pah"]["enforcement"] == "inert_no_linkage"
+    # Back-compat: the original checklist keys are still present.
+    assert set(["code", "section", "label", "ok"]).issubset(
+        r.json()["checklist"][0].keys()
+    )

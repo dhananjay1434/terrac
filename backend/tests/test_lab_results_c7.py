@@ -219,3 +219,46 @@ async def test_lab_channel_unknown_batch_404(client, registered_device):
         headers=_ADMIN,
     )
     assert r.status_code == 404, r.text
+
+
+# ---- T1.9: lab biochar-moisture requires >= 3 samples -------------------
+
+
+async def test_lab_moisture_fewer_than_three_samples_rejected(
+    client, registered_device
+):
+    bu = str(uuid.uuid4())
+    r = await client.post(
+        "/api/v1/admin/lab",
+        content=json.dumps(
+            {"batch_uuid": bu, "biochar_moisture_samples": [11.0, 12.0]}
+        ).encode("utf-8"),
+        headers=_ADMIN,
+    )
+    assert r.status_code == 422, r.text
+
+
+async def test_lab_moisture_three_samples_accepted(client, registered_device):
+    bu = str(uuid.uuid4())
+    await _corroborated_batch(client, bu)
+    r = await client.post(
+        "/api/v1/admin/lab",
+        content=json.dumps(
+            {"batch_uuid": bu, "biochar_moisture_samples": [11.0, 12.0, 13.0]}
+        ).encode("utf-8"),
+        headers=_ADMIN,
+    )
+    assert r.status_code == 200, r.text
+
+
+async def test_lab_moisture_omitted_is_ok(client, registered_device):
+    bu = str(uuid.uuid4())
+    await _corroborated_batch(client, bu)
+    r = await client.post(
+        "/api/v1/admin/lab",
+        content=json.dumps({"batch_uuid": bu, "organic_carbon_pct": 0.6}).encode(
+            "utf-8"
+        ),
+        headers=_ADMIN,
+    )
+    assert r.status_code == 200, r.text
