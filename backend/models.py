@@ -327,6 +327,12 @@ class Batch(Base):
 
     device_id: Mapped[str] = mapped_column(String(255), nullable=True, index=True)
 
+    # Rainbow T1.1: batch->project/scale linkage. Resolves the project-scoped
+    # gates (C8 scale calibration, C9 annual methane/PAH). Nullable — legacy
+    # batches predate the linkage and those gates stay inert for them.
+    project_id: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
+    scale_id: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
+
     sourcing_uuid: Mapped[str] = mapped_column(String(36), nullable=True)
     moisture_compliant: Mapped[bool] = mapped_column(nullable=True)
     mock_location_enabled: Mapped[bool] = mapped_column(nullable=True, default=False)

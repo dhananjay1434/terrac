@@ -294,6 +294,12 @@ class BatchPayload(BaseModel):
         Literal["direct_weigh", "yield_conversion"]
     ] = None
 
+    # Rainbow T1.1: optional batch->project/scale linkage. Configured on the
+    # device (dart-define) — enables the project-scoped C8/C9 gates. Old clients
+    # omit these; the gates stay inert for their batches.
+    project_id: Optional[str] = Field(None, min_length=1, max_length=128)
+    scale_id: Optional[str] = Field(None, min_length=1, max_length=128)
+
     # --- LCA inputs (Prompt 8) ---
     # Phase 7-R: these are NOT client-supplied. They are corroborated server-side
     # from the /telemetry (min temp), /yield (wet yield) and /application (transport
@@ -1183,6 +1189,8 @@ async def create_batch(
         roll=payload.roll,
         biomass_input_kg=payload.biomass_input_kg,
         biomass_measurement_method=payload.biomass_measurement_method,
+        project_id=payload.project_id,
+        scale_id=payload.scale_id,
         device_id=device_id,
         status="RECEIVED",
     )
