@@ -1531,3 +1531,54 @@ PR/push and block on red. Deep analysis first drove two design decisions away fr
 coverage baseline+floor; Postgres migration lane is P0.c.
 
 **Intended commit:** `ci(backend): add pytest safety-net workflow + informational ruff (P0.b)`
+
+---
+
+## Rainbow T1 — Methodology completion: batch→project linkage + the three dormant gates (2026-07-08)
+
+**Goal.** Make every reason in the C10 compliance catalog *reachable*. Three of nineteen
+catalog reasons could never fire: `scale_calibration_expired` and `missing_annual_methane`
+(derivers written + unit-tested but NEVER called) and `missing_pah` (called with a hardcoded
+`enforced=False` and a literal `pah_measured = False`). Root cause: `Batch` had no
+`project_id`/`scale_id`, so recompute could not resolve which scale calibration / annual
+verification applied.
+
+**Fix (7 commits, all additive & backward-compatible; legacy unlinked batches stay inert).**
+- **T1.1a** (server): nullable `project_id`/`scale_id` on `Batch` + indexes; optional
+  `BatchPayload` fields (`min_length=1`); persisted in `create_batch`. Migration
+  `f1a2b3c4d5e6` (down_revision `e1f2a3b4c5d6`), reversible. New `test_batch_project_linkage.py`.
+- **T1.1c** (client): nullable `projectId`/`scaleId` on `BiomassSourcing`; `schemaVersion`
+  22→23 with an `addColumn`-only upgrade block; outbox writer + JSON payload carry them;
+  moisture-screen call site stamps `DMRV_PROJECT_ID` (empty→null keeps legacy shape). Codegen
+  regenerated. New `migration_v23_project_linkage_test.dart` (asserts `>= 23`, never `== 23`).
+- **T1.2**: scale-calibration gate wired in recompute — inert without `scale_id`; validity
+  compared in Python (tz-safe on both SQLite and Postgres). 4 new tests.
+- **T1.3**: annual-methane gate wired — resolves `(project_id, harvest-year)` verification,
+  requires `methane_run_count >= 3`. Year policy = harvest/production vintage (flag to
+  methodology owner). Inert without `project_id`.
+- **T1.4**: PAH bypass removed — closed-kiln PAH now runs under the default
+  `COMPLIANCE_ENFORCED` policy, resolving the same verification row. A source-level regression
+  test asserts `enforced=False` never reappears in `server.py`. (T1.3+T1.4 share one recompute
+  edit / commit; 11 new tests.)
+- **T1.9**: lab biochar-moisture `>= 3` was ALREADY enforced (`min_length=3` on
+  `LabResultsRequest`) — added lock-in tests rather than a redundant validator.
+- **T1.10**: `/compliance` checklist gains a per-item `enforcement` field
+  (`enforced` | `inert_no_linkage` | `awaiting_methodology`) so a verifier distinguishes a
+  passed gate from one not applicable to the batch. Additive JSON; original keys preserved.
+- **Phase 7 hygiene**: dropped the module-level asyncio mark from the 3 sync transport tests
+  (12 pytest warnings → gone); `TRANSPORT_EVENTS_ENFORCED is False` guard untouched.
+
+**Gate (verified).**
+- Backend `python -m pytest -q`: **285 passed, 1 skipped, 0 failed** (262 baseline + 23 new).
+- `flutter analyze`: 25 issues, 0 errors (unchanged). `flutter test`: 152 passed, 2 skipped.
+- `grep -n "enforced=False" backend/server.py`: no matches.
+- Alembic: single head `f1a2b3c4d5e6`; `upgrade head` → `downgrade -1` → `upgrade head` clean.
+- Reachability proof: project+scale-linked closed-kiln batch with no calibration/verification
+  surfaces `scale_calibration_expired` + `missing_annual_methane` + `missing_pah`; posting an
+  in-date calibration and a `methane_run_count=3, pah_measured=true` verification clears them.
+- Legacy invariance: unlinked batches produce none of the three reasons (regression green).
+
+**Still OPEN (unchanged — blocked on Rainbow externals / methodology sign-off):** T1.5 transport
+factor citation + `TRANSPORT_EVENTS_ENFORCED` flip; T1.6 methane rate → CH4 penalty; T1.7
+conversion factor → yield; T1.8 1000-yr inertinite pathway election. Each stays behind a named,
+tested, inert flag.
