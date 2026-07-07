@@ -22,7 +22,9 @@ from emission_factors import (
 )
 from tests.remediation.crypto_utils import sign_request
 
-pytestmark = pytest.mark.asyncio
+# NB: no module-level asyncio mark — the fuel-emission and enforcement-flag tests
+# below are synchronous unit tests. The async DB-flow tests are marked
+# individually so pytest-asyncio doesn't warn on the sync ones.
 
 OWNER = "test-device-reg"
 
@@ -81,6 +83,7 @@ async def _batch(session_factory, bu):
         ).scalar_one()
 
 
+@pytest.mark.asyncio
 async def test_transport_events_persist_and_are_many_per_batch(
     client, registered_device, session_factory
 ):
@@ -123,6 +126,7 @@ async def test_transport_events_persist_and_are_many_per_batch(
     assert te["fuel_co2e_kg"] > 0.0  # 2 legs * 12 L diesel
 
 
+@pytest.mark.asyncio
 async def test_transport_events_do_not_change_the_credit(
     client, registered_device, session_factory
 ):
@@ -153,6 +157,7 @@ async def test_transport_events_do_not_change_the_credit(
     assert credit_after == credit_before  # audit-only while unenforced
 
 
+@pytest.mark.asyncio
 async def test_underreported_transport_is_flagged_not_gated(
     client, registered_device, session_factory
 ):
