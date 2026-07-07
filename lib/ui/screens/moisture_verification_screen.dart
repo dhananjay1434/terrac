@@ -113,6 +113,14 @@ class _MoistureVerificationScreenState
         azimuth: result.azimuth,
         pitch: result.pitch,
         roll: result.roll,
+        // Rainbow T1.1: stamp the configured project so the server can run the
+        // project-scoped C8/C9 gates. Empty (unconfigured build) => null, which
+        // keeps the batch legacy-shaped and the gates inert.
+        projectId: const String.fromEnvironment('DMRV_PROJECT_ID').isEmpty
+            ? null
+            : const String.fromEnvironment('DMRV_PROJECT_ID'),
+        // scale_id is populated once BLE scale pairing exposes an identity.
+        scaleId: null,
       );
       ref.read(dashboardProvider.notifier).markBiomassVerified();
 

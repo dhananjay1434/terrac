@@ -38,6 +38,7 @@ import 'package:drift/drift.dart';
 ///   v20:            composite_pile_samples table — site composite sub-sample + photo (Rainbow C4).
 ///   v21:            delivery + buyer identity on end_use_application (Rainbow C5).
 ///   v22:            transport_events table — per-event distance/weight/fuel (Rainbow C6).
+///   v23:            project_id + scale_id on biomass_sourcing (Rainbow T1.1 linkage).
 /// =============================================================================
 
 class SystemMetadata extends Table {
@@ -89,6 +90,14 @@ class BiomassSourcing extends Table {
 
   /// 'direct_weigh' | 'yield_conversion'.
   TextColumn get biomassMeasurementMethod => text().nullable()();
+
+  // ---------- v23 project/scale linkage (Rainbow T1.1) ----------
+  /// Project this device produces for (from --dart-define=DMRV_PROJECT_ID).
+  /// Enables the server-side project-scoped compliance gates (C8/C9).
+  TextColumn get projectId => text().nullable()();
+
+  /// Weighing-scale identity, when known (BLE scale pairing metadata).
+  TextColumn get scaleId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {sourcingUuid};

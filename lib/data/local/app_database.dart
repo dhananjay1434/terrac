@@ -44,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -232,6 +232,11 @@ class AppDatabase extends _$AppDatabase {
         // Rainbow compliance C6: per transport-event table.
         await m.createTable(transportEvents);
       }
+      if (from < 23) {
+        // Rainbow T1.1: batch->project/scale linkage.
+        await m.addColumn(biomassSourcing, biomassSourcing.projectId);
+        await m.addColumn(biomassSourcing, biomassSourcing.scaleId);
+      }
     },
   );
 
@@ -327,6 +332,9 @@ class AppDatabase extends _$AppDatabase {
     // Rainbow compliance C1: biomass input amount + method.
     double? biomassInputKg,
     String? biomassMeasurementMethod,
+    // Rainbow T1.1: batch->project/scale linkage (enables C8/C9 gates server-side).
+    String? projectId,
+    String? scaleId,
   }) async {
     final sourcingUuid = _uuid.v4();
     final companion = BiomassSourcingCompanion.insert(
@@ -347,6 +355,8 @@ class AppDatabase extends _$AppDatabase {
       roll: Value(roll),
       biomassInputKg: Value(biomassInputKg),
       biomassMeasurementMethod: Value(biomassMeasurementMethod),
+      projectId: Value(projectId),
+      scaleId: Value(scaleId),
     );
 
     final payload = <String, dynamic>{
@@ -368,6 +378,8 @@ class AppDatabase extends _$AppDatabase {
       'roll': roll,
       'biomass_input_kg': biomassInputKg,
       'biomass_measurement_method': biomassMeasurementMethod,
+      'project_id': projectId,
+      'scale_id': scaleId,
     };
 
     await insertWithOutbox(
