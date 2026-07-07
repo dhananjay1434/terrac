@@ -1466,3 +1466,68 @@ tree inherited from prior sessions. Decisions recorded for auditability:
   scope, do not match pytest's `test_*` collection pattern, so they do not affect any gate.
 - **Duplicate `New folder/` tree deleted** (a full second copy of the repo): out of scope,
   deleted from disk by a prior session.
+
+---
+
+## Production Remediation (non-UI) — plan `docs/REMEDIATION_PLAN_NONUI.md`
+
+### P0.a — startup-secret guard: fix the broken guarantee + its test (2026-07-03)
+
+**Problem.** `test_p0_21_hmac_secret::test_server_refuses_to_import_without_hmac_secret`
+was failing. Root cause: `server.py` `load_dotenv()` re-reads the developer `.env` (which
+contains `DMRV_HMAC_SECRET`) on re-import, silently undoing the test's `monkeypatch.delenv`,
+so the "refuse to start without a secret" guard never fired and the test could not observe it.
+The guarantee itself was weaker than advertised — any `.env` on the box satisfied it.
+
+**Fix (minimal, non-breaking).**
+- `server.py`: wrapped `load_dotenv()` in `_load_env()`, skipped when `DMRV_DISABLE_DOTENV=1`
+  so CI/prod/test can assert the guard against a genuinely clean environment.
+- `server.py`: introduced a single `_require_secret(name)` choke point for mandatory-secret
+  resolution (P2.a will extend it with an entropy/length floor). `_HMAC_SECRET`/`_ADMIN_SECRET`
+  remain module-level attributes — no call site or test that reads them changes.
+- `tests/test_p0_21_hmac_secret.py`: tests now set `DMRV_DISABLE_DOTENV=1` so a populated
+  `.env` on disk cannot mask a deliberately-absent variable; added a sibling test proving the
+  `DMRV_ADMIN_SECRET` guard fires through the same choke point.
+
+**Gate (verified).**
+- Baseline (before): `1 failed, 12 passed` on the target+adjacent subset — failure was P0-21.
+- After: target+adjacent subset `18 passed`; **full backend suite `262 passed, 1 skipped, 0 failed`**
+  (was 260 passed / 1 failed / 1 skipped; +1 new admin-secret test, previously-failing test fixed,
+  zero regressions).
+- Pre-existing 12 warnings (async marks on sync fns) unchanged — not introduced here; logged as
+  future cleanup.
+
+**Intended commit:** `fix(backend): make startup-secret guard real and testable (P0.a)`
+
+### P0.b — backend CI safety-net gate (2026-07-03)
+
+**Goal.** The gate every later remediation item depends on: run the backend suite on every
+PR/push and block on red. Deep analysis first drove two design decisions away from the naive plan.
+
+**Analysis findings.**
+- No lint/type/coverage config exists anywhere; `mypy`/`pytest-cov` are not installed.
+- `ruff check backend` reports ~100 legacy issues (mostly E402 in tests) → ruff CANNOT be a
+  blocking gate today without red-gating the repo.
+- `black` is unpinned and broken in the local env (click incompat) → not gated.
+- Test deps (`pytest`, `pytest-asyncio`) ARE in `requirements.txt`; Python is 3.11.9.
+
+**Fix.** `.github/workflows/backend-ci.yml`:
+- `tests` job = BLOCKING: setup-py3.11 + `pip install -r requirements.txt` + `python -m pytest -q`,
+  with env vars set to the EXACT `conftest.py` literals (`DMRV_HMAC_SECRET=test-secret`,
+  `DMRV_ADMIN_SECRET=test-admin-secret`, …) — a mismatch here fails `test_admin_secret.py`, so this
+  is load-bearing, not cosmetic. `DMRV_DISABLE_DOTENV=1` for prod-parity.
+- `lint` job = ruff, `continue-on-error: true` (informational until a dedicated ruff-clean pass).
+- Deliberately NOT wired: black, mypy, coverage floor — documented in-file and in the plan.
+
+**Gate (verified offline — GH Actions can't run locally).**
+- Caught + fixed a real YAML bug: unquoted `DATABASE_URL: sqlite+aiosqlite:///:memory:` — the
+  trailing colon parses as a mapping indicator (would have broken the workflow on GitHub too).
+  Now quoted.
+- `yaml.safe_load` parses `backend-ci.yml` and the existing `codegen.yml` cleanly.
+- The exact CI recipe (explicit env + pytest) runs the secret-sensitive subset green: `12 passed`.
+- Full suite under identical env values already verified in P0.a: `262 passed, 1 skipped`.
+
+**Follow-up logged:** ruff-clean pass to flip lint blocking; Flutter CI (analyze non-fatal + test);
+coverage baseline+floor; Postgres migration lane is P0.c.
+
+**Intended commit:** `ci(backend): add pytest safety-net workflow + informational ruff (P0.b)`

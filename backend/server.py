@@ -81,7 +81,22 @@ from corroboration import (
     derive_wet_yield,
 )
 
-load_dotenv()
+def _load_env() -> None:
+    """Populate os.environ from a local .env for developer convenience.
+
+    Skipped when DMRV_DISABLE_DOTENV=1. CI and production supply configuration
+    through the environment (not a checked-out .env), and the P0-21 regression
+    test relies on this flag to assert the "refuse to start without a secret"
+    guard against a genuinely clean environment — otherwise a developer .env on
+    disk silently repopulates a deliberately-removed variable. load_dotenv never
+    overrides a value already present in the environment.
+    """
+    if os.environ.get("DMRV_DISABLE_DOTENV") == "1":
+        return
+    load_dotenv()
+
+
+_load_env()
 
 
 def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
@@ -155,13 +170,21 @@ def _evaluate_anchor(batch, photo_sha: Optional[str], exif_lat, exif_lon) -> Non
         batch.status = "RECEIVED"
 
 
-_HMAC_SECRET = os.environ.get("DMRV_HMAC_SECRET")
-if not _HMAC_SECRET:
-    raise RuntimeError("DMRV_HMAC_SECRET env var is required.")
+def _require_secret(name: str) -> str:
+    """Resolve a mandatory secret from the environment or refuse to start.
 
-_ADMIN_SECRET = os.environ.get("DMRV_ADMIN_SECRET")
-if not _ADMIN_SECRET:
-    raise RuntimeError("DMRV_ADMIN_SECRET env var is required.")
+    Single choke point for required-secret resolution so the fail-loud guarantee
+    lives in exactly one place (P2.a extends this with an entropy/length floor).
+    Raises RuntimeError naming the missing variable.
+    """
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"{name} env var is required.")
+    return value
+
+
+_HMAC_SECRET = _require_secret("DMRV_HMAC_SECRET")
+_ADMIN_SECRET = _require_secret("DMRV_ADMIN_SECRET")
 
 # Phase 9-R: platform attestation (Play Integrity / DeviceCheck) is NOT yet
 # cryptographically verified — a rooted device's forged blob would pass. We refuse
