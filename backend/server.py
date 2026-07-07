@@ -77,6 +77,7 @@ from corroboration import (
     derive_moisture_compliance,
     derive_pah_compliance,
     derive_pyrolysis_photo_compliance,
+    derive_scale_calibration_compliance,
     derive_transport_km,
     derive_wet_yield,
 )
@@ -860,11 +861,10 @@ async def recompute_batch_credit(
     )
 
     # ---- Rainbow C10: unified issuance-gate signals -------------------------
-    # Fold the previously-deferred methodology checks into the provisional gate.
-    # Only signals whose linkage is resolvable from batch state are emitted; the
-    # project/scale-scoped checks (scale calibration, annual methane) require a
-    # batch→project/scale linkage that does not exist yet, so they stay dormant
-    # rather than gate every batch spuriously (documented C10 follow-up).
+    # Fold the methodology checks into the provisional gate. Project/scale-scoped
+    # checks (scale calibration, annual methane, PAH) resolve through the batch's
+    # project_id/scale_id linkage (T1.1); they stay inert for legacy batches that
+    # carry no linkage, so those are never gated spuriously.
     c10_reasons: list[str] = []
 
     # C1: biomass input amount + method (persisted on the batch).
@@ -886,6 +886,32 @@ async def recompute_batch_credit(
     )
     if _kiln_reason:
         c10_reasons.append(_kiln_reason)
+
+    # C8 (T1.2): the batch's weighing scale must have an in-date calibration.
+    # Inert when the batch has no scale linkage (legacy batches / no scale_id).
+    # The validity comparison is done in Python (not SQL) so it is identical on
+    # the SQLite test path and Postgres regardless of stored-tz handling.
+    if batch.scale_id:
+        _now = datetime.now(timezone.utc)
+        _cal_valid_untils = (
+            (
+                await session.execute(
+                    select(ScaleCalibration.valid_until).where(
+                        ScaleCalibration.scale_id == batch.scale_id,
+                        ScaleCalibration.valid_until.is_not(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        _has_in_date_cal = any(
+            (vu if vu.tzinfo else vu.replace(tzinfo=timezone.utc)) >= _now
+            for vu in _cal_valid_untils
+        )
+        _sc_ok, _sc_reason = derive_scale_calibration_compliance(_has_in_date_cal)
+        if _sc_reason:
+            c10_reasons.append(_sc_reason)
 
     # C9: PAH is mandatory for closed kilns. Resolve from the batch's project-year
     # verification IF a project linkage exists; absent linkage, evaluate against

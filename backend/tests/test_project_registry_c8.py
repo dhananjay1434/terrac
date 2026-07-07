@@ -246,3 +246,82 @@ async def test_no_kiln_id_does_not_gate_on_registration(
         headers={"X-Idempotency-Key": "b-" + bu[:8]},
     )
     assert "unregistered_kiln" not in await _reasons(session_factory, bu)
+
+
+# ---- T1.2: scale-calibration expiry now gates issuance ------------------
+
+
+async def _batch_with_scale(client, bu, scale_id):
+    await client.post(
+        "/api/v1/batches",
+        content=json.dumps(
+            {
+                "batch_uuid": bu,
+                "feedstock_species": "Lantana_camara",
+                "harvest_timestamp": datetime.now(timezone.utc).isoformat(),
+                "moisture_percent": 12.0,
+                "harvest_uptime_seconds": 100,
+                "scale_id": scale_id,
+            }
+        ).encode("utf-8"),
+        headers={"X-Idempotency-Key": "b-" + bu[:8]},
+    )
+
+
+async def _post_cal(client, scale_id, valid_until_iso):
+    return await _post(
+        client,
+        "/api/v1/admin/scale-calibration",
+        {
+            "calibration_uuid": str(uuid.uuid4()),
+            "scale_id": scale_id,
+            "calibrated_at": "2026-01-01T00:00:00Z",
+            "valid_until": valid_until_iso,
+            "report_sha256": _SHA,
+        },
+    )
+
+
+async def test_scale_without_any_calibration_gates(
+    client, registered_device, session_factory
+):
+    bu = str(uuid.uuid4())
+    await _batch_with_scale(client, bu, "SCALE-NOCAL")
+    assert "scale_calibration_expired" in await _reasons(session_factory, bu)
+
+
+async def test_expired_calibration_gates(client, registered_device, session_factory):
+    await _post_cal(client, "SCALE-EXP", "2020-01-01T00:00:00Z")
+    bu = str(uuid.uuid4())
+    await _batch_with_scale(client, bu, "SCALE-EXP")
+    assert "scale_calibration_expired" in await _reasons(session_factory, bu)
+
+
+async def test_in_date_calibration_clears_gate(
+    client, registered_device, session_factory
+):
+    # Calibrate first, then create the batch: recompute at creation sees the
+    # in-date calibration and never raises the reason.
+    await _post_cal(client, "SCALE-OK", "2030-01-01T00:00:00Z")
+    bu = str(uuid.uuid4())
+    await _batch_with_scale(client, bu, "SCALE-OK")
+    assert "scale_calibration_expired" not in await _reasons(session_factory, bu)
+
+
+async def test_no_scale_linkage_is_inert(client, registered_device, session_factory):
+    # A legacy batch with no scale_id is never gated by scale calibration.
+    bu = str(uuid.uuid4())
+    await client.post(
+        "/api/v1/batches",
+        content=json.dumps(
+            {
+                "batch_uuid": bu,
+                "feedstock_species": "Lantana_camara",
+                "harvest_timestamp": datetime.now(timezone.utc).isoformat(),
+                "moisture_percent": 12.0,
+                "harvest_uptime_seconds": 100,
+            }
+        ).encode("utf-8"),
+        headers={"X-Idempotency-Key": "b-" + bu[:8]},
+    )
+    assert "scale_calibration_expired" not in await _reasons(session_factory, bu)
