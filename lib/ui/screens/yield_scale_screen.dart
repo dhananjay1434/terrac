@@ -11,15 +11,15 @@ import '../../providers/dashboard_provider.dart';
 import '../../providers/yield_scale_notifier.dart';
 import '../../services/ble_permission_gate.dart';
 import '../../services/ble_weight_scale_service.dart';
-import '../design/farmer_theme.dart';
+import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
+import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
-import '../widgets/rugged_button.dart';
 import 'package:dmrv_app/l10n/app_localizations.dart';
 import 'end_use_application_screen.dart';
 
 /// =============================================================================
-/// YieldScaleScreen  (Prompt 5 — Task 1 — Yield)
+/// YieldScaleScreen — India paper skin (tokens + Dmrv components)
 /// =============================================================================
 /// Operator flow:
 ///   1. CONNECT CRANE SCALE → BLE permissions → scan/connect 0x181D.
@@ -95,10 +95,6 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // PremiumStatusChip mapping for the BLE connection state machine. We do NOT
-  // mutate the state machine itself — only its visual surface.
-  // ---------------------------------------------------------------------------
   ({String label, PremiumChipStatus status}) _chipFor(BleScaleState s) {
     switch (s) {
       case BleScaleState.idle:
@@ -116,7 +112,7 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Set up haptic lock-in listener for stabilization transition
+    final t = context.tokens;
     ref.listen<YieldScaleState>(yieldScaleProvider, (prev, next) {
       if (prev != null && !prev.isStabilized && next.isStabilized) {
         HapticFeedback.heavyImpact();
@@ -128,10 +124,11 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
         ? 'yield-locked@${s.confirmedKg!.toStringAsFixed(3)}kg'
         : '----------------------------------------------------------------';
 
-    // Background color animation: deepSlate → fieldGreen when stabilized
+    // Subtle "locked-in" pulse derived from tokens: a faint success tint over
+    // the paper surface when the reading stabilizes, else the plain surface.
     final Color bgColor = (s.isStabilized && !s.isConfirmed)
-        ? FarmerTheme.fieldGreen
-        : FarmerTheme.deepSlate;
+        ? Color.alphaBlend(t.success.withValues(alpha: 0.10), t.surface)
+        : t.surface;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -149,61 +146,51 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
               ),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  padding: EdgeInsets.fromLTRB(t.gapL, 4, t.gapL, t.gapL),
                   children: [
                     if (!_permRequested)
-                      RuggedButton(
+                      DmrvButton(
                         key: const Key('connect-crane-scale-btn'),
                         label: AppLocalizations.of(
                           context,
                         )!.connect_crane_scale,
-                        variant: RuggedButtonVariant.primary,
-                        semanticId: 'connect-crane-scale-btn',
+                        variant: DmrvButtonVariant.primary,
+                        testId: 'connect-crane-scale-btn',
                         onPressed: _requestPermsAndStart,
                       ),
                     if (_permError != null) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: t.gapL),
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.all(t.gapL),
                         decoration: BoxDecoration(
-                          color: FarmerTheme.crimsonRed15,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: FarmerTheme.crimsonRed,
-                            width: 2,
-                          ),
+                          color: t.dangerSurface,
+                          borderRadius: BorderRadius.circular(t.radiusM),
+                          border: Border.all(color: t.danger, width: 2),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Icon(
                               Icons.error_outline,
-                              color: FarmerTheme.crimsonRed,
+                              color: t.danger,
                               size: 28,
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: t.gapM),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     'BLE PERMISSION DENIED',
-                                    style: TextStyle(
-                                      fontFamily: 'SpaceGrotesk',
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.6,
-                                      color: FarmerTheme.crimsonRed,
+                                    style: t.chipLabel.copyWith(
+                                      color: t.danger,
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
+                                  SizedBox(height: t.gapS),
                                   Text(
                                     _permError!,
-                                    style: TextStyle(
-                                      fontFamily: 'SpaceMono',
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      color: FarmerTheme.fogWhite,
+                                    style: t.metadata.copyWith(
+                                      color: t.textPrimary,
                                     ),
                                   ),
                                 ],
@@ -213,24 +200,22 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 20),
+                    SizedBox(height: t.gapL),
                     _LinkStatePanel(
                       connection: s.connection,
                       chip: _chipFor(s.connection),
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: t.gapL),
                     _HeroReadout(state: s),
-                    const SizedBox(height: 24),
+                    SizedBox(height: t.gapXL),
                     if (!s.isConfirmed)
-                      RuggedButton(
+                      DmrvButton(
                         key: const Key('lock-yield-btn'),
                         label: s.isStabilized
                             ? 'LOCK YIELD @ ${s.stableKg!.toStringAsFixed(3)} kg'
                             : AppLocalizations.of(context)!.stabilize_reading,
-                        variant: s.isStabilized
-                            ? RuggedButtonVariant.success
-                            : RuggedButtonVariant.disabled,
-                        semanticId: 'lock-yield-btn',
+                        variant: DmrvButtonVariant.success,
+                        testId: 'lock-yield-btn',
                         onPressed: s.isStabilized
                             ? () => ref
                                   .read(yieldScaleProvider.notifier)
@@ -238,16 +223,14 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
                             : null,
                       )
                     else
-                      RuggedButton(
+                      DmrvButton(
                         key: const Key('save-yield-btn'),
                         label: _saving ? 'PERSISTING…' : 'SAVE YIELD → END USE',
-                        variant: _saving
-                            ? RuggedButtonVariant.disabled
-                            : RuggedButtonVariant.primary,
-                        semanticId: 'save-yield-btn',
+                        variant: DmrvButtonVariant.primary,
+                        testId: 'save-yield-btn',
                         onPressed: _saving ? null : _saveYield,
                       ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: t.gapL),
                   ],
                 ),
               ),
@@ -271,12 +254,13 @@ class _LinkStatePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(t.gapL),
       decoration: BoxDecoration(
-        color: FarmerTheme.panelSlate,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: FarmerTheme.fogWhite20, width: 1),
+        color: t.surfaceRaised,
+        borderRadius: BorderRadius.circular(t.radiusM),
+        border: Border.all(color: t.border, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,36 +270,24 @@ class _LinkStatePanel extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Link State',
-                  style: TextStyle(
-                    fontFamily: 'SpaceGrotesk',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: FarmerTheme.pureAlbedo,
-                  ),
+                  style: t.blockHeader.copyWith(color: t.textPrimary),
                 ),
               ),
               PremiumStatusChip(label: chip.label, status: chip.status),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: t.gapS),
           Text(
             'BLE 0x181D · Weight Measurement (SIG)',
-            style: TextStyle(
-              fontFamily: 'SpaceMono',
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: FarmerTheme.fogWhite65,
-            ),
+            style: t.metadata.copyWith(color: t.textSecondary),
           ),
           const SizedBox(height: 4),
           Text(
             connection.name.toUpperCase(),
-            style: TextStyle(
-              fontFamily: 'SpaceMono',
-              fontSize: 14,
+            style: t.metadata.copyWith(
+              color: t.accentText,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
-              color: FarmerTheme.neonYellow,
             ),
           ),
         ],
@@ -334,95 +306,59 @@ class _HeroReadout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final bool stable = state.isStabilized;
     final String reading = state.liveKg?.toStringAsFixed(3) ?? '----';
-    final Color readingColor = stable
-        ? FarmerTheme.neonYellow
-        : FarmerTheme.pureAlbedo;
+    final Color readingColor = stable ? t.success : t.textPrimary;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
       decoration: BoxDecoration(
-        color: FarmerTheme.panelSlate,
-        borderRadius: BorderRadius.circular(12),
+        color: t.surfaceRaised,
+        borderRadius: BorderRadius.circular(t.radiusM),
         border: Border.all(
-          color: stable ? FarmerTheme.fieldGreen : FarmerTheme.fogWhite20,
-          width: stable ? 2 : 1,
+          color: stable ? t.success : t.border,
+          width: stable ? 2 : 1.5,
         ),
       ),
       child: Column(
         children: [
-          // Giant kg readout
           Semantics(
             label: 'live-weight-counter',
             child: Text(
               reading,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'SpaceMono',
-                fontSize: 96,
-                fontWeight: FontWeight.w700,
-                color: readingColor,
-                height: 1.0,
-              ),
+              style: t.numericHero.copyWith(fontSize: 96, color: readingColor),
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            'kg',
-            style: TextStyle(
-              fontFamily: 'SpaceGrotesk',
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: FarmerTheme.fogWhite70,
-            ),
-          ),
+          Text('kg', style: t.blockHeader.copyWith(color: t.textSecondary)),
           if (stable) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: t.gapL),
             Semantics(
               label: 'yield-stabilized-badge',
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.check_circle,
-                    color: FarmerTheme.fieldGreen,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
+                  Icon(Icons.check_circle, color: t.success, size: 20),
+                  SizedBox(width: t.gapS),
                   Text(
                     AppLocalizations.of(context)!.stabilized,
-                    style: TextStyle(
-                      fontFamily: 'SpaceGrotesk',
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: FarmerTheme.fieldGreen,
-                    ),
+                    style: t.blockHeader.copyWith(color: t.success),
                   ),
                 ],
               ),
             ),
           ],
-          const SizedBox(height: 24),
-          // Variance and buffer stats
+          SizedBox(height: t.gapXL),
           Text(
             'VARIANCE: ${state.variance.toStringAsFixed(3)}',
-            style: TextStyle(
-              fontFamily: 'SpaceMono',
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: FarmerTheme.fogWhite60,
-            ),
+            style: t.metadata.copyWith(color: t.textSecondary),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: t.gapS),
           Text(
             'BUFFER: ${state.window.length}/$kStabilizationBufferSize',
-            style: TextStyle(
-              fontFamily: 'SpaceMono',
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: FarmerTheme.fogWhite60,
-            ),
+            style: t.metadata.copyWith(color: t.textSecondary),
           ),
         ],
       ),

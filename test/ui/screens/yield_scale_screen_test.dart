@@ -4,7 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:dmrv_app/providers/yield_scale_notifier.dart';
 import 'package:dmrv_app/services/ble_weight_scale_service.dart';
-import 'package:dmrv_app/ui/design/farmer_theme.dart';
+import 'package:dmrv_app/ui/components/dmrv_button.dart';
+import 'package:dmrv_app/ui/design/tokens.dart';
 import 'package:dmrv_app/ui/screens/yield_scale_screen.dart';
 import 'package:dmrv_app/l10n/app_localizations.dart';
 
@@ -45,7 +46,7 @@ void main() {
       expect(find.text('----'), findsOneWidget);
     });
 
-    testWidgets('isStabilized=true → background flips to fieldGreen', (
+    testWidgets('isStabilized=true → background flips to the locked tint', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1080, 3000);
@@ -80,8 +81,16 @@ void main() {
       final scaffoldFinder = find.byType(Scaffold);
       expect(scaffoldFinder, findsOneWidget);
 
+      // Paper skin: on stabilize the scaffold pulses to a faint success tint
+      // over the surface (was the dark FarmerTheme.fieldGreen).
       final scaffold = tester.widget<Scaffold>(scaffoldFinder);
-      expect(scaffold.backgroundColor, FarmerTheme.fieldGreen);
+      expect(
+        scaffold.backgroundColor,
+        Color.alphaBlend(
+          DmrvTokens.india.success.withValues(alpha: 0.10),
+          DmrvTokens.india.surface,
+        ),
+      );
     });
 
     testWidgets('isStabilized=true → LOCK YIELD button is enabled', (
@@ -116,14 +125,18 @@ void main() {
         ),
       );
 
-      final btnTextFinder = find.textContaining('LOCK YIELD');
-      expect(btnTextFinder, findsOneWidget);
-
-      final inkWellFinder = find
-          .ancestor(of: btnTextFinder, matching: find.byType(InkWell))
-          .first;
-      final inkWell = tester.widget<InkWell>(inkWellFinder);
-      expect(inkWell.onTap != null, isTrue);
+      final btnFinder = find.byType(DmrvButton);
+      expect(
+        find.descendant(
+          of: btnFinder,
+          matching: find.textContaining('LOCK YIELD'),
+        ),
+        findsOneWidget,
+      );
+      final lockBtn = tester.widget<DmrvButton>(
+        find.byKey(const Key('lock-yield-btn')),
+      );
+      expect(lockBtn.onPressed != null, isTrue);
     });
 
     testWidgets('isStabilized=false → action button onTap is null', (
@@ -158,14 +171,11 @@ void main() {
         ),
       );
 
-      final btnTextFinder = find.text('STABILIZE READING');
-      expect(btnTextFinder, findsOneWidget);
-
-      final inkWellFinder = find
-          .ancestor(of: btnTextFinder, matching: find.byType(InkWell))
-          .first;
-      final inkWell = tester.widget<InkWell>(inkWellFinder);
-      expect(inkWell.onTap == null, isTrue);
+      expect(find.text('STABILIZE READING'), findsOneWidget);
+      final lockBtn = tester.widget<DmrvButton>(
+        find.byKey(const Key('lock-yield-btn')),
+      );
+      expect(lockBtn.onPressed == null, isTrue);
     });
 
     testWidgets('isConfirmed=true → SAVE YIELD button is visible', (
