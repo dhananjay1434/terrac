@@ -7,13 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/dashboard_provider.dart';
 import '../../providers/lantana_sourcing_notifier.dart';
-import '../design/app_theme.dart';
+import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
+import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
 import 'moisture_verification_screen.dart';
 
 /// =============================================================================
-/// LantanaSourcingScreen — migrated to AppTheme (Tactical Titanium light)
+/// LantanaSourcingScreen — India paper skin (tokens + Dmrv components)
 /// =============================================================================
 /// Three operational blocks (business logic unchanged):
 ///   1. IMMUTABLE feedstock placard ("Lantana_camara" — Registry Positive List)
@@ -35,23 +36,24 @@ class _LantanaSourcingScreenState extends ConsumerState<LantanaSourcingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final asyncS = ref.watch(lantanaSourcingProvider);
     final notifier = ref.read(lantanaSourcingProvider.notifier);
     final lastHash = ref.watch(dashboardProvider).lastHash;
 
     return asyncS.when(
-      loading: () => const Scaffold(
-        backgroundColor: AppTheme.tacticalTitanium,
-        body: Center(child: CircularProgressIndicator()),
+      loading: () => Scaffold(
+        backgroundColor: t.surface,
+        body: Center(child: CircularProgressIndicator(color: t.accent)),
       ),
       error: (e, st) => Scaffold(
-        backgroundColor: AppTheme.tacticalTitanium,
+        backgroundColor: t.surface,
         body: Center(
-          child: Text('Error: $e', style: const TextStyle(color: Colors.white)),
+          child: Text('Error: $e', style: t.body.copyWith(color: t.danger)),
         ),
       ),
       data: (s) => Scaffold(
-        backgroundColor: AppTheme.tacticalTitanium,
+        backgroundColor: t.surface,
         body: SafeArea(
           bottom: false,
           child: Column(
@@ -64,17 +66,17 @@ class _LantanaSourcingScreenState extends ConsumerState<LantanaSourcingScreen> {
               ),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  padding: EdgeInsets.fromLTRB(t.gapL, 4, t.gapL, t.gapL),
                   children: [
                     _FeedstockBlock(species: s.feedstockSpecies),
-                    const SizedBox(height: 16),
+                    SizedBox(height: t.gapL),
                     _PolygonBlock(
                       captured: s.polygonCaptured,
                       onTap: () async {
                         await notifier.captureGpsPolygon();
                       },
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: t.gapL),
                     _HarvestBlock(
                       hasHarvest: s.hasHarvest,
                       harvestAt: s.harvestTimestamp,
@@ -83,7 +85,7 @@ class _LantanaSourcingScreenState extends ConsumerState<LantanaSourcingScreen> {
                         DateTime.now().subtract(Duration(hours: h)),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: t.gapL),
                     GestureDetector(
                       onTap: kDebugMode
                           ? () {
@@ -96,21 +98,19 @@ class _LantanaSourcingScreenState extends ConsumerState<LantanaSourcingScreen> {
                       child: _LockBlock(state: s),
                     ),
                     if (kDebugMode && _devToggleVisible) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: t.gapL),
                       _DevBypassBlock(
                         value: s.devBypass,
                         onChanged: notifier.toggleDevBypass,
                       ),
                     ],
-                    const SizedBox(height: 16),
-                    PremiumFieldButton(
+                    SizedBox(height: t.gapL),
+                    DmrvButton(
                       label: s.canProceedToMoisture
                           ? 'PROCEED TO MOISTURE CHECK'
                           : 'LOCKED // 72-HOUR DRY MANDATE',
                       testId: 'proceed-to-moisture-btn',
-                      state: s.canProceedToMoisture
-                          ? FieldButtonState.go
-                          : FieldButtonState.locked,
+                      variant: DmrvButtonVariant.primary,
                       onPressed: s.canProceedToMoisture
                           ? () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
@@ -152,20 +152,17 @@ class _FeedstockBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return PremiumFieldPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _BlockHeader('Feedstock // Registry Positive List'),
-          const SizedBox(height: 12),
+          SizedBox(height: t.gapM),
           Row(
             children: [
-              const Icon(
-                Icons.lock_outline,
-                color: AppTheme.cobaltShield,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
+              Icon(Icons.lock_outline, color: t.accentText, size: 24),
+              SizedBox(width: t.gapM),
               Expanded(
                 child: Semantics(
                   identifier: 'feedstock-species',
@@ -175,19 +172,17 @@ class _FeedstockBlock extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: t.gapS),
               const PremiumStatusChip(
                 label: 'IMMUTABLE',
                 status: PremiumChipStatus.verified,
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: t.gapS),
           Text(
             'Selection locked. Lantana camara is the only registry-approved feedstock for this artisan cohort.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppTheme.armorSlate70),
+            style: t.metadata.copyWith(color: t.textSecondary),
           ),
         ],
       ),
@@ -202,17 +197,18 @@ class _PolygonBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color accent = captured ? AppTheme.yieldGold : AppTheme.cobaltShield;
+    final t = context.tokens;
+    final Color accent = captured ? t.success : t.accentText;
     return PremiumFieldPanel(
-      accentBorderColor: captured ? AppTheme.yieldGold : null,
+      accentBorderColor: captured ? t.success : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _BlockHeader('GPS Polygon // Harvest Parcel'),
-          const SizedBox(height: 12),
+          SizedBox(height: t.gapM),
           Material(
             color: accent.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(t.radiusM),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () {
@@ -232,7 +228,7 @@ class _PolygonBlock extends StatelessWidget {
                       color: accent,
                       size: 28,
                     ),
-                    const SizedBox(width: 14),
+                    SizedBox(width: t.gapL),
                     Expanded(
                       child: Semantics(
                         identifier: 'capture-gps-polygon-btn',
@@ -242,7 +238,7 @@ class _PolygonBlock extends StatelessWidget {
                               ? 'Polygon captured // 4 vertices'
                               : 'Capture GPS Polygon',
                           style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: AppTheme.armorSlate),
+                              ?.copyWith(color: t.textPrimary),
                         ),
                       ),
                     ),
@@ -276,51 +272,50 @@ class _HarvestBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return PremiumFieldPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _BlockHeader('Harvest Timestamp'),
-          const SizedBox(height: 12),
+          SizedBox(height: t.gapM),
           if (hasHarvest)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: AppTheme.cobaltShield06,
-                borderRadius: BorderRadius.circular(8),
+                color: t.accent.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(t.radiusS),
               ),
               child: Semantics(
                 identifier: 'harvest-timestamp-display',
                 child: Text(
                   harvestAt!.toUtc().toIso8601String(),
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: t.metadata.copyWith(color: t.textPrimary),
                 ),
               ),
             )
           else
             Text(
               'Not yet logged',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppTheme.armorSlate60),
+              style: t.metadata.copyWith(color: t.textSecondary),
             ),
-          const SizedBox(height: 14),
+          SizedBox(height: t.gapL),
           Row(
             children: [
               Expanded(
-                child: PremiumFieldButton(
+                child: DmrvButton(
                   label: 'LOG HARVEST :: NOW',
                   testId: 'log-harvest-now-btn',
-                  state: FieldButtonState.go,
+                  variant: DmrvButtonVariant.primary,
                   onPressed: onLogNow,
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: t.gapM),
               SizedBox(
                 width: 96,
                 child: Material(
-                  color: AppTheme.tacticalTitanium,
-                  borderRadius: BorderRadius.circular(12),
+                  color: t.surfaceRaised,
+                  borderRadius: BorderRadius.circular(t.radiusM),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     onTap: () {
@@ -331,11 +326,8 @@ class _HarvestBlock extends StatelessWidget {
                       constraints: const BoxConstraints(minHeight: 64),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppTheme.cobaltShield30,
-                          width: 1.5,
-                        ),
+                        borderRadius: BorderRadius.circular(t.radiusM),
+                        border: Border.all(color: t.border, width: 1.5),
                       ),
                       child: Semantics(
                         identifier: 'log-harvest-minus-73h-btn',
@@ -343,12 +335,8 @@ class _HarvestBlock extends StatelessWidget {
                         child: Text(
                           '-73h\nTEST',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontFamily: 'SpaceMono',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.armorSlate,
-                            letterSpacing: 0.5,
+                          style: t.chipLabel.copyWith(
+                            color: t.textSecondary,
                             height: 1.15,
                           ),
                         ),
@@ -374,7 +362,6 @@ class _LockBlock extends StatefulWidget {
 }
 
 class _LockBlockState extends State<_LockBlock> {
-  static const Color _stopRed = Color(0xFFDC2626);
   Timer? _ticker;
 
   @override
@@ -393,7 +380,7 @@ class _LockBlockState extends State<_LockBlock> {
 
   /// Pure-visual derivation from existing state. Mirrors the same branches
   /// used by `state.lockHudLabel` but emits a compact HH:MM:SS string for
-  /// the 40sp SpaceMono readout.
+  /// the large countdown readout.
   String _countdownLabel() {
     if (widget.state.devBypass) return '--:--:--';
     if (!widget.state.hasHarvest) return '--:--:--';
@@ -421,8 +408,9 @@ class _LockBlockState extends State<_LockBlock> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final bool cleared = widget.state.canProceedToMoisture;
-    final Color accent = cleared ? AppTheme.yieldGold : _stopRed;
+    final Color accent = cleared ? t.success : t.danger;
 
     return PremiumFieldPanel(
       accentBorderColor: accent,
@@ -436,7 +424,7 @@ class _LockBlockState extends State<_LockBlock> {
                 color: accent,
                 size: 22,
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: t.gapM),
               Expanded(
                 child: Text(
                   '72-Hour Sun-Dry Mandate',
@@ -446,34 +434,27 @@ class _LockBlockState extends State<_LockBlock> {
               PremiumStatusChip(label: _chipLabel(), status: _chipStatus()),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: t.gapL),
           Semantics(
             identifier: 'sourcing-lock-hud',
             child: Text(
               _countdownLabel(),
-              style: const TextStyle(
-                fontFamily: 'SpaceMono',
+              style: t.numericHero.copyWith(
                 fontSize: 40,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.armorSlate,
+                color: t.textPrimary,
                 letterSpacing: -0.5,
-                height: 1.0,
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: t.gapS),
           Text(
             widget.state.lockHudLabel,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppTheme.armorSlate70),
+            style: t.metadata.copyWith(color: t.textSecondary),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: t.gapS),
           Text(
             'Per CSI Global Artisan C-Sink methodology, sourced biomass must air-dry for ≥ 72 hours before moisture verification.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppTheme.armorSlate60),
+            style: t.metadata.copyWith(color: t.textSecondary),
           ),
         ],
       ),
@@ -488,16 +469,13 @@ class _DevBypassBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return PremiumFieldPanel(
-      accentBorderColor: AppTheme.cobaltShield,
+      accentBorderColor: t.accent,
       child: Row(
         children: [
-          const Icon(
-            Icons.science_outlined,
-            color: AppTheme.cobaltShield,
-            size: 22,
-          ),
-          const SizedBox(width: 12),
+          Icon(Icons.science_outlined, color: t.accentText, size: 22),
+          SizedBox(width: t.gapM),
           Expanded(
             child: Text(
               'DEV BYPASS // 72h LOCK',
@@ -509,7 +487,7 @@ class _DevBypassBlock extends StatelessWidget {
             child: Switch(
               value: value,
               onChanged: onChanged,
-              activeThumbColor: AppTheme.cobaltShield,
+              activeThumbColor: t.accent,
             ),
           ),
         ],

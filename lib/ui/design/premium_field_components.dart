@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'app_theme.dart';
+import 'tokens.dart';
 
 /// Button states for PremiumFieldButton. Preserved from the legacy design
-/// system for call-site compatibility across all step screens.
+/// system for call-site compatibility across all step screens. (These screens
+/// are migrating to [DmrvButton]; until then this widget is token-skinned so it
+/// matches the rest of the India surface.)
 enum FieldButtonState { go, stop, locked, hiVis }
 
 // =============================================================================
-// PremiumFieldPanel — flat card chassis on pureAlbedo with subtle cobalt edge.
-// Replaces the legacy FieldPanel (dark olive surface, sharp corners) with a
-// premium light-theme surface tuned for direct-sunlight readability.
+// PremiumFieldPanel — the card chassis. Token-skinned: raised paper surface
+// defined by a hairline border (no shadow — shadows die in sunlight).
 // =============================================================================
 class PremiumFieldPanel extends StatelessWidget {
   const PremiumFieldPanel({
@@ -22,34 +23,25 @@ class PremiumFieldPanel extends StatelessWidget {
 
   final Widget child;
 
-  /// When provided, becomes the panel border at 2px (used to flag a panel as
-  /// verified/yieldGold or pending/cobaltShield). When null, the panel uses
-  /// the default 1px cobaltShield-20% edge.
+  /// When provided, becomes a 2px accent border (flags the panel as focused /
+  /// verified / blocked). When null, the neutral hairline border is used.
   final Color? accentBorderColor;
 
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final bool hasAccent = accentBorderColor != null;
-    final Color borderColor = hasAccent
-        ? accentBorderColor!
-        : AppTheme.cobaltShield20;
-    final double borderWidth = hasAccent ? 2 : 1;
-
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: AppTheme.pureAlbedo,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: borderWidth),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.black06,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: t.surfaceRaised,
+        borderRadius: BorderRadius.circular(t.radiusM),
+        border: Border.all(
+          color: hasAccent ? accentBorderColor! : t.border,
+          width: hasAccent ? 2 : 1.5,
+        ),
       ),
       child: child,
     );
@@ -57,9 +49,9 @@ class PremiumFieldPanel extends StatelessWidget {
 }
 
 // =============================================================================
-// PremiumFieldButton — 64px glove-target CTA. Reuses FieldButtonState so
-// existing screen call sites compile unchanged. Heavy-impact haptic fires
-// BEFORE onPressed so the user gets confirmation even if onPressed is async.
+// PremiumFieldButton — 64px glove-target CTA, token-skinned. Heavy-impact
+// haptic fires BEFORE onPressed so the user feels confirmation even if the
+// callback is async.
 // =============================================================================
 class PremiumFieldButton extends StatelessWidget {
   const PremiumFieldButton({
@@ -75,21 +67,22 @@ class PremiumFieldButton extends StatelessWidget {
   final FieldButtonState state;
   final String? testId;
 
-  static const Color _stopRed = Color(0xFFDC2626);
-
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final bool isLocked = state == FieldButtonState.locked;
     final bool enabled = onPressed != null && !isLocked;
 
     final (Color bg, Color fg) = switch (state) {
-      FieldButtonState.go => (AppTheme.cobaltShield, AppTheme.pureAlbedo),
+      // "go" and "hiVis" are the primary action → safety-orange, like the
+      // dashboard's primary DmrvButton.
+      FieldButtonState.go => (t.accent, t.onAccent),
+      FieldButtonState.hiVis => (t.accent, t.onAccent),
+      FieldButtonState.stop => (t.danger, t.onDanger),
       FieldButtonState.locked => (
-        AppTheme.tacticalTitanium,
-        AppTheme.armorSlate40,
+        t.textPrimary.withValues(alpha: 0.08),
+        t.textDisabled,
       ),
-      FieldButtonState.stop => (_stopRed, AppTheme.pureAlbedo),
-      FieldButtonState.hiVis => (AppTheme.yieldGold, AppTheme.armorSlate),
     };
 
     return Semantics(
@@ -98,13 +91,11 @@ class PremiumFieldButton extends StatelessWidget {
       enabled: enabled,
       child: Material(
         color: bg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(t.radiusM),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: enabled
               ? () {
-                  // Industrial gloves dampen vibration; heavyImpact is the
-                  // only level the user reliably feels through the leather.
                   HapticFeedback.heavyImpact();
                   onPressed!.call();
                 }
@@ -116,12 +107,7 @@ class PremiumFieldButton extends StatelessWidget {
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'SpaceGrotesk',
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
-              ).copyWith(color: fg),
+              style: t.buttonLabel.copyWith(color: fg),
             ),
           ),
         ),
@@ -132,8 +118,6 @@ class PremiumFieldButton extends StatelessWidget {
 
 // =============================================================================
 // PremiumScreenHeader — back chevron + numbered step badge + screen title.
-// Drop-in replacement for the inline Row( back, title, ... ) pattern used at
-// the top of every step screen.
 // =============================================================================
 class PremiumScreenHeader extends StatelessWidget {
   const PremiumScreenHeader({
@@ -151,8 +135,9 @@ class PremiumScreenHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: t.gapL, vertical: t.gapM),
       child: Row(
         children: [
           Semantics(
@@ -160,8 +145,8 @@ class PremiumScreenHeader extends StatelessWidget {
             button: true,
             enabled: onBack != null,
             child: Material(
-              color: AppTheme.pureAlbedo,
-              borderRadius: BorderRadius.circular(10),
+              color: t.surfaceRaised,
+              borderRadius: BorderRadius.circular(t.radiusM),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: onBack == null
@@ -175,49 +160,37 @@ class PremiumScreenHeader extends StatelessWidget {
                   height: 48,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.black06,
-                        blurRadius: 6,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.circular(t.radiusM),
+                    border: Border.all(color: t.border, width: 1.5),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.arrow_back_ios_new,
                     size: 20,
-                    color: AppTheme.armorSlate,
+                    color: t.textPrimary,
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: t.gapM),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: AppTheme.cobaltShield,
-              borderRadius: BorderRadius.circular(8),
+              color: t.accent,
+              borderRadius: BorderRadius.circular(t.radiusS),
             ),
             child: Text(
               'STEP $stepNumber',
-              style: const TextStyle(
-                fontFamily: 'SpaceGrotesk',
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.pureAlbedo,
-                letterSpacing: 0.8,
-              ),
+              style: t.chipLabel.copyWith(color: t.onAccent),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: t.gapM),
           Expanded(
             child: Text(
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: t.blockHeader.copyWith(color: t.textPrimary),
             ),
           ),
         ],
@@ -241,21 +214,20 @@ class PremiumStatusChip extends StatelessWidget {
   final String label;
   final PremiumChipStatus status;
 
-  static const Color _errorRed = Color(0xFFDC2626);
-
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final (Color bg, Color fg) = switch (status) {
-      PremiumChipStatus.verified => (AppTheme.yieldGold, AppTheme.armorSlate),
+      PremiumChipStatus.verified => (t.success, t.onSuccess),
       PremiumChipStatus.pending => (
-        AppTheme.cobaltShield15,
-        AppTheme.cobaltShield,
+        t.accent.withValues(alpha: 0.14),
+        t.accentText,
       ),
       PremiumChipStatus.locked => (
-        const Color(0xFFE2E8F0),
-        AppTheme.armorSlate60,
+        t.textPrimary.withValues(alpha: 0.08),
+        t.textSecondary,
       ),
-      PremiumChipStatus.error => (_errorRed, AppTheme.pureAlbedo),
+      PremiumChipStatus.error => (t.danger, t.onDanger),
     };
 
     return Container(
@@ -264,25 +236,16 @@ class PremiumStatusChip extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(t.radiusL),
       ),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-          fontFamily: 'SpaceGrotesk',
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.8,
-          color: fg,
-        ),
-      ),
+      child: Text(label.toUpperCase(), style: t.chipLabel.copyWith(color: fg)),
     );
   }
 }
 
 // =============================================================================
-// PremiumInputField — SpaceMono numeric/text input on pureAlbedo. Used for
-// moisture % readings, scale weights, GPS coords, batch IDs, etc.
+// PremiumInputField — numeric/text input, token-skinned. Used for moisture %
+// readings, scale weights, GPS coords, batch IDs, etc.
 // =============================================================================
 class PremiumInputField extends StatelessWidget {
   const PremiumInputField({
@@ -308,26 +271,19 @@ class PremiumInputField extends StatelessWidget {
   final String? errorText;
   final bool enabled;
 
-  static const Color _errorRed = Color(0xFFDC2626);
-
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final bool hasError = errorText != null && errorText!.isNotEmpty;
 
-    final OutlineInputBorder baseBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: AppTheme.cobaltShield20, width: 1),
+    OutlineInputBorder borderOf(Color c, double w) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(t.radiusM),
+      borderSide: BorderSide(color: c, width: w),
     );
 
-    final OutlineInputBorder focusBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppTheme.cobaltShield, width: 2),
-    );
-
-    final OutlineInputBorder errorBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: _errorRed, width: 2),
-    );
+    final baseBorder = borderOf(t.border, 1.5);
+    final focusBorder = borderOf(t.accent, 2);
+    final errorBorder = borderOf(t.danger, 2);
 
     final Widget field = TextField(
       controller: controller,
@@ -335,24 +291,22 @@ class PremiumInputField extends StatelessWidget {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       enabled: enabled,
-      cursorColor: AppTheme.cobaltShield,
-      style: const TextStyle(
-        fontFamily: 'SpaceMono',
+      cursorColor: t.accent,
+      style: t.numericMedium.copyWith(
         fontSize: 20,
         fontWeight: FontWeight.w400,
-        color: AppTheme.armorSlate,
+        color: t.textPrimary,
       ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(
-          fontFamily: 'SpaceMono',
+        hintStyle: t.numericMedium.copyWith(
           fontSize: 20,
           fontWeight: FontWeight.w400,
-          color: AppTheme.armorSlate35,
+          color: t.textDisabled,
         ),
         suffixIcon: suffix,
         filled: true,
-        fillColor: AppTheme.pureAlbedo,
+        fillColor: t.surfaceRaised,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
@@ -377,15 +331,7 @@ class PremiumInputField extends StatelessWidget {
       children: [
         input,
         const SizedBox(height: 6),
-        Text(
-          errorText!,
-          style: const TextStyle(
-            fontFamily: 'SpaceMono',
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            color: _errorRed,
-          ),
-        ),
+        Text(errorText!, style: t.metadata.copyWith(color: t.danger)),
       ],
     );
   }
