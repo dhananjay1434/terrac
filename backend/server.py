@@ -46,6 +46,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.exceptions import InvalidSignature
 import piexif
 
+import attestation
 from db import get_session, init_db
 from models import (
     AnnualVerification,
@@ -211,15 +212,17 @@ def _require_secret(name: str) -> str:
 _HMAC_SECRET = _require_secret("DMRV_HMAC_SECRET")
 _ADMIN_SECRET = _require_secret("DMRV_ADMIN_SECRET")
 
-# Phase 9-R: platform attestation (Play Integrity / DeviceCheck) is NOT yet
-# cryptographically verified — a rooted device's forged blob would pass. We refuse
-# to pretend a blob's mere presence proves integrity. Policy switch:
-#   False (default, "Option B") — non-blocking: log a loud warning, do not gate.
-#   True  ("Option A")          — fail closed: an unverified attestation keeps the
-#                                  batch PROVISIONAL. Flip to True once a real
-#                                  verifier exists (or to halt final issuance until
-#                                  then). See FINDINGS_BACKLOG.
-_ATTESTATION_ENFORCED = False
+# Platform attestation (Play Integrity / DeviceCheck). T2.1 added a verifier
+# interface (attestation.py); real provider verification still awaits Google /
+# Apple credentials, so verify_attestation returns UNVERIFIED for genuine tokens.
+# Policy switch (env-live so it survives importlib.reload + is runtime-tunable):
+#   0 (default, "Option B") — non-blocking: log a loud warning, do not gate.
+#   1 ("Option A")          — fail closed: an unverified attestation keeps the
+#                             batch PROVISIONAL (attestation_unverified). Flip via
+#                             DMRV_ATTESTATION_ENFORCED=1 once the verifier is real
+#                             and the fleet is verified-capable. See FINDINGS_BACKLOG.
+def _attestation_enforced() -> bool:
+    return os.environ.get("DMRV_ATTESTATION_ENFORCED", "0") == "1"
 
 # T2.3 replay protection. The v1 request canonical carries no timestamp, so a
 # captured request replays forever. v2 appends a client-signed unix timestamp and
@@ -920,19 +923,20 @@ async def recompute_batch_credit(
     yld_payload = json.loads(yld.payload_json) if yld else None
     app_payload = json.loads(app_row.payload_json) if app_row else None
 
-    # Phase 9-R: platform attestation. There is NO real Play Integrity / DeviceCheck
-    # verifier yet, so a blob's presence proves nothing — we do not treat it as a
-    # control (the old isinstance(dict) check was dead: the client sends a list).
-    # SECURITY TODO: verify the attestation signature; until then it is unverified.
+    # T2.1: platform attestation runs through the attestation.py verifier
+    # interface. Real Play Integrity / DeviceCheck verification awaits provider
+    # credentials, so a genuine token still returns unverified today — but the
+    # wiring + enforcement switch are in place, and enabling
+    # DMRV_ATTESTATION_ENFORCED makes an unverified batch PROVISIONAL. Module-
+    # qualified call so tests can inject a verdict double via monkeypatch.
     attestation_blob = tel_payload.get("hw_attestation") if tel_payload else None
-    attestation_verified = False  # TODO(security): real Play Integrity/DeviceCheck
+    _att_verdict = attestation.verify_attestation(attestation_blob)
+    attestation_verified = _att_verdict.verified
     if attestation_blob and not attestation_verified:
         log.warning(
-            "batch %s carries hw_attestation but it is NOT cryptographically "
-            "verified (Play Integrity/DeviceCheck integration is a SECURITY TODO)",
-            buid,
+            "batch %s hw_attestation not verified: %s", buid, _att_verdict.reason
         )
-    attestation_ok = True if not _ATTESTATION_ENFORCED else attestation_verified
+    attestation_ok = True if not _attestation_enforced() else attestation_verified
 
     min_temp, _ = derive_min_temp(tel_payload)
     wet_yield, _ = derive_wet_yield(yld_payload)
@@ -2290,7 +2294,7 @@ async def batch_compliance(
             return "inert_no_linkage"
         if code in ("missing_annual_methane", "missing_pah") and not batch.project_id:
             return "inert_no_linkage"
-        if code == "attestation_unverified" and not _ATTESTATION_ENFORCED:
+        if code == "attestation_unverified" and not _attestation_enforced():
             return "awaiting_methodology"
         return "enforced"
 
