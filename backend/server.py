@@ -173,16 +173,29 @@ def _evaluate_anchor(batch, photo_sha: Optional[str], exif_lat, exif_lon) -> Non
         batch.status = "RECEIVED"
 
 
+_MIN_SECRET_LEN = 32
+_MIN_SECRET_UNIQUE = 10
+
+
 def _require_secret(name: str) -> str:
     """Resolve a mandatory secret from the environment or refuse to start.
 
     Single choke point for required-secret resolution so the fail-loud guarantee
-    lives in exactly one place (P2.a extends this with an entropy/length floor).
-    Raises RuntimeError naming the missing variable.
+    lives in exactly one place. T2.6 adds an entropy/length floor so a weak
+    placeholder can never reach production. The floor is bypassed only when
+    DMRV_ALLOW_WEAK_SECRETS=1 (the test suite sets this so its short fixed
+    literals stay valid; never set it in production). Raises RuntimeError naming
+    the offending variable.
     """
     value = os.environ.get(name)
     if not value:
         raise RuntimeError(f"{name} env var is required.")
+    if os.environ.get("DMRV_ALLOW_WEAK_SECRETS") != "1":
+        if len(value) < _MIN_SECRET_LEN or len(set(value)) < _MIN_SECRET_UNIQUE:
+            raise RuntimeError(
+                f"{name} is too weak: require >= {_MIN_SECRET_LEN} chars and "
+                f">= {_MIN_SECRET_UNIQUE} distinct characters."
+            )
     return value
 
 
@@ -474,12 +487,23 @@ class RegistrationResponse(BaseModel):
 
 # ==================== Endpoints ====================\n
 @app.get("/api/health")
-async def health() -> dict:
-    return {
-        "status": "ok",
+async def health(session: AsyncSession = Depends(get_session)) -> JSONResponse:
+    # T2.6: probe the DB so a monitor gets a truthful signal (was a static "ok").
+    db_ok = True
+    try:
+        await session.execute(select(1))
+    except Exception:  # noqa: BLE001 — health must report, never raise
+        db_ok = False
+    body = {
+        "status": "ok" if db_ok else "degraded",
         "service": "dmrv-api",
+        "db": "ok" if db_ok else "down",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+    return JSONResponse(
+        body,
+        status_code=status.HTTP_200_OK if db_ok else status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
 
 
 def _b64url_decode(s: str) -> bytes:

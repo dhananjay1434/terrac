@@ -1,13 +1,12 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
-from server import app
 
 
 @pytest.mark.asyncio
-async def test_lifespan_starts_db():
-    # Verify the FastAPI TestClient or ASGI app works with lifespan correctly
-    transport = ASGITransport(app=app)
-    # Using the lifespan context triggers lifespan events
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.get("/api/health")
-        assert response.status_code == 200
+async def test_lifespan_starts_db(client):
+    # /api/health must respond 200 through the app. T2.6 made the endpoint probe
+    # the DB (Depends(get_session)); the shared `client` fixture supplies the
+    # overridden per-test session, so this exercises the real request path
+    # without binding the module engine to a throwaway event loop.
+    response = await client.get("/api/health")
+    assert response.status_code == 200
+    assert response.json()["db"] == "ok"

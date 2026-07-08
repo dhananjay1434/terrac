@@ -1,0 +1,72 @@
+name: backend-ci
+
+# P0.b — the safety-net gate every later remediation item depends on.
+# The `tests` job is the BLOCKING gate: it runs the full backend pytest suite
+# on the database-neutral SQLite path (conftest supplies the same env the local
+# run uses). The `lint` job is intentionally NON-BLOCKING (continue-on-error)
+# until a dedicated ruff-clean pass — `ruff check` currently reports ~100 legacy
+# style issues, so making it blocking today would red-gate the whole repo.
+# NOT wired yet (deliberately, see docs/REMEDIATION_PLAN_NONUI.md): black
+# (unpinned/broken locally), mypy (not configured), and a coverage floor
+# (needs a measured baseline first). Postgres migration lane arrives in P0.c.
+
+on:
+  push:
+    branches: [main, "remediation/**"]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  tests:
+    name: pytest (blocking)
+    runs-on: ubuntu-latest
+    env:
+      # CI supplies config through the environment, never a checked-out .env.
+      # These MUST match the literals in tests/conftest.py — several tests assert
+      # against the exact admin/hmac values (e.g. test_admin_secret.py), so a
+      # different value here would fail the suite, not harden it.
+      DMRV_DISABLE_DOTENV: "1"
+      DMRV_HMAC_SECRET: test-secret
+      DMRV_ADMIN_SECRET: test-admin-secret
+      # T2.6: the test literals above are intentionally short; allow them past
+      # the production secret entropy floor (never set this in production).
+      DMRV_ALLOW_WEAK_SECRETS: "1"
+      DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+      DMRV_SKIP_MIGRATIONS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run test suite
+        run: python -m pytest -q
+
+  lint:
+    name: ruff (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ruff
+        run: pip install ruff==0.11.5
+      - name: Run ruff
+        working-directory: backend
+        run: python -m ruff check .

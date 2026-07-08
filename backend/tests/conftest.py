@@ -31,6 +31,9 @@ os.environ.setdefault("DMRV_SKIP_MIGRATIONS", "1")  # P0-18 escape hatch
 # T2.2: rate limiting off by default under test so multi-request flow tests don't
 # trip 429; test_rate_limit.py re-enables it via monkeypatch on the server module.
 os.environ.setdefault("DMRV_RATELIMIT_ENABLED", "0")
+# T2.6: the suite uses short fixed secret literals (asserted verbatim in many
+# tests); allow them past the production entropy floor. NEVER set in production.
+os.environ.setdefault("DMRV_ALLOW_WEAK_SECRETS", "1")
 os.environ.setdefault("DMRV_HMAC_SECRET", "test-secret")
 os.environ.setdefault(
     "DMRV_ADMIN_SECRET", "test-admin-secret"
