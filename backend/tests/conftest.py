@@ -73,16 +73,39 @@ def _ed25519_sign(canonical: bytes) -> str:
 
 @pytest_asyncio.fixture(scope="function")
 async def test_engine():
-    """Create a fresh SQLite database file for each test."""
+    """Per-test database engine.
+
+    T3.1: when DATABASE_URL points at Postgres, run the suite against that
+    server so app queries genuinely exercise the production dialect (JSON,
+    timezone, CheckConstraint, UUID divergences the audit called out). Isolation
+    is per-test via drop_all+create_all — slower than SQLite but correct on a
+    shared server. Otherwise keep the fast default: a fresh SQLite tempfile per
+    test (local dev + the neutral CI lane). SQLite in-memory can't be shared
+    across connections, so the tempfile path is retained for that case.
+    """
     from models import Base
+
+    db_url = os.environ.get("DATABASE_URL", "")
+    if db_url.startswith("postgresql"):
+        engine = create_async_engine(db_url, poolclass=NullPool)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+        try:
+            yield engine
+        finally:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+            await engine.dispose()
+        return
+
     import tempfile
 
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
 
-    db_url = f"sqlite+aiosqlite:///{path}"
     engine = create_async_engine(
-        db_url,
+        f"sqlite+aiosqlite:///{path}",
         connect_args={"check_same_thread": False},
         poolclass=NullPool,
     )

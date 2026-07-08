@@ -56,6 +56,60 @@ jobs:
       - name: Run test suite
         run: python -m pytest -q
 
+  tests-postgres:
+    name: pytest + migrations (Postgres)
+    runs-on: ubuntu-latest
+    # T3.1: the SQLite `tests` job above is fast and database-neutral; this job
+    # is the production-fidelity gate. It runs the suite against a real
+    # postgres:16 AND actually applies the Alembic migrations (DMRV_SKIP_MIGRATIONS=0)
+    # — the migration-integrity coverage the repo previously lacked. It also does a
+    # full downgrade->upgrade round-trip and `alembic check` (models<->migrations
+    # drift). Secrets/literals mirror tests/conftest.py exactly.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dmrv
+          POSTGRES_PASSWORD: dmrv
+          POSTGRES_DB: dmrv
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dmrv"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DMRV_DISABLE_DOTENV: "1"
+      DMRV_HMAC_SECRET: test-secret
+      DMRV_ADMIN_SECRET: test-admin-secret
+      DMRV_ALLOW_WEAK_SECRETS: "1"
+      # asyncpg URL for the app/engine; the sync psycopg2 URL (asyncpg stripped)
+      # is what Alembic uses via db.py's DATABASE_URL.replace("+asyncpg","").
+      DATABASE_URL: "postgresql+asyncpg://dmrv:dmrv@localhost:5432/dmrv"
+      DMRV_SKIP_MIGRATIONS: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Alembic upgrade head
+        run: python -m alembic upgrade head
+      - name: Migration round-trip (downgrade base -> upgrade head)
+        run: |
+          python -m alembic downgrade base
+          python -m alembic upgrade head
+      - name: Alembic drift check (models vs migrations)
+        run: python -m alembic check
+      - name: Run test suite on Postgres
+        run: python -m pytest -q
+
   lint:
     name: ruff (informational)
     runs-on: ubuntu-latest

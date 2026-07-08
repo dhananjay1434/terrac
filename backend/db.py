@@ -21,11 +21,21 @@ if not _DATABASE_URL_RAW:
     )
 DATABASE_URL = _DATABASE_URL_RAW
 
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,
-    future=True,
-)
+# T3.1: production connection-pool tuning. pool_size/max_overflow are ONLY
+# valid for a real server-side pool (Postgres/asyncpg). SQLite/aiosqlite uses
+# SingletonThreadPool/StaticPool and raises TypeError on those kwargs, and the
+# test suite runs on sqlite+aiosqlite:///:memory: — so apply them conditionally
+# on the URL scheme. Sizes are env-tunable for deploy (engine is built once at
+# import, so a live re-read is unnecessary here).
+_engine_kwargs: dict = {"echo": False, "future": True}
+if DATABASE_URL.startswith("postgresql"):
+    _engine_kwargs.update(
+        pool_pre_ping=True,
+        pool_size=int(os.environ.get("DMRV_POOL_SIZE", "10")),
+        max_overflow=int(os.environ.get("DMRV_POOL_MAX_OVERFLOW", "20")),
+    )
+
+engine = create_async_engine(DATABASE_URL, **_engine_kwargs)
 
 SessionLocal = async_sessionmaker(
     engine,

@@ -30,7 +30,7 @@
 | `upload_media` handler | `server.py:1483-1643` | |
 | `_require_admin(x_admin_secret)` | `server.py:1976` | the auth pattern for all read endpoints |
 | `batch_compliance` GET | `server.py:2266` | **the ONLY non-health GET today** |
-| Alembic head | `f1a2b3c4d5e6` | new migrations set `down_revision` here |
+| Alembic head | `a2b3c4d5e6f7` | advanced by T3.1 (was `f1a2b3c4d5e6`); new migrations set `down_revision` here |
 | CI workflow | `.github/workflows/backend-ci.yml` | **tracked** (handoff was stale); single SQLite `tests` job + informational `lint` |
 
 **Route inventory:** every endpoint except `/api/health` and `/api/v1/batches/{uuid}/compliance` is a POST. There is **no list / device / summary read** — T3.4 is a genuine gap, not a duplicate.

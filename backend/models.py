@@ -12,7 +12,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    ForeignKey,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -395,8 +394,14 @@ class MediaFile(Base):
     __tablename__ = "media_files"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # T3.1: NO ForeignKey to batches. Evidence media can be uploaded BEFORE its
+    # batch exists (deferred anchoring via _evaluate_anchor) — a real field
+    # flow. A DB-level FK forbids exactly that on any FK-enforcing engine
+    # (Postgres rejected it; SQLite silently ignored FKs, hiding the bug). The
+    # five sibling evidence tables (moisture/composite/transport/telemetry/
+    # yield) already carry batch_uuid as a plain indexed column; media now matches.
     batch_uuid: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("batches.batch_uuid"), nullable=True
+        PG_UUID(as_uuid=True), nullable=True
     )
     operation_id: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True

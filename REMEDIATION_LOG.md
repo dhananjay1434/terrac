@@ -1605,3 +1605,26 @@ tested, inert flag.
 - flutter analyze: **25 issues, 0 errors** (unchanged — no new issues from the client edits). flutter test: **153 passed, 2 skipped, 0 failed** (+1 from the v2 `signRequestV2` test).
 
 **Enforcement switches still OFF by design (flip when the fleet/creds are ready):** `DMRV_REQUIRE_CANONICAL_V2` (after fleet ships v2 signing), `DMRV_ATTESTATION_ENFORCED` (after the real Play Integrity/DeviceCheck verifier + credentials). Android release build validation + real release keystore (T0.6) remain the outstanding manual/cross-team items.
+
+---
+
+## T3.1 — Postgres for real: engine pool tuning + PG CI lane + migration integrity (2026-07-08)
+
+**Goal.** The suite ran only on in-memory SQLite while production is declared Postgres. Add a real Postgres CI lane that runs the suite *and* the migrations, tune the prod engine, and make the migration↔model relationship a checked gate — the "tested on the production dialect" bar T3 requires. ▶ prompt: [docs/ROADMAP/prompts/T3_EXECUTION_PROMPT.md](docs/ROADMAP/prompts/T3_EXECUTION_PROMPT.md).
+
+**Two real Postgres-only bugs the lane immediately surfaced (both latent because nothing is deployed yet, both would have broken the first Postgres boot/flow):**
+1. **`alembic/env.py` stripped `+asyncpg` then built an ASYNC engine** (`async_engine_from_config`), handing `create_async_engine` a sync psycopg2 URL → every Postgres migration crashed with *"The asyncio extension requires an async driver."* This same path runs in `init_db()` at app startup, so **the backend could never have booted on Postgres with migrations enabled.** Fix: keep the async driver in the URL (escape `%` for ConfigParser); offline mode still resolves the dialect.
+2. **`media_files.batch_uuid` carried a `ForeignKey → batches.batch_uuid`** (only evidence table that did). The field flow uploads a photo *before* its batch exists (deferred anchoring via `_evaluate_anchor`); SQLite silently ignores FKs so this passed, but Postgres raised `ForeignKeyViolationError` and failed **11 media tests**. Fix: drop the FK (model + migration `a2b3c4d5e6f7`, Postgres-only, FK discovered by inspection, reversible `downgrade`); media now matches its five FK-less siblings.
+
+**Fix (this commit).**
+- **`db.py`**: pool args (`pool_pre_ping`, `pool_size`, `max_overflow`, env-tunable `DMRV_POOL_SIZE`/`DMRV_POOL_MAX_OVERFLOW`) applied **only** when the URL is `postgresql*` — SQLite/aiosqlite raises `TypeError` on those kwargs, and the suite runs on SQLite.
+- **`.github/workflows/backend-ci.yml`**: new `tests-postgres` job — `postgres:16` service, `alembic upgrade head` → **round-trip** `downgrade base` → `upgrade head` → **`alembic check`** (drift gate) → `pytest`. Migrations RUN here (`DMRV_SKIP_MIGRATIONS=0`), the integrity coverage the repo lacked. The existing SQLite `tests` job is unchanged and stays the fast neutral gate.
+- **`tests/conftest.py`**: the `test_engine` fixture now honors a Postgres `DATABASE_URL` (per-test `drop_all`+`create_all` isolation) so the PG lane genuinely exercises app queries on the production dialect — not just migrations. Local/neutral runs keep the fast SQLite tempfile path unchanged.
+- **`models.py` / migration `a2b3c4d5e6f7`**: FK drop as above; removed the now-unused `ForeignKey` import.
+
+**Gate (verified LOCALLY against a throwaway `postgres:16` container — CI green is pending-push, T0.1).**
+- SQLite `python -m pytest -q`: **307 passed, 1 skipped, 0 failed** (pool-skip path; baseline held, no regression from the FK drop).
+- Postgres full suite (`DATABASE_URL=postgresql+asyncpg://…`): **307/1/0** — the 11 media failures the FK caused are fixed; previously 296/11.
+- Alembic on Postgres: single head `a2b3c4d5e6f7`; clean `upgrade head` → `downgrade base` → `upgrade head`; **`alembic check` → "No new upgrade operations detected"** (zero model↔migration drift).
+
+**Honesty note.** CI cannot actually execute until the repo has a remote (T0.1). Everything above was validated by running the *exact* CI commands locally against real Postgres; the CI lanes are written and locally-equivalent-proven, flipped to truly-green when T0.1 lands.

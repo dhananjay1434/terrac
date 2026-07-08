@@ -32,7 +32,13 @@ target_metadata = Base.metadata
 
 _url = os.environ.get("DATABASE_URL")
 if _url:
-    config.set_main_option("sqlalchemy.url", _url.replace("+asyncpg", ""))
+    # T3.1: the online runner below uses async_engine_from_config (an ASYNC
+    # engine), so the URL must keep its async driver (+asyncpg / +aiosqlite).
+    # Stripping "+asyncpg" here handed create_async_engine a sync psycopg2 URL
+    # and crashed every Postgres migration — including the one init_db() runs at
+    # app startup, so the backend could never boot on Postgres with migrations
+    # enabled. Keep the URL verbatim; offline mode resolves the dialect fine too.
+    config.set_main_option("sqlalchemy.url", _url.replace("%", "%%"))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
