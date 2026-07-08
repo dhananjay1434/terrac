@@ -4,8 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/sync_queue_manager.dart';
 
-import '../design/app_theme.dart';
+import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
+import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
 import '../../data/local/database_provider.dart';
 
@@ -18,7 +19,7 @@ import 'pyrolysis_screen.dart';
 import 'secure_camera_screen.dart';
 
 /// =============================================================================
-/// MoistureVerificationScreen
+/// MoistureVerificationScreen — India paper skin (tokens + Dmrv components)
 /// =============================================================================
 /// Workflow:
 ///   1. Operator types the meter reading.
@@ -26,8 +27,7 @@ import 'secure_camera_screen.dart';
 ///   3. Full-screen [SecureCameraScreen] opens, runs the anti-fraud pipeline,
 ///      and returns a [SecureCaptureResult].
 ///   4. We call [AppDatabase.insertBiomassSourcingWithOutbox], which atomically
-///      writes the BiomassSourcing row + a SyncOutbox event. The dashboard
-///      counter stream is wired to the outbox table and increments instantly.
+///      writes the BiomassSourcing row + a SyncOutbox event.
 ///   5. Once persisted, "INITIATE PYROLYSIS" renders.
 /// =============================================================================
 class MoistureVerificationScreen extends ConsumerStatefulWidget {
@@ -40,13 +40,6 @@ class MoistureVerificationScreen extends ConsumerStatefulWidget {
 
 class _MoistureVerificationScreenState
     extends ConsumerState<MoistureVerificationScreen> {
-  // ---------------------------------------------------------------------------
-  // Light-theme palette shared with sibling widgets in this file. Defined here
-  // so the visual rules ("Tactical Titanium") stay co-located with the screen.
-  // ---------------------------------------------------------------------------
-  static const Color _errorRed = Color(0xFFDC2626);
-  static const Color _errorRedSoftBg = Color(0xFFFEF2F2);
-
   late final TextEditingController _controller;
   bool _persisting = false;
   String? _persistError;
@@ -124,9 +117,6 @@ class _MoistureVerificationScreenState
       );
       ref.read(dashboardProvider.notifier).markBiomassVerified();
 
-      // The BiomassSourcing record natively contains the photo_path and uploads
-      // the media file automatically during the sync process.
-
       debugPrint(
         '[MoistureScreen] insertBiomassSourcingWithOutbox OK — '
         'sourcingUuid=$sourcingUuid batchUuid=$batchUuid '
@@ -142,11 +132,11 @@ class _MoistureVerificationScreenState
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final s = ref.watch(moistureGateProvider);
     final notifier = ref.read(moistureGateProvider.notifier);
     final isNonCompliant = s.status == MoistureGateStatus.nonCompliant;
 
-    // Watch Drift for the presence of the photo evidence
     final hasEvidence = ref.watch(moistureEvidenceProvider).value ?? false;
     final canInitiatePyrolysis = s.isCompliant && hasEvidence;
     final String footerHash = hasEvidence
@@ -154,7 +144,7 @@ class _MoistureVerificationScreenState
         : '----------------------------------------------------------------';
 
     return Scaffold(
-      backgroundColor: AppTheme.tacticalTitanium,
+      backgroundColor: t.surface,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -166,7 +156,7 @@ class _MoistureVerificationScreenState
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                padding: EdgeInsets.fromLTRB(t.gapL, 4, t.gapL, t.gapL),
                 children: [
                   _MeterReadingBlock(
                     controller: _controller,
@@ -174,7 +164,7 @@ class _MoistureVerificationScreenState
                     status: s.status,
                     onChanged: notifier.updateReading,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: t.gapL),
                   _PhotoBlock(
                     hasEvidence: hasEvidence,
                     persisting: _persisting,
@@ -182,37 +172,32 @@ class _MoistureVerificationScreenState
                     onTap: _launchSecureCapture,
                   ),
                   if (_persistError != null) ...[
-                    const SizedBox(height: 12),
+                    SizedBox(height: t.gapM),
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: EdgeInsets.all(t.gapM),
                       decoration: BoxDecoration(
-                        color: _errorRedSoftBg,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _errorRed, width: 1),
+                        color: t.dangerSurface,
+                        borderRadius: BorderRadius.circular(t.radiusM),
+                        border: Border.all(color: t.danger, width: 1),
                       ),
                       child: Text(
                         _persistError!,
-                        style: const TextStyle(
-                          fontFamily: 'SpaceMono',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: _errorRed,
-                        ),
+                        style: t.metadata.copyWith(color: t.danger),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 16),
+                  SizedBox(height: t.gapL),
                   _StatusBlock(state: s, hasEvidence: hasEvidence),
                   if (isNonCompliant) ...[
-                    const SizedBox(height: 16),
+                    SizedBox(height: t.gapL),
                     _SevereErrorBlock(message: s.errorMessage!),
                   ],
                   if (canInitiatePyrolysis) ...[
-                    const SizedBox(height: 24),
-                    PremiumFieldButton(
+                    SizedBox(height: t.gapXL),
+                    DmrvButton(
                       label: 'INITIATE PYROLYSIS',
                       testId: 'initiate-pyrolysis-btn',
-                      state: FieldButtonState.go,
+                      variant: DmrvButtonVariant.primary,
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
@@ -222,7 +207,7 @@ class _MoistureVerificationScreenState
                       },
                     ),
                   ],
-                  const SizedBox(height: 16),
+                  SizedBox(height: t.gapL),
                 ],
               ),
             ),
@@ -250,14 +235,13 @@ class _MeterReadingBlock extends StatelessWidget {
   final MoistureGateStatus status;
   final ValueChanged<String> onChanged;
 
-  static const Color _errorRed = Color(0xFFDC2626);
-
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final Color accent = switch (status) {
-      MoistureGateStatus.compliant => AppTheme.yieldGold,
-      MoistureGateStatus.nonCompliant => _errorRed,
-      MoistureGateStatus.pending => AppTheme.cobaltShield,
+      MoistureGateStatus.compliant => t.success,
+      MoistureGateStatus.nonCompliant => t.danger,
+      MoistureGateStatus.pending => t.accentText,
     };
 
     return PremiumFieldPanel(
@@ -267,20 +251,14 @@ class _MeterReadingBlock extends StatelessWidget {
         children: [
           Text(
             'METER READING // % MOISTURE',
-            style: TextStyle(
-              fontFamily: 'SpaceGrotesk',
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: accent,
-            ),
+            style: t.chipLabel.copyWith(color: accent),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: t.gapM),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppTheme.tacticalTitanium,
-              borderRadius: BorderRadius.circular(10),
+              color: t.surface,
+              borderRadius: BorderRadius.circular(t.radiusM),
               border: Border.all(
                 color: accent.withValues(alpha: 0.35),
                 width: 1,
@@ -299,45 +277,29 @@ class _MeterReadingBlock extends StatelessWidget {
                 ],
                 onChanged: onChanged,
                 cursorColor: accent,
-                style: TextStyle(
-                  fontFamily: 'SpaceMono',
-                  fontSize: 56,
-                  fontWeight: FontWeight.w700,
-                  color: accent,
-                  height: 1.0,
-                ),
+                style: t.numericHero.copyWith(fontSize: 56, color: accent),
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   isCollapsed: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 8),
                   hintText: '00.0',
-                  hintStyle: TextStyle(
-                    fontFamily: 'SpaceMono',
+                  hintStyle: t.numericHero.copyWith(
                     fontSize: 56,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.armorSlate20,
-                    height: 1.0,
+                    color: t.textDisabled,
                   ),
                   suffixText: '%',
-                  suffixStyle: TextStyle(
-                    fontFamily: 'SpaceMono',
+                  suffixStyle: t.numericHero.copyWith(
                     fontSize: 32,
-                    fontWeight: FontWeight.w700,
                     color: accent,
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: t.gapS),
           Text(
             'COMPLIANCE CEILING :: ≤ 15.0%',
-            style: TextStyle(
-              fontFamily: 'SpaceMono',
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: AppTheme.armorSlate55,
-            ),
+            style: t.metadata.copyWith(color: t.textSecondary),
           ),
         ],
       ),
@@ -363,11 +325,10 @@ class _PhotoBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final bool captured = hasEvidence;
 
-    final Color iconColor = captured
-        ? AppTheme.yieldGold
-        : AppTheme.cobaltShield;
+    final Color iconColor = captured ? t.success : t.accentText;
     final IconData iconData = persisting
         ? Icons.hourglass_top
         : (captured ? Icons.verified : Icons.photo_camera_outlined);
@@ -391,23 +352,20 @@ class _PhotoBlock extends StatelessWidget {
             : null,
         behavior: HitTestBehavior.opaque,
         child: PremiumFieldPanel(
-          accentBorderColor: captured ? AppTheme.yieldGold : null,
+          accentBorderColor: captured ? t.success : null,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Icon(iconData, color: iconColor, size: 28),
-                  const SizedBox(width: 12),
+                  SizedBox(width: t.gapM),
                   Expanded(
                     child: Text(
                       label,
-                      style: const TextStyle(
-                        fontFamily: 'SpaceGrotesk',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.4,
-                        color: AppTheme.armorSlate,
+                      style: t.metadata.copyWith(
+                        color: t.textPrimary,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -429,16 +387,10 @@ class _PhotoBlock extends StatelessWidget {
                 ],
               ),
               if (captured) ...[
-                const SizedBox(height: 8),
+                SizedBox(height: t.gapS),
                 Text(
                   'OUTBOX: COMMITTED (DECOUPLED)',
-                  style: TextStyle(
-                    fontFamily: 'SpaceGrotesk',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: AppTheme.yieldGold,
-                  ),
+                  style: t.chipLabel.copyWith(color: t.success),
                 ),
               ],
             ],
@@ -458,14 +410,13 @@ class _StatusBlock extends StatelessWidget {
   final MoistureGateState state;
   final bool hasEvidence;
 
-  static const Color _errorRed = Color(0xFFDC2626);
-
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final Color accent = switch (state.status) {
-      MoistureGateStatus.compliant => AppTheme.yieldGold,
-      MoistureGateStatus.nonCompliant => _errorRed,
-      MoistureGateStatus.pending => AppTheme.cobaltShield,
+      MoistureGateStatus.compliant => t.success,
+      MoistureGateStatus.nonCompliant => t.danger,
+      MoistureGateStatus.pending => t.accentText,
     };
 
     final PremiumChipStatus chipStatus = switch (state.status) {
@@ -495,18 +446,15 @@ class _StatusBlock extends StatelessWidget {
       child: Row(
         children: [
           PremiumStatusChip(label: chipLabel, status: chipStatus),
-          const SizedBox(width: 12),
+          SizedBox(width: t.gapM),
           Expanded(
             child: Semantics(
               identifier: 'moisture-status-hud',
               child: Text(
                 label,
-                style: const TextStyle(
-                  fontFamily: 'SpaceGrotesk',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
-                  color: AppTheme.armorSlate,
+                style: t.metadata.copyWith(
+                  color: t.textPrimary,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -525,59 +473,44 @@ class _SevereErrorBlock extends StatelessWidget {
   const _SevereErrorBlock({required this.message});
   final String message;
 
-  static const Color _errorRed = Color(0xFFDC2626);
-  static const Color _errorRedSoftBg = Color(0xFFFEF2F2);
-
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(t.gapL),
       decoration: BoxDecoration(
-        color: _errorRedSoftBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _errorRed, width: 2),
+        color: t.dangerSurface,
+        borderRadius: BorderRadius.circular(t.radiusM),
+        border: Border.all(color: t.danger, width: 2),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.report, color: _errorRed, size: 36),
-          const SizedBox(width: 12),
+          Icon(Icons.report, color: t.danger, size: 36),
+          SizedBox(width: t.gapM),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'NON-COMPLIANT // WORKFLOW LOCKED',
-                  style: TextStyle(
-                    fontFamily: 'SpaceGrotesk',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                    color: _errorRed,
-                  ),
+                  style: t.blockHeader.copyWith(color: t.danger),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: t.gapS),
                 Semantics(
                   identifier: 'moisture-error-message',
                   child: Text(
                     message,
-                    style: const TextStyle(
-                      fontFamily: 'SpaceGrotesk',
+                    style: t.numericMedium.copyWith(
                       fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: _errorRed,
+                      color: t.danger,
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
+                SizedBox(height: t.gapS),
+                Text(
                   'Continue air-drying the biomass. Re-measure once moisture\ndrops to or below 15.0%.',
-                  style: TextStyle(
-                    fontFamily: 'SpaceMono',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: AppTheme.armorSlate,
-                  ),
+                  style: t.metadata.copyWith(color: t.textSecondary),
                 ),
               ],
             ),
