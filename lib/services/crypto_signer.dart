@@ -16,6 +16,7 @@ class CryptoSigner {
   );
   static const _seedKey = 'ed25519_seed';
   static const _deviceIdKey = 'device_id_key';
+  static const _enrolledKey = 'device_enrolled';
   static final _algo = Ed25519();
 
   static SimpleKeyPair? _pair;
@@ -66,7 +67,18 @@ class CryptoSigner {
   static Future<void> warmUp() async {
     await _keyPair();
     await getDeviceId();
-    await registerDevice();
+    // Offline-first: the app MUST boot without connectivity. Once the device is
+    // enrolled we never touch the network on startup again. Before enrollment we
+    // try once, but treat ANY failure (offline, unreachable backend, timeout) as
+    // non-fatal and retry on the next launch — a dead backend can never strand
+    // the app on the splash screen.
+    final enrolled = await _storage.read(key: _enrolledKey);
+    if (enrolled == '1') return;
+    try {
+      await registerDevice();
+    } catch (e) {
+      debugPrint('[CryptoSigner] enrollment deferred (retry next launch): $e');
+    }
   }
 
   static Future<void> registerDevice() async {
@@ -82,19 +94,26 @@ class CryptoSigner {
     if (apiBaseUrl.isEmpty) {
       throw StateError('DMRV_API_BASE_URL is required.');
     }
-    final response = await http.post(
-      Uri.parse('$apiBaseUrl/api/v1/register'),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Enrollment-Token': enrollmentToken,
-      },
-      body: jsonEncode({'device_id': deviceId, 'public_key': publicKey}),
-    );
-    if (response.statusCode != 201 && response.statusCode != 409) {
-      throw StateError(
-        'Device registration failed: ${response.statusCode} ${response.body}',
-      );
+    final response = await http
+        .post(
+          Uri.parse('$apiBaseUrl/api/v1/register'),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Enrollment-Token': enrollmentToken,
+          },
+          body: jsonEncode({'device_id': deviceId, 'public_key': publicKey}),
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode == 201 || response.statusCode == 409) {
+      // 201 = newly enrolled; 409 = already registered server-side. Either way
+      // this device's key is on the server — persist so future launches skip
+      // the startup network call entirely.
+      await _storage.write(key: _enrolledKey, value: '1');
+      return;
     }
+    throw StateError(
+      'Device registration failed: ${response.statusCode} ${response.body}',
+    );
   }
 
   /// CANONICAL STRING (frozen): method\npath\nidempotencyKey\nsha256(jsonBody)\ndeviceId
@@ -128,8 +147,8 @@ class CryptoSigner {
     required String jsonBody,
   }) async {
     if (isDeviceCompromisedGlobally) throw StateError('device_compromised');
-    final signedAt =
-        (DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000).toString();
+    final signedAt = (DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000)
+        .toString();
     final bodySha = sha256.convert(utf8.encode(jsonBody)).toString();
     final canonical =
         '$method\n$path\n$idempotencyKey\n$bodySha\n$deviceId\n$signedAt';
