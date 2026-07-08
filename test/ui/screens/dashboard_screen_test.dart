@@ -3,9 +3,10 @@ import 'package:dmrv_app/data/local/database_provider.dart';
 import 'package:dmrv_app/providers/dashboard_provider.dart';
 import 'package:dmrv_app/providers/sync_providers.dart';
 import 'package:dmrv_app/services/sync_queue_manager.dart';
-import 'package:dmrv_app/ui/design/farmer_theme.dart';
+import 'package:dmrv_app/ui/components/dmrv_button.dart';
+import 'package:dmrv_app/ui/design/tokens.dart';
 import 'package:dmrv_app/ui/screens/dashboard_screen.dart';
-import 'package:dmrv_app/ui/widgets/premium_action_card.dart';
+import 'package:dmrv_app/ui/widgets/premium_action_card.dart' show CardStatus;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -77,12 +78,12 @@ void main() {
         // Verify sync banner shows "ALL DATA SECURE"
         expect(find.text('ALL DATA SECURE'), findsOneWidget);
 
-        // Verify the checkmark emoji is present
-        expect(find.text('✅'), findsOneWidget);
+        // Verify the synced icon is present
+        expect(find.byIcon(Icons.verified_outlined), findsOneWidget);
 
-        // Verify the color is fieldGreen (by checking the text widget)
+        // Verify the color is the success token
         final textWidget = tester.widget<Text>(find.text('ALL DATA SECURE'));
-        expect(textWidget.style?.color, FarmerTheme.fieldGreen);
+        expect(textWidget.style?.color, DmrvTokens.india.success);
 
         // Clean up infinite animation
         await tester.pumpWidget(const SizedBox());
@@ -109,12 +110,12 @@ void main() {
         // Verify sync banner shows "3 RECORDS PENDING"
         expect(find.text('3 RECORDS PENDING'), findsOneWidget);
 
-        // Verify the cloud emoji is present
-        expect(find.text('☁'), findsOneWidget);
+        // Verify the pending (cloud) icon is present
+        expect(find.byIcon(Icons.cloud_queue_rounded), findsOneWidget);
 
-        // Verify the color is neonYellow
+        // Verify the color is the accent-text token
         final textWidget = tester.widget<Text>(find.text('3 RECORDS PENDING'));
-        expect(textWidget.style?.color, FarmerTheme.neonYellow);
+        expect(textWidget.style?.color, DmrvTokens.india.accentText);
 
         // Clean up infinite animation
         await tester.pumpWidget(const SizedBox());
@@ -123,7 +124,7 @@ void main() {
     );
 
     testWidgets(
-      'Test 3: bleStatus = CardStatus.pending → BLE step renders as RuggedButton (primary)',
+      'Test 3: bleStatus = CardStatus.pending → BLE step renders a primary DmrvButton',
       (tester) async {
         await tester.pumpWidget(
           buildTestWidget(
@@ -138,21 +139,15 @@ void main() {
 
         await tester.pump(const Duration(milliseconds: 500));
 
-        // Verify BLE step shows as pending with RuggedButton
+        // Verify BLE step shows as pending with a DmrvButton
         expect(find.text('Connect BLE Sensor'), findsOneWidget);
 
-        // Verify the "TAP TO START" button exists (RuggedButton)
-        expect(find.text('TAP TO START'), findsAtLeastNWidgets(1));
-
-        // Verify the button has neonYellow background (RuggedButton primary variant)
-        final buttonFinder = find
-            .ancestor(
-              of: find.text('TAP TO START'),
-              matching: find.byType(Material),
-            )
-            .first;
-        final material = tester.widget<Material>(buttonFinder);
-        expect(material.color, FarmerTheme.neonYellow);
+        // Verify the "TAP TO START" button exists and is a primary DmrvButton
+        expect(find.widgetWithText(DmrvButton, 'TAP TO START'), findsOneWidget);
+        final btn = tester.widget<DmrvButton>(
+          find.widgetWithText(DmrvButton, 'TAP TO START'),
+        );
+        expect(btn.variant, DmrvButtonVariant.primary);
 
         // Clean up infinite animation
         await tester.pumpWidget(const SizedBox());
@@ -191,17 +186,9 @@ void main() {
         final opacity = tester.widget<Opacity>(opacityFinder);
         expect(opacity.opacity, 0.4);
 
-        // Verify no "TAP TO START" button for locked step
-        final yieldButtons = find.descendant(
-          of: find
-              .ancestor(
-                of: find.text('Record Yield Weight'),
-                matching: find.byType(Container),
-              )
-              .first,
-          matching: find.text('TAP TO START'),
-        );
-        expect(yieldButtons, findsNothing);
+        // No step is pending in this state, so there is no call-to-action.
+        expect(find.text('TAP TO START'), findsNothing);
+        expect(find.byType(DmrvButton), findsNothing);
 
         // Clean up infinite animation
         await tester.pumpWidget(const SizedBox());

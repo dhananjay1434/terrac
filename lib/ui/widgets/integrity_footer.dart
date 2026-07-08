@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../design/app_theme.dart';
+import '../design/tokens.dart';
 
+/// The persistent trust strip at the bottom of every screen.
+///
+/// Paper surface with a hairline top rule (no dark "vault" panel, no heavy
+/// shadow — both die in sunlight). A small live dot + integrity line, and the
+/// last evidence hash in tabular metadata. Reads entirely from tokens.
 class IntegrityFooter extends StatelessWidget {
   final String lastHash;
 
@@ -9,20 +14,14 @@ class IntegrityFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final TextStyle? monoStyle = Theme.of(context).textTheme.bodyMedium;
+    final t = context.tokens;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-      decoration: const BoxDecoration(
-        color: AppTheme.midnightCyber,
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x66000000),
-            blurRadius: 20,
-            offset: Offset(0, -4),
-          ),
-        ],
+      padding: EdgeInsets.fromLTRB(t.gapXL, t.gapL, t.gapXL, t.gapXL + 8),
+      decoration: BoxDecoration(
+        color: t.surface,
+        border: Border(top: BorderSide(color: t.border, width: 1.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -33,22 +32,27 @@ class IntegrityFooter extends StatelessWidget {
               Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(
-                  color: AppTheme.telemetryCyan,
+                decoration: BoxDecoration(
+                  color: t.live,
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: t.gapS),
               Text(
                 'SYSTEM INTEGRITY: SECURE',
-                style: monoStyle?.copyWith(color: AppTheme.telemetryCyan),
+                style: t.chipLabel.copyWith(color: t.success),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: t.gapS),
           Text(
             'LAST HASH: $lastHash',
-            style: monoStyle?.copyWith(color: AppTheme.telemetryCyan70),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: t.metadata.copyWith(
+              color: t.textSecondary,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),

@@ -117,7 +117,9 @@ class DmrvTokens extends ThemeExtension<DmrvTokens> {
     onSuccess: Color(0xFFFFFFFF), // white on green fill — 6.48:1
     danger: Color(0xFFB91C1C), // hotIronRed — 5.25:1 on paper
     onDanger: Color(0xFFFFFFFF), // white on red fill — ~5.8:1
-    dangerSurface: Color(0xFFF4E4E0), // warm light error wash (danger ~6:1 on it)
+    dangerSurface: Color(
+      0xFFF4E4E0,
+    ), // warm light error wash (danger ~6:1 on it)
     certified: Color(0xFF2E3A8C), // sealBlue (the mohar) — 8.11:1 on paper
     live: Color(0xFF2E6B1F), // live indicator = tractorGreen dot
     // Structure
@@ -344,7 +346,10 @@ ThemeData buildDmrvTheme(DmrvTokens t) {
   );
 }
 
-/// `context.tokens` — the access pattern used everywhere in the UI.
+/// `context.tokens` — the access pattern used everywhere in the UI. Falls back
+/// to the India skin if no DmrvTokens extension is installed (single-skin
+/// today), so a screen or a widget test can never crash on a missing theme.
 extension DmrvTokensContext on BuildContext {
-  DmrvTokens get tokens => Theme.of(this).extension<DmrvTokens>()!;
+  DmrvTokens get tokens =>
+      Theme.of(this).extension<DmrvTokens>() ?? DmrvTokens.india;
 }

@@ -10,10 +10,11 @@ import '../../providers/dashboard_provider.dart';
 import '../../providers/dashboard_stats_provider.dart';
 import '../../providers/sync_providers.dart';
 
-import '../design/farmer_theme.dart';
+import '../components/dmrv_button.dart';
+import '../components/dmrv_panel.dart';
+import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
-import '../widgets/premium_action_card.dart';
-import '../widgets/rugged_button.dart';
+import '../widgets/premium_action_card.dart' show CardStatus;
 import 'package:dmrv_app/l10n/app_localizations.dart';
 import 'lantana_sourcing_screen.dart';
 import 'proof_wallet_screen.dart';
@@ -41,7 +42,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.04).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
   }
@@ -67,170 +68,140 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     required String value,
     required IconData icon,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: FarmerTheme.fogWhite05,
-        border: Border.all(color: FarmerTheme.fogWhite10),
-        borderRadius: BorderRadius.circular(8),
-      ),
+    final t = context.tokens;
+    return DmrvPanel(
+      padding: EdgeInsets.all(t.gapM),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: FarmerTheme.neonYellow),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontFamily: 'SpaceGrotesk',
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.0,
-                  color: FarmerTheme.fogWhite,
+              Icon(icon, size: 18, color: t.accentText),
+              SizedBox(width: t.gapS),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: t.chipLabel.copyWith(color: t.textSecondary),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontFamily: 'SpaceMono',
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: FarmerTheme.pureAlbedo,
-            ),
-          ),
+          SizedBox(height: t.gapM),
+          Text(value, style: t.numericMedium.copyWith(color: t.textPrimary)),
         ],
       ),
     );
   }
 
   Widget _buildConnector({bool nextIsPending = false}) {
+    final t = context.tokens;
     return Container(
-      height: 24,
-      width: 4,
-      margin: const EdgeInsets.only(left: 32),
+      height: 20,
+      width: 3,
+      margin: EdgeInsets.only(left: t.gapXL + 16),
       decoration: BoxDecoration(
-        color: nextIsPending
-            ? FarmerTheme.neonYellow30
-            : FarmerTheme.fogWhite30,
+        color: nextIsPending ? t.accent : t.border,
         borderRadius: BorderRadius.circular(2),
       ),
     );
   }
 
-  /// Renders a PENDING step as a full-width RuggedButton (primary variant).
+  /// A PENDING step: a focused panel with a primary DmrvButton call-to-action.
   Widget _buildPendingStep({
     required String title,
     required String subtitleHindi,
     required IconData icon,
     required VoidCallback onTap,
   }) {
+    final t = context.tokens;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: FarmerTheme.neonYellow20,
-                  shape: BoxShape.circle,
+      padding: EdgeInsets.symmetric(horizontal: t.gapL, vertical: t.gapS),
+      child: DmrvPanel(
+        accent: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: t.accent.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 26, color: t.accentText),
                 ),
-                child: Icon(icon, size: 28, color: FarmerTheme.neonYellow),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontFamily: 'SpaceGrotesk',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: FarmerTheme.pureAlbedo,
+                SizedBox(width: t.gapM),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: t.blockHeader.copyWith(color: t.textPrimary),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitleHindi,
-                      style: const TextStyle(
-                        fontFamily: 'NotoSansDevanagari',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: FarmerTheme.fogWhite,
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitleHindi,
+                        style: t.bodyHindi.copyWith(color: t.textSecondary),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          RuggedButton(
-            label: AppLocalizations.of(context)!.tap_to_start,
-            onPressed: onTap,
-            variant: RuggedButtonVariant.primary,
-          ),
-        ],
+              ],
+            ),
+            SizedBox(height: t.gapL),
+            DmrvButton(
+              label: AppLocalizations.of(context)!.tap_to_start,
+              onPressed: onTap,
+              variant: DmrvButtonVariant.primary,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// Renders a VERIFIED step as a compact green row with checkmark.
+  /// A VERIFIED step: a compact success row with a check.
   Widget _buildCompletedStep({
     required String title,
     required VoidCallback? onTap,
   }) {
+    final t = context.tokens;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: t.gapL, vertical: t.gapS),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          borderRadius: BorderRadius.circular(t.radiusM),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: t.gapM, vertical: t.gapM),
             child: Row(
               children: [
                 Container(
                   width: 32,
                   height: 32,
-                  decoration: const BoxDecoration(
-                    color: FarmerTheme.fieldGreen,
+                  decoration: BoxDecoration(
+                    color: t.success,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.check,
-                    size: 20,
-                    color: FarmerTheme.deepSlate,
-                  ),
+                  child: Icon(Icons.check, size: 20, color: t.onSuccess),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: t.gapM),
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
-                      fontFamily: 'SpaceGrotesk',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: FarmerTheme.fieldGreen,
+                    style: t.metadata.copyWith(
+                      color: t.success,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 14,
-                  color: FarmerTheme.fieldGreen,
-                ),
+                Icon(Icons.arrow_forward_ios, size: 14, color: t.success),
               ],
             ),
           ),
@@ -239,38 +210,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  /// Renders a LOCKED step as a compact greyed row with lock icon.
+  /// A LOCKED step: a greyed row with a lock.
   Widget _buildLockedStep({required String title}) {
+    final t = context.tokens;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: t.gapL, vertical: t.gapS),
       child: Opacity(
         opacity: 0.4,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: t.gapM, vertical: t.gapM),
           child: Row(
             children: [
               Container(
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: FarmerTheme.fogWhite30,
+                  color: t.border,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.lock,
-                  size: 18,
-                  color: FarmerTheme.fogWhite,
-                ),
+                child: Icon(Icons.lock, size: 18, color: t.textSecondary),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: t.gapM),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
-                    fontFamily: 'SpaceGrotesk',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: FarmerTheme.fogWhite,
+                  style: t.metadata.copyWith(
+                    color: t.textSecondary,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -386,12 +352,43 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     }
   }
 
+  Widget _syncBanner(int count) {
+    final t = context.tokens;
+    final bool allSynced = count == 0;
+    final Color tone = allSynced ? t.success : t.accentText;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: EdgeInsets.symmetric(horizontal: t.gapXL, vertical: t.gapM),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: 0.10),
+        border: Border(
+          bottom: BorderSide(color: tone.withValues(alpha: 0.30), width: 1),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            allSynced ? Icons.verified_outlined : Icons.cloud_queue_rounded,
+            size: 20,
+            color: tone,
+          ),
+          SizedBox(width: t.gapS),
+          Text(
+            allSynced ? 'ALL DATA SECURE' : '$count RECORDS PENDING',
+            style: t.chipLabel.copyWith(fontSize: 15, color: tone),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Instantiate the background sync manager so it starts listening to network events.
     ref.watch(syncQueueManagerProvider);
 
-    final TextTheme textTheme = Theme.of(context).textTheme;
+    final t = context.tokens;
     final DashboardState state = ref.watch(dashboardProvider);
     final dbAsync = ref.watch(appDatabaseProvider);
     final syncCountAsync = ref.watch(pendingOutboxCountProvider);
@@ -399,98 +396,47 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final isCompromised = ref.watch(deviceCompromisedProvider);
 
     return dbAsync.when(
-      loading: () => const Scaffold(
-        backgroundColor: FarmerTheme.deepSlate,
+      loading: () => Scaffold(
+        backgroundColor: t.surface,
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: FarmerTheme.neonYellow),
-              SizedBox(height: 16),
+              CircularProgressIndicator(color: t.accent),
+              SizedBox(height: t.gapL),
               Text(
                 'Initializing secure database…',
-                style: TextStyle(
-                  fontFamily: 'SpaceMono',
-                  fontSize: 14,
-                  color: FarmerTheme.pureAlbedo,
-                ),
+                style: t.metadata.copyWith(color: t.textSecondary),
               ),
             ],
           ),
         ),
       ),
       error: (err, stack) => Scaffold(
-        backgroundColor: FarmerTheme.deepSlate,
+        backgroundColor: t.surface,
         body: Center(
           child: Text(
             'Database error: $err',
-            style: const TextStyle(color: FarmerTheme.crimsonRed),
+            style: t.body.copyWith(color: t.danger),
           ),
         ),
       ),
       data: (db) {
         return Scaffold(
-          backgroundColor: FarmerTheme.deepSlate,
+          backgroundColor: t.surface,
           body: Stack(
             children: [
               SafeArea(
                 bottom: false,
                 child: Column(
                   children: [
-                    // PHASE 2a: Sync Banner
                     syncCountAsync.when(
-                      data: (count) {
-                        final bool allSynced = count == 0;
-                        return Container(
-                          constraints: const BoxConstraints(minHeight: 56),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: allSynced
-                                ? FarmerTheme.fieldGreen15
-                                : FarmerTheme.neonYellow15,
-                            border: Border(
-                              bottom: BorderSide(
-                                color: allSynced
-                                    ? FarmerTheme.fieldGreen30
-                                    : FarmerTheme.neonYellow30,
-                                width: 1,
-                              ),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                allSynced ? '✅' : '☁',
-                                style: const TextStyle(fontSize: 20),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                allSynced
-                                    ? 'ALL DATA SECURE'
-                                    : '$count RECORDS PENDING',
-                                style: TextStyle(
-                                  fontFamily: 'SpaceGrotesk',
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                  color: allSynced
-                                      ? FarmerTheme.fieldGreen
-                                      : FarmerTheme.neonYellow,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                      data: (count) => _syncBanner(count),
                       loading: () => Container(
-                        height: 56,
+                        height: 52,
                         alignment: Alignment.center,
-                        child: const CircularProgressIndicator(
-                          color: FarmerTheme.neonYellow,
+                        child: CircularProgressIndicator(
+                          color: t.accent,
                           strokeWidth: 2,
                         ),
                       ),
@@ -503,24 +449,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.all(24),
+                              padding: EdgeInsets.all(t.gapXL),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     'TerraCipher',
-                                    style: textTheme.titleLarge?.copyWith(
-                                      color: FarmerTheme.pureAlbedo,
+                                    style: t.screenTitle.copyWith(
+                                      color: t.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     'dMRV Field Terminal v3.0',
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      color: FarmerTheme.fogWhite,
+                                    style: t.metadata.copyWith(
+                                      color: t.textSecondary,
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  SizedBox(height: t.gapXL),
                                   statsAsync.when(
                                     data: (stats) => Row(
                                       children: [
@@ -532,7 +478,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                             icon: Icons.scale,
                                           ),
                                         ),
-                                        const SizedBox(width: 12),
+                                        SizedBox(width: t.gapM),
                                         Expanded(
                                           child: _buildStatBox(
                                             title: 'BATCHES',
@@ -543,23 +489,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                         ),
                                       ],
                                     ),
-                                    loading: () => const Center(
+                                    loading: () => Center(
                                       child: CircularProgressIndicator(
-                                        color: FarmerTheme.neonYellow,
+                                        color: t.accent,
                                       ),
                                     ),
                                     error: (err, stack) => Text(
                                       'Stats Error: $err',
-                                      style: const TextStyle(
-                                        color: FarmerTheme.crimsonRed,
+                                      style: t.metadata.copyWith(
+                                        color: t.danger,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            // PHASE 2b: Progress Flow
+                            SizedBox(height: t.gapS),
                             // Step 1: Scan Biomass Input
                             if (state.biomassStatus == CardStatus.pending)
                               _buildPendingStep(
@@ -646,7 +591,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                   _handleCardTap('view_proof_wallet', db: db),
                             ),
 
-                            const SizedBox(height: 24),
+                            SizedBox(height: t.gapXL),
                           ],
                         ),
                       ),
@@ -658,37 +603,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               if (isCompromised)
                 Positioned.fill(
                   child: Container(
-                    color: Colors.black87,
+                    color: t.textPrimary.withValues(alpha: 0.92),
                     child: Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(24.0),
+                        padding: EdgeInsets.all(t.gapXL),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
-                              Icons.security,
-                              size: 64,
-                              color: FarmerTheme.crimsonRed,
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
+                            Icon(Icons.security, size: 64, color: t.danger),
+                            SizedBox(height: t.gapL),
+                            Text(
                               'SECURITY COMPROMISE DETECTED',
-                              style: TextStyle(
-                                fontFamily: 'SpaceGrotesk',
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: FarmerTheme.crimsonRed,
-                              ),
+                              textAlign: TextAlign.center,
+                              style: t.blockHeader.copyWith(color: t.danger),
                             ),
-                            const SizedBox(height: 12),
-                            const Text(
+                            SizedBox(height: t.gapM),
+                            Text(
                               'This device has failed hardware integrity checks (e.g. root, emulator, or hooking framework).\n\nAccess to TerraCipher is permanently locked to prevent Sybil attacks.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                height: 1.4,
-                              ),
+                              style: t.body.copyWith(color: t.surface),
                             ),
                           ],
                         ),

@@ -22,7 +22,7 @@ import 'package:dmrv_app/l10n/app_localizations.dart';
 import 'services/crypto_signer.dart';
 import 'services/device_integrity_service.dart';
 import 'services/secure_capture_service.dart';
-import 'ui/design/app_theme.dart';
+import 'ui/design/tokens.dart';
 import 'ui/screens/dashboard_screen.dart';
 
 void main() async {
@@ -69,7 +69,7 @@ class TerraCipherApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'TerraCipher',
-      theme: AppTheme.lightTheme,
+      theme: buildDmrvTheme(DmrvTokens.india),
       debugShowCheckedModeBanner: false,
       localizationsDelegates: const [
         AppLocalizations.delegate,
