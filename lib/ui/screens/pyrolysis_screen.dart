@@ -10,18 +10,17 @@ import '../../providers/dashboard_provider.dart';
 import '../../providers/pyrolysis_ble_notifier.dart';
 import '../../services/ble_permission_gate.dart';
 import '../../services/ble_temperature_service.dart';
-import '../design/app_theme.dart';
-
+import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
+import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
-import '../widgets/rugged_button.dart';
 import '../../services/secure_capture_service.dart';
 import '../../providers/smoke_evidence_provider.dart';
 import 'secure_camera_screen.dart';
 import 'yield_scale_screen.dart';
 
 /// =============================================================================
-/// PyrolysisScreen — migrated to AppTheme (Tactical Titanium light)
+/// PyrolysisScreen — India paper skin (tokens + Dmrv components)
 /// =============================================================================
 class PyrolysisScreen extends ConsumerStatefulWidget {
   const PyrolysisScreen({super.key});
@@ -30,8 +29,6 @@ class PyrolysisScreen extends ConsumerStatefulWidget {
 }
 
 class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
-  static const Color _errorRed = Color(0xFFDC2626);
-
   bool _permRequested = false;
   String? _permError;
   bool _ending = false;
@@ -128,13 +125,14 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final s = ref.watch(pyrolysisBleProvider);
     final lastHash = ref.watch(dashboardProvider).lastHash;
     final proofsAsync = ref.watch(smokeEvidenceProvider);
     final proofs = proofsAsync.valueOrNull ?? [];
 
     return Scaffold(
-      backgroundColor: AppTheme.tacticalTitanium,
+      backgroundColor: t.surface,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -147,54 +145,41 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                padding: EdgeInsets.fromLTRB(t.gapL, 4, t.gapL, t.gapL),
                 children: [
                   if (!_permRequested)
-                    PremiumFieldButton(
+                    DmrvButton(
                       label: 'CONNECT ESP32 THERMOCOUPLE',
                       testId: 'connect-esp32-thermocouple-btn',
-                      state: FieldButtonState.hiVis,
+                      variant: DmrvButtonVariant.primary,
                       onPressed: _requestPermsAndStart,
                     ),
                   if (_permError != null) ...[
-                    const SizedBox(height: 16),
+                    SizedBox(height: t.gapL),
                     PremiumFieldPanel(
-                      accentBorderColor: _errorRed,
-                      padding: const EdgeInsets.all(16),
+                      accentBorderColor: t.danger,
+                      padding: EdgeInsets.all(t.gapL),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.error_outline,
-                            color: _errorRed,
-                            size: 28,
-                          ),
-                          const SizedBox(width: 12),
+                          Icon(Icons.error_outline, color: t.danger, size: 28),
+                          SizedBox(width: t.gapM),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'BLE PERMISSIONS REQUIRED',
-                                  style: TextStyle(
-                                    fontFamily: 'SpaceGrotesk',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.6,
-                                    color: _errorRed,
-                                  ),
+                                  style: t.chipLabel.copyWith(color: t.danger),
                                 ),
-                                const SizedBox(height: 6),
+                                SizedBox(height: t.gapS),
                                 Text(
                                   _permError!,
-                                  style: const TextStyle(
-                                    fontFamily: 'SpaceMono',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: AppTheme.armorSlate,
+                                  style: t.metadata.copyWith(
+                                    color: t.textPrimary,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                                SizedBox(height: t.gapM),
                                 Row(
                                   children: [
                                     Expanded(
@@ -205,7 +190,7 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                                         onPressed: _requestPermsAndStart,
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
+                                    SizedBox(width: t.gapM),
                                     Expanded(
                                       child: PremiumFieldButton(
                                         label: 'OS SETTINGS',
@@ -224,16 +209,16 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 20),
+                  SizedBox(height: t.gapL),
                   _LinkStatePanel(connection: s.connection),
-                  const SizedBox(height: 20),
+                  SizedBox(height: t.gapL),
                   _TemperaturePanel(state: s),
-                  const SizedBox(height: 24),
+                  SizedBox(height: t.gapXL),
                   // Smoke photo capture button (only during active burn)
                   if (s.burnStartAt != null && proofs.length < 4)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: RuggedButton(
+                      padding: EdgeInsets.only(bottom: t.gapL),
+                      child: DmrvButton(
                         label: [
                           'CAPTURE 0% PROOF (IGNITION)',
                           'CAPTURE 50% PROOF (ACTIVE BURN)',
@@ -241,8 +226,8 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                           'CAPTURE 100% PROOF (QUENCHING)',
                         ][proofs.length],
                         onPressed: () => _captureSmoke(proofs.length),
-                        variant: RuggedButtonVariant.primary,
-                        semanticId: 'capture-smoke-proof-btn-${proofs.length}',
+                        variant: DmrvButtonVariant.primary,
+                        testId: 'capture-smoke-proof-btn-${proofs.length}',
                       ),
                     ),
                   if (proofs.isNotEmpty)
@@ -250,48 +235,44 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                       final stage =
                           "${proof.captureType.replaceAll('smoke_', '')}%";
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
+                        padding: EdgeInsets.only(bottom: t.gapL),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF00E676,
-                            ).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
+                            color: t.success.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(t.radiusS),
+                            border: Border.all(
+                              color: t.success.withValues(alpha: 0.4),
+                              width: 1,
+                            ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.check_circle,
-                                color: Color(0xFF00E676),
+                                color: t.success,
                                 size: 24,
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: t.gapM),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       '$stage SMOKE PROOF CAPTURED',
-                                      style: const TextStyle(
-                                        fontFamily: 'SpaceGrotesk',
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF00E676),
+                                      style: t.chipLabel.copyWith(
+                                        color: t.success,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       'SHA-256: ${proof.sha256Hash.substring(0, 16)}…',
-                                      style: TextStyle(
-                                        fontFamily: 'SpaceMono',
+                                      style: t.metadata.copyWith(
                                         fontSize: 11,
-                                        color: Colors.white.withValues(
-                                          alpha: 0.6,
-                                        ),
+                                        color: t.textSecondary,
                                       ),
                                     ),
                                   ],
@@ -303,17 +284,15 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                       );
                     }),
                   if (s.burnStartAt != null)
-                    PremiumFieldButton(
+                    DmrvButton(
                       label: _ending ? 'PERSISTING…' : 'END BURN',
                       testId: 'end-burn-btn',
-                      state: (_ending || proofs.length < 4)
-                          ? FieldButtonState.locked
-                          : FieldButtonState.stop,
+                      variant: DmrvButtonVariant.danger,
                       onPressed: (_ending || proofs.length < 4)
                           ? null
                           : _endBurn,
                     ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: t.gapL),
                 ],
               ),
             ),
@@ -335,6 +314,7 @@ class _LinkStatePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final PremiumChipStatus chipStatus = switch (connection) {
       BleConnState.idle => PremiumChipStatus.locked,
       BleConnState.disconnected => PremiumChipStatus.locked,
@@ -360,12 +340,10 @@ class _LinkStatePanel extends StatelessWidget {
               PremiumStatusChip(label: chipLabel, status: chipStatus),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: t.gapS),
           Text(
             'BLE ESP32 · Thermocouple 0x1809 (MAX31855)',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.armorSlate.withValues(alpha: 0.65),
-            ),
+            style: t.metadata.copyWith(color: t.textSecondary),
           ),
         ],
       ),
@@ -383,26 +361,24 @@ class _TemperaturePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final bool streaming = state.connection == BleConnState.connected;
-    final Color accent = streaming ? AppTheme.yieldGold : AppTheme.cobaltShield;
+    // Heat is orange: a live reading glows in the accent; idle is muted.
+    final Color accent = streaming ? t.accent : t.textDisabled;
     final String reading = state.liveCelsius?.toStringAsFixed(1) ?? '----';
 
     return PremiumFieldPanel(
-      accentBorderColor: streaming ? AppTheme.yieldGold : null,
+      accentBorderColor: streaming ? t.accent : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'LIVE TEMPERATURE (°C)',
-            style: TextStyle(
-              fontFamily: 'SpaceGrotesk',
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: accent,
+            style: t.chipLabel.copyWith(
+              color: streaming ? t.accentText : t.textSecondary,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: t.gapL),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -411,39 +387,26 @@ class _TemperaturePanel extends StatelessWidget {
                   identifier: 'live-temperature-counter',
                   child: Text(
                     reading,
-                    style: TextStyle(
-                      fontFamily: 'SpaceMono',
-                      fontSize: 72,
-                      fontWeight: FontWeight.w700,
-                      color: accent,
-                      height: 1.0,
-                    ),
+                    style: t.numericHero.copyWith(fontSize: 72, color: accent),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: t.gapM),
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Text(
                   '°C',
-                  style: TextStyle(
-                    fontFamily: 'SpaceGrotesk',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.armorSlate.withValues(alpha: 0.70),
-                  ),
+                  style: t.blockHeader.copyWith(color: t.textSecondary),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: t.gapM),
           Text(
             'samples logged (1/min): ${state.temperatureLog.length}    '
             'min=${state.temperatureLog.isEmpty ? "-" : state.minTemp.toStringAsFixed(1)}    '
             'max=${state.temperatureLog.isEmpty ? "-" : state.maxTemp.toStringAsFixed(1)}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.armorSlate.withValues(alpha: 0.70),
-            ),
+            style: t.metadata.copyWith(color: t.textSecondary),
           ),
         ],
       ),
