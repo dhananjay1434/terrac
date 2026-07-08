@@ -221,6 +221,21 @@ _ADMIN_SECRET = _require_secret("DMRV_ADMIN_SECRET")
 #                                  then). See FINDINGS_BACKLOG.
 _ATTESTATION_ENFORCED = False
 
+# T2.3 replay protection. The v1 request canonical carries no timestamp, so a
+# captured request replays forever. v2 appends a client-signed unix timestamp and
+# the server rejects requests outside a skew window. Rollout is backward
+# compatible: v1 (no X-Canonical-Version header) is still accepted until the
+# fleet ships v2 signing, then DMRV_REQUIRE_CANONICAL_V2=1 refuses v1. The skew
+# window is generous (rural devices drift) and env-tunable. Read live from env so
+# it survives importlib.reload(server) (see the rate-limit note).
+def _canonical_skew_seconds() -> int:
+    return max(1, _rl_int("DMRV_CANONICAL_SKEW_SECONDS", 300))
+
+
+def _require_canonical_v2() -> bool:
+    return os.environ.get("DMRV_REQUIRE_CANONICAL_V2", "0") == "1"
+
+
 log = logging.getLogger("dmrv")
 logging.basicConfig(level=logging.INFO)
 
@@ -524,6 +539,8 @@ async def verify_signature(
     x_device_id: Optional[str] = Header(None, alias="X-Device-Id"),
     x_signature: Optional[str] = Header(None, alias="X-Signature"),
     x_idempotency_key: Optional[str] = Header(None, alias="X-Idempotency-Key"),
+    x_canonical_version: Optional[str] = Header(None, alias="X-Canonical-Version"),
+    x_signed_at: Optional[str] = Header(None, alias="X-Signed-At"),
     session: AsyncSession = Depends(get_session),
 ) -> str:
     if not x_signature:
@@ -546,15 +563,36 @@ async def verify_signature(
         )
     pub = Ed25519PublicKey.from_public_bytes(_b64url_decode(device.public_key))
     body_hash = hashlib.sha256(await request.body()).hexdigest()
-    canonical = "\n".join(
-        [
-            request.method.upper(),
-            request.url.path,
-            x_idempotency_key or "",
-            body_hash,
-            x_device_id,
-        ]
-    ).encode("utf-8")
+    fields = [
+        request.method.upper(),
+        request.url.path,
+        x_idempotency_key or "",
+        body_hash,
+        x_device_id,
+    ]
+    # T2.3: v2 binds a client timestamp and rejects stale/skewed requests (replay
+    # window). v1 (no version header) is still accepted unless v2 is required.
+    if x_canonical_version == "2":
+        if not x_signed_at:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_signed_at"
+            )
+        try:
+            signed_at = int(x_signed_at)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="bad_signed_at"
+            )
+        if abs(int(time.time()) - signed_at) > _canonical_skew_seconds():
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="stale_signature"
+            )
+        fields.append(str(signed_at))
+    elif _require_canonical_v2():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="canonical_v2_required"
+        )
+    canonical = "\n".join(fields).encode("utf-8")
     try:
         pub.verify(_b64url_decode(x_signature), canonical)
     except InvalidSignature:

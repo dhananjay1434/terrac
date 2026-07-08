@@ -91,4 +91,43 @@ void main() {
       );
     },
   );
+
+  test('signRequestV2 binds a timestamp and verifies against the v2 canonical',
+      () async {
+    const method = 'POST';
+    const path = '/api/v1/telemetry';
+    const op = 'op-1';
+    const dev = 'dev-1';
+    const body = '{"t":1}';
+
+    final (sigB64, signedAt) = await CryptoSigner.signRequestV2(
+      method: method,
+      path: path,
+      idempotencyKey: op,
+      deviceId: dev,
+      jsonBody: body,
+    );
+
+    // signedAt is a plausible unix-seconds string.
+    final ts = int.parse(signedAt);
+    expect(ts, greaterThan(1000000000));
+
+    final pub = SimplePublicKey(
+      base64Url.decode(_pad(await CryptoSigner.publicKeyB64())),
+      type: KeyPairType.ed25519,
+    );
+    final h = sha256.convert(utf8.encode(body)).toString();
+    final canonicalV2 = '$method\n$path\n$op\n$h\n$dev\n$signedAt';
+    final sig = Signature(base64Url.decode(_pad(sigB64)), publicKey: pub);
+    expect(
+      await algo.verify(utf8.encode(canonicalV2), signature: sig),
+      isTrue,
+    );
+    // The v1 canonical (no timestamp) must NOT verify the v2 signature.
+    final canonicalV1 = '$method\n$path\n$op\n$h\n$dev';
+    expect(
+      await algo.verify(utf8.encode(canonicalV1), signature: sig),
+      isFalse,
+    );
+  });
 }

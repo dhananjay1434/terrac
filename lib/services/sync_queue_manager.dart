@@ -325,7 +325,10 @@ class SyncQueueManager {
 
         if (entry.jsonSyncedAt == null) {
           final deviceId = await CryptoSigner.getDeviceId();
-          final signature = await CryptoSigner.signRequest(
+          // T2.3: sign the v2 canonical (bound to a client timestamp) so the
+          // server can reject replayed requests. Server still accepts v1 until
+          // the fleet is upgraded, so this is a safe, backward-compatible switch.
+          final (signature, signedAt) = await CryptoSigner.signRequestV2(
             method: 'POST',
             path: '/api/v1/$endpoint',
             idempotencyKey: entry.operationId,
@@ -340,6 +343,8 @@ class SyncQueueManager {
               'X-Idempotency-Key': entry.operationId,
               'X-Device-Id': deviceId,
               'X-Signature': signature,
+              'X-Canonical-Version': '2',
+              'X-Signed-At': signedAt,
             },
             body: entry.payloadJson,
           );

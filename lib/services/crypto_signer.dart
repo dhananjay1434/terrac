@@ -115,6 +115,31 @@ class CryptoSigner {
     return base64Url.encode(sig.bytes).replaceAll('=', '');
   }
 
+  /// T2.3 replay protection — v2 request canonical binds a client unix timestamp:
+  ///   method\npath\nidempotencyKey\nsha256(jsonBody)\ndeviceId\nsignedAt
+  /// The server (verify_signature, X-Canonical-Version: 2) rejects requests
+  /// outside its skew window, so a captured request cannot be replayed forever.
+  /// Returns (signature, signedAt) — send signedAt as the X-Signed-At header.
+  static Future<(String, String)> signRequestV2({
+    required String method,
+    required String path,
+    required String idempotencyKey,
+    required String deviceId,
+    required String jsonBody,
+  }) async {
+    if (isDeviceCompromisedGlobally) throw StateError('device_compromised');
+    final signedAt =
+        (DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000).toString();
+    final bodySha = sha256.convert(utf8.encode(jsonBody)).toString();
+    final canonical =
+        '$method\n$path\n$idempotencyKey\n$bodySha\n$deviceId\n$signedAt';
+    final sig = await _algo.sign(
+      utf8.encode(canonical),
+      keyPair: await _keyPair(),
+    );
+    return (base64Url.encode(sig.bytes).replaceAll('=', ''), signedAt);
+  }
+
   /// CANONICAL STRING (frozen, media): the multipart body is not byte-reproducible,
   /// so we sign the DECLARED file hash instead of sha256(body). MUST byte-match the
   /// server's verify_media_signature:
