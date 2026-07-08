@@ -197,6 +197,11 @@ def _require_secret(name: str) -> str:
     literals stay valid; never set it in production). Raises RuntimeError naming
     the offending variable.
     """
+    # TODO(deploy, T2.8): at first real deployment generate FRESH 32-byte
+    # DMRV_HMAC_SECRET / DMRV_ADMIN_SECRET (base64url) in the platform secret
+    # manager — never a file. Rotating DMRV_HMAC_SECRET invalidates verification
+    # of already-issued lca_signature values, so archive the old key for
+    # historical verification or re-sign historical audits in a migration.
     value = os.environ.get(name)
     if not value:
         raise RuntimeError(f"{name} env var is required.")

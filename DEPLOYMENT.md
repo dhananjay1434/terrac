@@ -235,16 +235,44 @@ Logs are written to stdout. Configure log aggregation:
 
 ## Security Checklist
 
-- [ ] Enable HTTPS/TLS
-- [ ] Implement rate limiting
-- [ ] Add authentication (API keys, JWT, OAuth)
-- [ ] Validate file types and sizes
+- [x] Enable HTTPS/TLS *(cert pinned by the client — see cert-rotation note below)*
+- [x] Implement rate limiting *(T2.2: per-route, env-tunable `DMRV_RATELIMIT_*`)*
+- [x] Add authentication *(Ed25519 device signatures + `X-Admin-Secret`)*
+- [x] Validate file types and sizes *(SHA-256 + 10 MB media cap)*
 - [ ] Scan uploaded files for malware
-- [ ] Use secrets manager for credentials
-- [ ] Enable CORS with specific origins
-- [ ] Implement request signing for Flutter app
+- [x] Use secrets manager for credentials *(see secret rotation below)*
+- [x] Enable CORS with specific origins *(`DMRV_ALLOWED_ORIGIN`)*
+- [x] Implement request signing for Flutter app *(T2.3: v2 signed-timestamp canonical)*
 - [ ] Set up WAF (Web Application Firewall)
 - [ ] Regular security updates
+
+### Secret rotation (T2.8)
+
+At first real deployment, generate FRESH 32-byte `DMRV_HMAC_SECRET` and
+`DMRV_ADMIN_SECRET` (base64url) and store them in the platform secret manager —
+never in a checked-out file. The dev secrets used locally must never reach
+production. `_require_secret` enforces a length/entropy floor (>= 32 chars, >= 10
+distinct); do NOT set `DMRV_ALLOW_WEAK_SECRETS=1` outside tests/CI.
+
+**Caveat:** rotating `DMRV_HMAC_SECRET` invalidates verification of already-issued
+`lca_signature` values (they were signed with the old key). Either archive the old
+key material for historical verification, or re-sign historical audits in a
+migration before rotating.
+
+### Enforcement switches to flip when ready
+
+- `DMRV_REQUIRE_CANONICAL_V2=1` — refuse legacy v1 request signatures (do this only
+  after the field fleet ships a T2.3 v2-signing build).
+- `DMRV_ATTESTATION_ENFORCED=1` — make unattested batches provisional (do this only
+  after the real Play Integrity / DeviceCheck verifier is implemented in
+  `attestation.py` and the fleet is verified-capable).
+
+### TLS certificate pinning
+
+The client pins `DMRV_PINNED_CERT_PEM` in release builds. Decide the pin target and
+document it: pinning the leaf cert means app config must rotate on every renewal;
+pinning an intermediate/SPKI survives leaf renewals. Coordinate cert renewal with
+app releases accordingly.
 
 ## Performance Tuning
 
