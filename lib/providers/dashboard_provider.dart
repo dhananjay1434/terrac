@@ -2,7 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local/app_database.dart';
-import '../ui/widgets/premium_action_card.dart';
+
+/// Lifecycle state of a dashboard step card. (Relocated here from the deleted
+/// premium_action_card widget — this is the dashboard's domain enum.)
+enum CardStatus {
+  locked, // inactive, waiting for a prior step
+  pending, // active, awaiting capture / BLE response
+  verified, // evidence confirmed for this step
+}
 
 @immutable
 class DashboardState {

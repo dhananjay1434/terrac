@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dmrv_app/ui/design/app_theme.dart';
 import 'package:dmrv_app/ui/design/premium_field_components.dart';
+import 'package:dmrv_app/ui/design/tokens.dart';
 
 Widget _host(Widget child) {
   return MaterialApp(
-    theme: AppTheme.lightTheme,
+    theme: buildDmrvTheme(DmrvTokens.india),
     home: Scaffold(body: child),
   );
 }
@@ -66,9 +66,9 @@ void main() {
     ) async {
       await tester.pumpWidget(
         _host(
-          const PremiumFieldPanel(
-            accentBorderColor: AppTheme.yieldGold,
-            child: SizedBox(width: 100, height: 100),
+          PremiumFieldPanel(
+            accentBorderColor: DmrvTokens.india.success,
+            child: const SizedBox(width: 100, height: 100),
           ),
         ),
       );
@@ -87,8 +87,8 @@ void main() {
       final border = decoration.border as Border;
       expect(
         border.top.color,
-        AppTheme.yieldGold,
-        reason: 'accentBorderColor must override the default cobalt edge',
+        DmrvTokens.india.success,
+        reason: 'accentBorderColor must override the default hairline edge',
       );
       expect(
         border.top.width,

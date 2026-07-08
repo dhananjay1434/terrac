@@ -6,7 +6,6 @@ import 'package:dmrv_app/services/sync_queue_manager.dart';
 import 'package:dmrv_app/ui/components/dmrv_button.dart';
 import 'package:dmrv_app/ui/design/tokens.dart';
 import 'package:dmrv_app/ui/screens/dashboard_screen.dart';
-import 'package:dmrv_app/ui/widgets/premium_action_card.dart' show CardStatus;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
