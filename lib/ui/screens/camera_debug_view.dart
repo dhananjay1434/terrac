@@ -6,8 +6,9 @@ import '../../data/local/database_provider.dart';
 import '../../providers/batch_session_notifier.dart';
 import '../../providers/sync_providers.dart';
 import '../../services/secure_capture_service.dart';
-import '../design/app_theme.dart';
+import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
+import '../design/tokens.dart';
 import 'secure_camera_screen.dart';
 
 /// =============================================================================
@@ -130,12 +131,13 @@ class _CameraDebugViewState extends ConsumerState<CameraDebugView> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final batchUuid = ref.watch(batchSessionProvider);
     final pending = ref
         .watch(pendingOutboxCountProvider)
         .maybeWhen(data: (v) => v, orElse: () => 0);
     return Scaffold(
-      backgroundColor: AppTheme.tacticalTitanium,
+      backgroundColor: t.surface,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -150,16 +152,13 @@ class _CameraDebugViewState extends ConsumerState<CameraDebugView> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        border: Border.all(
-                          color: AppTheme.cobaltShield20,
-                          width: 1,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: t.border, width: 1),
+                        borderRadius: BorderRadius.circular(t.radiusM),
                       ),
                       alignment: Alignment.center,
-                      child: const Icon(
+                      child: Icon(
                         Icons.arrow_back,
-                        color: AppTheme.armorSlate,
+                        color: t.textPrimary,
                         size: 22,
                       ),
                     ),
@@ -180,9 +179,9 @@ class _CameraDebugViewState extends ConsumerState<CameraDebugView> {
                   children: [
                     Text(
                       'SESSION',
-                      style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                        color: AppTheme.yieldGold,
-                      ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleMedium!.copyWith(color: t.success),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -200,12 +199,10 @@ class _CameraDebugViewState extends ConsumerState<CameraDebugView> {
                 ),
               ),
               const SizedBox(height: 20),
-              PremiumFieldButton(
+              DmrvButton(
                 label: _running ? 'RUNNING…' : 'RUN CAPTURE PIPELINE',
                 testId: 'debug-run-pipeline-btn',
-                state: _running
-                    ? FieldButtonState.locked
-                    : FieldButtonState.hiVis,
+                variant: DmrvButtonVariant.primary,
                 onPressed: _running ? null : _runPipeline,
               ),
               const SizedBox(height: 20),
@@ -217,9 +214,7 @@ class _CameraDebugViewState extends ConsumerState<CameraDebugView> {
                           ? 'ERR // $_error'
                           : (_log ?? 'Press SHUTTER to begin.'),
                       style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                        color: _error != null
-                            ? Colors.red
-                            : AppTheme.armorSlate,
+                        color: _error != null ? t.danger : t.textPrimary,
                       ),
                     ),
                   ),

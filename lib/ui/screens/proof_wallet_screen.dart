@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/proof_queries.dart';
 import '../../providers/sync_providers.dart';
-import '../design/farmer_theme.dart';
+import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
 
 /// =============================================================================
@@ -18,10 +18,11 @@ class ProofWalletScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.tokens;
     final receipts = ref.watch(cryptographicReceiptsProvider);
 
     return Scaffold(
-      backgroundColor: FarmerTheme.deepSlate,
+      backgroundColor: t.surface,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -34,73 +35,57 @@ class ProofWalletScreen extends ConsumerWidget {
                 children: [
                   InkWell(
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Padding(
-                      padding: EdgeInsets.all(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
                       child: Icon(
                         Icons.arrow_back,
-                        color: FarmerTheme.pureAlbedo,
+                        color: t.textPrimary,
                         size: 22,
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'PROOF WALLET',
-                      style: TextStyle(
-                        fontFamily: 'SpaceGrotesk',
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+                      style: t.blockHeader.copyWith(
                         letterSpacing: 1.0,
-                        color: FarmerTheme.neonYellow,
+                        color: t.certified,
                       ),
                     ),
                   ),
-                  const Icon(
-                    Icons.verified_user,
-                    color: FarmerTheme.neonYellow,
-                    size: 24,
-                  ),
+                  Icon(Icons.verified_user, color: t.certified, size: 24),
                 ],
               ),
             ),
             // Body
             Expanded(
               child: receipts.when(
-                loading: () => const Center(
-                  child: CircularProgressIndicator(
-                    color: FarmerTheme.neonYellow,
-                  ),
-                ),
+                loading: () =>
+                    Center(child: CircularProgressIndicator(color: t.accent)),
                 error: (e, stack) => Center(
                   child: Text(
                     'ERROR // $e',
-                    style: const TextStyle(
-                      fontFamily: 'SpaceMono',
-                      fontSize: 14,
-                      color: FarmerTheme.crimsonRed,
-                    ),
+                    style: t.metadata.copyWith(color: t.danger),
                   ),
                 ),
                 data: (list) {
                   if (list.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.inbox_outlined,
                             size: 64,
-                            color: FarmerTheme.fogWhite,
+                            color: t.textSecondary,
                           ),
-                          SizedBox(height: 16),
+                          const SizedBox(height: 16),
                           Text(
                             'NO BATCHES RECORDED',
-                            style: TextStyle(
-                              fontFamily: 'SpaceGrotesk',
+                            style: t.blockHeader.copyWith(
                               fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: FarmerTheme.fogWhite,
+                              color: t.textSecondary,
                             ),
                           ),
                         ],
@@ -133,12 +118,13 @@ class _ReceiptCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: FarmerTheme.panelSlate,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: FarmerTheme.neonYellow30, width: 1),
+        color: t.surfaceRaised,
+        borderRadius: BorderRadius.circular(t.radiusM),
+        border: Border.all(color: t.certified.withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,25 +132,15 @@ class _ReceiptCard extends StatelessWidget {
           // Batch header
           Text(
             'BATCH // ${receipt.batchUuid.substring(0, 8).toUpperCase()}',
-            style: const TextStyle(
-              fontFamily: 'SpaceGrotesk',
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: FarmerTheme.neonYellow,
-            ),
+            style: t.chipLabel.copyWith(fontSize: 15, color: t.certified),
           ),
           const SizedBox(height: 4),
           Text(
             receipt.createdAt,
-            style: TextStyle(
-              fontFamily: 'SpaceMono',
-              fontSize: 10,
-              color: FarmerTheme.fogWhite50,
-            ),
+            style: t.metadata.copyWith(fontSize: 10, color: t.textSecondary),
           ),
           const SizedBox(height: 12),
-          const Divider(color: FarmerTheme.fogWhite, height: 1, thickness: 0.2),
+          Divider(color: t.border, height: 1, thickness: 1),
           const SizedBox(height: 12),
           // Data lines
           _Line(label: 'artisan', value: receipt.artisanId),
@@ -239,6 +215,7 @@ class _Line extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: RichText(
@@ -246,19 +223,11 @@ class _Line extends StatelessWidget {
           children: [
             TextSpan(
               text: '$label: ',
-              style: TextStyle(
-                fontFamily: 'SpaceMono',
-                fontSize: 11,
-                color: FarmerTheme.fogWhite50,
-              ),
+              style: t.metadata.copyWith(fontSize: 11, color: t.textSecondary),
             ),
             TextSpan(
               text: value,
-              style: const TextStyle(
-                fontFamily: 'SpaceMono',
-                fontSize: 11,
-                color: FarmerTheme.fogWhite,
-              ),
+              style: t.metadata.copyWith(fontSize: 11, color: t.textPrimary),
             ),
           ],
         ),
@@ -274,6 +243,7 @@ class _HashLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: RichText(
@@ -281,20 +251,13 @@ class _HashLine extends StatelessWidget {
           children: [
             TextSpan(
               text: '$label: ',
-              style: TextStyle(
-                fontFamily: 'SpaceMono',
-                fontSize: 11,
-                color: FarmerTheme.fogWhite50,
-              ),
+              style: t.metadata.copyWith(fontSize: 11, color: t.textSecondary),
             ),
             TextSpan(
               text: hash ?? 'NO EVIDENCE',
-              style: TextStyle(
-                fontFamily: 'SpaceMono',
+              style: t.metadata.copyWith(
                 fontSize: 11,
-                color: hash != null
-                    ? FarmerTheme.fieldGreen
-                    : FarmerTheme.crimsonRed70,
+                color: hash != null ? t.success : t.danger,
               ),
             ),
           ],

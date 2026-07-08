@@ -6,8 +6,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../services/secure_capture_service.dart';
-import '../design/app_theme.dart';
 import '../design/premium_field_components.dart';
+import '../design/tokens.dart';
 
 /// =============================================================================
 /// SecureCameraScreen  (Prompt 3 — Task 2)
@@ -142,6 +142,7 @@ class _SecureCameraScreenState extends ConsumerState<SecureCameraScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -158,9 +159,7 @@ class _SecureCameraScreenState extends ConsumerState<SecureCameraScreen> {
             }
             final controller = _controller;
             if (controller == null || !controller.value.isInitialized) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppTheme.yieldGold),
-              );
+              return Center(child: CircularProgressIndicator(color: t.accent));
             }
             return Stack(
               children: [
@@ -168,7 +167,9 @@ class _SecureCameraScreenState extends ConsumerState<SecureCameraScreen> {
                 // Crosshair / scope overlay for the moisture meter
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: CustomPaint(painter: _ReticulePainter()),
+                    child: CustomPaint(
+                      painter: _ReticulePainter(color: t.accent),
+                    ),
                   ),
                 ),
                 // Header
@@ -188,7 +189,7 @@ class _SecureCameraScreenState extends ConsumerState<SecureCameraScreen> {
                             padding: EdgeInsets.all(8),
                             child: Icon(
                               Icons.close,
-                              color: AppTheme.pureAlbedo,
+                              color: Colors.white,
                               size: 22,
                             ),
                           ),
@@ -198,7 +199,7 @@ class _SecureCameraScreenState extends ConsumerState<SecureCameraScreen> {
                           child: Text(
                             'SECURE CAPTURE // EXIF + SHA-256',
                             style: Theme.of(context).textTheme.titleMedium!
-                                .copyWith(color: AppTheme.pureAlbedo),
+                                .copyWith(color: Colors.white),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -208,7 +209,7 @@ class _SecureCameraScreenState extends ConsumerState<SecureCameraScreen> {
                             padding: EdgeInsets.all(8),
                             child: Icon(
                               Icons.flip_camera_ios,
-                              color: AppTheme.pureAlbedo,
+                              color: Colors.white,
                               size: 24,
                             ),
                           ),
@@ -233,20 +234,18 @@ class _SecureCameraScreenState extends ConsumerState<SecureCameraScreen> {
                           width: 86,
                           height: 86,
                           decoration: BoxDecoration(
-                            color: _capturing
-                                ? AppTheme.tacticalTitanium
-                                : AppTheme.yieldGold,
+                            color: _capturing ? t.surfaceRaised : t.accent,
                             border: Border.all(color: Colors.black, width: 6),
                           ),
                           alignment: Alignment.center,
                           child: _capturing
-                              ? const CircularProgressIndicator(
-                                  color: AppTheme.armorSlate,
+                              ? CircularProgressIndicator(
+                                  color: t.accent,
                                   strokeWidth: 3,
                                 )
-                              : const Icon(
+                              : Icon(
                                   Icons.camera_alt,
-                                  color: AppTheme.armorSlate,
+                                  color: t.onAccent,
                                   size: 36,
                                 ),
                         ),
@@ -286,6 +285,7 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final showLocationSettings = kind == CaptureErrorKind.locationServiceOff;
     final showAppSettings =
         kind == CaptureErrorKind.locationPermissionPermanent;
@@ -301,11 +301,7 @@ class _ErrorView extends StatelessWidget {
                 onTap: onClose,
                 child: const Padding(
                   padding: EdgeInsets.all(8),
-                  child: Icon(
-                    Icons.close,
-                    color: AppTheme.armorSlate,
-                    size: 22,
-                  ),
+                  child: Icon(Icons.close, color: Colors.white, size: 22),
                 ),
               ),
               const SizedBox(width: 16),
@@ -314,15 +310,18 @@ class _ErrorView extends StatelessWidget {
                   _title,
                   style: Theme.of(
                     context,
-                  ).textTheme.titleLarge!.copyWith(color: Colors.red),
+                  ).textTheme.titleLarge!.copyWith(color: t.danger),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
           PremiumFieldPanel(
-            accentBorderColor: Colors.red,
-            child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+            accentBorderColor: t.danger,
+            child: Text(
+              message,
+              style: t.metadata.copyWith(color: t.textPrimary),
+            ),
           ),
           const SizedBox(height: 32),
           PremiumFieldButton(
@@ -362,10 +361,13 @@ class _ErrorView extends StatelessWidget {
 }
 
 class _ReticulePainter extends CustomPainter {
+  _ReticulePainter({required this.color});
+  final Color color;
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppTheme.yieldGold
+      ..color = color
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     final w = size.width;

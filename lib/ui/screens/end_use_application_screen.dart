@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../services/sync_queue_manager.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../data/local/database_provider.dart';
@@ -12,8 +11,9 @@ import '../../data/local/yield_end_use_writers.dart';
 import '../../providers/batch_session_notifier.dart';
 import '../../services/location_service.dart';
 import '../../services/secure_capture_service.dart';
-import '../design/app_theme.dart';
+import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
+import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
 import 'secure_camera_screen.dart';
 
@@ -45,9 +45,6 @@ class EndUseApplicationScreen extends ConsumerStatefulWidget {
 
 class _EndUseApplicationScreenState
     extends ConsumerState<EndUseApplicationScreen> {
-  // Shared light-theme tokens for this screen.
-  static const Color _errorRed = Color(0xFFDC2626);
-
   String? _methodCode;
   final _tonnageCtrl = TextEditingController();
   final _transportCtrl = TextEditingController(text: '0');
@@ -148,12 +145,13 @@ class _EndUseApplicationScreenState
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     final String footerHash =
         _farmerPhoto?.sha256Hash ??
         '----------------------------------------------------------------';
 
     return Scaffold(
-      backgroundColor: AppTheme.tacticalTitanium,
+      backgroundColor: t.surface,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -189,39 +187,30 @@ class _EndUseApplicationScreenState
                   if (_err != null) ...[
                     const SizedBox(height: 16),
                     PremiumFieldPanel(
-                      accentBorderColor: _errorRed,
+                      accentBorderColor: t.danger,
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.error_outline,
-                            color: _errorRed,
-                            size: 28,
-                          ),
+                          Icon(Icons.error_outline, color: t.danger, size: 28),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'COMMIT FAILED',
-                                  style: TextStyle(
-                                    fontFamily: 'SpaceGrotesk',
+                                  style: t.chipLabel.copyWith(
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.6,
-                                    color: _errorRed,
+                                    color: t.danger,
                                   ),
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
                                   _err!,
-                                  style: const TextStyle(
-                                    fontFamily: 'SpaceMono',
+                                  style: t.metadata.copyWith(
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: AppTheme.armorSlate,
+                                    color: t.textPrimary,
                                   ),
                                 ),
                               ],
@@ -232,18 +221,14 @@ class _EndUseApplicationScreenState
                     ),
                   ],
                   const SizedBox(height: 24),
-                  PremiumFieldButton(
+                  DmrvButton(
                     label: _busy
                         ? 'COMMITTING…'
                         : (_canCommit
                               ? 'COMMIT END-USE // CLOSE BATCH'
                               : 'LOCKED // COMPLETE ALL FIELDS'),
                     testId: 'commit-end-use-btn',
-                    state: _busy
-                        ? FieldButtonState.locked
-                        : (_canCommit
-                              ? FieldButtonState.go
-                              : FieldButtonState.locked),
+                    variant: DmrvButtonVariant.primary,
                     onPressed: _busy || !_canCommit ? null : _commit,
                   ),
                   const SizedBox(height: 12),
@@ -262,11 +247,12 @@ class _EndUseApplicationScreenState
   // ===========================================================================
 
   Widget _gpsBlock() {
+    final t = context.tokens;
     final bool captured = _gpsFix != null;
-    final Color accent = captured ? AppTheme.yieldGold : AppTheme.cobaltShield;
+    final Color accent = captured ? t.success : t.accentText;
 
     return PremiumFieldPanel(
-      accentBorderColor: captured ? AppTheme.yieldGold : null,
+      accentBorderColor: captured ? t.success : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -275,13 +261,7 @@ class _EndUseApplicationScreenState
               Expanded(
                 child: Text(
                   'APPLICATION GPS · CARBON SINK',
-                  style: TextStyle(
-                    fontFamily: 'SpaceGrotesk',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: accent,
-                  ),
+                  style: t.chipLabel.copyWith(color: accent),
                 ),
               ),
               PremiumStatusChip(
@@ -298,10 +278,8 @@ class _EndUseApplicationScreenState
             button: true,
             enabled: !_gpsBusy,
             child: Material(
-              color: captured
-                  ? AppTheme.yieldGold10
-                  : AppTheme.tacticalTitanium,
-              borderRadius: BorderRadius.circular(10),
+              color: captured ? t.success.withValues(alpha: 0.1) : t.surface,
+              borderRadius: BorderRadius.circular(t.radiusM),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: _gpsBusy
@@ -317,11 +295,11 @@ class _EndUseApplicationScreenState
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(t.radiusM),
                     border: Border.all(
                       color: captured
-                          ? AppTheme.yieldGold40
-                          : AppTheme.cobaltShield25,
+                          ? t.success.withValues(alpha: 0.4)
+                          : t.border,
                       width: 1,
                     ),
                   ),
@@ -348,23 +326,18 @@ class _EndUseApplicationScreenState
                                   : (captured
                                         ? 'GPS LOCKED'
                                         : 'CAPTURE APPLICATION GPS'),
-                              style: const TextStyle(
-                                fontFamily: 'SpaceGrotesk',
-                                fontSize: 16,
+                              style: t.metadata.copyWith(
                                 fontWeight: FontWeight.w700,
-                                letterSpacing: 0.4,
-                                color: AppTheme.armorSlate,
+                                color: t.textPrimary,
                               ),
                             ),
                             if (captured) ...[
                               const SizedBox(height: 4),
                               Text(
                                 '${_gpsFix!.latitude.toStringAsFixed(6)}, ${_gpsFix!.longitude.toStringAsFixed(6)}',
-                                style: TextStyle(
-                                  fontFamily: 'SpaceMono',
+                                style: t.metadata.copyWith(
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: AppTheme.armorSlate75,
+                                  color: t.textSecondary,
                                 ),
                               ),
                             ],
@@ -381,12 +354,7 @@ class _EndUseApplicationScreenState
             const SizedBox(height: 8),
             Text(
               _gpsError!,
-              style: const TextStyle(
-                fontFamily: 'SpaceMono',
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: _errorRed,
-              ),
+              style: t.metadata.copyWith(fontSize: 12, color: t.danger),
             ),
           ],
         ],
@@ -395,11 +363,12 @@ class _EndUseApplicationScreenState
   }
 
   Widget _photoBlock() {
+    final t = context.tokens;
     final bool captured = _farmerPhoto != null;
-    final Color accent = captured ? AppTheme.yieldGold : AppTheme.cobaltShield;
+    final Color accent = captured ? t.success : t.accentText;
 
     return PremiumFieldPanel(
-      accentBorderColor: captured ? AppTheme.yieldGold : null,
+      accentBorderColor: captured ? t.success : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -408,13 +377,7 @@ class _EndUseApplicationScreenState
               Expanded(
                 child: Text(
                   'FARMER ID PHOTO · SHA-256 ANCHORED',
-                  style: TextStyle(
-                    fontFamily: 'SpaceGrotesk',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: accent,
-                  ),
+                  style: t.chipLabel.copyWith(color: accent),
                 ),
               ),
               PremiumStatusChip(
@@ -430,10 +393,8 @@ class _EndUseApplicationScreenState
             identifier: 'capture-farmer-photo-btn',
             button: true,
             child: Material(
-              color: captured
-                  ? AppTheme.yieldGold10
-                  : AppTheme.tacticalTitanium,
-              borderRadius: BorderRadius.circular(10),
+              color: captured ? t.success.withValues(alpha: 0.1) : t.surface,
+              borderRadius: BorderRadius.circular(t.radiusM),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: () {
@@ -447,18 +408,18 @@ class _EndUseApplicationScreenState
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(t.radiusM),
                     border: Border.all(
                       color: captured
-                          ? AppTheme.yieldGold40
-                          : AppTheme.cobaltShield25,
+                          ? t.success.withValues(alpha: 0.4)
+                          : t.border,
                       width: 1,
                     ),
                   ),
                   child: Row(
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(t.radiusS),
                         child: SizedBox(
                           width: 56,
                           height: 56,
@@ -472,7 +433,7 @@ class _EndUseApplicationScreenState
                                   fit: BoxFit.cover,
                                 )
                               : Container(
-                                  color: AppTheme.pureAlbedo,
+                                  color: t.surfaceRaised,
                                   alignment: Alignment.center,
                                   child: Icon(
                                     captured
@@ -494,12 +455,9 @@ class _EndUseApplicationScreenState
                               captured
                                   ? 'FARMER PHOTO ANCHORED'
                                   : 'CAPTURE FARMER ID / SELFIE',
-                              style: const TextStyle(
-                                fontFamily: 'SpaceGrotesk',
-                                fontSize: 16,
+                              style: t.metadata.copyWith(
                                 fontWeight: FontWeight.w700,
-                                letterSpacing: 0.4,
-                                color: AppTheme.armorSlate,
+                                color: t.textPrimary,
                               ),
                             ),
                             if (captured) ...[
@@ -508,11 +466,9 @@ class _EndUseApplicationScreenState
                                 'sha256: ${_farmerPhoto!.sha256Hash}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'SpaceMono',
+                                style: t.metadata.copyWith(
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: AppTheme.armorSlate75,
+                                  color: t.textSecondary,
                                 ),
                               ),
                             ],
@@ -531,6 +487,7 @@ class _EndUseApplicationScreenState
   }
 
   Widget _methodBlock() {
+    final t = context.tokens;
     final bool hasValue = _methodCode != null;
     return PremiumFieldPanel(
       child: Column(
@@ -538,13 +495,7 @@ class _EndUseApplicationScreenState
         children: [
           Text(
             'APPLICATION METHOD',
-            style: TextStyle(
-              fontFamily: 'SpaceGrotesk',
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: AppTheme.cobaltShield,
-            ),
+            style: t.chipLabel.copyWith(color: t.accentText),
           ),
           const SizedBox(height: 12),
           Semantics(
@@ -552,59 +503,47 @@ class _EndUseApplicationScreenState
             child: DropdownButtonFormField<String>(
               initialValue: _methodCode,
               isExpanded: true,
-              icon: const Icon(
-                Icons.keyboard_arrow_down,
-                color: AppTheme.cobaltShield,
-              ),
-              dropdownColor: AppTheme.pureAlbedo,
+              icon: Icon(Icons.keyboard_arrow_down, color: t.accentText),
+              dropdownColor: t.surfaceRaised,
               hint: Text(
                 'SELECT METHOD',
-                style: TextStyle(
-                  fontFamily: 'SpaceGrotesk',
-                  fontSize: 16,
+                style: t.metadata.copyWith(
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
-                  color: AppTheme.armorSlate45,
+                  color: t.textSecondary,
                 ),
               ),
-              style: const TextStyle(
-                fontFamily: 'SpaceGrotesk',
-                fontSize: 16,
+              style: t.metadata.copyWith(
                 fontWeight: FontWeight.w600,
-                letterSpacing: 0.4,
-                color: AppTheme.armorSlate,
+                color: t.textPrimary,
               ),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: AppTheme.tacticalTitanium,
+                fillColor: t.surface,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 14,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(t.radiusM),
                   borderSide: BorderSide(
                     color: hasValue
-                        ? AppTheme.cobaltShield40
-                        : AppTheme.cobaltShield25,
+                        ? t.accent.withValues(alpha: 0.4)
+                        : t.border,
                     width: 1,
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(t.radiusM),
                   borderSide: BorderSide(
                     color: hasValue
-                        ? AppTheme.cobaltShield40
-                        : AppTheme.cobaltShield25,
+                        ? t.accent.withValues(alpha: 0.4)
+                        : t.border,
                     width: 1,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: AppTheme.cobaltShield,
-                    width: 2,
-                  ),
+                  borderRadius: BorderRadius.circular(t.radiusM),
+                  borderSide: BorderSide(color: t.accent, width: 2),
                 ),
               ),
               items: _kMethods.entries
@@ -613,12 +552,10 @@ class _EndUseApplicationScreenState
                       value: e.key,
                       child: Text(
                         e.value.toUpperCase(),
-                        style: const TextStyle(
-                          fontFamily: 'SpaceGrotesk',
+                        style: t.metadata.copyWith(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          letterSpacing: 0.4,
-                          color: AppTheme.armorSlate,
+                          color: t.textPrimary,
                         ),
                       ),
                     ),
@@ -638,27 +575,19 @@ class _EndUseApplicationScreenState
     required String testId,
     required String hint,
   }) {
+    final t = context.tokens;
     return PremiumFieldPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'SpaceGrotesk',
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: AppTheme.cobaltShield,
-            ),
-          ),
+          Text(label, style: t.chipLabel.copyWith(color: t.accentText)),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: AppTheme.tacticalTitanium,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.cobaltShield25, width: 1),
+              color: t.surface,
+              borderRadius: BorderRadius.circular(t.radiusM),
+              border: Border.all(color: t.border, width: 1),
             ),
             child: Semantics(
               identifier: testId,
@@ -672,13 +601,10 @@ class _EndUseApplicationScreenState
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ],
-                cursorColor: AppTheme.cobaltShield,
-                style: const TextStyle(
-                  fontFamily: 'SpaceMono',
+                cursorColor: t.accentText,
+                style: t.numericMedium.copyWith(
                   fontSize: 40,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.cobaltShield,
-                  height: 1.0,
+                  color: t.accentText,
                 ),
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
@@ -686,12 +612,9 @@ class _EndUseApplicationScreenState
                   isCollapsed: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   hintText: hint,
-                  hintStyle: TextStyle(
-                    fontFamily: 'SpaceMono',
+                  hintStyle: t.numericMedium.copyWith(
                     fontSize: 40,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.cobaltShield25,
-                    height: 1.0,
+                    color: t.textDisabled,
                   ),
                 ),
               ),
