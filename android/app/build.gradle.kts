@@ -30,11 +30,29 @@ android {
         versionName = flutter.versionName
     }
 
+    // T2.5: MainActivity reads BuildConfig.DEBUG to gate FLAG_SECURE.
+    buildFeatures {
+        buildConfig = true
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // T0.6 (BLOCKER before store release): replace the debug keystore
+            // with a real release signingConfig. Kept as debug ONLY so
+            // `flutter run --release` builds locally; a debug-signed APK is
+            // package-replaceable and MUST NOT be published.
             signingConfig = signingConfigs.getByName("debug")
+
+            // T2.4: obfuscate + shrink release builds. Keep rules in
+            // proguard-rules.pro. Build with:
+            //   flutter build apk --release --obfuscate --split-debug-info=build/symbols
+            // and archive build/symbols per release for Sentry symbolication.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
