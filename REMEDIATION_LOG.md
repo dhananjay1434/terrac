@@ -1582,3 +1582,26 @@ verification applied.
 factor citation + `TRANSPORT_EVENTS_ENFORCED` flip; T1.6 methane rate → CH4 penalty; T1.7
 conversion factor → yield; T1.8 1000-yr inertinite pathway election. Each stays behind a named,
 tested, inert flag.
+
+---
+
+## Rainbow T2 — Adversary-ready security: rate limits, health/secret floor, EXIF honesty, replay, attestation, APK hardening (2026-07-08)
+
+**Goal.** Close the four credit-integrity gaps the audit flagged: unverified device attestation, no rate limiting, replayable signatures, and a debug-signed/unobfuscated Android release — plus two hardening closers.
+
+**Fix (8 commits; all backward-compatible; new enforcement stays behind env switches that default OFF).**
+- **T2.2 rate limiting** (`_rate_limit` `@app.middleware("http")`): fixed-window counter keyed by (bucket, device-or-ip); register/admin IP-keyed (brute-force), media/default device-keyed (throughput); 429 + `Retry-After`. Config read LIVE from `os.environ` each request so it survives `importlib.reload(server)` (the CORS test reloads the module) and is runtime-tunable. Disabled by default under test; `test_rate_limit.py` re-enables via `monkeypatch.setenv`. **Deviation from the prompt:** used a middleware matching the existing `_limit_body_size` pattern instead of SlowAPI + 11 handler-signature edits — lower risk against the 296-test suite, no new dependency, codebase-idiomatic.
+- **T2.6 health + secret floor**: `/api/health` runs `SELECT 1` and returns 503 when the DB is unreachable; `_require_secret` rejects secrets < 32 chars / < 10 distinct chars unless `DMRV_ALLOW_WEAK_SECRETS=1` (set in conftest + CI so the short fixed literals stay valid). Retargeted `test_p1_25_lifespan` onto the shared `client` fixture (the DB-probing health path hung on the module engine bound to a throwaway event loop).
+- **T2.7 EXIF honesty**: extracted `GPS_ANCHOR_MISMATCH_KM` with the trust model stated in-band (client-authored EXIF = weak corroboration; strong control is attestation); `recompute` now records `lca_audit_json.integrity_signals` (mock_location, anchor status, exif_trust) per batch.
+- **T2.3 replay protection**: opt-in v2 canonical appends a client `X-Signed-At`; server rejects requests outside an env-tunable skew window (default 300s). v1 still accepted until `DMRV_REQUIRE_CANONICAL_V2=1`. Client `signRequestV2` + the sync loop now send v2 headers. Both sides tested; v1 vectors retained.
+- **T2.1 attestation**: new `attestation.py` verifier interface returning a structured verdict; `recompute` routes `hw_attestation` through it; `DMRV_ATTESTATION_ENFORCED=1` makes an unverified batch PROVISIONAL (`attestation_unverified`). Real Play Integrity/DeviceCheck awaits provider credentials (stubs return unverified), so default behavior is unchanged. **Deviation:** skipped the enrollment-nonce column — a reused enrollment nonce is itself replayable; nonce binding will use the per-request T2.3 `signed_at` when creds land.
+- **T2.4/T2.5 Android**: `FLAG_SECURE` on release (`!BuildConfig.DEBUG`, `buildFeatures.buildConfig=true`); `minifyEnabled` + `shrinkResources` + `proguard-rules.pro`. **NOT VERIFIED HERE** — a release APK build could not complete in this environment (gradle daemon crash, then 10-min timeout; no R8/keep-rule error surfaced). The R8 build, FLAG_SECURE behavior, and `apksigner` cert check are manual/device gates for CI. Release signing remains debug (T0.6 blocker).
+- **T2.8 docs**: secret-rotation, enforcement-switch, and cert-pinning notes in DEPLOYMENT.md + a `TODO(deploy)` breadcrumb in `_require_secret`.
+
+**Gate (verified).**
+- Backend `python -m pytest -q`: **307 passed, 1 skipped, 0 failed** (285 baseline + 22 new across rate-limit/health-secret/integrity/replay/attestation).
+- Alembic: single head `f1a2b3c4d5e6` (T2 added no migrations); `upgrade → downgrade -1 → upgrade` clean.
+- Rate limit: scripted over-limit register/admin → 429 + `Retry-After`. Replay: v2 request older than skew → 401 `stale_signature`; v1 still works while the require-flag is off. Attestation: fixture verdict + `DMRV_ATTESTATION_ENFORCED=1` → unverified batch provisional; default off → inert.
+- flutter analyze: **25 issues, 0 errors** (unchanged — no new issues from the client edits). flutter test: **153 passed, 2 skipped, 0 failed** (+1 from the v2 `signRequestV2` test).
+
+**Enforcement switches still OFF by design (flip when the fleet/creds are ready):** `DMRV_REQUIRE_CANONICAL_V2` (after fleet ships v2 signing), `DMRV_ATTESTATION_ENFORCED` (after the real Play Integrity/DeviceCheck verifier + credentials). Android release build validation + real release keystore (T0.6) remain the outstanding manual/cross-team items.
