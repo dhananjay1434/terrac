@@ -147,7 +147,16 @@ def _parse_exif_gps(content: bytes) -> tuple[Optional[float], Optional[float]]:
     return (lat, lon)
 
 
-def _gps_mismatch_km(lat1, lon1, lat2, lon2, threshold_km: float = 1.0) -> bool:
+# T2.7: client-authored EXIF is WEAK corroboration — the app injects the GPS it
+# later "matches" against, so this catches careless fraud and honest error, not a
+# determined attacker. The strong device control is attestation (T2.1). The
+# threshold is deliberately generous to avoid false quarantines on GPS drift.
+GPS_ANCHOR_MISMATCH_KM = 1.0
+
+
+def _gps_mismatch_km(
+    lat1, lon1, lat2, lon2, threshold_km: float = GPS_ANCHOR_MISMATCH_KM
+) -> bool:
     """True only when all four coordinates are present AND the photo EXIF and
     the claimed location disagree by more than `threshold_km`."""
     if None in (lat1, lon1, lat2, lon2):
@@ -1128,6 +1137,15 @@ async def recompute_batch_credit(
         "reported_transport_km": reported_transport_km,
         "gps_transport_km": gps_km,
         "underreported_flag": transport_underreported,
+    }
+    # T2.7: surface the device-integrity plausibility signals per batch so a
+    # verifier sees the trust level in-band. exif_trust documents that the GPS
+    # anchor is client-authored (weak) — the strong control is attestation.
+    audit["integrity_signals"] = {
+        "mock_location_enabled": bool(batch.mock_location_enabled),
+        "gps_anchor_status": batch.status,
+        "gps_anchor_mismatch_km": GPS_ANCHOR_MISMATCH_KM,
+        "exif_trust": "client_authored_weak",
     }
     batch.lca_audit_json = json.dumps(audit)
     # Phase 8-R: only a fully-corroborated, non-provisional batch carries an
