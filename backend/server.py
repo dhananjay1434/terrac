@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re
+import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -260,6 +261,94 @@ async def _limit_body_size(request: Request, call_next):
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 content={"detail": "payload_too_large"},
             )
+    return await call_next(request)
+
+
+# ==================== T2.2: per-route rate limiting ====================
+# Fixed-window counter keyed by (bucket, device-or-ip). In-process — correct for
+# a single-node pilot; swap to a shared store (Redis) when horizontally scaled
+# (tracked in the T3 roadmap). Register/admin are IP-keyed brute-force surfaces;
+# media/default are device-keyed throughput limits.
+#
+# Config is read LIVE from os.environ on every request (not captured at import),
+# so it survives importlib.reload(server) — a test elsewhere reloads this module,
+# which would otherwise desync module-level constants from the running middleware.
+# It also makes every limit + the window genuinely runtime-tunable. Disabled by
+# default under test (conftest sets DMRV_RATELIMIT_ENABLED=0); test_rate_limit.py
+# re-enables it via monkeypatch.setenv.
+_RL_DEFAULT_CAPS = {"register": 5, "admin": 30, "media": 20, "default": 120}
+_RL_CAP_ENV = {
+    "register": "DMRV_RATELIMIT_REGISTER",
+    "admin": "DMRV_RATELIMIT_ADMIN",
+    "media": "DMRV_RATELIMIT_MEDIA",
+    "default": "DMRV_RATELIMIT_DEFAULT",
+}
+
+# {(bucket, key, window_index): count} — bounded-clear when it grows unbounded.
+_rl_counters: dict = {}
+
+
+def _rl_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _rl_enabled() -> bool:
+    return os.environ.get("DMRV_RATELIMIT_ENABLED", "1") == "1"
+
+
+def _rl_window_seconds() -> int:
+    return max(1, _rl_int("DMRV_RATELIMIT_WINDOW_SECONDS", 60))
+
+
+def _rl_now() -> int:
+    """Current epoch seconds — isolated so it can be stubbed if ever needed."""
+    return int(time.time())
+
+
+def _rl_bucket(path: str) -> str:
+    if path == "/api/v1/register":
+        return "register"
+    if path.startswith("/api/v1/admin/") or path.endswith("/compliance"):
+        return "admin"
+    if path == "/api/v1/media":
+        return "media"
+    return "default"
+
+
+@app.middleware("http")
+async def _rate_limit(request: Request, call_next):
+    if not _rl_enabled() or request.method == "OPTIONS":
+        return await call_next(request)
+    path = request.url.path
+    if not path.startswith("/api/") or path == "/api/health":
+        return await call_next(request)
+    bucket = _rl_bucket(path)
+    cap = _rl_int(_RL_CAP_ENV[bucket], _RL_DEFAULT_CAPS[bucket])
+    if bucket in ("register", "admin"):
+        # brute-force surfaces: key by client IP so rotating device ids can't evade.
+        key = request.client.host if request.client else "ip-unknown"
+    else:
+        key = request.headers.get("X-Device-Id") or (
+            request.client.host if request.client else "unknown"
+        )
+    window_seconds = _rl_window_seconds()
+    now = _rl_now()
+    window = now // window_seconds
+    ckey = (bucket, key, window)
+    if len(_rl_counters) > 4096:  # bound memory; old windows are dead weight
+        _rl_counters.clear()
+    count = _rl_counters.get(ckey, 0) + 1
+    _rl_counters[ckey] = count
+    if count > cap:
+        retry = window_seconds - (now % window_seconds)
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"detail": "rate_limited"},
+            headers={"Retry-After": str(max(1, retry))},
+        )
     return await call_next(request)
 
 
