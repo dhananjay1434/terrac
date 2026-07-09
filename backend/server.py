@@ -266,6 +266,19 @@ def _safe_json(raw, *, context: str):
         return None
 
 
+def _as_utc(dt: datetime) -> datetime:
+    """Normalize any datetime to aware-UTC (P1-B3).
+
+    Naive datetimes are treated as UTC (the client always sends UTC ISO); aware
+    ones are converted. Every cross-datetime comparison/subtraction goes through
+    this so a mixed naive/aware pair can never silently skew by the tz offset
+    (which previously let the teleport check strip tzinfo and mis-time by hours).
+    """
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -711,11 +724,7 @@ async def register_device(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="enrollment_token_used"
         )
     if db_token.expires_at:
-        expires = (
-            db_token.expires_at.replace(tzinfo=timezone.utc)
-            if db_token.expires_at.tzinfo is None
-            else db_token.expires_at
-        )
+        expires = _as_utc(db_token.expires_at)
         if expires < datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -1105,10 +1114,7 @@ async def recompute_batch_credit(
             .scalars()
             .all()
         )
-        _has_in_date_cal = any(
-            (vu if vu.tzinfo else vu.replace(tzinfo=timezone.utc)) >= _now
-            for vu in _cal_valid_untils
-        )
+        _has_in_date_cal = any(_as_utc(vu) >= _now for vu in _cal_valid_untils)
         _sc_ok, _sc_reason = derive_scale_calibration_compliance(_has_in_date_cal)
         if _sc_reason:
             c10_reasons.append(_sc_reason)
@@ -1406,8 +1412,8 @@ async def create_batch(
             time_diff_hours = (
                 abs(
                     (
-                        payload.harvest_timestamp.replace(tzinfo=None)
-                        - prev.harvest_timestamp.replace(tzinfo=None)
+                        _as_utc(payload.harvest_timestamp)
+                        - _as_utc(prev.harvest_timestamp)
                     ).total_seconds()
                 )
                 / 3600.0
@@ -2040,7 +2046,7 @@ def _parse_dt(s: Optional[str]) -> Optional[datetime]:
         dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="invalid_timestamp")
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return _as_utc(dt)
 
 
 class KilnRequest(BaseModel):
