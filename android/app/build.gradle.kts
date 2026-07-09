@@ -1,8 +1,21 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// P0.6: release signing config loaded from android/key.properties (gitignored).
+// When absent (e.g. CI, or a fresh checkout), the release buildType falls back to
+// debug signing so the compile-smoke still runs — a debug-signed APK must NEVER
+// be published. The keystore lives OUTSIDE the repo and must be backed up.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -34,13 +47,27 @@ android {
         buildConfig = true
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // T0.6 (BLOCKER before store release): replace the debug keystore
-            // with a real release signingConfig. Kept as debug ONLY so
-            // `flutter run --release` builds locally; a debug-signed APK is
-            // package-replaceable and MUST NOT be published.
-            signingConfig = signingConfigs.getByName("debug")
+            // P0.6: sign with the real release key when key.properties is present
+            // (local dev + the publish pipeline); fall back to debug signing only
+            // so a keystore-less environment (CI) can still compile-smoke. A
+            // debug-signed APK is package-replaceable and MUST NOT be published.
+            signingConfig = if (keystorePropertiesFile.exists())
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")
 
             // T2.4: obfuscate + shrink release builds. Keep rules in
             // proguard-rules.pro. Build with:

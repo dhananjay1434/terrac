@@ -1,0 +1,14 @@
+# P0.6 — TEMPLATE. Copy to android/key.properties (GITIGNORED) and fill in.
+#
+# The release keystore lives OUTSIDE the repo. It CANNOT be regenerated — losing
+# it means losing the ability to publish app updates forever. Back it up:
+# a password manager entry (for the passwords) + one offline copy of the .jks.
+#
+# Generate a keystore with:
+#   keytool -genkeypair -v -keystore dmrv-release.jks -keyalg RSA -keysize 4096 \
+#           -validity 10000 -alias dmrv
+#
+storeFile=C:/Users/you/dmrv-keystore/dmrv-release.jks
+storePassword=CHANGE_ME
+keyAlias=dmrv
+keyPassword=CHANGE_ME

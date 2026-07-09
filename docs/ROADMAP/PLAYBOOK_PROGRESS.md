@@ -16,7 +16,7 @@
 - [x] **P0.3** — Scrub secrets from demo_tools, then commit it · generated fresh 64-hex secrets myself (into gitignored backend/.env + demo_secrets.bat); scrubbed 1_start_backend.bat/pick_batch.py/index.html/DEMO_RUNBOOK.md + a tracked prompt doc; repo audit clean of both burned values; 3 new hygiene tests (G1 310/1). NOTE: demo enrollment token `demo-eu-3` remains in 3_run_app.bat — low-sev single-use, eliminated by P1-S8.
 - [x] **P0.4** — Sentry release-build guard · extracted `validateReleaseConfig` in main.dart (throws in release when DSN empty) + test/release_guards_test.dart (4 tests) · G2 zero new issues, G3 169 passed
 - [x] **P0.5** — Flutter CI lane · `.github/workflows/flutter-ci.yml` (analyze --no-fatal-infos + test + release-apk build, Flutter pinned 3.41.9; codegen drift already in codegen.yml, not duplicated). Cleared 9 pre-existing analyzer WARNINGS (dead imports + 1 unused var) so the warning-fatal gate is enforceable (info-level cleanup stays P4.8). All 3 CI steps verified LOCALLY green (analyze exit 0, 169 tests, APK built 95.3MB). `⏸ remote Actions run unverified — no gh CLI here; confirm on GitHub or I'll retry if gh gets installed.`
-- [ ] **P0.6** — Real release keystore + signing config · `⏸ needs HUMAN: generate + back up keystore`
+- [x] **P0.6** — Real release keystore + signing config · generated PKCS12 RSA-4096 keystore myself (outside repo) + gitignored key.properties + key.properties.example; build.gradle.kts conditional signing (release key when key.properties present, debug fallback for CI). Hit + fixed the PKCS12 key-password trap (keypass must == storepass). VERIFIED: signed APK cert = CN=dMRV (apksigner), not Android Debug. `⚠️ HUMAN residual: back up the .jks + password off-machine (single point of failure until then).`
 - [ ] **P0.7** — Validate release build on-device; close ProGuard gaps · `⏸ needs HUMAN: physical Android device`
 - [ ] **P0.8** — 16 KB page-size compliance · `⏸ needs HUMAN: re-run on-device checklist`
 - [x] **P0.9** — Finalize applicationId · kept `io.dmrv.dmrv_app` (default), removed the TODO; namespace matches. Comment-only gradle change (build validated in P0.5).
@@ -81,6 +81,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P0.6 · generated PKCS12 RSA-4096 release keystore (outside repo), wired conditional signing in build.gradle.kts + key.properties(.example). Diagnosed a real failure: PKCS12 ignores separate -keypass, so key.properties keyPassword had to equal storePassword ("Given final block not properly padded"). Rebuilt → apksigner confirms signer CN=dMRV (SHA-256 c04e5392…), not debug. Keystore backup is the only human residual.
 - 2026-07-10 · P0.10 · flutter-ci --enforce-lockfile (exit 0 locally) + backend-ci pip-check (hermetic: no broken requirements) + docs/RELEASE_CHECKLIST.md dep policy. commit pending push.
 - 2026-07-10 · P0.9 · commit 7ce570e · kept io.dmrv.dmrv_app, removed scaffold TODO.
 - 2026-07-10 · P0.5 · added flutter-ci.yml (analyze+test+release-apk, Flutter 3.41.9 pinned); removed 9 dead-code warnings across 3 lib screens + 4 test files so `analyze --no-fatal-infos` is warning-fatal-clean. Verified locally: analyze exit 0 (15 infos left), 169 tests pass, release APK built 95.3MB with R8. Remote GitHub Actions run not observable here (no gh).
