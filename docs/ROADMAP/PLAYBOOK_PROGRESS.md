@@ -5,8 +5,8 @@
 **Legend:** `[ ]` not started · `[~]` in progress · `[x]` done (committed) · `⏸` blocked (waiting on a human/decision — note what it needs)
 
 **Started:** 2026-07-10
-**Current phase:** P0 agent-work COMPLETE (8/10) → advancing to P1a. P0.7/P0.8 parked (hardware/major-bump); they don't gate P1's correctness, so per best-judgment the loop continues rather than halting on hardware I don't have.
-**Next actionable task:** P1-B1 (guard json.loads in recompute) — fully agent-doable backend fix.
+**Current phase:** P1a — Backend robustness (P0 agent-work done 8/10; P0.7/P0.8 hardware/decision-parked). Independent P0 audit (subagent) confirmed 8/10 verified, code clean; sole lurking risk = remote CI green unverified (no gh CLI).
+**Next actionable task:** P1-B2 (harden create_batch race fallback) — fully agent-doable backend fix.
 
 ---
 
@@ -24,7 +24,7 @@
 - [~] **P0 EXIT GATE** — ✅ remote pushed · ✅ no secret in repo · ✅ signed release APK (cert verified) · ✅ fresh-venv `import server` · ✅ CI workflows written+locally-green · ⏸ REMAINING (hardware/decision only): on-device checklist (P0.7, needs device), 16KB (P0.8, freeRASP major bump→P4.1), remote-CI-green confirm (no gh), branch-protection toggle. **All agent-doable P0 work is DONE (8/10 tasks); the 2 open items and the gate confirmations need hardware or a human toggle.**
 
 ## PHASE P1a — Backend robustness
-- [ ] **P1-B1** — Guard every json.loads in recompute/compliance
+- [x] **P1-B1** — Guard every json.loads in recompute/compliance · added `_safe_json` helper; hardened all 7 sites (telemetry/yield/application scalars, moisture/composite sum-gens, transport list-comp, compliance provisional_reasons) with isinstance-dict guards. +4 tests (corrupt row excluded not fatal; compliance still 200). G1 314 passed.
 - [ ] **P1-B2** — Harden create_batch race fallback
 - [ ] **P1-B3** — Timezone-aware UTC normalization
 - [ ] **P1-B4** — Canonical UUID normalization at write
@@ -81,6 +81,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1-B1 · _safe_json guard on all 7 json.loads sites in server.py recompute/compliance; +4 tests (test_corrupt_payload_recompute.py); G1 314 passed. Independent subagent audit verified P0 8/10 before starting.
 - 2026-07-10 · P0 milestone · all 8 agent-doable P0 tasks done + pushed. P0.7 (device) & P0.8 (freeRASP 6→8 major bump for 16KB) parked as hardware/decision-blocked. P0.8 diagnosed device-free (5 freeRASP libs 4KB-aligned). Advancing to P1a.
 - 2026-07-10 · P0.6 · generated PKCS12 RSA-4096 release keystore (outside repo), wired conditional signing in build.gradle.kts + key.properties(.example). Diagnosed a real failure: PKCS12 ignores separate -keypass, so key.properties keyPassword had to equal storePassword ("Given final block not properly padded"). Rebuilt → apksigner confirms signer CN=dMRV (SHA-256 c04e5392…), not debug. Keystore backup is the only human residual.
 - 2026-07-10 · P0.10 · flutter-ci --enforce-lockfile (exit 0 locally) + backend-ci pip-check (hermetic: no broken requirements) + docs/RELEASE_CHECKLIST.md dep policy. commit pending push.

@@ -248,6 +248,24 @@ log = logging.getLogger("dmrv")
 logging.basicConfig(level=logging.INFO)
 
 
+def _safe_json(raw, *, context: str):
+    """Parse stored payload JSON defensively (P1-B1).
+
+    A corrupt stored payload — a bad write, a manual DB edit, a partial
+    migration — must degrade to "this row contributes nothing" plus a log line,
+    never a JSONDecodeError that aborts the whole recompute and permanently
+    bricks a batch's credit path (or 500s the compliance read). Returns the
+    parsed object, or None when raw is empty/unparseable.
+    """
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError):
+        log.error("corrupt payload_json (%s) — treating as empty", context)
+        return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -924,9 +942,11 @@ async def recompute_batch_credit(
         )
     ).scalar_one_or_none()
 
-    tel_payload = json.loads(tel.payload_json) if tel else None
-    yld_payload = json.loads(yld.payload_json) if yld else None
-    app_payload = json.loads(app_row.payload_json) if app_row else None
+    tel_payload = _safe_json(tel.payload_json, context=f"telemetry {buid}") if tel else None
+    yld_payload = _safe_json(yld.payload_json, context=f"yield {buid}") if yld else None
+    app_payload = (
+        _safe_json(app_row.payload_json, context=f"application {buid}") if app_row else None
+    )
 
     # T2.1: platform attestation runs through the attestation.py verifier
     # interface. Real Play Integrity / DeviceCheck verification awaits provider
@@ -961,7 +981,10 @@ async def recompute_batch_credit(
         .all()
     )
     photographed = sum(
-        1 for r in m_rows if json.loads(r.payload_json).get("sha256_hash")
+        1
+        for r in m_rows
+        if isinstance(_p := _safe_json(r.payload_json, context=f"moisture {buid}"), dict)
+        and _p.get("sha256_hash")
     )
     moisture_ok, _ = derive_moisture_compliance(photographed, batch.biomass_input_kg)
 
@@ -979,7 +1002,10 @@ async def recompute_batch_credit(
         .all()
     )
     photographed_samples = sum(
-        1 for r in cs_rows if json.loads(r.payload_json).get("sha256_hash")
+        1
+        for r in cs_rows
+        if isinstance(_p := _safe_json(r.payload_json, context=f"composite {buid}"), dict)
+        and _p.get("sha256_hash")
     )
     composite_sample_ok, _ = derive_composite_sample_compliance(photographed_samples)
 
@@ -1015,7 +1041,11 @@ async def recompute_batch_credit(
         .scalars()
         .all()
     )
-    te_payloads = [json.loads(r.payload_json) for r in te_rows]
+    te_payloads = [
+        _p
+        for r in te_rows
+        if isinstance(_p := _safe_json(r.payload_json, context=f"transport {buid}"), dict)
+    ]
     transport_fuel_co2e_kg = sum(
         fuel_emissions_kg_co2e(p.get("fuel_type"), p.get("fuel_amount_litres"))
         for p in te_payloads
@@ -2286,7 +2316,11 @@ async def batch_compliance(
     if batch is None:
         raise HTTPException(status_code=404, detail="unknown_batch")
 
-    reasons = json.loads(batch.provisional_reasons or "[]")
+    reasons = _safe_json(
+        batch.provisional_reasons, context=f"provisional_reasons {batch.batch_uuid}"
+    )
+    if not isinstance(reasons, list):
+        reasons = []
     reason_set = set(reasons)
 
     # T1.10: per-item enforcement provenance so a verifier can tell "checked and
