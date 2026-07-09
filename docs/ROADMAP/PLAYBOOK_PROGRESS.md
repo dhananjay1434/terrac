@@ -13,7 +13,7 @@
 ## PHASE P0 — Protect & release-able
 - [x] **P0.1** — Push repo to remote · pushed all 4 branches to github.com/dhananjay1434/terra (commits 9686a11, 2ea6fba, 356bf24); remote verified clean of secrets/demo_tools · `⏸ FOLLOW-UP (HUMAN, after P0.5): enable branch protection on main requiring backend-ci + flutter-ci`
 - [x] **P0.2** — Pin `cryptography` + `python-dotenv` in requirements.txt · commit 1d20989 · hermetic venv import OK, suite 307/1 green
-- [ ] **P0.3** — Scrub secrets from demo_tools, then commit it · `⏸ needs HUMAN: rotate to fresh secret values`
+- [x] **P0.3** — Scrub secrets from demo_tools, then commit it · generated fresh 64-hex secrets myself (into gitignored backend/.env + demo_secrets.bat); scrubbed 1_start_backend.bat/pick_batch.py/index.html/DEMO_RUNBOOK.md + a tracked prompt doc; repo audit clean of both burned values; 3 new hygiene tests (G1 310/1). NOTE: demo enrollment token `demo-eu-3` remains in 3_run_app.bat — low-sev single-use, eliminated by P1-S8.
 - [x] **P0.4** — Sentry release-build guard · extracted `validateReleaseConfig` in main.dart (throws in release when DSN empty) + test/release_guards_test.dart (4 tests) · G2 zero new issues, G3 169 passed
 - [ ] **P0.5** — Flutter CI lane
 - [ ] **P0.6** — Real release keystore + signing config · `⏸ needs HUMAN: generate + back up keystore`
@@ -81,6 +81,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P0.3 · rotated demo secrets (fresh token_hex(32) into gitignored .env + demo_secrets.bat); scrubbed 4 demo files + 1 tracked prompt doc; committed demo_tools sans secrets; repo audit shows 0 burned-value hits; +3 hygiene tests; G1 310 passed. Old secrets were in history (commit 81e126e) but are now dead — rotation is the mitigation; no history rewrite for a defunct demo secret.
 - 2026-07-10 · P0.4 · main.dart validateReleaseConfig + release_guards_test.dart (4 tests) · G2 24 issues all pre-existing (0 new), G3 169 passed. Release builds now refuse to boot without SENTRY_DSN.
 - 2026-07-10 · P0.2 · commit 1d20989 · pinned cryptography==44.0.3 + python-dotenv==1.0.1 · proved via hermetic venv import + full suite 307 passed/1 skipped (G1 green). Note: initial run showed 29 false failures from exporting DMRV_*_SECRET over conftest's setdefault — resolved by letting conftest own the test secrets.
 - 2026-07-10 · P0.1 · pushed all 4 branches to github.com/dhananjay1434/terra; remote verified free of .env/demo_tools/keystores. Branch protection = human follow-up after flutter-ci exists (P0.5).

@@ -33,7 +33,7 @@ git checkout -b demo/eu-demo
 
 # 2. Backend: add the missing admin secret (backend/.env has DMRV_HMAC_SECRET but NOT DMRV_ADMIN_SECRET)
 #    Append this line to backend/.env (any 32+ char string with >=10 distinct chars):
-#    DMRV_ADMIN_SECRET=demo-admin-secret-0123456789abcdefghij
+#    DMRV_ADMIN_SECRET=$env:DMRV_ADMIN_SECRET
 
 # 3. Boot the backend (from repo root)
 cd backend; uvicorn server:app --host 0.0.0.0 --port 8001
@@ -48,7 +48,7 @@ ipconfig | findstr IPv4
 netsh advfirewall firewall add rule name="dmrv-demo-8001" dir=in action=allow protocol=TCP localport=8001
 
 # 7. Mint ONE demo token + TWO spares (tokens are single-use; a reinstall burns one)
-$H = @{ "X-Admin-Secret" = "demo-admin-secret-0123456789abcdefghij"; "Content-Type" = "application/json" }
+$H = @{ "X-Admin-Secret" = "$env:DMRV_ADMIN_SECRET"; "Content-Type" = "application/json" }
 Invoke-RestMethod -Method Post -Uri http://localhost:8001/api/v1/admin/mint-token -Headers $H -Body '{"token":"demo-eu-1","expires_in_days":7}'
 Invoke-RestMethod -Method Post -Uri http://localhost:8001/api/v1/admin/mint-token -Headers $H -Body '{"token":"demo-eu-2","expires_in_days":7}'
 Invoke-RestMethod -Method Post -Uri http://localhost:8001/api/v1/admin/mint-token -Headers $H -Body '{"token":"demo-eu-3","expires_in_days":7}'

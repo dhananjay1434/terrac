@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TerraCipher · Verifier Portal</title>
+<style>
+  :root{
+    --bg:#eef1f6; --card:#ffffff; --ink:#0b1220; --muted:#64707f; --faint:#96a0ad;
+    --line:#e6e9ef; --line2:#eef1f5;
+    --emerald:#0f9d63; --emerald-d:#0a7a4c; --emerald-bg:rgba(15,157,99,.10);
+    --amber:#b4620a; --amber-bg:rgba(217,119,6,.12);
+    --red:#c62828; --red-bg:rgba(198,40,40,.10);
+    --indigo:#4f46e5; --indigo-d:#3b34c4;
+    --shadow:0 1px 2px rgba(11,18,32,.04), 0 8px 24px rgba(11,18,32,.06);
+    --shadow-lg:0 2px 4px rgba(11,18,32,.05), 0 24px 60px rgba(11,18,32,.10);
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); background:var(--bg);
+    background-image:
+      radial-gradient(1200px 500px at 15% -10%, rgba(15,157,99,.10), transparent 60%),
+      radial-gradient(1100px 500px at 100% -20%, rgba(79,70,229,.10), transparent 55%);
+    -webkit-font-smoothing:antialiased; letter-spacing:-0.01em;
+  }
+  .micro{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .tabular{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  /* ---- top bar ---- */
+  .top{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.72);backdrop-filter:saturate(1.4) blur(14px);
+       border-bottom:1px solid var(--line)}
+  .top-in{max-width:1040px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:13px}
+  .mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#12b981,#0ea5e9);
+        display:grid;place-items:center;color:#fff;font-weight:800;box-shadow:0 4px 12px rgba(14,165,233,.35);}
+  .mark svg{width:19px;height:19px}
+  .brand{font-weight:750;font-size:15.5px;letter-spacing:-0.02em}
+  .brand span{color:var(--muted);font-weight:550}
+  .live{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;
+        letter-spacing:.1em;color:var(--emerald-d);background:var(--emerald-bg);
+        padding:6px 11px;border-radius:999px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--emerald);box-shadow:0 0 0 0 rgba(15,157,99,.5);
+       animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(15,157,99,.45)}70%{box-shadow:0 0 0 7px rgba(15,157,99,0)}100%{box-shadow:0 0 0 0 rgba(15,157,99,0)}}
+
+  .wrap{max-width:1040px;margin:0 auto;padding:30px 24px 60px}
+
+  /* ---- setup bar (collapsible-ish, low-key) ---- */
+  .setup{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+  .setup input{flex:1;min-width:150px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;
+        font:inherit;font-size:13px;background:#fff;color:var(--ink)}
+  .setup button{padding:9px 18px;border:0;border-radius:9px;background:var(--ink);color:#fff;font:inherit;
+        font-weight:650;font-size:13px;cursor:pointer}
+  .setup button:hover{background:#1b2537}
+
+  .fade{opacity:0;transform:translateY(10px);animation:rise .6s cubic-bezier(.2,.7,.2,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+
+  /* ---- hero ---- */
+  .hero{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-lg);
+        padding:30px;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center;margin-bottom:18px}
+  .verdict{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;
+        font-weight:750;font-size:13px;letter-spacing:.02em;margin-bottom:20px}
+  .verdict.prov{background:var(--amber-bg);color:var(--amber)}
+  .verdict.iss{background:var(--emerald-bg);color:var(--emerald-d)}
+  .verdict svg{width:15px;height:15px}
+  .credit{display:flex;align-items:baseline;gap:10px}
+  .credit .num{font-size:66px;font-weight:800;letter-spacing:-0.04em;line-height:.9;
+        background:linear-gradient(135deg,#0b1220,#0a7a4c);-webkit-background-clip:text;background-clip:text;
+        -webkit-text-fill-color:transparent}
+  .credit .unit{font-size:20px;font-weight:700;color:var(--muted)}
+  .credit-label{margin-top:12px;color:var(--muted);font-size:13.5px;font-weight:550}
+  .credit-eq{margin-top:3px;color:var(--faint);font-size:12.5px}
+
+  /* ---- ring ---- */
+  .ring{position:relative;width:150px;height:150px}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .track{stroke:var(--line);stroke-width:12;fill:none}
+  .ring .fill{stroke:url(#grad);stroke-width:12;fill:none;stroke-linecap:round;
+        transition:stroke-dashoffset 1.4s cubic-bezier(.2,.7,.2,1)}
+  .ring .center{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+  .ring .center b{font-size:30px;font-weight:800;letter-spacing:-0.03em}
+  .ring .center small{display:block;font-size:10.5px;font-weight:700;letter-spacing:.12em;
+        text-transform:uppercase;color:var(--faint);margin-top:2px}
+
+  /* ---- meta tiles ---- */
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px;box-shadow:var(--shadow)}
+  .tile .v{font-size:22px;font-weight:750;letter-spacing:-0.02em;margin-top:8px}
+  .tile .v.g{color:var(--emerald-d)} .tile .v.a{color:var(--amber)} .tile .v.m{color:var(--faint)}
+  .tile .id{font-size:13px;font-weight:650;font-family:ui-monospace,"SF Mono",Consolas,monospace;margin-top:8px;color:var(--ink)}
+
+  /* ---- checklist ---- */
+  .sec-title{display:flex;align-items:center;gap:10px;margin:26px 2px 12px}
+  .sec-title h3{font-size:14px;font-weight:750;letter-spacing:-0.01em}
+  .sec-title .rule{flex:1;height:1px;background:var(--line)}
+  .sec-title .frac{font-size:12px;font-weight:700;color:var(--faint)}
+  .group{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .row{display:flex;align-items:center;gap:14px;padding:15px 18px;border-top:1px solid var(--line2)}
+  .row:first-child{border-top:0}
+  .row.open{background:linear-gradient(90deg,var(--amber-bg),transparent 40%)}
+  .ic{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center}
+  .ic svg{width:15px;height:15px}
+  .ic.pass{background:var(--emerald-bg);color:var(--emerald-d)}
+  .ic.open{background:var(--amber-bg);color:var(--amber)}
+  .ic.na{background:#f0f2f5;color:var(--faint)}
+  .row .lab{flex:1}
+  .row .lab b{font-weight:600;font-size:14.5px}
+  .row .lab .code{font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:11.5px;color:var(--faint);margin-top:2px}
+  .chip{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:5px 10px;border-radius:7px;white-space:nowrap}
+  .chip.enf{background:var(--emerald-bg);color:var(--emerald-d)}
+  .chip.na{background:#f0f2f5;color:var(--faint)}
+
+  .foot{margin-top:30px;display:flex;align-items:center;gap:10px;color:var(--faint);font-size:12.5px;justify-content:center}
+  .err{background:var(--card);border:1px solid var(--red);border-radius:14px;padding:22px;color:var(--red);
+       font-weight:600;box-shadow:var(--shadow)}
+  .skel{color:var(--faint);text-align:center;padding:40px;font-weight:550}
+  @media(max-width:720px){.hero{grid-template-columns:1fr}.ring{justify-self:start}.tiles{grid-template-columns:repeat(2,1fr)}.credit .num{font-size:52px}}
+</style>
+</head>
+<body>
+<div class="top"><div class="top-in">
+  <div class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3C8 7 6 10 6 14a6 6 0 0 0 12 0c0-4-2-7-6-11Z" fill="#fff" opacity=".95"/><path d="M12 21V11" stroke="#0a7a4c" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+  <div class="brand">TerraCipher <span>· Verifier Portal</span></div>
+  <div class="live"><span class="dot"></span>LIVE</div>
+</div></div>
+
+<div class="wrap">
+  <div class="setup">
+    <input id="api" placeholder="API base">
+    <input id="secret" placeholder="X-Admin-Secret" type="password">
+    <input id="uuid" placeholder="Batch UUID">
+    <button onclick="start()">Verify</button>
+  </div>
+  <div id="out"><div class="skel">Enter a batch UUID and press <b>Verify</b>.</div></div>
+</div>
+
+<svg width="0" height="0"><defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#12b981"/><stop offset="1" stop-color="#0ea5e9"/>
+</linearGradient></defs></svg>
+
+<script>
+const ICONS = {
+  check:'<svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  open:'<svg viewBox="0 0 24 24" fill="none"><path d="M12 8v5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="16.5" r="1.3" fill="currentColor"/></svg>',
+  na:'<svg viewBox="0 0 24 24" fill="none"><path d="M7 12h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  seal:'<svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.4 1.7 2.9-.2 1 2.7 2.3 1.8-.9 2.8.9 2.8-2.3 1.8-1 2.7-2.9-.2L12 21l-2.4-1.7-2.9.2-1-2.7L3.4 15l.9-2.8-.9-2.8 2.3-1.8 1-2.7 2.9.2Z" fill="currentColor" opacity=".18"/><path d="M8.5 12.5l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+};
+
+const q=new URLSearchParams(location.search);
+const $=id=>document.getElementById(id);
+$('api').value=q.get('api')||'http://localhost:8000';
+$('uuid').value=q.get('uuid')||'';
+const CREDIT=q.get('credit');   // optional: passed by pick_batch.py for the hero
+
+// Admin secret is NEVER in the URL. Keep it in sessionStorage (cleared when the
+// tab closes); prompt once if absent. The password field stays editable.
+function adminSecret(){
+  let s=sessionStorage.getItem('dmrv_admin_secret')||'';
+  if(!s){ s=(window.prompt('Enter X-Admin-Secret for the verifier session')||'').trim();
+          if(s) sessionStorage.setItem('dmrv_admin_secret', s); }
+  return s;
+}
+$('secret').value=adminSecret();
+$('secret').addEventListener('change',()=>sessionStorage.setItem('dmrv_admin_secret',$('secret').value.trim()));
+
+let timer=null;
+function start(){ if(timer)clearInterval(timer); poll(); timer=setInterval(poll,5000); }
+
+async function poll(){
+  const base=$('api').value.replace(/\/+$/,''); const id=$('uuid').value.trim();
+  if(!id){ $('out').innerHTML='<div class="skel">Enter a batch UUID first.</div>'; return; }
+  try{
+    const r=await fetch(`${base}/api/v1/batches/${id}/compliance`,{headers:{'X-Admin-Secret':($('secret').value||adminSecret())}});
+    if(!r.ok){ $('out').innerHTML=`<div class="err">HTTP ${r.status} — ${await r.text()}</div>`; return; }
+    render(await r.json());
+  }catch(e){ $('out').innerHTML=`<div class="err">Failed to fetch — is the backend running and DMRV_ALLOWED_ORIGIN set to this page's origin (${location.origin})?</div>`; }
+}
+
+// Group sections into clean clusters, preserving methodology order.
+function cluster(section){
+  const s=(section||'').toLowerCase();
+  if(s.startsWith('per-run')) return 'Per-run evidence — feedstock, moisture & pyrolysis';
+  if(s.startsWith('per-event')) return 'Transport';
+  if(s.startsWith('per-batch')) return 'Delivery & end-use';
+  if(s.startsWith('project')) return 'Project registry';
+  if(s.startsWith('annual')) return 'Annual verification';
+  if(s.startsWith('lab')) return 'Laboratory analysis';
+  if(s.startsWith('security')) return 'Device integrity & security';
+  return 'Other';
+}
+const ORDER=['Per-run evidence — feedstock, moisture & pyrolysis','Transport','Delivery & end-use','Project registry','Annual verification','Laboratory analysis','Device integrity & security','Other'];
+
+function render(d){
+  const issuable=d.issuable===true||d.provisional===false;
+  const checks=d.checklist||[];
+  const passed=checks.filter(c=>c.ok===true).length;
+  const total=checks.length||1;
+  const naCount=checks.filter(c=>{const e=c.enforcement||'';return e.startsWith('inert')||e==='awaiting_methodology';}).length;
+  const openCount=checks.filter(c=>c.ok!==true).length;
+  const pct=passed/total;
+  const C=2*Math.PI*63;
+
+  // group rows
+  const groups={};
+  for(const c of checks){ const g=cluster(c.section); (groups[g]=groups[g]||[]).push(c); }
+  let groupsHtml='';
+  for(const g of ORDER){
+    const items=groups[g]; if(!items) continue;
+    const gp=items.filter(c=>c.ok===true).length;
+    const rows=items.map(c=>{
+      const e=c.enforcement||''; const inert=e.startsWith('inert')||e==='awaiting_methodology';
+      const state=c.ok===true?'pass':(inert?'na':'open');
+      const icon=state==='pass'?ICONS.check:(state==='na'?ICONS.na:ICONS.open);
+      const chip=inert?`<span class="chip na">${e.replace(/_/g,' ')}</span>`:`<span class="chip enf">enforced</span>`;
+      return `<div class="row ${state==='open'?'open':''}">
+        <div class="ic ${state}">${icon}</div>
+        <div class="lab"><b>${c.label||c.code||''}</b><div class="code">${c.code||''}</div></div>
+        ${chip}</div>`;
+    }).join('');
+    groupsHtml+=`<div class="sec-title"><h3>${g}</h3><div class="rule"></div><div class="frac">${gp}/${items.length}</div></div>
+      <div class="group fade">${rows}</div>`;
+  }
+
+  const creditBlock = CREDIT!=null ? `
+    <div class="credit"><div class="num tabular">${Number(CREDIT).toFixed(3)}</div><div class="unit">t CO₂e</div></div>
+    <div class="credit-label">Net carbon removal credit ${issuable?'':'(provisional)'}</div>
+    <div class="credit-eq">≈ ${Math.round(Number(CREDIT)*1000)} kg CO₂ locked as biochar carbon</div>`
+    : `<div class="credit"><div class="num tabular">${passed}/${total}</div></div>
+       <div class="credit-label">Methodology criteria satisfied</div>`;
+
+  $('out').innerHTML=`
+    <div class="hero fade">
+      <div>
+        <div class="verdict ${issuable?'iss':'prov'}">${issuable?ICONS.seal:ICONS.clock}${issuable?'ISSUABLE — verification complete':'PROVISIONAL — under verification'}</div>
+        ${creditBlock}
+      </div>
+      <div class="ring">
+        <svg width="150" height="150" viewBox="0 0 150 150">
+          <circle class="track" cx="75" cy="75" r="63"/>
+          <circle class="fill" cx="75" cy="75" r="63" stroke-dasharray="${C}" stroke-dashoffset="${C}" id="ringfill"/>
+        </svg>
+        <div class="center"><div><b class="tabular">${Math.round(pct*100)}%</b><small>Corroborated</small></div></div>
+      </div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><div class="micro">Checks passed</div><div class="v g tabular">${passed}<span style="color:var(--faint);font-size:15px">/${total}</span></div></div>
+      <div class="tile"><div class="micro">Open items</div><div class="v ${openCount?'a':'g'} tabular">${openCount}</div></div>
+      <div class="tile"><div class="micro">Not applicable</div><div class="v m tabular">${naCount}</div></div>
+      <div class="tile"><div class="micro">Batch</div><div class="id">${(d.batch_uuid||'').slice(0,8)}…</div></div>
+    </div>
+
+    ${groupsHtml}
+
+    <div class="foot">${ICONS.seal.replace('width="15"','')}<span style="width:14px;height:14px;display:inline-block"></span>
+      Cryptographically anchored · signed at source · live, auto-refreshing · ${new Date().toLocaleTimeString()}</div>`;
+
+  // animate the ring after paint
+  requestAnimationFrame(()=>{ const f=document.getElementById('ringfill'); if(f) f.style.strokeDashoffset=C*(1-pct); });
+}
+
+if($('uuid').value) start();
+</script>
+</body>
+</html>
