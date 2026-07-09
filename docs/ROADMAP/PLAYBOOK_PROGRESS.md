@@ -4,15 +4,15 @@
 
 **Legend:** `[ ]` not started · `[~]` in progress · `[x]` done (committed) · `⏸` blocked (waiting on a human/decision — note what it needs)
 
-**Started:** _(not yet — first task begins when the owner says "go")_
+**Started:** 2026-07-10
 **Current phase:** P0 — Protect & release-able
-**Next actionable task:** P0.1 (needs one human action: create the GitHub repo)
+**Next actionable task:** P0.4 (Sentry guard) or P0.5 (Flutter CI) — both fully agent-doable. P0.3's commit needs your fresh secret values; P0.1's push needs the repo URL.
 
 ---
 
 ## PHASE P0 — Protect & release-able
-- [ ] **P0.1** — Push repo to remote + branch protection · `⏸ needs HUMAN: create private GitHub repo + provide URL` (agent steps 1–4 can run before that)
-- [ ] **P0.2** — Pin `cryptography` + `python-dotenv` in requirements.txt
+- [x] **P0.1** — Push repo to remote · pushed all 4 branches to github.com/dhananjay1434/terra (commits 9686a11, 2ea6fba, 356bf24); remote verified clean of secrets/demo_tools · `⏸ FOLLOW-UP (HUMAN, after P0.5): enable branch protection on main requiring backend-ci + flutter-ci`
+- [x] **P0.2** — Pin `cryptography` + `python-dotenv` in requirements.txt · commit 1d20989 · hermetic venv import OK, suite 307/1 green
 - [ ] **P0.3** — Scrub secrets from demo_tools, then commit it · `⏸ needs HUMAN: rotate to fresh secret values`
 - [ ] **P0.4** — Sentry release-build guard
 - [ ] **P0.5** — Flutter CI lane
@@ -81,4 +81,6 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
-_(empty — first entry lands with P0.1)_
+- 2026-07-10 · P0.2 · commit 1d20989 · pinned cryptography==44.0.3 + python-dotenv==1.0.1 · proved via hermetic venv import + full suite 307 passed/1 skipped (G1 green). Note: initial run showed 29 false failures from exporting DMRV_*_SECRET over conftest's setdefault — resolved by letting conftest own the test secrets.
+- 2026-07-10 · P0.1 · pushed all 4 branches to github.com/dhananjay1434/terra; remote verified free of .env/demo_tools/keystores. Branch protection = human follow-up after flutter-ci exists (P0.5).
+- 2026-07-10 · P0.1 (local) · 3 commits: gitignore hardening + docs corpus + Dockerfile · verified backend/.env absent from history, secrets-scanned docs (clean)
