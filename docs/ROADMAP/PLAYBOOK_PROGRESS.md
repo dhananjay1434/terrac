@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P0 — Protect & release-able
-**Next actionable task:** P0.4 (Sentry guard) or P0.5 (Flutter CI) — both fully agent-doable. P0.3's commit needs your fresh secret values; P0.1's push needs the repo URL.
+**Next actionable task:** P0.5 (Flutter CI lane) — agent-doable. Then P0.10. Human-blocked: P0.3 (fresh secrets), P0.6–P0.8 (keystore + device), P0.1 follow-up (branch protection).
 
 ---
 
@@ -14,7 +14,7 @@
 - [x] **P0.1** — Push repo to remote · pushed all 4 branches to github.com/dhananjay1434/terra (commits 9686a11, 2ea6fba, 356bf24); remote verified clean of secrets/demo_tools · `⏸ FOLLOW-UP (HUMAN, after P0.5): enable branch protection on main requiring backend-ci + flutter-ci`
 - [x] **P0.2** — Pin `cryptography` + `python-dotenv` in requirements.txt · commit 1d20989 · hermetic venv import OK, suite 307/1 green
 - [ ] **P0.3** — Scrub secrets from demo_tools, then commit it · `⏸ needs HUMAN: rotate to fresh secret values`
-- [ ] **P0.4** — Sentry release-build guard
+- [x] **P0.4** — Sentry release-build guard · extracted `validateReleaseConfig` in main.dart (throws in release when DSN empty) + test/release_guards_test.dart (4 tests) · G2 zero new issues, G3 169 passed
 - [ ] **P0.5** — Flutter CI lane
 - [ ] **P0.6** — Real release keystore + signing config · `⏸ needs HUMAN: generate + back up keystore`
 - [ ] **P0.7** — Validate release build on-device; close ProGuard gaps · `⏸ needs HUMAN: physical Android device`
@@ -81,6 +81,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P0.4 · main.dart validateReleaseConfig + release_guards_test.dart (4 tests) · G2 24 issues all pre-existing (0 new), G3 169 passed. Release builds now refuse to boot without SENTRY_DSN.
 - 2026-07-10 · P0.2 · commit 1d20989 · pinned cryptography==44.0.3 + python-dotenv==1.0.1 · proved via hermetic venv import + full suite 307 passed/1 skipped (G1 green). Note: initial run showed 29 false failures from exporting DMRV_*_SECRET over conftest's setdefault — resolved by letting conftest own the test secrets.
 - 2026-07-10 · P0.1 · pushed all 4 branches to github.com/dhananjay1434/terra; remote verified free of .env/demo_tools/keystores. Branch protection = human follow-up after flutter-ci exists (P0.5).
 - 2026-07-10 · P0.1 (local) · 3 commits: gitignore hardening + docs corpus + Dockerfile · verified backend/.env absent from history, secrets-scanned docs (clean)

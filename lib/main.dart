@@ -25,16 +25,37 @@ import 'services/secure_capture_service.dart';
 import 'ui/design/tokens.dart';
 import 'ui/screens/dashboard_screen.dart';
 
+/// Validates release-critical runtime config and returns the DSN to use.
+///
+/// A release build with no `SENTRY_DSN` would silently disable crash
+/// reporting — a production fleet whose crashes vanish. We refuse to boot in
+/// that case. In debug/profile the empty DSN is allowed (local runs need no
+/// DSN) and simply means reporting is off. Extracted as a pure function so the
+/// contract is unit-testable without flipping [kReleaseMode].
+String validateReleaseConfig({required bool isRelease, required String dsn}) {
+  if (isRelease && dsn.isEmpty) {
+    throw StateError(
+      'Release build without SENTRY_DSN — crash reporting would be off. '
+      'Pass --dart-define=SENTRY_DSN=... to release builds.',
+    );
+  }
+  return dsn;
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await CryptoSigner.warmUp();
 
+  const sentryDsn = String.fromEnvironment('SENTRY_DSN', defaultValue: '');
+  final resolvedDsn =
+      validateReleaseConfig(isRelease: kReleaseMode, dsn: sentryDsn);
+  if (resolvedDsn.isEmpty) {
+    debugPrint('[Sentry] DSN empty — crash reporting OFF (debug/profile only).');
+  }
+
   await SentryFlutter.init(
     (options) {
-      options.dsn = const String.fromEnvironment(
-        'SENTRY_DSN',
-        defaultValue: '',
-      );
+      options.dsn = resolvedDsn;
       options.tracesSampleRate = kReleaseMode ? 0.05 : 1.0;
       options.beforeBreadcrumb = (crumb, hint) {
         final m = crumb?.message ?? '';
