@@ -5,8 +5,8 @@
 **Legend:** `[ ]` not started · `[~]` in progress · `[x]` done (committed) · `⏸` blocked (waiting on a human/decision — note what it needs)
 
 **Started:** 2026-07-10
-**Current phase:** P0 — Protect & release-able
-**Next actionable task:** P0.6 (release keystore — generating via keytool myself). After that, only external-blocked P0 items remain: P0.7–P0.8 (physical Android device), P0.1 follow-up (branch protection toggle), remote CI confirmation (no gh CLI).
+**Current phase:** P0 agent-work COMPLETE (8/10) → advancing to P1a. P0.7/P0.8 parked (hardware/major-bump); they don't gate P1's correctness, so per best-judgment the loop continues rather than halting on hardware I don't have.
+**Next actionable task:** P1-B1 (guard json.loads in recompute) — fully agent-doable backend fix.
 
 ---
 
@@ -17,11 +17,11 @@
 - [x] **P0.4** — Sentry release-build guard · extracted `validateReleaseConfig` in main.dart (throws in release when DSN empty) + test/release_guards_test.dart (4 tests) · G2 zero new issues, G3 169 passed
 - [x] **P0.5** — Flutter CI lane · `.github/workflows/flutter-ci.yml` (analyze --no-fatal-infos + test + release-apk build, Flutter pinned 3.41.9; codegen drift already in codegen.yml, not duplicated). Cleared 9 pre-existing analyzer WARNINGS (dead imports + 1 unused var) so the warning-fatal gate is enforceable (info-level cleanup stays P4.8). All 3 CI steps verified LOCALLY green (analyze exit 0, 169 tests, APK built 95.3MB). `⏸ remote Actions run unverified — no gh CLI here; confirm on GitHub or I'll retry if gh gets installed.`
 - [x] **P0.6** — Real release keystore + signing config · generated PKCS12 RSA-4096 keystore myself (outside repo) + gitignored key.properties + key.properties.example; build.gradle.kts conditional signing (release key when key.properties present, debug fallback for CI). Hit + fixed the PKCS12 key-password trap (keypass must == storepass). VERIFIED: signed APK cert = CN=dMRV (apksigner), not Android Debug. `⚠️ HUMAN residual: back up the .jks + password off-machine (single point of failure until then).`
-- [ ] **P0.7** — Validate release build on-device; close ProGuard gaps · `⏸ needs HUMAN: physical Android device`
-- [ ] **P0.8** — 16 KB page-size compliance · `⏸ needs HUMAN: re-run on-device checklist`
+- [~] **P0.7** — Validate release build on-device; close ProGuard gaps · `⏸ BLOCKED: no physical Android device`. The on-device walk needs hardware; ProGuard keep-rule prep can be done device-free when P0.7 is next.
+- [~] **P0.8** — 16 KB page-size · DIAGNOSED device-free: 9/14 arm64 libs compliant; 5 freeRASP libs are 4KB-aligned. Fix = freeRASP 6.12→8.0 (MAJOR, API-breaking, security SDK) → reported not silently applied; deferred to P4.1 (needs device validation; blocks nothing until Play/P4.9). See RELEASE_CHECKLIST.md.
 - [x] **P0.9** — Finalize applicationId · kept `io.dmrv.dmrv_app` (default), removed the TODO; namespace matches. Comment-only gradle change (build validated in P0.5).
 - [x] **P0.10** — Dependency policy: lock is law · flutter-ci `pub get --enforce-lockfile` (verified exit 0 locally); backend-ci `pip check` step (verified hermetically: "No broken requirements found"); created docs/RELEASE_CHECKLIST.md with the dep-upgrade policy.
-- [ ] **P0 EXIT GATE** — remote+CI green · no secret in repo · signed release APK passes full on-device checklist · fresh-venv `import server` works
+- [~] **P0 EXIT GATE** — ✅ remote pushed · ✅ no secret in repo · ✅ signed release APK (cert verified) · ✅ fresh-venv `import server` · ✅ CI workflows written+locally-green · ⏸ REMAINING (hardware/decision only): on-device checklist (P0.7, needs device), 16KB (P0.8, freeRASP major bump→P4.1), remote-CI-green confirm (no gh), branch-protection toggle. **All agent-doable P0 work is DONE (8/10 tasks); the 2 open items and the gate confirmations need hardware or a human toggle.**
 
 ## PHASE P1a — Backend robustness
 - [ ] **P1-B1** — Guard every json.loads in recompute/compliance
@@ -81,6 +81,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P0 milestone · all 8 agent-doable P0 tasks done + pushed. P0.7 (device) & P0.8 (freeRASP 6→8 major bump for 16KB) parked as hardware/decision-blocked. P0.8 diagnosed device-free (5 freeRASP libs 4KB-aligned). Advancing to P1a.
 - 2026-07-10 · P0.6 · generated PKCS12 RSA-4096 release keystore (outside repo), wired conditional signing in build.gradle.kts + key.properties(.example). Diagnosed a real failure: PKCS12 ignores separate -keypass, so key.properties keyPassword had to equal storePassword ("Given final block not properly padded"). Rebuilt → apksigner confirms signer CN=dMRV (SHA-256 c04e5392…), not debug. Keystore backup is the only human residual.
 - 2026-07-10 · P0.10 · flutter-ci --enforce-lockfile (exit 0 locally) + backend-ci pip-check (hermetic: no broken requirements) + docs/RELEASE_CHECKLIST.md dep policy. commit pending push.
 - 2026-07-10 · P0.9 · commit 7ce570e · kept io.dmrv.dmrv_app, removed scaffold TODO.
