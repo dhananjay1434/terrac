@@ -19,7 +19,7 @@
 - [ ] **P0.6** — Real release keystore + signing config · `⏸ needs HUMAN: generate + back up keystore`
 - [ ] **P0.7** — Validate release build on-device; close ProGuard gaps · `⏸ needs HUMAN: physical Android device`
 - [ ] **P0.8** — 16 KB page-size compliance · `⏸ needs HUMAN: re-run on-device checklist`
-- [ ] **P0.9** — Finalize applicationId · `DECISION (default: keep io.dmrv.dmrv_app)`
+- [x] **P0.9** — Finalize applicationId · kept `io.dmrv.dmrv_app` (default), removed the TODO; namespace matches. Comment-only gradle change (build validated in P0.5).
 - [ ] **P0.10** — Dependency policy: lock is law
 - [ ] **P0 EXIT GATE** — remote+CI green · no secret in repo · signed release APK passes full on-device checklist · fresh-venv `import server` works
 
