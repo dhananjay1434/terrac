@@ -57,6 +57,18 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 dump.rdb
+*.log
+android/hs_err_pid*.log
+hs_err_pid*.log
+
+# Android release signing — NEVER commit the keystore or its passwords (P0.1/P0.6)
+**/key.properties
+!**/key.properties.example
+**/*.jks
+**/*.keystore
+
+# Demo tooling secrets (P0.3) — the scrubbed demo_tools ships, its live secrets never do
+demo_tools/demo_secrets.bat
 
 # System files
 .DS_Store
