@@ -1,7 +1,6 @@
 // =====================================================================
 // P1-23 — JSON CHECK constraints on temperature/smoke/hw_attestation cols.
 // =====================================================================
-import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 

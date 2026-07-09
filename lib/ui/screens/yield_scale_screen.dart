@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../services/sync_queue_manager.dart';
-
 import '../../data/local/database_provider.dart';
 import '../../data/local/yield_end_use_writers.dart';
 import '../../providers/batch_session_notifier.dart';

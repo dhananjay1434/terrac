@@ -11,7 +11,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:geolocator/geolocator.dart';
 
 import 'package:dmrv_app/services/location_service.dart';
 import 'package:dmrv_app/services/secure_capture_service.dart';

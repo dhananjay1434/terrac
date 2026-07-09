@@ -1,0 +1,81 @@
+name: flutter-ci
+
+# P0.5 — the app's CI gate (mirrors backend-ci.yml's discipline for the client).
+#
+# analyze-test is the BLOCKING gate: `flutter analyze --no-fatal-infos` is fatal
+# on warnings+ (info-level legacy noise is deferred to the P4.8 cleanup), and the
+# full widget/unit suite must pass. build-release-apk proves R8/ProGuard/manifest
+# survive a real --release compile on every PR — its APK is a THROWAWAY artifact
+# built with fake dart-defines, never a shippable build (real signing = P0.6).
+#
+# Drift codegen drift is already guarded by codegen.yml — deliberately NOT
+# duplicated here.
+
+on:
+  push:
+    branches: [main, "feature/**", "remediation/**"]
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "android/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - ".github/workflows/flutter-ci.yml"
+  pull_request:
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "android/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - ".github/workflows/flutter-ci.yml"
+
+jobs:
+  analyze-test:
+    name: analyze + test (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.9 # pinned to the dev toolchain (Dart 3.11.5)
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test --coverage
+
+  build-release-apk:
+    name: release APK compile (R8/ProGuard smoke)
+    runs-on: ubuntu-latest
+    needs: analyze-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.9
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # Every dart-define the release code path reads. Values are obvious
+      # placeholders — the APK is only proof that R8/ProGuard/manifest compile,
+      # it is never run or shipped. (No keystore in CI => debug-signing fallback.)
+      - name: Build release APK
+        run: >
+          flutter build apk --release
+          --dart-define=SENTRY_DSN=https://ci-placeholder@o0.ingest.sentry.io/1
+          --dart-define=DMRV_API_BASE_URL=https://ci.invalid
+          --dart-define=DMRV_PINNED_CERT_PEM=
+          --dart-define=TALSEC_SIGNING_CERT_HASH=ci-placeholder
+          --dart-define=TALSEC_IOS_TEAM_ID=ci-placeholder
+          --dart-define=ENROLLMENT_TOKEN=
+          --dart-define=DMRV_PROJECT_ID=
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7

@@ -55,7 +55,8 @@ void main() {
         locationServiceProvider.overrideWithValue(MockLocationService()),
       ],
     );
-    // actually, let's just create SecureCaptureService directly to avoid provider issues
+    addTearDown(container.dispose);
+    // Create SecureCaptureService directly to avoid provider setup.
     final captureService = SecureCaptureService(MockLocationService());
     final mockController = MockCameraController();
 

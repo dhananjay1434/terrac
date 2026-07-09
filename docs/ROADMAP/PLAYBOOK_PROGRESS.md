@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P0 — Protect & release-able
-**Next actionable task:** P0.5 (Flutter CI lane) — agent-doable. Then P0.10. Human-blocked: P0.3 (fresh secrets), P0.6–P0.8 (keystore + device), P0.1 follow-up (branch protection).
+**Next actionable task:** P0.6 (keystore — I can generate it via keytool), P0.9 (applicationId, default=keep), P0.10 (lockfile enforcement). Truly external-blocked: P0.7–P0.8 (physical Android device), P0.1 follow-up (branch protection toggle), remote CI confirmation (no gh CLI).
 
 ---
 
@@ -15,7 +15,7 @@
 - [x] **P0.2** — Pin `cryptography` + `python-dotenv` in requirements.txt · commit 1d20989 · hermetic venv import OK, suite 307/1 green
 - [x] **P0.3** — Scrub secrets from demo_tools, then commit it · generated fresh 64-hex secrets myself (into gitignored backend/.env + demo_secrets.bat); scrubbed 1_start_backend.bat/pick_batch.py/index.html/DEMO_RUNBOOK.md + a tracked prompt doc; repo audit clean of both burned values; 3 new hygiene tests (G1 310/1). NOTE: demo enrollment token `demo-eu-3` remains in 3_run_app.bat — low-sev single-use, eliminated by P1-S8.
 - [x] **P0.4** — Sentry release-build guard · extracted `validateReleaseConfig` in main.dart (throws in release when DSN empty) + test/release_guards_test.dart (4 tests) · G2 zero new issues, G3 169 passed
-- [ ] **P0.5** — Flutter CI lane
+- [x] **P0.5** — Flutter CI lane · `.github/workflows/flutter-ci.yml` (analyze --no-fatal-infos + test + release-apk build, Flutter pinned 3.41.9; codegen drift already in codegen.yml, not duplicated). Cleared 9 pre-existing analyzer WARNINGS (dead imports + 1 unused var) so the warning-fatal gate is enforceable (info-level cleanup stays P4.8). All 3 CI steps verified LOCALLY green (analyze exit 0, 169 tests, APK built 95.3MB). `⏸ remote Actions run unverified — no gh CLI here; confirm on GitHub or I'll retry if gh gets installed.`
 - [ ] **P0.6** — Real release keystore + signing config · `⏸ needs HUMAN: generate + back up keystore`
 - [ ] **P0.7** — Validate release build on-device; close ProGuard gaps · `⏸ needs HUMAN: physical Android device`
 - [ ] **P0.8** — 16 KB page-size compliance · `⏸ needs HUMAN: re-run on-device checklist`
@@ -81,6 +81,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P0.5 · added flutter-ci.yml (analyze+test+release-apk, Flutter 3.41.9 pinned); removed 9 dead-code warnings across 3 lib screens + 4 test files so `analyze --no-fatal-infos` is warning-fatal-clean. Verified locally: analyze exit 0 (15 infos left), 169 tests pass, release APK built 95.3MB with R8. Remote GitHub Actions run not observable here (no gh).
 - 2026-07-10 · P0.3 · rotated demo secrets (fresh token_hex(32) into gitignored .env + demo_secrets.bat); scrubbed 4 demo files + 1 tracked prompt doc; committed demo_tools sans secrets; repo audit shows 0 burned-value hits; +3 hygiene tests; G1 310 passed. Old secrets were in history (commit 81e126e) but are now dead — rotation is the mitigation; no history rewrite for a defunct demo secret.
 - 2026-07-10 · P0.4 · main.dart validateReleaseConfig + release_guards_test.dart (4 tests) · G2 24 issues all pre-existing (0 new), G3 169 passed. Release builds now refuse to boot without SENTRY_DSN.
 - 2026-07-10 · P0.2 · commit 1d20989 · pinned cryptography==44.0.3 + python-dotenv==1.0.1 · proved via hermetic venv import + full suite 307 passed/1 skipped (G1 green). Note: initial run showed 29 false failures from exporting DMRV_*_SECRET over conftest's setdefault — resolved by letting conftest own the test secrets.
