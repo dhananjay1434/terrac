@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P0 — Protect & release-able
-**Next actionable task:** P0.6 (keystore — I can generate it via keytool), P0.9 (applicationId, default=keep), P0.10 (lockfile enforcement). Truly external-blocked: P0.7–P0.8 (physical Android device), P0.1 follow-up (branch protection toggle), remote CI confirmation (no gh CLI).
+**Next actionable task:** P0.6 (release keystore — generating via keytool myself). After that, only external-blocked P0 items remain: P0.7–P0.8 (physical Android device), P0.1 follow-up (branch protection toggle), remote CI confirmation (no gh CLI).
 
 ---
 
@@ -20,7 +20,7 @@
 - [ ] **P0.7** — Validate release build on-device; close ProGuard gaps · `⏸ needs HUMAN: physical Android device`
 - [ ] **P0.8** — 16 KB page-size compliance · `⏸ needs HUMAN: re-run on-device checklist`
 - [x] **P0.9** — Finalize applicationId · kept `io.dmrv.dmrv_app` (default), removed the TODO; namespace matches. Comment-only gradle change (build validated in P0.5).
-- [ ] **P0.10** — Dependency policy: lock is law
+- [x] **P0.10** — Dependency policy: lock is law · flutter-ci `pub get --enforce-lockfile` (verified exit 0 locally); backend-ci `pip check` step (verified hermetically: "No broken requirements found"); created docs/RELEASE_CHECKLIST.md with the dep-upgrade policy.
 - [ ] **P0 EXIT GATE** — remote+CI green · no secret in repo · signed release APK passes full on-device checklist · fresh-venv `import server` works
 
 ## PHASE P1a — Backend robustness
@@ -81,6 +81,8 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P0.10 · flutter-ci --enforce-lockfile (exit 0 locally) + backend-ci pip-check (hermetic: no broken requirements) + docs/RELEASE_CHECKLIST.md dep policy. commit pending push.
+- 2026-07-10 · P0.9 · commit 7ce570e · kept io.dmrv.dmrv_app, removed scaffold TODO.
 - 2026-07-10 · P0.5 · added flutter-ci.yml (analyze+test+release-apk, Flutter 3.41.9 pinned); removed 9 dead-code warnings across 3 lib screens + 4 test files so `analyze --no-fatal-infos` is warning-fatal-clean. Verified locally: analyze exit 0 (15 infos left), 169 tests pass, release APK built 95.3MB with R8. Remote GitHub Actions run not observable here (no gh).
 - 2026-07-10 · P0.3 · rotated demo secrets (fresh token_hex(32) into gitignored .env + demo_secrets.bat); scrubbed 4 demo files + 1 tracked prompt doc; committed demo_tools sans secrets; repo audit shows 0 burned-value hits; +3 hygiene tests; G1 310 passed. Old secrets were in history (commit 81e126e) but are now dead — rotation is the mitigation; no history rewrite for a defunct demo secret.
 - 2026-07-10 · P0.4 · main.dart validateReleaseConfig + release_guards_test.dart (4 tests) · G2 24 issues all pre-existing (0 new), G3 169 passed. Release builds now refuse to boot without SENTRY_DSN.
