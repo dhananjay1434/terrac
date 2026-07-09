@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P1a — Backend robustness (P0 agent-work done 8/10; P0.7/P0.8 hardware/decision-parked). Independent P0 audit (subagent) confirmed 8/10 verified, code clean; sole lurking risk = remote CI green unverified (no gh CLI).
-**Next actionable task:** P1-B2 (harden create_batch race fallback) — fully agent-doable backend fix.
+**Next actionable task:** P1-B3 (timezone-aware UTC normalization) — then B4 (uuid canon), B5 (media cleanup + a few unbounded validators), B6 (client GC-ordering test — the only one B6 audit found unpinned).
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## PHASE P1a — Backend robustness
 - [x] **P1-B1** — Guard every json.loads in recompute/compliance · added `_safe_json` helper; hardened all 7 sites (telemetry/yield/application scalars, moisture/composite sum-gens, transport list-comp, compliance provisional_reasons) with isinstance-dict guards. +4 tests (corrupt row excluded not fatal; compliance still 200). G1 314 passed.
-- [ ] **P1-B2** — Harden create_batch race fallback
+- [x] **P1-B2** — Harden create_batch race fallback · fallback now looks up by operation_id first then batch_uuid (no scalar_one → no NoResultFound 500), and validates device+uuid+op-id+sha before returning 200 duplicate. +1 test (concurrent same-op/different-uuid never 500). G1 315 passed.
 - [ ] **P1-B3** — Timezone-aware UTC normalization
 - [ ] **P1-B4** — Canonical UUID normalization at write
 - [ ] **P1-B5** — Media temp-file cleanup + payload validator bounds
@@ -81,6 +81,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1-B2 · create_batch race fallback: lookup by op-id then uuid, no scalar_one (no 500), device+uuid+op+sha validated before 200 dup. +1 test. G1 315 passed. (3 parallel context agents used for B2-B6.)
 - 2026-07-10 · P1-B1 · _safe_json guard on all 7 json.loads sites in server.py recompute/compliance; +4 tests (test_corrupt_payload_recompute.py); G1 314 passed. Independent subagent audit verified P0 8/10 before starting.
 - 2026-07-10 · P0 milestone · all 8 agent-doable P0 tasks done + pushed. P0.7 (device) & P0.8 (freeRASP 6→8 major bump for 16KB) parked as hardware/decision-blocked. P0.8 diagnosed device-free (5 freeRASP libs 4KB-aligned). Advancing to P1a.
 - 2026-07-10 · P0.6 · generated PKCS12 RSA-4096 release keystore (outside repo), wired conditional signing in build.gradle.kts + key.properties(.example). Diagnosed a real failure: PKCS12 ignores separate -keypass, so key.properties keyPassword had to equal storePassword ("Given final block not properly padded"). Rebuilt → apksigner confirms signer CN=dMRV (SHA-256 c04e5392…), not debug. Keystore backup is the only human residual.

@@ -1459,21 +1459,43 @@ async def create_batch(
         await session.commit()
         await session.refresh(batch)
     except IntegrityError:
-        # Race condition: another request beat us
+        # Race: another request committed first (P1-B2). The unique collision may
+        # be on operation_id OR on batch_uuid, so look up by BOTH — operation_id
+        # first — and NEVER scalar_one(): an op-id collision whose batch_uuid
+        # differs from ours would raise NoResultFound and 500. Only a
+        # byte-identical replay from the SAME device is a safe 200 duplicate;
+        # anything else (different device, uuid, op-id, or hash) is a genuine 409.
         await session.rollback()
-        stmt = select(Batch).where(Batch.batch_uuid == payload.batch_uuid)
-        result = await session.execute(stmt)
-        batch = result.scalar_one()
+        existing = (
+            await session.execute(
+                select(Batch).where(Batch.operation_id == x_idempotency_key)
+            )
+        ).scalar_one_or_none()
+        if existing is None:
+            existing = (
+                await session.execute(
+                    select(Batch).where(Batch.batch_uuid == payload.batch_uuid)
+                )
+            ).scalar_one_or_none()
+        if existing is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="race_unresolvable"
+            )
 
-        batch_sha = batch.sha256_hash.lower() if batch.sha256_hash else None
+        existing_sha = existing.sha256_hash.lower() if existing.sha256_hash else None
         payload_sha = payload.sha256_hash.lower() if payload.sha256_hash else None
-
-        if batch_sha != payload_sha or batch.operation_id != x_idempotency_key:
+        if not (
+            existing.device_id == device_id
+            and str(existing.batch_uuid) == str(payload.batch_uuid)
+            and existing.operation_id == x_idempotency_key
+            and existing_sha == payload_sha
+        ):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="race_resolved_with_different_payload",
             )
         log.info(f"[batches] RACE-RESOLVED batch_uuid={payload.batch_uuid}")
+        batch = existing
         response.status_code = status.HTTP_200_OK
         return BatchResponse(
             batch_uuid=str(batch.batch_uuid),
