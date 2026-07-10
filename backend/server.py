@@ -442,18 +442,20 @@ class BatchPayload(BaseModel):
     feedstock_species: str
     harvest_timestamp: datetime
     moisture_percent: float = Field(..., ge=0.0, le=100.0)
-    photo_path: Optional[str] = None
+    photo_path: Optional[str] = Field(None, max_length=512)
     sha256_hash: Optional[str] = Field(None, min_length=64, max_length=64)
     latitude: Optional[float] = Field(None, ge=-90.0, le=90.0)
     longitude: Optional[float] = Field(None, ge=-180.0, le=180.0)
     harvest_uptime_seconds: Optional[int] = Field(0, ge=0)
 
-    sourcing_uuid: Optional[str] = None
+    sourcing_uuid: Optional[str] = Field(None, max_length=64)
     moisture_compliant: Optional[bool] = None
     mock_location_enabled: Optional[bool] = False
-    azimuth: Optional[float] = None
-    pitch: Optional[float] = None
-    roll: Optional[float] = None
+    # Compass telemetry (advisory). Generous ±360 bounds accept any sensor
+    # convention while blocking absurd floats (P1-B5b).
+    azimuth: Optional[float] = Field(None, ge=-360.0, le=360.0)
+    pitch: Optional[float] = Field(None, ge=-360.0, le=360.0)
+    roll: Optional[float] = Field(None, ge=-360.0, le=360.0)
 
     # Rainbow compliance C1: biomass input amount + how it was measured.
     biomass_input_kg: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
@@ -473,7 +475,7 @@ class BatchPayload(BaseModel):
     # GPS) streams, which arrive AFTER the batch. They are optional on the payload;
     # an uncorroborated input keeps the batch PROVISIONAL (never issued as final).
     wet_yield_kg: Optional[float] = Field(
-        None, gt=0.0, description="Corroborated server-side from /yield"
+        None, gt=0.0, le=100_000.0, description="Corroborated server-side from /yield"
     )
     min_recorded_temp_c: Optional[float] = Field(
         None,
@@ -1757,11 +1759,11 @@ class TelemetryPayload(_BatchScopedPayload):
     model_config = ConfigDict(extra="forbid")
     telemetry_uuid: str = Field(..., max_length=64)
     batch_uuid: str = Field(..., max_length=64)
-    kiln_gross_capacity: Optional[float] = None
+    kiln_gross_capacity: Optional[float] = Field(None, ge=0.0, le=100_000.0)
     burn_start_timestamp: Optional[str] = Field(None, max_length=64)
     burn_end_timestamp: Optional[str] = Field(None, max_length=64)
-    min_temp: Optional[float] = None
-    max_temp: Optional[float] = None
+    min_temp: Optional[float] = Field(None, ge=-50.0, le=1500.0)
+    max_temp: Optional[float] = Field(None, ge=-50.0, le=1500.0)
     temperature_readings: Optional[list[float]] = Field(None, max_length=100_000)
     smoke_evidence: Optional[list[dict]] = Field(None, max_length=1_000)
     hw_attestation: Optional[list] = Field(None, max_length=1_000)
@@ -1772,7 +1774,7 @@ class TelemetryPayload(_BatchScopedPayload):
     # by recompute_batch_credit for kiln-type-conditional compliance.
     flame_height_m: Optional[float] = Field(None, ge=0.0, le=5.0)
     ignition_energy_type: Optional[str] = Field(None, max_length=128)
-    ignition_energy_amount: Optional[float] = Field(None, ge=0.0)
+    ignition_energy_amount: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
 
     @field_validator("temperature_readings")
     @classmethod
@@ -1789,7 +1791,7 @@ class YieldPayload(_BatchScopedPayload):
     yield_uuid: str = Field(..., max_length=64)
     batch_uuid: str = Field(..., max_length=64)
     quench_methodology: Optional[str] = Field(None, max_length=128)
-    gross_volume: Optional[float] = None
+    gross_volume: Optional[float] = Field(None, ge=0.0, le=100_000.0)
     # Phase 15-C: hard upper bound so a single self-asserted field can't linearly
     # inflate the credit to arbitrary size (100 t/batch ceiling — confirm vs real
     # kiln throughput). A kiln-capacity cross-check remains a documented follow-up.
@@ -1812,7 +1814,7 @@ class ApplicationPayload(_BatchScopedPayload):
     application_uuid: str = Field(..., max_length=64)
     batch_uuid: str = Field(..., max_length=64)
     application_methodology: Optional[str] = Field(None, max_length=128)
-    application_rate_tonnes: Optional[float] = None
+    application_rate_tonnes: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
     transport_distance_km: Optional[float] = Field(None, ge=0.0, le=20000.0)
     latitude: Optional[float] = Field(None, ge=-90.0, le=90.0)
     longitude: Optional[float] = Field(None, ge=-180.0, le=180.0)

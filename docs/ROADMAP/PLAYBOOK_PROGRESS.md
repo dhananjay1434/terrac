@@ -28,7 +28,7 @@
 - [x] **P1-B2** — Harden create_batch race fallback · fallback now looks up by operation_id first then batch_uuid (no scalar_one → no NoResultFound 500), and validates device+uuid+op-id+sha before returning 200 duplicate. +1 test (concurrent same-op/different-uuid never 500). G1 315 passed.
 - [x] **P1-B3** — Timezone-aware UTC normalization · added `_as_utc`; fixed the teleport check (was stripping tzinfo on both operands → up-to-hours skew on mixed tz) + consolidated 3 already-correct sites (enrollment expiry, scale-cal, timestamp parse). +4 deterministic unit tests. G1 319 passed.
 - [x] **P1-B4** — Canonical UUID normalization at write · `_BatchScopedPayload` mixin canonicalizes batch_uuid (str(UUID(...))) + 422s malformed, applied to all 7 str-uuid evidence payloads. +2 tests. Fixed one incidental test fixture (test_signature used a non-UUID placeholder). G1 321 passed.
-- [~] **P1-B5** — Media temp-file cleanup + payload validator bounds · **B5a DONE** (media: UUID parsed before write; post-write wrapped in rollback+unlink so a 400/403/DB-fail leaves no orphan file; +2 tests; G1 323). **B5b next** (bound the ~11 genuinely-unbounded numeric/string fields — reality: body-size middleware already caps payloads, so this is semantic defense-in-depth).
+- [x] **P1-B5** — Media temp-file cleanup + payload validator bounds · B5a: media UUID parsed before write + post-write rollback/unlink (no orphan files; +2 tests). B5b: bounded 12 unbounded fields (photo_path/sourcing_uuid max_length; azimuth/pitch/roll ±360; min/max_temp -50..1500; kiln_gross_capacity/gross_volume/wet_yield_kg/application_rate_tonnes/ignition_energy_amount ranges); feedstock_species (validator) + biomass_method (Literal) already bounded. +2 tests. G1 325 passed.
 - [ ] **P1-B6** — Regression tests for already-fixed races
 
 ## PHASE P1b — Client robustness
@@ -81,6 +81,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1-B5b · bounded 12 previously-unbounded numeric/string payload fields (generous physical ranges; compass ±360 to avoid rejecting real sensor data); +2 tests. G1 325 passed, no over-tightening.
 - 2026-07-10 · P1-B5a · media upload: validate batch_uuid before write + rollback/unlink on any post-write failure (no orphan files); +2 tests (malformed-uuid & non-owner leave no file). G1 323 passed.
 - 2026-07-10 · P1-B4 · _BatchScopedPayload mixin canonicalizes+validates batch_uuid on 7 evidence models; +2 tests; fixed test_signature's non-UUID placeholder (incidental). Caught the regression via full-suite gate, diagnosed, fixed. G1 321 passed.
 - 2026-07-10 · P1-B3 · _as_utc helper; teleport subtraction fixed (mixed-tz skew) + 3 sites consolidated; +4 unit tests. G1 319 passed.
