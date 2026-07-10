@@ -5,8 +5,8 @@
 **Legend:** `[ ]` not started · `[~]` in progress · `[x]` done (committed) · `⏸` blocked (waiting on a human/decision — note what it needs)
 
 **Started:** 2026-07-10
-**Current phase:** P1a COMPLETE ✅ → advancing to P1b (client robustness, P1-C1..C7). P0 agent-work done 8/10 (P0.7/P0.8 hardware/decision-parked).
-**Next actionable task:** P1-C7 (two-phase invariant at insert — media outbox rows must carry photoPath at insert time, not fail at sync). Then P1c (Rainbow screens: S1 moisture loop, S2 biomass, S3 kiln, S4 pyrolysis rework, S5 composite, S6 delivery, S7 sync health, S8 enrollment).
+**Current phase:** P1a + P1b COMPLETE ✅ → next is P1c (Rainbow capture screens, S1–S8). Backend 325 / Flutter 194, all green. P0 agent-work 8/10 (P0.7/P0.8 hardware/decision-parked).
+**Next actionable task:** P1c Rainbow capture screens. Recommended order (deps): S2 biomass input → S1 moisture loop (THE bug; writer already exists) → S7 sync health (data layer C1/C2 done) → S6 delivery/buyer → S5 composite → S3 kiln → S4 pyrolysis rework → S8 enrollment. Each is UI wiring over existing writers/endpoints (verified by the P1-S context earlier).
 
 ---
 
@@ -39,7 +39,8 @@
 - [x] **P1-C4** — BLE stream error handling + disconnect banner · onError on all 3 subscriptions → bleError state; 30s watchdog → connectionLost (cleared on next sample); pyrolysis_screen shows a danger banner while lost/errored. +3 tests (watchdog via injected clock, stream-error, beginBurn clears). Flutter 184 passed. NOTE: playbook's gap-marker omitted — temperatureLog is List<double>, a marker would corrupt telemetry; the banner + honest truncation is the fix.
 - [x] **P1-C5** — Pyrolysis END BURN pre-validation · gating already existed; extracted testable `canEndBurn(proofCount, ending)` predicate + wired the button to it; humanized the persist-failure snackbar (was raw `$e`). +3 tests. Flutter 187 passed.
 - [x] **P1-C6** — Read-back-verified passphrase migration · migration now reads back the secure-storage write and scrubs SharedPreferences ONLY on a verified match (else keeps the copy + retries next launch); fresh-generation throws if the key didn't persist (never encrypt under an unstored key). +3 tests (mocktail fake storage). Flutter 190 passed.
-- [ ] **P1-C7** — Two-phase invariant at insert time
+- [x] **P1-C7** — Two-phase invariant at insert time · `assertOutboxMediaInvariant` (a row declaring sha256_hash must carry photo_path) called at the top of insertWithOutbox — an unsyncable media row now throws at the capture site, not poisons at sync. +4 tests. Flutter 194 passed.
+- [x] **P1b COMPLETE** ✅ — all 7 client-robustness tasks done + pushed (C3 metadata-anchor sub-item deferred as low-value). Flutter 194 passed.
 
 ## PHASE P1c — Rainbow capture screens
 - [ ] **P1-S2** — Biomass input on Sourcing (do before S1)
@@ -82,6 +83,8 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1b EXIT ✅ · all 7 client-robustness tasks (C1 failure-reason+retry, C2 clock-skew, C3 resume-progress, C4 BLE-disconnect, C5 END-BURN gate, C6 passphrase read-back, C7 media-invariant) done+pushed. Backend 325 / Flutter 194 green.
+- 2026-07-10 · P1-C7 · assertOutboxMediaInvariant at insertWithOutbox (media row without photo_path throws at capture site). +4 tests. Flutter 194 passed.
 - 2026-07-10 · P1-C6 · read-back-verified passphrase migration (never scrub the last copy; fresh-gen throws on non-persist). +3 tests. Flutter 190 passed.
 - 2026-07-10 · P1-C5 · extracted testable canEndBurn predicate + wired END BURN button; humanized persist-failure snackbar. +3 tests. Flutter 187 passed.
 - 2026-07-10 · P1-C4 · BLE onError on all subs → bleError; 30s watchdog → connectionLost; pyrolysis_screen disconnect banner. +3 tests. Flutter 184 passed.

@@ -23,6 +23,26 @@ part 'app_database.g.dart';
 
 const _uuid = Uuid();
 
+/// P1-C7: a media-bearing outbox row (one that declares a photo `sha256_hash`)
+/// must carry its `photo_path` at INSERT time. Without it the two-phase sync
+/// can never complete phase 2 and the row poisons as FAILED_PERMANENTLY at sync
+/// time — far from the capture site. Fail loudly here instead. Pure + testable.
+void assertOutboxMediaInvariant(
+  String targetTable,
+  Map<String, dynamic> payload,
+) {
+  final sha = payload['sha256_hash'];
+  if (sha is String && sha.isNotEmpty) {
+    final photo = payload['photo_path'];
+    if (photo == null || (photo is String && photo.isEmpty)) {
+      throw ArgumentError(
+        'Outbox row for "$targetTable" declares sha256_hash but has no '
+        'photo_path — refusing to enqueue an unsyncable media row (P1-C7).',
+      );
+    }
+  }
+}
+
 @DriftDatabase(
   tables: [
     SystemMetadata,
@@ -291,6 +311,8 @@ class AppDatabase extends _$AppDatabase {
     required Map<String, dynamic> payload,
     required Future<void> Function() insertRow,
   }) async {
+    // P1-C7: reject an unsyncable media row at the capture site, not at sync.
+    assertOutboxMediaInvariant(targetTable, payload);
     final jsonString = jsonEncode(payload);
     await transaction(() async {
       // P0-11: Sign inside the transaction to prevent key-rotation races with secureWipe.
