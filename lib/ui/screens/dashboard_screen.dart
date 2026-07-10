@@ -304,6 +304,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               return;
             }
             ref.read(batchSessionProvider.notifier).restore(pendingUuid);
+            // P1-C3: restore the dashboard card statuses for the resumed batch
+            // so it shows the correct step instead of a fresh-start layout.
+            final progress = await ref
+                .read(dashboardProvider.notifier)
+                .loadBatchProgress(db, pendingUuid);
+            ref.read(dashboardProvider.notifier).restoreProgress(progress);
           }
           // BLE handshake. Only fire the notifier action when the BLE
           // step is genuinely pending; verified / locked taps are no-ops at the
@@ -333,6 +339,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               return;
             }
             ref.read(batchSessionProvider.notifier).restore(pendingUuid);
+            // P1-C3: restore the dashboard card statuses for the resumed batch
+            // so it shows the correct step instead of a fresh-start layout.
+            final progress = await ref
+                .read(dashboardProvider.notifier)
+                .loadBatchProgress(db, pendingUuid);
+            ref.read(dashboardProvider.notifier).restoreProgress(progress);
           }
           if (!mounted) return;
           await Navigator.of(context).push(

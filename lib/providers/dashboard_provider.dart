@@ -11,6 +11,25 @@ enum CardStatus {
   verified, // evidence confirmed for this step
 }
 
+/// P1-C3: which capture stages already have persisted rows for a batch. Used to
+/// restore the dashboard card statuses when resuming a batch after an app kill,
+/// so a resumed batch shows the correct step instead of a fresh-start layout.
+@immutable
+class BatchProgress {
+  final bool hasSourcing;
+  final bool hasMoisture;
+  final bool hasTelemetry;
+  final bool hasYield;
+  final bool hasEndUse;
+  const BatchProgress({
+    this.hasSourcing = false,
+    this.hasMoisture = false,
+    this.hasTelemetry = false,
+    this.hasYield = false,
+    this.hasEndUse = false,
+  });
+}
+
 @immutable
 class DashboardState {
   final CardStatus biomassStatus;
@@ -94,6 +113,62 @@ class DashboardNotifier extends Notifier<DashboardState> {
         )
         .getSingleOrNull();
     return result?.read<String>('batch_uuid');
+  }
+
+  /// P1-C3: which capture stages already have rows for [batchUuid].
+  Future<BatchProgress> loadBatchProgress(
+    AppDatabase db,
+    String batchUuid,
+  ) async {
+    Future<bool> has(Future<List<Object?>> rows) async =>
+        (await rows).isNotEmpty;
+    return BatchProgress(
+      hasSourcing: await has(
+        (db.select(db.biomassSourcing)
+              ..where((t) => t.batchUuid.equals(batchUuid))
+              ..limit(1))
+            .get(),
+      ),
+      hasMoisture: await has(
+        (db.select(db.moistureReadings)
+              ..where((t) => t.batchUuid.equals(batchUuid))
+              ..limit(1))
+            .get(),
+      ),
+      hasTelemetry: await has(
+        (db.select(db.pyrolysisTelemetry)
+              ..where((t) => t.batchUuid.equals(batchUuid))
+              ..limit(1))
+            .get(),
+      ),
+      hasYield: await has(
+        (db.select(db.yieldMetrics)
+              ..where((t) => t.batchUuid.equals(batchUuid))
+              ..limit(1))
+            .get(),
+      ),
+      hasEndUse: await has(
+        (db.select(db.endUseApplication)
+              ..where((t) => t.batchUuid.equals(batchUuid))
+              ..limit(1))
+            .get(),
+      ),
+    );
+  }
+
+  /// P1-C3: restore the dashboard card statuses from [p] on resume so a resumed
+  /// batch shows the correct step. Verified stages show verified; the first
+  /// undone stage is pending; later stages stay locked.
+  void restoreProgress(BatchProgress p) {
+    state = state.copyWith(
+      biomassStatus: p.hasSourcing ? CardStatus.verified : CardStatus.pending,
+      bleStatus: p.hasTelemetry
+          ? CardStatus.verified
+          : (p.hasSourcing ? CardStatus.pending : CardStatus.locked),
+      yieldStatus: p.hasYield
+          ? CardStatus.verified
+          : (p.hasTelemetry ? CardStatus.pending : CardStatus.locked),
+    );
   }
 }
 

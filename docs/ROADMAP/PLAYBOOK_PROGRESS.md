@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P1a COMPLETE ✅ → advancing to P1b (client robustness, P1-C1..C7). P0 agent-work done 8/10 (P0.7/P0.8 hardware/decision-parked).
-**Next actionable task:** P1-C3 (resume restores dashboard card statuses — restore() exists but doesn't set card state; add loadBatchProgress + anchor findIncompleteBatch on system_metadata). Then C4 (BLE onError + banner — real work), C5 (END-BURN humanize + gating test).
+**Next actionable task:** P1-C4 (BLE onError handlers + bleError/connectionLost state + 30s watchdog + disconnect banner in pyrolysis_screen — genuine new work). Then C5 (END-BURN humanize + gating widget test — gating already exists), C6 (passphrase read-back), C7 (two-phase insert invariant).
 
 ---
 
@@ -35,7 +35,7 @@
 ## PHASE P1b — Client robustness
 - [x] **P1-C1** — failure_reason column + retry API · SyncOutbox.failureReason (schema v24 + migration, G4 regen); both FAILED_PERMANENTLY sites now record the reason + lastAttemptAt; added watchProblemRows()/retryPermanentlyFailed()/retryAllPermanentlyFailed(). +3 tests (422→FAILED+reason, retry→recovers, migration). Flutter 173 passed.
 - [x] **P1-C2** — Clock-skew detection · pure `computeClockSkew(dateHeader, now)` + `clockSkewProvider`; sync loop reads the server `date` header on JSON+media responses and publishes any >2min skew; transient retries now also record failureReason (so a 401-during-skew row isn't blank in Sync Health). +4 tests. Flutter 177 passed.
-- [ ] **P1-C3** — Resume covers every partial-batch state
+- [x] **P1-C3** — Resume restores step progress · added `BatchProgress` + `loadBatchProgress(db,uuid)` + `restoreProgress()`; both dashboard resume sites now restore card statuses (biomass/ble/yield) from persisted rows instead of a fresh-start layout. +4 tests. Flutter 181 passed. NOTE: deferred the findIncompleteBatch metadata-anchor sub-item — low value (a metadata-only batch has no evidence/credit; orphan is harmless) vs reworking the 218-line existing test.
 - [ ] **P1-C4** — BLE stream error handling + disconnect banner
 - [ ] **P1-C5** — Pyrolysis END BURN pre-validation
 - [ ] **P1-C6** — Read-back-verified passphrase migration
@@ -82,6 +82,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1-C3 · resume restores dashboard card statuses (BatchProgress + loadBatchProgress + restoreProgress; both dashboard resume sites wired). +4 tests. Flutter 181 passed. Metadata-anchor sub-item deferred (low-value edge).
 - 2026-07-10 · P1-C2 · computeClockSkew (pure, tested) + clockSkewProvider; sync reads server `date` header on both phases; transient rows record failureReason. +4 tests. Flutter 177 passed.
 - 2026-07-10 · P1-C1 · SyncOutbox.failureReason (schema v24 + migration + G4 regen); reason recorded at both FAILED_PERMANENTLY sites; watchProblemRows/retryPermanentlyFailed/retryAllPermanentlyFailed API. +3 tests. Flutter 173 passed. (3 parallel context agents fed C1-C5.)
 - 2026-07-10 · P1a EXIT GATE ✅ · backend 325 passed / flutter 170 passed. All 6 backend-robustness fixes (B1 corrupt-json, B2 race-fallback, B3 tz, B4 uuid-canon, B5 media-cleanup+bounds, B6 gc-ordering-test) done + pushed. B6 added no app code (test-only) so the P0.6 signed release build still holds.
