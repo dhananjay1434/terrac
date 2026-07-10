@@ -5,8 +5,8 @@
 **Legend:** `[ ]` not started · `[~]` in progress · `[x]` done (committed) · `⏸` blocked (waiting on a human/decision — note what it needs)
 
 **Started:** 2026-07-10
-**Current phase:** P1a — Backend robustness (P0 agent-work done 8/10; P0.7/P0.8 hardware/decision-parked). Independent P0 audit (subagent) confirmed 8/10 verified, code clean; sole lurking risk = remote CI green unverified (no gh CLI).
-**Next actionable task:** P1-B3 (timezone-aware UTC normalization) — then B4 (uuid canon), B5 (media cleanup + a few unbounded validators), B6 (client GC-ordering test — the only one B6 audit found unpinned).
+**Current phase:** P1a COMPLETE ✅ → advancing to P1b (client robustness, P1-C1..C7). P0 agent-work done 8/10 (P0.7/P0.8 hardware/decision-parked).
+**Next actionable task:** P1-C1 (SyncQueueManager failure_reason column + operator retry API — the data layer behind the Sync Health screen). Client-side; needs a drift schema bump + migration (G4).
 
 ---
 
@@ -29,7 +29,8 @@
 - [x] **P1-B3** — Timezone-aware UTC normalization · added `_as_utc`; fixed the teleport check (was stripping tzinfo on both operands → up-to-hours skew on mixed tz) + consolidated 3 already-correct sites (enrollment expiry, scale-cal, timestamp parse). +4 deterministic unit tests. G1 319 passed.
 - [x] **P1-B4** — Canonical UUID normalization at write · `_BatchScopedPayload` mixin canonicalizes batch_uuid (str(UUID(...))) + 422s malformed, applied to all 7 str-uuid evidence payloads. +2 tests. Fixed one incidental test fixture (test_signature used a non-UUID placeholder). G1 321 passed.
 - [x] **P1-B5** — Media temp-file cleanup + payload validator bounds · B5a: media UUID parsed before write + post-write rollback/unlink (no orphan files; +2 tests). B5b: bounded 12 unbounded fields (photo_path/sourcing_uuid max_length; azimuth/pitch/roll ±360; min/max_temp -50..1500; kiln_gross_capacity/gross_volume/wet_yield_kg/application_rate_tonnes/ignition_energy_amount ranges); feedstock_species (validator) + biomass_method (Literal) already bounded. +2 tests. G1 325 passed.
-- [ ] **P1-B6** — Regression tests for already-fixed races
+- [x] **P1-B6** — Regression tests for already-fixed races · backend media path-guard: audit found ALREADY PINNED (test_hardening.py) — no work. Client GC stamp-before-delete: was NOT pinned → added Test 5 to sync_two_phase_test.dart (a row stamped media_synced_at with its file already GC'd resumes SYNCED, no network, never FAILED). G3 170 passed.
+- [x] **P1a COMPLETE** ✅ — all 6 backend-robustness tasks done + pushed. Backend suite 325 passed; Flutter suite 170 passed.
 
 ## PHASE P1b — Client robustness
 - [ ] **P1-C1** — failure_reason column + retry API
@@ -81,6 +82,8 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1a EXIT GATE ✅ · backend 325 passed / flutter 170 passed. All 6 backend-robustness fixes (B1 corrupt-json, B2 race-fallback, B3 tz, B4 uuid-canon, B5 media-cleanup+bounds, B6 gc-ordering-test) done + pushed. B6 added no app code (test-only) so the P0.6 signed release build still holds.
+- 2026-07-10 · P1-B6 · client GC stamp-before-delete crash-safety pinned (sync_two_phase_test Test 5); backend path-guard already pinned. G3 170 passed.
 - 2026-07-10 · P1-B5b · bounded 12 previously-unbounded numeric/string payload fields (generous physical ranges; compass ±360 to avoid rejecting real sensor data); +2 tests. G1 325 passed, no over-tightening.
 - 2026-07-10 · P1-B5a · media upload: validate batch_uuid before write + rollback/unlink on any post-write failure (no orphan files); +2 tests (malformed-uuid & non-owner leave no file). G1 323 passed.
 - 2026-07-10 · P1-B4 · _BatchScopedPayload mixin canonicalizes+validates batch_uuid on 7 evidence models; +2 tests; fixed test_signature's non-UUID placeholder (incidental). Caught the regression via full-suite gate, diagnosed, fixed. G1 321 passed.

@@ -6,6 +6,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dmrv_app/data/local/app_database.dart';
 import 'package:dmrv_app/data/local/database_provider.dart';
 import 'package:dmrv_app/services/sync_queue_manager.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -310,5 +311,56 @@ void main() {
 
     final row = await fetchRow(db, opId);
     expect(row.status, equals('SYNCED'));
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 5 — P1-B6: crash-safety of the stamp-before-delete GC ordering.
+  // The sync loop stamps media_synced_at BEFORE deleting the local file. If the
+  // process dies AFTER the delete (file gone) but the stamp is already
+  // committed, a retry must resume the row as SYNCED — it must NOT re-read the
+  // missing file and mark server-accepted evidence FAILED_PERMANENTLY.
+  // -------------------------------------------------------------------------
+  test('test_stamped_media_row_with_missing_file_resumes_synced', () async {
+    const opId = 'op-5-t5';
+    final missingPath = p.join(Directory.systemTemp.path, 'fix5_t5_gone.jpg');
+    final gone = File(missingPath);
+    if (await gone.exists()) await gone.delete(); // file already GC'd
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    await db
+        .into(db.syncOutbox)
+        .insert(
+          SyncOutboxCompanion.insert(
+            operationId: opId,
+            batchUuid: 'batch-5',
+            targetTable: 'biomass_sourcing',
+            operationType: 'INSERT',
+            payloadJson: jsonEncode({
+              'photo_path': missingPath,
+              'sha256_hash': 'abc',
+            }),
+            createdAt: now,
+            // Both phases were confirmed before the crash: JSON posted, media
+            // bytes verified + stamped. Only the local file GC didn't finish.
+            jsonSyncedAt: Value(now),
+            mediaSyncedAt: Value(now),
+          ),
+        );
+
+    await triggerAndWait(connectivity, db, opId);
+
+    final row = await fetchRow(db, opId);
+    expect(
+      row.status,
+      equals('SYNCED'),
+      reason:
+          'A row already stamped media_synced_at must resume as SYNCED even '
+          'though its file was already GC\'d — never FAILED on the missing file',
+    );
+    expect(
+      client.captured.isEmpty,
+      isTrue,
+      reason: 'Both phases were already confirmed; resume makes no network call',
+    );
   });
 }
