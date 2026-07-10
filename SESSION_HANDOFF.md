@@ -1,156 +1,118 @@
-# dMRV — Session Handoff (paste this into a new AI session)
+# SESSION HANDOFF — dMRV production hardening
 
-**Written:** 2026-07-08 · **Repo root:** `c:\Users\bit\Downloads\flutter_dmrv_full (1)\flutter_dmrv`
-**Branch:** `remediation/phase-by-phase` · **HEAD:** `82a6fe0` · **Git remote:** **NONE (local-only — nothing is pushed)**
+**Purpose:** paste this (or point the next AI session at it) and it will know exactly
+where we are, what's done, what's next, and how to work. Last updated **2026-07-10**.
 
-This file tells the next session exactly what exists, where, what's done, and what's next. Read it top to bottom before touching anything.
-
----
-
-## 0. TL;DR of where we are
-
-- A full brutal audit was done → written to **`detailed.md`** (repo root).
-- A 6-tier remediation roadmap was written → **`docs/ROADMAP/`** (untracked — see §4).
-- **Tier 1 (Rainbow methodology completion) = DONE & committed** (7 commits, `732e2cb`→`e30ee10`).
-- **Tier 2 (security) = DONE & committed** except the Android release-build validation which the environment couldn't run (8 commits, `dfcc74d`→`82a6fe0`).
-- **Nothing is pushed to a remote** and **`docs/ROADMAP/`, `detailed.md`, this file, and several docs are UNTRACKED** (never `git add`ed). That is the single most urgent thing to fix (Tier 0, task T0.1).
-
-**Current verified test state:**
-- Backend: `cd backend && python -m pytest -q` → **307 passed, 1 skipped, 0 failed** (~305s).
-- Flutter: `flutter analyze` → **25 issues, 0 errors**; `flutter test` → **153 passed, 2 skipped, 0 failed**.
-- Alembic single head: **`f1a2b3c4d5e6`**; client Drift `schemaVersion = 23`.
+> Supersedes the 2026-07-08 handoff (old `remediation/phase-by-phase` T1/T2 work).
+> That work is already merged into history; this session continued from `fc5d65b`.
 
 ---
 
-## 1. The map — every roadmap/audit file and what it's for
+## 0. RESUME IN 30 SECONDS
 
-All under repo root unless noted. **⚠️ Everything in `docs/ROADMAP/` and `detailed.md` is UNTRACKED — commit them (T0.3).**
-
-| File | What it is |
-|---|---|
-| `detailed.md` | The brutal full-codebase audit (backend, client, Rainbow methodology, hygiene). The "what's wrong" source of truth. |
-| `docs/ROADMAP/00_OVERVIEW.md` | Roadmap index + the benchmark ladder (T0→T5) + load-bearing rules. **Start here.** |
-| `docs/ROADMAP/01_TIER0_FOUNDATION.md` | T0 "survivable MVP": git remote, CI, requirements.txt, release signing. **NOT STARTED (mostly).** |
-| `docs/ROADMAP/02_TIER1_RAINBOW.md` | T1 methodology completion. **DONE (T1.1–T1.4, T1.9, T1.10).** T1.5–T1.8 blocked on Rainbow. |
-| `docs/ROADMAP/03_TIER2_SECURITY.md` | T2 security. **DONE (T2.1–T2.8)** minus the manual Android build gate. |
-| `docs/ROADMAP/04_TIER3_PRODUCTION.md` | T3 ops (Postgres CI, Docker, S3, read API, observability, backups). **NOT STARTED.** |
-| `docs/ROADMAP/05_TIER4_POLISH.md` | T4 polish (module refactor, e2e/golden tests, 3rd locale, analytics). **NOT STARTED.** |
-| `docs/ROADMAP/06_TIER5_UI_PLATFORM.md` | T5 UI unification → dual skins → white-label → multi-tenant SaaS. **NOT STARTED.** |
-| `docs/ROADMAP/UI_CONSISTENCY_AUDIT.md` | Forensic UI audit (findings U1–U12: dark/light theme split, 61 hardcoded colors, etc.). Feeds T5. |
-| `docs/ROADMAP/TASKBOARD.md` | One-line checklist of every task ID (T0.x–T5.x) + external-dependency ledger. |
-| `docs/ROADMAP/prompts/T1_EXECUTION_PROMPT.md` | The exact step-by-step that built T1. Already executed. |
-| `docs/ROADMAP/prompts/T2_EXECUTION_PROMPT.md` | The exact step-by-step that built T2. Already executed. |
-| `REMEDIATION_LOG.md` | Per-phase journal (tracked). T1 entry + T2 entry are the last two sections. |
-
-**To continue building:** the next tier to execute is **T3** (production ops) or **T5 Stage A** (UI unification). There is **no T3/T4/T5 execution prompt yet** — the tier `.md` files have the task detail; a new session can either execute directly from those or first write a `docs/ROADMAP/prompts/T3_EXECUTION_PROMPT.md` the same way T1/T2 were written (verify code anchors → dense per-task prompt).
+- **Repo:** `flutter_dmrv/` · **branch:** `feature/t5-india` · **remote:** `origin` → `github.com/dhananjay1434/terra` (all work pushed).
+- **HEAD:** `25d187d` (P1-S1). Everything below is committed **and pushed**.
+- **Green state:** backend suite **325 passed / 1 skipped**; Flutter suite **199 passed / ~2 skipped**.
+- **Three authoritative docs (read in this order):**
+  1. `docs/ROADMAP/PLAYBOOK_PROGRESS.md` — **LIVE task tracker** (checkbox + one-line status + commit per task, newest-first execution log). Source of truth for "what's done / what's next."
+  2. `docs/ROADMAP/AGENT_EXECUTION_PLAYBOOK.md` — full task specs (P0–P5), global rules (§0), the run loop (§0.8), the anti-hallucination protocol (§0.7).
+  3. This file — orientation + environment gotchas.
+- **To resume:** open PLAYBOOK_PROGRESS.md → find the first `[ ]` task whose deps are `[x]` → that's next. Currently **P1-S7 (Sync Health screen)**.
+- **How to work:** one task = one commit = all gates green. Verify code (§0.7) → change → write tests → run gates → commit + tick the tracker in the same commit → push. Details in §4.
 
 ---
 
-## 2. What we did THIS work-stream (T1 + T2), commit by commit
+## 1. WHAT'S DONE (this session — 17 commits on top of `fc5d65b`)
 
-Branch `remediation/phase-by-phase`, on top of pre-existing `7ed32b7` (Rainbow C10). Newest last:
+### Phase P0 — Protect & release-able (8/10 done; 2 hardware/decision-parked)
+| Task | What | Commit |
+|---|---|---|
+| P0.1 | Repo pushed to GitHub; `.gitignore` hardened (keystores/logs/secrets) | `9686a11` `2ea6fba` `356bf24` |
+| P0.2 | Pinned `cryptography`+`python-dotenv` (fresh-install import crash) | `1d20989` |
+| P0.3 | Rotated + scrubbed the burned demo secrets everywhere | `182b8c3` |
+| P0.4 | Release refuses to boot without `SENTRY_DSN` (`validateReleaseConfig`) | `f46c6e9` |
+| P0.5 | **Flutter CI lane** (analyze+test+release-apk); cleared 9 legacy warnings | `1df6058` |
+| P0.6 | **Real release keystore + signing** (PKCS12; verified `CN=dMRV` via apksigner) | `b9fd2e9` |
+| P0.9 | Finalized applicationId `io.dmrv.dmrv_app` | `7ce570e` |
+| P0.10 | Lockfile enforcement (`--enforce-lockfile` + `pip check`) | `a523ea8` |
+| — | P0 milestone tracker + `docs/RELEASE_CHECKLIST.md` | `51a3492` |
 
-```
-732e2cb fix(config): dotenv opt-out + single _require_secret choke point (P0.a)
-277a437 feat(dmrv): batch->project/scale linkage — server schema+API (Rainbow T1.1a)
-5efce6e feat(dmrv): client capture+sync of project/scale linkage, schema v23 (Rainbow T1.1c)
-f69158a feat(dmrv): enforce C8 scale-calibration expiry via batch scale linkage (Rainbow T1.2)
-f75632b feat(dmrv): enforce C9 annual-methane + un-bypass closed-kiln PAH gates (Rainbow T1.3/T1.4)
-032e943 feat(dmrv): compliance-report enforcement provenance + lab moisture min-3 lock-in (T1.9/T1.10)
-1dbea19 chore(tests): drop module asyncio mark from sync transport tests
-e30ee10 docs(remediation): journal Rainbow T1 methodology completion
-dfcc74d feat(security): per-route rate limiting (register/admin/media) via env-live middleware (T2.2)
-b1e66f6 feat(security): DB-probing health check + secret entropy floor (T2.6)
-686f4a2 feat(security): name GPS-anchor threshold + surface integrity signals in audit (T2.7)
-5717da7 feat(security): opt-in v2 signed-timestamp canonical for replay protection (T2.3)
-4fba157 feat(security): attestation verifier interface + verdict wiring, env-live enforce switch (T2.1)
-0ee2d73 docs(security): secret-rotation + enforcement-switch + cert-pinning deploy notes (T2.8)
-14e84ae build(android): FLAG_SECURE on release + R8/ProGuard obfuscation config (T2.4/T2.5)
-82a6fe0 docs(remediation): journal Rainbow T2 security tier
-```
+**P0 PARKED (blocked, NOT done — external only):**
+- **P0.7** on-device release validation — needs a **physical Android device**.
+- **P0.8** 16 KB page-size — needs a **freeRASP 6.12→8.0 MAJOR bump** (API-breaking security SDK; deferred to P4.1). Diagnosed device-free: only 5 freeRASP `.so` are 4KB-aligned; Flutter/SQLCipher/Sentry libs are fine.
+- **Keystore backup** — the `.jks` is at `C:\Users\bit\dmrv-keystore\dmrv-release.jks` on ONE machine; back it up off-machine or the Play identity is lost forever.
+- **Branch protection** on `main` — GitHub UI toggle (human).
+- **Remote CI green** — UNVERIFIED (no `gh` CLI here). Workflows are valid + locally-proven; confirm the GitHub Actions tab is green.
 
-### T1 — Rainbow methodology completion (what changed)
-The audit found 3 compliance-catalog reasons that could NEVER fire (dead gates). All now wired:
-- **`batch.project_id` / `batch.scale_id`** added: `backend/models.py` (Batch class), migration **`backend/alembic/versions/f1a2b3c4d5e6_batches_project_linkage.py`** (down_revision `e1f2a3b4c5d6`), `BatchPayload` in `backend/server.py`, persisted in `create_batch`.
-- **Client v23**: `lib/data/local/tables.dart` (`BiomassSourcing.projectId/scaleId`), `lib/data/local/app_database.dart` (`schemaVersion => 23` + `if (from < 23)` block + outbox writer), `lib/ui/screens/moisture_verification_screen.dart` stamps `DMRV_PROJECT_ID` dart-define. Codegen file `lib/data/local/app_database.g.dart` regenerated.
-- **Gates wired in `backend/server.py` `recompute_batch_credit`**: `scale_calibration_expired` (T1.2), `missing_annual_methane` (T1.3, `(project_id, harvest-year)` verification, ≥3 runs), `missing_pah` (T1.4 — **removed a hardcoded `enforced=False` bypass**). All INERT for legacy batches with no linkage.
-- **`/api/v1/batches/{uuid}/compliance`** checklist gained an `enforcement` field: `enforced` | `inert_no_linkage` | `awaiting_methodology` (T1.10). T1.9 (lab moisture ≥3) was already enforced by `min_length=3` — added lock-in tests.
-- New tests: `backend/tests/test_batch_project_linkage.py`, `test_annual_gates_t13_t14.py`, additions to `test_project_registry_c8.py` / `test_compliance_gate_c10.py` / `test_lab_results_c7.py`, and `test/migration_v23_project_linkage_test.dart`.
+### Phase P1a — Backend robustness (COMPLETE, B1–B6)
+`1fe9f57` corrupt-JSON guards (`_safe_json`) · `c064539` create_batch race fallback (no 500, device-verified) · `898bb1f` timezone UTC normalization (`_as_utc`) · `82097d3` batch_uuid canonicalization (`_BatchScopedPayload`) · `cf2cb44`+`5f13bca` media orphan-cleanup + payload bounds · `0141976` GC-ordering regression test.
 
-### T2 — Security (what changed)
-- **T2.2 rate limiting**: `_rate_limit` `@app.middleware("http")` in `backend/server.py` (fixed-window, per-route buckets register/admin/media/default, 429+Retry-After). Config **read live from `os.environ`** (`DMRV_RATELIMIT_*`). Test: `backend/tests/test_rate_limit.py`. Disabled in tests via `DMRV_RATELIMIT_ENABLED=0` in `backend/tests/conftest.py`.
-- **T2.6 health + secret floor**: `/api/health` runs `SELECT 1` → 503 when DB down; `_require_secret` rejects secrets <32 chars/<10 distinct unless `DMRV_ALLOW_WEAK_SECRETS=1` (set in conftest + `.github/workflows/backend-ci.yml`). Test: `backend/tests/test_t26_health_secret.py`. Also retargeted `backend/tests/test_p1_25_lifespan.py` onto the `client` fixture.
-- **T2.7 EXIF honesty**: `GPS_ANCHOR_MISMATCH_KM` constant + `lca_audit_json.integrity_signals`. Test: `backend/tests/test_t27_integrity_signals.py`.
-- **T2.3 replay protection**: opt-in **v2 signed-timestamp canonical**. Server `verify_signature` in `backend/server.py` accepts `X-Canonical-Version: 2` + `X-Signed-At`, rejects stale (skew window, default 300s). Client `CryptoSigner.signRequestV2` in `lib/services/crypto_signer.dart`; sync loop sends the headers (`lib/services/sync_queue_manager.dart`). Tests: `backend/tests/test_replay_v2.py`, `test/services/crypto_signer_test.dart`.
-- **T2.1 attestation**: new module **`backend/attestation.py`** (verifier interface, verdict dataclass, Play Integrity/DeviceCheck stubs); wired into `recompute_batch_credit`. Test: `backend/tests/test_attestation.py`.
-- **T2.4/T2.5 Android**: `android/app/src/main/kotlin/io/dmrv/dmrv_app/MainActivity.kt` (FLAG_SECURE on release), `android/app/build.gradle.kts` (minify+shrink+proguardFiles+buildConfig), new `android/app/proguard-rules.pro`.
-- **T2.8 docs**: `DEPLOYMENT.md` (secret rotation, enforcement switches, cert pinning) + `TODO(deploy)` in `_require_secret`.
+### Phase P1b — Client robustness (COMPLETE, C1–C7)
+`295859f` failure_reason column + retry API (Drift **schema v24** + migration) · `f6c27a7` clock-skew detection (`computeClockSkew`/`clockSkewProvider`) · `ea151f1` resume restores dashboard card statuses (`loadBatchProgress`/`restoreProgress`) · `0ca9705` BLE disconnect banner + 30s watchdog · `854b4ee` END-BURN testable gate (`canEndBurn`) + humanized errors · `9414082` read-back-verified passphrase migration · `5ca9133` media invariant at insert (`assertOutboxMediaInvariant`).
 
-**New dependency (installed locally, NOT yet in requirements.txt):** none actually — T2.2 used a middleware, not SlowAPI, so no new dep. (`slowapi` was pip-installed during exploration but is unused; ignore it.)
+### Phase P1c — Rainbow capture screens (IN PROGRESS — 2 of 8)
+- `6577e39` **S2** biomass input on Sourcing (weight + WEIGHED/EST-FROM-YIELD; gates proceed; feeds C2 target).
+- `25d187d` **S1** moisture multi-reading loop — **THE compliance bug**: writes N photographed `moisture_readings` rows vs `max(10, ceil(biomassKg/100))`; counter-hero UI; pyrolysis gated on target. **C2 is now passable from the field.**
 
 ---
 
-## 3. Environment / config switches introduced (all default to SAFE/OFF)
+## 2. WHAT'S NEXT (in order)
 
-Read live from `os.environ` (so they survive `importlib.reload` and are runtime-tunable):
-- `DMRV_RATELIMIT_ENABLED` (default `1` in prod; conftest sets `0`), `DMRV_RATELIMIT_REGISTER/ADMIN/MEDIA/DEFAULT`, `DMRV_RATELIMIT_WINDOW_SECONDS`.
-- `DMRV_ALLOW_WEAK_SECRETS` (default unset → floor enforced; set `1` ONLY in test/CI).
-- `DMRV_CANONICAL_SKEW_SECONDS` (default 300), `DMRV_REQUIRE_CANONICAL_V2` (default `0` → v1 still accepted).
-- `DMRV_ATTESTATION_ENFORCED` (default `0` → attestation inert).
+### P1c remaining screens (each = a real screen + widget tests; mostly UI wiring over EXISTING writers/endpoints)
+1. **P1-S7 — Sync Health screen** ← NEXT. Data layer DONE (C1 `watchProblemRows`/`retryPermanentlyFailed`/`retryAllPermanentlyFailed`; C2 `clockSkewProvider`). Build: entered from a tappable integrity footer; clock-skew banner; Synced/Waiting/Stuck counts; per-row human label + `failureReason` + RETRY; RETRY ALL; NO delete action.
+2. **P1-S6** — Delivery + buyer on End-Use (`EndUseApplication` columns + server `create_application` exist; UI only).
+3. **P1-S5** — Composite sample screen (writer `insertCompositePileSampleWithOutbox` + endpoint exist; gate = ≥1 photographed sample; add batch-QR card → pin `qr_flutter`).
+4. **P1-S3** — Kiln selection at burn start (new `Kilns` client table → **Drift migration v25** + G4; removes the 200L/WATER_QUENCH hardcodes at `pyrolysis_screen.dart:63` + `yield_scale_screen.dart:71-72`; telemetry already has kiln_id/kiln_type params).
+5. **P1-S4** — Pyrolysis completion rework (DECISION default: ADD flame_curtain/quenching/flame_height captures + keep the 4 smoke photos; gate keys `smoke_evidence` stages `{flame_curtain,quenching,flame_height}` + `flame_height_m<0.5` for kiln_type `"open"`; update the C5 END-BURN count).
+6. **P1-S8** — In-app enrollment (replaces compile-time `ENROLLMENT_TOKEN`; refactor `CryptoSigner.registerDevice` to take params + keep dart-define fallback; base-URL resolver secure-storage→dart-define).
 
-**Two switches to FLIP later (do NOT flip until the precondition is met):**
-1. `DMRV_REQUIRE_CANONICAL_V2=1` — only after the field fleet ships a v2-signing app build.
-2. `DMRV_ATTESTATION_ENFORCED=1` — only after `backend/attestation.py` gets a REAL Play Integrity/DeviceCheck verifier + Google/Apple credentials.
+**P1c EXIT GATE:** fresh phone enrolls in-app + captures a batch where every field criterion goes green; kill/resume at 3 points; stuck sync visible+retryable; BLE-disconnect banner.
 
----
+### Then P2 (portal), P3 (deploy), P4 (trust/privacy/release pipeline), P5 (platform) — see the playbook.
 
-## 4. What is REMAINING (prioritized)
-
-### 🔴 P0 — do first (Tier 0, ~1 day, `docs/ROADMAP/01_TIER0_FOUNDATION.md`)
-1. **T0.1 Create a git remote and push.** There is NO remote; 17 commits of work live only on this laptop. Highest priority in the whole project.
-2. **T0.3 Commit the untracked docs**: `docs/ROADMAP/` (entire folder), `detailed.md`, `SESSION_HANDOFF.md` (this file), `docs/REMEDIATION_PLAN_NONUI.md`, the UX_*.md and business docs. Also delete cruft: `android/hs_err_pid12464.log` (JVM crash dump from the failed build), `android/.kotlin/`, `New folder.zip`.
-4. **T0.4 Commit `.github/workflows/backend-ci.yml`** (it's untracked → CI has never run) and **T0.5 add `cryptography` + `python-dotenv` to `backend/requirements.txt`** (imported but undeclared — clean-host deploy risk).
-5. **T0.6 Real Android release keystore** (currently debug-signed — ship blocker) and **T0.7 Flutter CI lane**.
-
-### 🟠 T2 leftover (manual/cross-team)
-- **Validate the Android release build on CI/a real device.** We could NOT build a release APK here (gradle daemon crashed, then 10-min timeout — environment resource limits, no R8 error). Run `flutter build apk --release --obfuscate --split-debug-info=build/symbols`, confirm it builds, `apksigner` shows a non-debug cert (needs T0.6), `jadx` shows obfuscation, screenshots blocked. Expect one round of missing ProGuard `-keep` rules.
-- Implement the real attestation verifier in `backend/attestation.py` (needs Play Console / Apple Developer creds), then flip `DMRV_ATTESTATION_ENFORCED`.
-- Ship a v2-signing app build to the fleet, then flip `DMRV_REQUIRE_CANONICAL_V2`.
-
-### 🟡 T1 leftover (blocked on Rainbow / methodology sign-off — see `02_TIER1_RAINBOW.md` T1.5–T1.8)
-Each stays behind a named, tested, inert flag:
-- **T1.5** transport fuel emission factors are still `TODO(cite)` placeholders in `backend/emission_factors.py`; `TRANSPORT_EVENTS_ENFORCED=False`. Needs Rainbow annex numbers → cite → flip → wire into LCA.
-- **T1.6** C9 methane rate → CH4 penalty (`lca_engine.py` step 7). **T1.7** C9 conversion factor → C1 yield. **T1.8** 1000-yr inertinite pathway election (needs a project-settings table).
-
-### 🟢 Not started (whole tiers)
-- **T3** production ops (`04_TIER3_PRODUCTION.md`): Postgres CI lane, Dockerfile/compose, S3/object storage for media, read API + pagination, structured logs/metrics/health, backups, load test.
-- **T4** polish (`05_TIER4_POLISH.md`): split `server.py` (2000+ lines) into modules, e2e + golden + widget tests, Marathi locale, analytics, ProGuard hardening.
-- **T5** UI & platform (`06_TIER5_UI_PLATFORM.md` + `UI_CONSISTENCY_AUDIT.md`): **the app has TWO coexisting themes** (AppTheme light + FarmerTheme dark) — the batch flow flips dark/light 5 times; 61 hardcoded `Color(0x…)` literals; only 2/9 screens localized. Stage A unifies into one token system → Stage B dual skins (Field/India + Pro/Global-EU) → Stage C white-label → Stage D multi-tenant SaaS backend.
+### Deferred sub-item to remember
+- **P1-C3b** — re-anchor `findIncompleteBatch` on `system_metadata` (metadata-only batch resume). Low value (no evidence on such a batch); would require reworking the 218-line `find_incomplete_batch_test`.
 
 ---
 
-## 5. Load-bearing rules (carried from the Rainbow protocol — violating these breaks the shipped field app)
+## 3. ENVIRONMENT GOTCHAS (learned the hard way)
 
-1. **Additive & backward-compatible only.** New nullable columns / optional Pydantic fields / new endpoints. Never rename/drop/require-existing (`BatchPayload` is `extra="forbid"`; deployed devices sign a FROZEN canonical).
-2. **Compliance ONLY via the provisional model** — never reject an upload for a methodology reason. Mechanism: pure `derive_*` in `backend/corroboration.py` → reason string → `assemble(extra_reasons=[...])` → `recompute_batch_credit`.
-3. **Config that any test reloads must be read LIVE from `os.environ`**, not module constants (learned the hard way: `test_p1_24_cors.py` does `importlib.reload(server)`, which desyncs module-level constants from monkeypatch).
-4. **One phase = one commit = one green gate = one `REMEDIATION_LOG.md` entry.**
-5. **Alembic**: new migration `down_revision` = current head (`f1a2b3c4d5e6`); must have working `downgrade()`. **Client schema**: bump `AppDatabase.schemaVersion` by exactly 1, `addColumn`/`createTable` only, then `dart run build_runner build --delete-conflicting-outputs`. Schema-shape tests assert `greaterThanOrEqualTo(N)`, never `== N`.
-6. **Test gates**: backend `cd backend && python -m pytest -q` (307/1/0); client `flutter analyze` (25 issues/0 errors — add none) + `flutter test` (153/2). Backend suite ~90–120s; use background runs. Commit messages end with `Co-Authored-By: Claude <noreply@anthropic.com>`.
-
----
-
-## 6. Key file locations (quick reference)
-
-- Backend app: `backend/server.py` (~2100 lines — god file, T4 splits it), `backend/corroboration.py` (pure derivers), `backend/lca_engine.py`, `backend/models.py`, `backend/emission_factors.py`, `backend/attestation.py` (new), `backend/db.py`.
-- Backend migrations: `backend/alembic/versions/` (head `f1a2b3c4d5e6`). Tests: `backend/tests/` (~46 files). Test config: `backend/tests/conftest.py`.
-- Client: `lib/data/local/{tables,app_database}.dart` (Drift, schema v23), `lib/services/{crypto_signer,sync_queue_manager,device_integrity_service}.dart`, `lib/ui/screens/` + `lib/ui/design/{app_theme,farmer_theme,premium_field_components}.dart`. Tests: `test/`.
-- Android: `android/app/build.gradle.kts`, `android/app/proguard-rules.pro`, `android/app/src/main/kotlin/io/dmrv/dmrv_app/MainActivity.kt`.
-- CI: `.github/workflows/backend-ci.yml` (untracked!), `.github/workflows/codegen.yml` (tracked).
-- Methodology source of truth: `docs/dMRV Criteria Distributed Biochar.md`. Handoff spec: `terracipher_reports/RAINBOW_COMPLIANCE_PROMPT.md`.
+- **Backend tests:** `cd backend && DMRV_DISABLE_DOTENV=1 python -m pytest -q`. **DO NOT export `DMRV_HMAC_SECRET`/`DMRV_ADMIN_SECRET`** — `tests/conftest.py` sets them via `setdefault` (`test-secret`/`test-admin-secret`); exporting your own fails every auth test (a false 29-failure scare happened once). Baseline **325 passed, 1 skipped**.
+- **Flutter tests:** `flutter test` (**199 passed, ~2 skipped**). `flutter analyze` baseline ≈15 legacy info-level issues + a couple pre-existing deprecations (`isInDebugMode`, `issueCustomQuery`); **add ZERO new issues**. CI runs `flutter analyze --no-fatal-infos` (warnings fatal) so keep the tree warning-clean.
+- **Drift schema change:** edit `tables.dart` → bump `schemaVersion` in `app_database.dart` + add additive `if (from < N)` step → `dart run build_runner build --delete-conflicting-outputs` (G4) → **commit the regenerated `app_database.g.dart`** (codegen.yml checks it). Current schemaVersion = **24**.
+- **`gh` CLI NOT installed** + private repo → cannot verify remote Actions; prove CI locally and say the remote run is unverified.
+- **Keystore:** `C:\Users\bit\dmrv-keystore\dmrv-release.jks`; passwords in gitignored `android/key.properties`. **PKCS12 gotcha:** keytool defaults to PKCS12 which ignores a separate `-keypass` → `keyPassword` MUST equal `storePassword`.
+- **Secrets:** `backend/.env` + `demo_tools/demo_secrets.bat` are gitignored (real values only there). Old demo secrets are rotated/dead. Never commit a secret.
+- **Line endings:** "LF will be replaced by CRLF" warnings on every commit are harmless (Windows).
+- **Java:** Flutter uses Android Studio JBR (JDK 21) at `C:\Program Files\Android\Android Studio\jbr`. Running `./gradlew` directly may grab JDK 23 (Oracle) which crashes compiling CameraX — a red herring; always build via `flutter build`.
+- **apksigner:** `C:\Users\bit\AppData\Local\Android\Sdk\build-tools\36.0.0\apksigner.bat`.
+- Backend test runs ~100–200s; use background runs / long timeouts.
 
 ---
 
-## 7. One-paragraph prompt to start the next session
+## 4. HOW TO WORK (the disciplined loop — non-negotiable)
 
-> "Continue the dMRV remediation on branch `remediation/phase-by-phase` (HEAD `82a6fe0`) at repo root `c:\Users\bit\Downloads\flutter_dmrv_full (1)\flutter_dmrv`. Read `SESSION_HANDOFF.md` first, then `docs/ROADMAP/00_OVERVIEW.md` and `docs/ROADMAP/TASKBOARD.md`. Tiers T1 (Rainbow) and T2 (security) are DONE & committed; backend `pytest` is 307/1/0 and `flutter test` is 153/2. I want to do **[T0 foundation — push to a remote + CI + release signing]** OR **[T3 production ops]** OR **[T5 Stage A UI unification]** next. Follow the same discipline used for T1/T2: verify code anchors, one phase = one commit = one green gate = one REMEDIATION_LOG entry, additive-only, config read live from os.environ. If a tier has no execution prompt yet, write one under `docs/ROADMAP/prompts/` first."
+Per playbook §0.7 (anti-hallucination) + §0.8 (run loop):
+1. **Re-read every file a task cites BEFORE editing** — line numbers drift; locate by quoted content. Never invent a field/enum/endpoint/JSON key — copy from source of truth (`server.py` pydantic models, `backend/corroboration.py` gates, `lib/data/local/tables.dart`, `sync_queue_manager.dart` `kEndpointByTable`). **Grep for an existing writer/screen/test before creating one** — this codebase is FURTHER ALONG than plans assume.
+2. Implement the smallest reviewable change.
+3. Write tests. Prefer extracting a **pure function** and testing that (pattern used repeatedly: `validateReleaseConfig`, `_safe_json`, `_as_utc`, `computeClockSkew`, `canEndBurn`, `moistureSampleTarget`, `assertOutboxMediaInvariant`) — deterministic, no fragile widget harness.
+4. Run **all** gates (G1 backend pytest / G2 flutter analyze / G3 flutter test / G4 drift codegen if schema touched / G5 alembic if models touched). Never commit red. Never weaken an existing test — fix the root cause (e.g. P1-B4 broke a test using a non-UUID placeholder → gave it a valid UUID, didn't loosen the validator).
+5. Commit `<type>(<scope>): <what> (<TASK-ID>)`, co-author `Claude Fable 5`, tick the tracker checkbox in the SAME commit, push, report a 3-liner.
+6. **Hard fences:** additive-only API/schema; never touch the Ed25519 signing scheme; compliance only via the provisional/reasons model (never reject, never auto-issue); 401/403 stay transient (16C); `demo_tools/` never ships; never hand-edit generated `*.g.dart` or existing alembic migrations.
+7. **Use parallel Explore agents** for context-gathering + verification (fed every P1 batch this session); keep edits/gates/commits serial on the branch.
+
+---
+
+## 5. REALITY-CORRECTIONS FROM THIS SESSION (don't re-discover these)
+
+- The data layer for moisture/composite/transport (Drift tables + `*WithOutbox` writers + `kEndpointByTable` routing + server endpoints + models) **already existed** — the P1c screens are UI wiring, not full-stack.
+- Two-phase sync = **ONE outbox row** (photo rides the payload's `photo_path`/`sha256_hash`), not two rows.
+- The END-BURN 4-photo gate, the media path-traversal guard, and the GC stamp-before-delete were **already implemented** (some just unpinned by tests).
+- Most pydantic payload fields were **already bounded**; P1-B5b touched only ~12 genuinely-unbounded fields.
+- Backend already has `/api/v1/moisture|composite-sample|transport` + `create_application` (delivery/buyer), so S5/S6 are UI-only.
+
+---
+
+## 6. ONE-PARAGRAPH PROMPT TO START THE NEXT SESSION
+
+> "Continue dMRV production hardening on branch `feature/t5-india` (HEAD `25d187d`) at repo root `c:\Users\bit\Downloads\flutter_dmrv_full (1)\flutter_dmrv`. Read `SESSION_HANDOFF.md`, then `docs/ROADMAP/PLAYBOOK_PROGRESS.md` (live tracker) and `docs/ROADMAP/AGENT_EXECUTION_PLAYBOOK.md` (task specs + §0 rules). P0 (bar hardware/keystore-backup), P1a, and P1b are done and pushed; P1c is underway (S1+S2 done — the moisture C2 bug is fixed). Backend pytest = 325/1, flutter test = 199/~2, all green. Next task is **P1-S7 (Sync Health screen)** — its C1/C2 data layer already exists. Follow the loop: verify code before editing (never invent names, grep for existing impls first), one task = one commit = all gates green, additive-only, tick the tracker in the same commit, push. Use parallel Explore agents to gather exact ground truth before each screen."
