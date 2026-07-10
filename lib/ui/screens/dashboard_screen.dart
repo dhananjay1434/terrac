@@ -17,6 +17,7 @@ import '../widgets/integrity_footer.dart';
 import 'package:dmrv_app/l10n/app_localizations.dart';
 import 'lantana_sourcing_screen.dart';
 import 'proof_wallet_screen.dart';
+import 'sync_health_screen.dart';
 import 'yield_scale_screen.dart';
 import '../../services/device_integrity_service.dart';
 import '../../services/sync_queue_manager.dart';
@@ -607,7 +608,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         ),
                       ),
                     ),
-                    IntegrityFooter(lastHash: state.lastHash),
+                    Semantics(
+                      identifier: 'sync-health-footer',
+                      button: true,
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SyncHealthScreen(),
+                          ),
+                        ),
+                        child: IntegrityFooter(lastHash: state.lastHash),
+                      ),
+                    ),
                   ],
                 ),
               ),

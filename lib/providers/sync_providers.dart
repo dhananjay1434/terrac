@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/local/app_database.dart';
 import '../data/local/database_provider.dart';
 import '../data/local/proof_queries.dart';
+import '../services/sync_queue_manager.dart';
 
 /// Streams the live count of `SyncOutbox` rows whose status is still `PENDING`.
 ///
@@ -35,6 +36,31 @@ final recentPendingEventsProvider = StreamProvider<List<SyncOutboxData>>((
     ..limit(5);
   yield* query.watch();
 }, name: 'recentPendingEventsProvider');
+
+/// Streams the outbox rows an operator needs to act on in the Sync Health
+/// screen — anything stuck (`FAILED_PERMANENTLY`) or actively retrying. Thin
+/// wrapper over [SyncQueueManager.watchProblemRows] so the screen (and its
+/// widget tests) subscribe through Riverpod rather than holding the manager.
+final problemOutboxRowsProvider = StreamProvider<List<SyncOutboxData>>((
+  ref,
+) async* {
+  yield* ref.watch(syncQueueManagerProvider).watchProblemRows();
+}, name: 'problemOutboxRowsProvider');
+
+/// Streams the live count of `SyncOutbox` rows that have fully synced, for the
+/// Sync Health summary chips.
+final syncedOutboxCountProvider = StreamProvider<int>((ref) async* {
+  final db = await ref.watch(appDatabaseProvider.future);
+  final outbox = db.syncOutbox;
+
+  final query = db.selectOnly(outbox)
+    ..addColumns([outbox.operationId.count()])
+    ..where(outbox.status.equals('SYNCED'));
+
+  yield* query
+      .map((row) => row.read(outbox.operationId.count()) ?? 0)
+      .watchSingle();
+}, name: 'syncedOutboxCountProvider');
 
 /// Streams all batch lifecycles as premium cryptographic receipts.
 final cryptographicReceiptsProvider =

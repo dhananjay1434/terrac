@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P1a + P1b COMPLETE ✅ → next is P1c (Rainbow capture screens, S1–S8). Backend 325 / Flutter 194, all green. P0 agent-work 8/10 (P0.7/P0.8 hardware/decision-parked).
-**Next actionable task:** P1-S7 (Sync Health screen — the C1/C2 data layer, watchProblemRows + clockSkewProvider, is done; this is the operator-facing UI + retry). Then S6 (delivery/buyer on End-Use), S5 (composite sample), S3 (kiln select), S4 (pyrolysis rework), S8 (enrollment). S1+S2 done.
+**Next actionable task:** P1-S6 (delivery/buyer fields on End-Use — server `create_application` + `EndUseApplication` columns exist; UI only). Then S5 (composite sample), S3 (kiln select → Drift v25), S4 (pyrolysis rework), S8 (enrollment). S1+S2+S7 done.
 
 ---
 
@@ -51,7 +51,7 @@
 - [ ] **P1-S4** — Pyrolysis completion rework (deps: P1-S3) · `DECISION (default: ADD 3 gate stages, keep 4 smoke photos)`
 - [ ] **P1-S5** — Composite sample screen
 - [ ] **P1-S6** — Delivery & buyer fields on End-Use
-- [ ] **P1-S7** — Sync Health screen (deps: P1-C1, P1-C2)
+- [x] **P1-S7** — Sync Health screen · new `sync_health_screen.dart` reachable from a now-tappable dashboard integrity footer; clock-skew danger banner (from `clockSkewProvider`); Synced/Waiting/Stuck summary chips; per problem-row DmrvPanel with human op-label + short batch id + last-tried + verbatim `failureReason` + per-row RETRY; RETRY ALL when stuck; NO delete action. Added `problemOutboxRowsProvider` + `syncedOutboxCountProvider` (thin wrappers over C1's `watchProblemRows` + a SYNCED count). +5 widget tests (fake DB rows via provider overrides, FakeSyncQueueManager records retries). G2 clean (0 new), G3 204 passed.
 - [ ] **P1-S8** — In-app enrollment screen
 - [ ] **P1 EXIT GATE** — fresh phone enrolls in-app · one batch turns every field criterion green · kill-and-resume at 3 points · stuck sync visible+retryable · BLE disconnect banner
 
@@ -85,6 +85,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1-S7 · Sync Health screen (tappable integrity footer → clock-skew banner + Synced/Waiting/Stuck chips + per-row human label/reason/RETRY + RETRY ALL; no delete). Added problemOutboxRowsProvider + syncedOutboxCountProvider. +5 widget tests. Flutter 204 passed. (2 parallel Explore agents fed data-layer + house-style ground truth.)
 - 2026-07-10 · P1-S1 · moisture multi-reading loop — THE C2 bug fixed: N photographed moisture_readings rows vs target max(10,ceil(kg/100)); counter UI; pyrolysis gated on count>=target. +3 tests. Flutter 199 passed.
 - 2026-07-10 · P1-S2 · biomass weight + method on Sourcing (state+persist+setBiomass+hasBiomass, UI field+toggle, proceed gate, moisture threading). +2 tests. Flutter 196 passed. First P1c screen.
 - 2026-07-10 · P1b EXIT ✅ · all 7 client-robustness tasks (C1 failure-reason+retry, C2 clock-skew, C3 resume-progress, C4 BLE-disconnect, C5 END-BURN gate, C6 passphrase read-back, C7 media-invariant) done+pushed. Backend 325 / Flutter 194 green.
