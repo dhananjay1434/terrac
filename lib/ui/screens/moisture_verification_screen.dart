@@ -104,6 +104,10 @@ class _MoistureVerificationScreenState
         azimuth: result.azimuth,
         pitch: result.pitch,
         roll: result.roll,
+        // Rainbow C1 (S2): biomass weight + method captured on the Sourcing
+        // screen; drives the server C1 gate and the C2 moisture-sample target.
+        biomassInputKg: sourcing.biomassInputKg,
+        biomassMeasurementMethod: sourcing.biomassMeasurementMethod,
         // Rainbow T1.1: stamp the configured project so the server can run the
         // project-scoped C8/C9 gates. Empty (unconfigured build) => null, which
         // keeps the batch legacy-shaped and the gates inert.

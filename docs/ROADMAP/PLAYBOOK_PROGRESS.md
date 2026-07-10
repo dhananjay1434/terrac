@@ -43,6 +43,7 @@
 - [x] **P1b COMPLETE** ✅ — all 7 client-robustness tasks done + pushed (C3 metadata-anchor sub-item deferred as low-value). Flutter 194 passed.
 
 ## PHASE P1c — Rainbow capture screens
+- [x] **P1-S2** — Biomass input on Sourcing · SourcingState gains biomassInputKg/biomassMeasurementMethod (+persist/load) + `setBiomass` + `hasBiomass`; sourcing screen has a weight field + WEIGHED/EST-FROM-YIELD toggle; proceed button now requires biomass; moisture screen threads biomass into insertBiomassSourcingWithOutbox. +2 tests. Flutter 196 passed.
 - [ ] **P1-S2** — Biomass input on Sourcing (do before S1)
 - [ ] **P1-S1** — Moisture multi-reading loop (THE bug) (deps: P1-C1, P1-S2)
 - [ ] **P1-S3** — Kiln selection at burn start
@@ -83,6 +84,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1-S2 · biomass weight + method on Sourcing (state+persist+setBiomass+hasBiomass, UI field+toggle, proceed gate, moisture threading). +2 tests. Flutter 196 passed. First P1c screen.
 - 2026-07-10 · P1b EXIT ✅ · all 7 client-robustness tasks (C1 failure-reason+retry, C2 clock-skew, C3 resume-progress, C4 BLE-disconnect, C5 END-BURN gate, C6 passphrase read-back, C7 media-invariant) done+pushed. Backend 325 / Flutter 194 green.
 - 2026-07-10 · P1-C7 · assertOutboxMediaInvariant at insertWithOutbox (media row without photo_path throws at capture site). +4 tests. Flutter 194 passed.
 - 2026-07-10 · P1-C6 · read-back-verified passphrase migration (never scrub the last copy; fresh-gen throws on non-persist). +3 tests. Flutter 190 passed.

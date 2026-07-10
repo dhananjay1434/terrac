@@ -25,6 +25,8 @@ class SourcingState {
     this.polygonCaptured = false,
     this.devBypass = false,
     this.now,
+    this.biomassInputKg,
+    this.biomassMeasurementMethod,
   });
 
   /// Immutable per the Registry Positive List rule.
@@ -42,6 +44,15 @@ class SourcingState {
 
   /// Injected clock for deterministic tests. Defaults to `DateTime.now()`.
   final DateTime? now;
+
+  /// Rainbow C1 (biomass input): the feedstock weight (kg) + how it was measured
+  /// ('direct_weigh' | 'yield_conversion'). Drives the C2 moisture-sample target
+  /// (max(10, ceil(kg/100))) and the server C1 gate.
+  final double? biomassInputKg;
+  final String? biomassMeasurementMethod;
+
+  bool get hasBiomass =>
+      (biomassInputKg ?? 0) > 0 && biomassMeasurementMethod != null;
 
   static const Duration sunDryMandate = Duration(hours: 72);
 
@@ -85,6 +96,8 @@ class SourcingState {
     bool? polygonCaptured,
     bool? devBypass,
     DateTime? now,
+    double? biomassInputKg,
+    String? biomassMeasurementMethod,
     bool clearHarvest = false,
   }) {
     return SourcingState(
@@ -98,6 +111,9 @@ class SourcingState {
       polygonCaptured: polygonCaptured ?? this.polygonCaptured,
       devBypass: devBypass ?? this.devBypass,
       now: now ?? this.now,
+      biomassInputKg: biomassInputKg ?? this.biomassInputKg,
+      biomassMeasurementMethod:
+          biomassMeasurementMethod ?? this.biomassMeasurementMethod,
     );
   }
 }
@@ -119,6 +135,8 @@ class LantanaSourcingNotifier extends AsyncNotifier<SourcingState> {
       harvestTimestamp: tsString != null ? DateTime.parse(tsString) : null,
       harvestUptimeSeconds: uptime,
       polygonCaptured: poly,
+      biomassInputKg: prefs.getDouble('biomass_input_kg'),
+      biomassMeasurementMethod: prefs.getString('biomass_method'),
     );
   }
 
@@ -193,6 +211,19 @@ class LantanaSourcingNotifier extends AsyncNotifier<SourcingState> {
     final current = state.valueOrNull;
     if (current == null) return;
     state = AsyncData(current.copyWith(polygonCaptured: true));
+  }
+
+  /// Rainbow C1: record the biomass weight (kg) + measurement method for this
+  /// batch. Persisted so a resumed batch keeps its C2 moisture-sample target.
+  Future<void> setBiomass(double kg, String method) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('biomass_input_kg', kg);
+    await prefs.setString('biomass_method', method);
+    final current = state.valueOrNull;
+    if (current == null) return;
+    state = AsyncData(
+      current.copyWith(biomassInputKg: kg, biomassMeasurementMethod: method),
+    );
   }
 
   void toggleDevBypass(bool value) {

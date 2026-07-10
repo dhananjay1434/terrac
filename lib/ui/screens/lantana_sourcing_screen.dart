@@ -105,13 +105,20 @@ class _LantanaSourcingScreenState extends ConsumerState<LantanaSourcingScreen> {
                       ),
                     ],
                     SizedBox(height: t.gapL),
+                    _BiomassBlock(
+                      kg: s.biomassInputKg,
+                      method: s.biomassMeasurementMethod,
+                    ),
+                    SizedBox(height: t.gapL),
                     DmrvButton(
-                      label: s.canProceedToMoisture
+                      label: (s.canProceedToMoisture && s.hasBiomass)
                           ? 'PROCEED TO MOISTURE CHECK'
-                          : 'LOCKED // 72-HOUR DRY MANDATE',
+                          : (!s.hasBiomass
+                                ? 'RECORD BIOMASS WEIGHT FIRST'
+                                : 'LOCKED // 72-HOUR DRY MANDATE'),
                       testId: 'proceed-to-moisture-btn',
                       variant: DmrvButtonVariant.primary,
-                      onPressed: s.canProceedToMoisture
+                      onPressed: (s.canProceedToMoisture && s.hasBiomass)
                           ? () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                 builder: (_) =>
@@ -135,6 +142,110 @@ class _LantanaSourcingScreenState extends ConsumerState<LantanaSourcingScreen> {
 // ---------------------------------------------------------------------------
 // Sub-widgets — visual layer only, no business logic.
 // ---------------------------------------------------------------------------
+
+/// Rainbow C1 — biomass weight + measurement method. Pushes the value into the
+/// sourcing notifier so the Sourcing gate and the moisture-sample target react.
+class _BiomassBlock extends ConsumerStatefulWidget {
+  const _BiomassBlock({required this.kg, required this.method});
+  final double? kg;
+  final String? method;
+  @override
+  ConsumerState<_BiomassBlock> createState() => _BiomassBlockState();
+}
+
+class _BiomassBlockState extends ConsumerState<_BiomassBlock> {
+  late final TextEditingController _ctrl;
+  String? _method;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(
+      text: (widget.kg != null && widget.kg! > 0)
+          ? widget.kg!.toStringAsFixed(0)
+          : '',
+    );
+    _method = widget.method;
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _commit() {
+    final kg = double.tryParse(_ctrl.text.trim());
+    if (kg == null || kg <= 0 || kg > 100000) {
+      setState(() => _error = 'Enter a weight between 1 and 100000 kg');
+      return;
+    }
+    if (_method == null) {
+      setState(() => _error = 'Select how the weight was measured');
+      return;
+    }
+    setState(() => _error = null);
+    ref.read(lantanaSourcingProvider.notifier).setBiomass(kg, _method!);
+  }
+
+  void _pick(String method) {
+    setState(() => _method = method);
+    _commit();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return PremiumFieldPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _BlockHeader('BIOMASS INPUT'),
+          SizedBox(height: t.gapM),
+          PremiumInputField(
+            controller: _ctrl,
+            hint: 'Feedstock weight',
+            suffix: const Text('kg'),
+            semanticId: 'biomass-weight-input',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+            ],
+            errorText: _error,
+            onChanged: (_) => _commit(),
+          ),
+          SizedBox(height: t.gapM),
+          Row(
+            children: [
+              Expanded(
+                child: DmrvButton(
+                  label: 'WEIGHED',
+                  testId: 'biomass-method-direct_weigh',
+                  variant: _method == 'direct_weigh'
+                      ? DmrvButtonVariant.primary
+                      : DmrvButtonVariant.neutral,
+                  onPressed: () => _pick('direct_weigh'),
+                ),
+              ),
+              SizedBox(width: t.gapM),
+              Expanded(
+                child: DmrvButton(
+                  label: 'EST. FROM YIELD',
+                  testId: 'biomass-method-yield_conversion',
+                  variant: _method == 'yield_conversion'
+                      ? DmrvButtonVariant.primary
+                      : DmrvButtonVariant.neutral,
+                  onPressed: () => _pick('yield_conversion'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _BlockHeader extends StatelessWidget {
   const _BlockHeader(this.label);
