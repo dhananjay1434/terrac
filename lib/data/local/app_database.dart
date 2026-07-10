@@ -55,6 +55,7 @@ void assertOutboxMediaInvariant(
     MoistureReadings,
     CompositePileSamples,
     TransportEvents,
+    Kilns,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -64,7 +65,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 24;
+  int get schemaVersion => 25;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -260,6 +261,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 24) {
         // P1-C1: operator-visible failure reason on stuck outbox rows.
         await m.addColumn(syncOutbox, syncOutbox.failureReason);
+      }
+      if (from < 25) {
+        // P1-S3: local kiln registry for mandatory burn-start selection.
+        await m.createTable(kilns);
       }
     },
   );

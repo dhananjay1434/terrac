@@ -13,7 +13,7 @@ import '../../providers/dashboard_provider.dart';
 import '../../providers/lantana_sourcing_notifier.dart';
 import '../../providers/moisture_gate_notifier.dart';
 import '../../services/secure_capture_service.dart';
-import 'pyrolysis_screen.dart';
+import 'kiln_select_screen.dart';
 import 'secure_camera_screen.dart';
 
 /// =============================================================================
@@ -245,7 +245,7 @@ class _MoistureVerificationScreenState
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => const PyrolysisScreen(),
+                            builder: (_) => const KilnSelectScreen(),
                           ),
                         );
                       },

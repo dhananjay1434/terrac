@@ -14,6 +14,7 @@ import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
 import '../../services/secure_capture_service.dart';
 import '../../providers/smoke_evidence_provider.dart';
+import 'kiln_select_screen.dart';
 import 'secure_camera_screen.dart';
 import 'yield_scale_screen.dart';
 
@@ -56,6 +57,14 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
       if (batchUuid == null) {
         throw StateError('No active batch.');
       }
+      final kiln = ref.read(selectedKilnProvider);
+      if (kiln == null) {
+        throw StateError('No kiln selected. Go back and choose a kiln.');
+      }
+      final capacity = kiln.capacityLitres;
+      if (capacity == null) {
+        throw StateError('Selected kiln has no capacity recorded.');
+      }
       final final_ = await ref.read(pyrolysisBleProvider.notifier).endBurn();
       if (final_.temperatureLog.isEmpty) {
         throw StateError('No temperature samples captured. Cannot persist.');
@@ -64,7 +73,9 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
       final db = await ref.read(appDatabaseProvider.future);
       final telemetryUuid = await db.insertPyrolysisTelemetryWithOutbox(
         batchUuid: batchUuid,
-        kilnGrossCapacity: 200.0, // default kiln gross volume (L)
+        kilnGrossCapacity: capacity,
+        kilnId: kiln.kilnId,
+        kilnType: kiln.kilnType,
         burnStart: final_.burnStartAt!,
         burnEnd: final_.burnEndAt!,
         temperatureReadings: final_.temperatureLog,

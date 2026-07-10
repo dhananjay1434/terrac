@@ -7172,6 +7172,384 @@ class TransportEventsCompanion extends UpdateCompanion<TransportEvent> {
   }
 }
 
+class $KilnsTable extends Kilns with TableInfo<$KilnsTable, Kiln> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $KilnsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _kilnIdMeta = const VerificationMeta('kilnId');
+  @override
+  late final GeneratedColumn<String> kilnId = GeneratedColumn<String>(
+    'kiln_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _kilnTypeMeta = const VerificationMeta(
+    'kilnType',
+  );
+  @override
+  late final GeneratedColumn<String> kilnType = GeneratedColumn<String>(
+    'kiln_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _capacityLitresMeta = const VerificationMeta(
+    'capacityLitres',
+  );
+  @override
+  late final GeneratedColumn<double> capacityLitres = GeneratedColumn<double>(
+    'capacity_litres',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _labelMeta = const VerificationMeta('label');
+  @override
+  late final GeneratedColumn<String> label = GeneratedColumn<String>(
+    'label',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  @override
+  late final GeneratedColumn<String> addedAt = GeneratedColumn<String>(
+    'added_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    kilnId,
+    kilnType,
+    capacityLitres,
+    label,
+    addedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'kilns';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Kiln> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('kiln_id')) {
+      context.handle(
+        _kilnIdMeta,
+        kilnId.isAcceptableOrUnknown(data['kiln_id']!, _kilnIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kilnIdMeta);
+    }
+    if (data.containsKey('kiln_type')) {
+      context.handle(
+        _kilnTypeMeta,
+        kilnType.isAcceptableOrUnknown(data['kiln_type']!, _kilnTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kilnTypeMeta);
+    }
+    if (data.containsKey('capacity_litres')) {
+      context.handle(
+        _capacityLitresMeta,
+        capacityLitres.isAcceptableOrUnknown(
+          data['capacity_litres']!,
+          _capacityLitresMeta,
+        ),
+      );
+    }
+    if (data.containsKey('label')) {
+      context.handle(
+        _labelMeta,
+        label.isAcceptableOrUnknown(data['label']!, _labelMeta),
+      );
+    }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_addedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {kilnId};
+  @override
+  Kiln map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Kiln(
+      kilnId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kiln_id'],
+      )!,
+      kilnType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kiln_type'],
+      )!,
+      capacityLitres: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}capacity_litres'],
+      ),
+      label: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}label'],
+      ),
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}added_at'],
+      )!,
+    );
+  }
+
+  @override
+  $KilnsTable createAlias(String alias) {
+    return $KilnsTable(attachedDatabase, alias);
+  }
+}
+
+class Kiln extends DataClass implements Insertable<Kiln> {
+  final String kilnId;
+
+  /// 'open' | 'closed' — matches the server `KilnRequest.kiln_type` literal.
+  final String kilnType;
+
+  /// Gross volume in litres (feeds telemetry `kiln_gross_capacity`).
+  final double? capacityLitres;
+
+  /// Optional operator-facing label.
+  final String? label;
+  final String addedAt;
+  const Kiln({
+    required this.kilnId,
+    required this.kilnType,
+    this.capacityLitres,
+    this.label,
+    required this.addedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['kiln_id'] = Variable<String>(kilnId);
+    map['kiln_type'] = Variable<String>(kilnType);
+    if (!nullToAbsent || capacityLitres != null) {
+      map['capacity_litres'] = Variable<double>(capacityLitres);
+    }
+    if (!nullToAbsent || label != null) {
+      map['label'] = Variable<String>(label);
+    }
+    map['added_at'] = Variable<String>(addedAt);
+    return map;
+  }
+
+  KilnsCompanion toCompanion(bool nullToAbsent) {
+    return KilnsCompanion(
+      kilnId: Value(kilnId),
+      kilnType: Value(kilnType),
+      capacityLitres: capacityLitres == null && nullToAbsent
+          ? const Value.absent()
+          : Value(capacityLitres),
+      label: label == null && nullToAbsent
+          ? const Value.absent()
+          : Value(label),
+      addedAt: Value(addedAt),
+    );
+  }
+
+  factory Kiln.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Kiln(
+      kilnId: serializer.fromJson<String>(json['kilnId']),
+      kilnType: serializer.fromJson<String>(json['kilnType']),
+      capacityLitres: serializer.fromJson<double?>(json['capacityLitres']),
+      label: serializer.fromJson<String?>(json['label']),
+      addedAt: serializer.fromJson<String>(json['addedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'kilnId': serializer.toJson<String>(kilnId),
+      'kilnType': serializer.toJson<String>(kilnType),
+      'capacityLitres': serializer.toJson<double?>(capacityLitres),
+      'label': serializer.toJson<String?>(label),
+      'addedAt': serializer.toJson<String>(addedAt),
+    };
+  }
+
+  Kiln copyWith({
+    String? kilnId,
+    String? kilnType,
+    Value<double?> capacityLitres = const Value.absent(),
+    Value<String?> label = const Value.absent(),
+    String? addedAt,
+  }) => Kiln(
+    kilnId: kilnId ?? this.kilnId,
+    kilnType: kilnType ?? this.kilnType,
+    capacityLitres: capacityLitres.present
+        ? capacityLitres.value
+        : this.capacityLitres,
+    label: label.present ? label.value : this.label,
+    addedAt: addedAt ?? this.addedAt,
+  );
+  Kiln copyWithCompanion(KilnsCompanion data) {
+    return Kiln(
+      kilnId: data.kilnId.present ? data.kilnId.value : this.kilnId,
+      kilnType: data.kilnType.present ? data.kilnType.value : this.kilnType,
+      capacityLitres: data.capacityLitres.present
+          ? data.capacityLitres.value
+          : this.capacityLitres,
+      label: data.label.present ? data.label.value : this.label,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Kiln(')
+          ..write('kilnId: $kilnId, ')
+          ..write('kilnType: $kilnType, ')
+          ..write('capacityLitres: $capacityLitres, ')
+          ..write('label: $label, ')
+          ..write('addedAt: $addedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(kilnId, kilnType, capacityLitres, label, addedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Kiln &&
+          other.kilnId == this.kilnId &&
+          other.kilnType == this.kilnType &&
+          other.capacityLitres == this.capacityLitres &&
+          other.label == this.label &&
+          other.addedAt == this.addedAt);
+}
+
+class KilnsCompanion extends UpdateCompanion<Kiln> {
+  final Value<String> kilnId;
+  final Value<String> kilnType;
+  final Value<double?> capacityLitres;
+  final Value<String?> label;
+  final Value<String> addedAt;
+  final Value<int> rowid;
+  const KilnsCompanion({
+    this.kilnId = const Value.absent(),
+    this.kilnType = const Value.absent(),
+    this.capacityLitres = const Value.absent(),
+    this.label = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  KilnsCompanion.insert({
+    required String kilnId,
+    required String kilnType,
+    this.capacityLitres = const Value.absent(),
+    this.label = const Value.absent(),
+    required String addedAt,
+    this.rowid = const Value.absent(),
+  }) : kilnId = Value(kilnId),
+       kilnType = Value(kilnType),
+       addedAt = Value(addedAt);
+  static Insertable<Kiln> custom({
+    Expression<String>? kilnId,
+    Expression<String>? kilnType,
+    Expression<double>? capacityLitres,
+    Expression<String>? label,
+    Expression<String>? addedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (kilnId != null) 'kiln_id': kilnId,
+      if (kilnType != null) 'kiln_type': kilnType,
+      if (capacityLitres != null) 'capacity_litres': capacityLitres,
+      if (label != null) 'label': label,
+      if (addedAt != null) 'added_at': addedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  KilnsCompanion copyWith({
+    Value<String>? kilnId,
+    Value<String>? kilnType,
+    Value<double?>? capacityLitres,
+    Value<String?>? label,
+    Value<String>? addedAt,
+    Value<int>? rowid,
+  }) {
+    return KilnsCompanion(
+      kilnId: kilnId ?? this.kilnId,
+      kilnType: kilnType ?? this.kilnType,
+      capacityLitres: capacityLitres ?? this.capacityLitres,
+      label: label ?? this.label,
+      addedAt: addedAt ?? this.addedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (kilnId.present) {
+      map['kiln_id'] = Variable<String>(kilnId.value);
+    }
+    if (kilnType.present) {
+      map['kiln_type'] = Variable<String>(kilnType.value);
+    }
+    if (capacityLitres.present) {
+      map['capacity_litres'] = Variable<double>(capacityLitres.value);
+    }
+    if (label.present) {
+      map['label'] = Variable<String>(label.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<String>(addedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('KilnsCompanion(')
+          ..write('kilnId: $kilnId, ')
+          ..write('kilnType: $kilnType, ')
+          ..write('capacityLitres: $capacityLitres, ')
+          ..write('label: $label, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7194,6 +7572,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TransportEventsTable transportEvents = $TransportEventsTable(
     this,
   );
+  late final $KilnsTable kilns = $KilnsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7209,6 +7588,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     moistureReadings,
     compositePileSamples,
     transportEvents,
+    kilns,
   ];
 }
 
@@ -12401,6 +12781,201 @@ typedef $$TransportEventsTableProcessedTableManager =
       TransportEvent,
       PrefetchHooks Function({bool batchUuid})
     >;
+typedef $$KilnsTableCreateCompanionBuilder =
+    KilnsCompanion Function({
+      required String kilnId,
+      required String kilnType,
+      Value<double?> capacityLitres,
+      Value<String?> label,
+      required String addedAt,
+      Value<int> rowid,
+    });
+typedef $$KilnsTableUpdateCompanionBuilder =
+    KilnsCompanion Function({
+      Value<String> kilnId,
+      Value<String> kilnType,
+      Value<double?> capacityLitres,
+      Value<String?> label,
+      Value<String> addedAt,
+      Value<int> rowid,
+    });
+
+class $$KilnsTableFilterComposer extends Composer<_$AppDatabase, $KilnsTable> {
+  $$KilnsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get kilnId => $composableBuilder(
+    column: $table.kilnId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kilnType => $composableBuilder(
+    column: $table.kilnType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get capacityLitres => $composableBuilder(
+    column: $table.capacityLitres,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get label => $composableBuilder(
+    column: $table.label,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$KilnsTableOrderingComposer
+    extends Composer<_$AppDatabase, $KilnsTable> {
+  $$KilnsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get kilnId => $composableBuilder(
+    column: $table.kilnId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kilnType => $composableBuilder(
+    column: $table.kilnType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get capacityLitres => $composableBuilder(
+    column: $table.capacityLitres,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get label => $composableBuilder(
+    column: $table.label,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$KilnsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $KilnsTable> {
+  $$KilnsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get kilnId =>
+      $composableBuilder(column: $table.kilnId, builder: (column) => column);
+
+  GeneratedColumn<String> get kilnType =>
+      $composableBuilder(column: $table.kilnType, builder: (column) => column);
+
+  GeneratedColumn<double> get capacityLitres => $composableBuilder(
+    column: $table.capacityLitres,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get label =>
+      $composableBuilder(column: $table.label, builder: (column) => column);
+
+  GeneratedColumn<String> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+}
+
+class $$KilnsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $KilnsTable,
+          Kiln,
+          $$KilnsTableFilterComposer,
+          $$KilnsTableOrderingComposer,
+          $$KilnsTableAnnotationComposer,
+          $$KilnsTableCreateCompanionBuilder,
+          $$KilnsTableUpdateCompanionBuilder,
+          (Kiln, BaseReferences<_$AppDatabase, $KilnsTable, Kiln>),
+          Kiln,
+          PrefetchHooks Function()
+        > {
+  $$KilnsTableTableManager(_$AppDatabase db, $KilnsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$KilnsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$KilnsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$KilnsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> kilnId = const Value.absent(),
+                Value<String> kilnType = const Value.absent(),
+                Value<double?> capacityLitres = const Value.absent(),
+                Value<String?> label = const Value.absent(),
+                Value<String> addedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => KilnsCompanion(
+                kilnId: kilnId,
+                kilnType: kilnType,
+                capacityLitres: capacityLitres,
+                label: label,
+                addedAt: addedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String kilnId,
+                required String kilnType,
+                Value<double?> capacityLitres = const Value.absent(),
+                Value<String?> label = const Value.absent(),
+                required String addedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => KilnsCompanion.insert(
+                kilnId: kilnId,
+                kilnType: kilnType,
+                capacityLitres: capacityLitres,
+                label: label,
+                addedAt: addedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$KilnsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $KilnsTable,
+      Kiln,
+      $$KilnsTableFilterComposer,
+      $$KilnsTableOrderingComposer,
+      $$KilnsTableAnnotationComposer,
+      $$KilnsTableCreateCompanionBuilder,
+      $$KilnsTableUpdateCompanionBuilder,
+      (Kiln, BaseReferences<_$AppDatabase, $KilnsTable, Kiln>),
+      Kiln,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -12425,4 +13000,6 @@ class $AppDatabaseManager {
       $$CompositePileSamplesTableTableManager(_db, _db.compositePileSamples);
   $$TransportEventsTableTableManager get transportEvents =>
       $$TransportEventsTableTableManager(_db, _db.transportEvents);
+  $$KilnsTableTableManager get kilns =>
+      $$KilnsTableTableManager(_db, _db.kilns);
 }

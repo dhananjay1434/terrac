@@ -350,3 +350,27 @@ class TransportEvents extends Table {
     {eventUuid},
   ];
 }
+
+/// v25 — P1-S3 local kiln registry. Kilns are registered server-side by an
+/// admin (`POST /api/v1/admin/kiln`); this on-device table is the burn-start
+/// pick-list so telemetry carries a real `kiln_id`/`kiln_type`/capacity instead
+/// of a hardcoded 200 L. `kilnType` is exactly `'open'` | `'closed'` (the
+/// server's vocabulary). Local-only — not synced (no outbox row).
+@DataClassName('Kiln')
+class Kilns extends Table {
+  TextColumn get kilnId => text()();
+
+  /// 'open' | 'closed' — matches the server `KilnRequest.kiln_type` literal.
+  TextColumn get kilnType => text()();
+
+  /// Gross volume in litres (feeds telemetry `kiln_gross_capacity`).
+  RealColumn get capacityLitres => real().nullable()();
+
+  /// Optional operator-facing label.
+  TextColumn get label => text().nullable()();
+
+  TextColumn get addedAt => text()();
+
+  @override
+  Set<Column> get primaryKey => {kilnId};
+}

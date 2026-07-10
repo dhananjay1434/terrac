@@ -40,6 +40,15 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
   String? _permError;
   bool _saving = false;
 
+  /// Quench methodology for this run. Free-text on the server (≤128); the app
+  /// offers a short controlled vocabulary. Defaults to water quench.
+  String _quench = 'WATER_QUENCH';
+  static const _quenchOptions = <String, String>{
+    'WATER_QUENCH': 'Water quench',
+    'SNUFFING': 'Snuffing (soil/lid)',
+    'DRY_COOL': 'Dry cool-down',
+  };
+
   Future<void> _requestPermsAndStart() async {
     setState(() => _permRequested = true);
     final result = await BlePermissionGate().ensure();
@@ -64,10 +73,21 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
       if (kg == null) throw StateError('Lock the yield reading first.');
 
       final db = await ref.read(appDatabaseProvider.future);
+      // Gross volume comes from the kiln captured at burn start (persisted on
+      // the telemetry row) — resume-safe, no 200 L placeholder.
+      final tel =
+          await (db.select(db.pyrolysisTelemetry)
+                ..where((t) => t.batchUuid.equals(batchUuid))
+                ..limit(1))
+              .getSingleOrNull();
+      final grossVolume = tel?.kilnGrossCapacity;
+      if (grossVolume == null) {
+        throw StateError('No kiln capacity on record for this batch.');
+      }
       final yieldUuid = await db.insertYieldMetricsWithOutbox(
         batchUuid: batchUuid,
-        quenchMethodology: 'WATER_QUENCH',
-        grossVolume: 200.0, // default 200L kiln gross volume (placeholder)
+        quenchMethodology: _quench,
+        grossVolume: grossVolume,
         wetYieldWeightKg: kg,
       );
       ref.read(dashboardProvider.notifier).markYieldVerified();
@@ -91,6 +111,38 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Widget _quenchPanel(DmrvTokens t) {
+    return PremiumFieldPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'QUENCH METHODOLOGY',
+            style: t.chipLabel.copyWith(color: t.accentText),
+          ),
+          SizedBox(height: t.gapM),
+          Wrap(
+            spacing: t.gapS,
+            runSpacing: t.gapS,
+            children: [
+              for (final e in _quenchOptions.entries)
+                Semantics(
+                  identifier: 'quench-${e.key}',
+                  button: true,
+                  selected: _quench == e.key,
+                  child: ChoiceChip(
+                    label: Text(e.value),
+                    selected: _quench == e.key,
+                    onSelected: (_) => setState(() => _quench = e.key),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   ({String label, PremiumChipStatus status}) _chipFor(BleScaleState s) {
@@ -205,6 +257,8 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
                     ),
                     SizedBox(height: t.gapL),
                     _HeroReadout(state: s),
+                    SizedBox(height: t.gapL),
+                    _quenchPanel(t),
                     SizedBox(height: t.gapXL),
                     if (!s.isConfirmed)
                       DmrvButton(
