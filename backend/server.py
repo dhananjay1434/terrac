@@ -266,6 +266,12 @@ def _safe_json(raw, *, context: str):
         return None
 
 
+# Identifier guard reused for device_id / operation_id path segments (blocks
+# path traversal + injection). Module-level so both the device media upload and
+# the portal media download validate against the SAME pattern (P2.2).
+_SAFE = re.compile(r"^[A-Za-z0-9_\-]{1,128}$")
+
+
 def _as_utc(dt: datetime) -> datetime:
     """Normalize any datetime to aware-UTC (P1-B3).
 
@@ -1628,8 +1634,7 @@ async def upload_media(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="sha256_mismatch"
         )
 
-    _SAFE = re.compile(r"^[A-Za-z0-9_\-]{1,128}$")
-
+    # _SAFE is now module-level (shared with the portal media route, P2.2).
     def _safe_device(s: str) -> str:
         if not _SAFE.match(s or ""):
             raise HTTPException(status_code=400, detail="invalid_device_id")
@@ -2359,29 +2364,11 @@ _COMPLIANCE_CATALOG: list[tuple[str, str, str]] = [
 ]
 
 
-@app.get("/api/v1/batches/{batch_uuid}/compliance")
-async def batch_compliance(
-    batch_uuid: str,
-    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
-    session: AsyncSession = Depends(get_session),
-):
-    """C10 unified compliance report for a batch (admin).
-
-    Returns the ordered provisional reasons plus a human checklist mapping every
-    methodology item to pass/fail, so a Project Developer sees exactly what is
-    missing before issuance. `issuable` mirrors `not provisional`.
+def compliance_view(batch) -> dict:
+    """Build the C10 compliance report (ordered provisional reasons + a human
+    per-item checklist) for a batch. THE single grading view — reused by the
+    admin `/compliance` route and the portal read API (P2.2); never forked.
     """
-    _require_admin(x_admin_secret)
-    try:
-        buid = uuid.UUID(batch_uuid)
-    except (ValueError, AttributeError):
-        raise HTTPException(status_code=400, detail="invalid_batch_uuid")
-    batch = (
-        await session.execute(select(Batch).where(Batch.batch_uuid == buid))
-    ).scalar_one_or_none()
-    if batch is None:
-        raise HTTPException(status_code=404, detail="unknown_batch")
-
     reasons = _safe_json(
         batch.provisional_reasons, context=f"provisional_reasons {batch.batch_uuid}"
     )
@@ -2414,12 +2401,38 @@ async def batch_compliance(
         for code, section, label in _COMPLIANCE_CATALOG
     ]
     return {
-        "batch_uuid": str(buid),
+        "batch_uuid": str(batch.batch_uuid),
         "provisional": batch.provisional,
         "issuable": not batch.provisional,
         "reasons": reasons,
         "checklist": checklist,
     }
+
+
+@app.get("/api/v1/batches/{batch_uuid}/compliance")
+async def batch_compliance(
+    batch_uuid: str,
+    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    session: AsyncSession = Depends(get_session),
+):
+    """C10 unified compliance report for a batch (admin).
+
+    Returns the ordered provisional reasons plus a human checklist mapping every
+    methodology item to pass/fail, so a Project Developer sees exactly what is
+    missing before issuance. `issuable` mirrors `not provisional`.
+    """
+    _require_admin(x_admin_secret)
+    try:
+        buid = uuid.UUID(batch_uuid)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail="invalid_batch_uuid")
+    batch = (
+        await session.execute(select(Batch).where(Batch.batch_uuid == buid))
+    ).scalar_one_or_none()
+    if batch is None:
+        raise HTTPException(status_code=404, detail="unknown_batch")
+
+    return compliance_view(batch)
 
 
 # ---------------------------------------------------------------------------
