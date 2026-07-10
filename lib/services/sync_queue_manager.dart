@@ -132,6 +132,57 @@ class SyncQueueManager {
   /// guarded by `_isSyncing`.
   Future<void> kickSync() => _triggerSync();
 
+  /// P1-C1: rows an operator needs to see in the Sync Health screen — anything
+  /// stuck (FAILED_PERMANENTLY) or actively retrying (PENDING with retries).
+  Stream<List<SyncOutboxData>> watchProblemRows() async* {
+    final db = await ref.read(appDatabaseProvider.future);
+    yield* (db.select(db.syncOutbox)
+          ..where(
+            (t) =>
+                t.status.equals('FAILED_PERMANENTLY') |
+                (t.status.equals('PENDING') &
+                    t.retryCount.isBiggerThanValue(0)),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .watch();
+  }
+
+  /// Operator-initiated reset of a permanently-failed row for another attempt.
+  /// The failure reason is kept until the row reaches its next terminal state.
+  Future<void> retryPermanentlyFailed(String operationId) async {
+    final db = await ref.read(appDatabaseProvider.future);
+    await (db.update(db.syncOutbox)
+          ..where(
+            (t) =>
+                t.operationId.equals(operationId) &
+                t.status.equals('FAILED_PERMANENTLY'),
+          ))
+        .write(
+          const SyncOutboxCompanion(
+            status: Value('PENDING'),
+            retryCount: Value(0),
+          ),
+        );
+    await kickSync();
+  }
+
+  /// Reset every permanently-failed row (the Sync Health "Retry all" action).
+  Future<void> retryAllPermanentlyFailed() async {
+    final db = await ref.read(appDatabaseProvider.future);
+    await (db.update(db.syncOutbox)
+          ..where((t) => t.status.equals('FAILED_PERMANENTLY')))
+        .write(
+          const SyncOutboxCompanion(
+            status: Value('PENDING'),
+            retryCount: Value(0),
+          ),
+        );
+    await kickSync();
+  }
+
+  String _truncate(String s, int max) =>
+      s.length <= max ? s : s.substring(0, max);
+
   static http.Client _createSecureClient() {
     if (kIsWeb) return http.Client();
 
@@ -264,7 +315,13 @@ class SyncQueueManager {
           await (db.update(
             db.syncOutbox,
           )..where((t) => t.operationId.equals(entry.operationId))).write(
-            const SyncOutboxCompanion(status: Value('FAILED_PERMANENTLY')),
+            SyncOutboxCompanion(
+              status: const Value('FAILED_PERMANENTLY'),
+              failureReason: Value(
+                _truncate('Exceeded max retries (${entry.retryCount})', 500),
+              ),
+              lastAttemptAt: Value(DateTime.now().toUtc().toIso8601String()),
+            ),
           );
           continue;
         }
@@ -469,7 +526,11 @@ class SyncQueueManager {
         await (db.update(
           db.syncOutbox,
         )..where((t) => t.operationId.equals(entry.operationId))).write(
-          const SyncOutboxCompanion(status: Value('FAILED_PERMANENTLY')),
+          SyncOutboxCompanion(
+            status: const Value('FAILED_PERMANENTLY'),
+            failureReason: Value(_truncate(e.toString(), 500)),
+            lastAttemptAt: Value(DateTime.now().toUtc().toIso8601String()),
+          ),
         );
       } else {
         // 16A: release the PROCESSING lease back to PENDING (and bump retry) so the

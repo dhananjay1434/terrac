@@ -230,6 +230,11 @@ class SyncOutbox extends Table {
   TextColumn get createdAt => text()();
   TextColumn get lastAttemptAt => text().nullable()();
 
+  /// P1-C1: human-readable reason a row is stuck (server body or exception
+  /// text), surfaced in the Sync Health screen. Set when status becomes
+  /// FAILED_PERMANENTLY; retained across an operator-initiated retry.
+  TextColumn get failureReason => text().nullable()();
+
   // ---------- v4 two-phase sync commit ----------
   /// Set when the JSON metadata POST is confirmed by the server (200 or 409).
   TextColumn get jsonSyncedAt => text().nullable()();

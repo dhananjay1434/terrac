@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P1a COMPLETE ✅ → advancing to P1b (client robustness, P1-C1..C7). P0 agent-work done 8/10 (P0.7/P0.8 hardware/decision-parked).
-**Next actionable task:** P1-C1 (SyncQueueManager failure_reason column + operator retry API — the data layer behind the Sync Health screen). Client-side; needs a drift schema bump + migration (G4).
+**Next actionable task:** P1-C2 (clock-skew detection — read the `date` response header, expose clockSkewProvider, label 401s). Then C3 (resume restores card statuses), C4 (BLE onError + banner), C5 (END-BURN error humanize + gating test — gating already exists).
 
 ---
 
@@ -33,7 +33,7 @@
 - [x] **P1a COMPLETE** ✅ — all 6 backend-robustness tasks done + pushed. Backend suite 325 passed; Flutter suite 170 passed.
 
 ## PHASE P1b — Client robustness
-- [ ] **P1-C1** — failure_reason column + retry API
+- [x] **P1-C1** — failure_reason column + retry API · SyncOutbox.failureReason (schema v24 + migration, G4 regen); both FAILED_PERMANENTLY sites now record the reason + lastAttemptAt; added watchProblemRows()/retryPermanentlyFailed()/retryAllPermanentlyFailed(). +3 tests (422→FAILED+reason, retry→recovers, migration). Flutter 173 passed.
 - [ ] **P1-C2** — Clock-skew detection (deps: P1-C1)
 - [ ] **P1-C3** — Resume covers every partial-batch state
 - [ ] **P1-C4** — BLE stream error handling + disconnect banner
@@ -82,6 +82,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1-C1 · SyncOutbox.failureReason (schema v24 + migration + G4 regen); reason recorded at both FAILED_PERMANENTLY sites; watchProblemRows/retryPermanentlyFailed/retryAllPermanentlyFailed API. +3 tests. Flutter 173 passed. (3 parallel context agents fed C1-C5.)
 - 2026-07-10 · P1a EXIT GATE ✅ · backend 325 passed / flutter 170 passed. All 6 backend-robustness fixes (B1 corrupt-json, B2 race-fallback, B3 tz, B4 uuid-canon, B5 media-cleanup+bounds, B6 gc-ordering-test) done + pushed. B6 added no app code (test-only) so the P0.6 signed release build still holds.
 - 2026-07-10 · P1-B6 · client GC stamp-before-delete crash-safety pinned (sync_two_phase_test Test 5); backend path-guard already pinned. G3 170 passed.
 - 2026-07-10 · P1-B5b · bounded 12 previously-unbounded numeric/string payload fields (generous physical ranges; compass ±360 to avoid rejecting real sensor data); +2 tests. G1 325 passed, no over-tightening.

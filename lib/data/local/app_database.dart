@@ -44,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -236,6 +236,10 @@ class AppDatabase extends _$AppDatabase {
         // Rainbow T1.1: batch->project/scale linkage.
         await m.addColumn(biomassSourcing, biomassSourcing.projectId);
         await m.addColumn(biomassSourcing, biomassSourcing.scaleId);
+      }
+      if (from < 24) {
+        // P1-C1: operator-visible failure reason on stuck outbox rows.
+        await m.addColumn(syncOutbox, syncOutbox.failureReason);
       }
     },
   );

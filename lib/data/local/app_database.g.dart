@@ -4086,6 +4086,17 @@ class $SyncOutboxTable extends SyncOutbox
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _failureReasonMeta = const VerificationMeta(
+    'failureReason',
+  );
+  @override
+  late final GeneratedColumn<String> failureReason = GeneratedColumn<String>(
+    'failure_reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _jsonSyncedAtMeta = const VerificationMeta(
     'jsonSyncedAt',
   );
@@ -4130,6 +4141,7 @@ class $SyncOutboxTable extends SyncOutbox
     retryCount,
     createdAt,
     lastAttemptAt,
+    failureReason,
     jsonSyncedAt,
     mediaSyncedAt,
     hmacSignature,
@@ -4227,6 +4239,15 @@ class $SyncOutboxTable extends SyncOutbox
         ),
       );
     }
+    if (data.containsKey('failure_reason')) {
+      context.handle(
+        _failureReasonMeta,
+        failureReason.isAcceptableOrUnknown(
+          data['failure_reason']!,
+          _failureReasonMeta,
+        ),
+      );
+    }
     if (data.containsKey('json_synced_at')) {
       context.handle(
         _jsonSyncedAtMeta,
@@ -4299,6 +4320,10 @@ class $SyncOutboxTable extends SyncOutbox
         DriftSqlType.string,
         data['${effectivePrefix}last_attempt_at'],
       ),
+      failureReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}failure_reason'],
+      ),
       jsonSyncedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}json_synced_at'],
@@ -4331,6 +4356,11 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
   final String createdAt;
   final String? lastAttemptAt;
 
+  /// P1-C1: human-readable reason a row is stuck (server body or exception
+  /// text), surfaced in the Sync Health screen. Set when status becomes
+  /// FAILED_PERMANENTLY; retained across an operator-initiated retry.
+  final String? failureReason;
+
   /// Set when the JSON metadata POST is confirmed by the server (200 or 409).
   final String? jsonSyncedAt;
 
@@ -4351,6 +4381,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
     required this.retryCount,
     required this.createdAt,
     this.lastAttemptAt,
+    this.failureReason,
     this.jsonSyncedAt,
     this.mediaSyncedAt,
     this.hmacSignature,
@@ -4368,6 +4399,9 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
     map['created_at'] = Variable<String>(createdAt);
     if (!nullToAbsent || lastAttemptAt != null) {
       map['last_attempt_at'] = Variable<String>(lastAttemptAt);
+    }
+    if (!nullToAbsent || failureReason != null) {
+      map['failure_reason'] = Variable<String>(failureReason);
     }
     if (!nullToAbsent || jsonSyncedAt != null) {
       map['json_synced_at'] = Variable<String>(jsonSyncedAt);
@@ -4394,6 +4428,9 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
       lastAttemptAt: lastAttemptAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastAttemptAt),
+      failureReason: failureReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(failureReason),
       jsonSyncedAt: jsonSyncedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(jsonSyncedAt),
@@ -4421,6 +4458,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
       retryCount: serializer.fromJson<int>(json['retryCount']),
       createdAt: serializer.fromJson<String>(json['createdAt']),
       lastAttemptAt: serializer.fromJson<String?>(json['lastAttemptAt']),
+      failureReason: serializer.fromJson<String?>(json['failureReason']),
       jsonSyncedAt: serializer.fromJson<String?>(json['jsonSyncedAt']),
       mediaSyncedAt: serializer.fromJson<String?>(json['mediaSyncedAt']),
       hmacSignature: serializer.fromJson<String?>(json['hmacSignature']),
@@ -4439,6 +4477,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
       'retryCount': serializer.toJson<int>(retryCount),
       'createdAt': serializer.toJson<String>(createdAt),
       'lastAttemptAt': serializer.toJson<String?>(lastAttemptAt),
+      'failureReason': serializer.toJson<String?>(failureReason),
       'jsonSyncedAt': serializer.toJson<String?>(jsonSyncedAt),
       'mediaSyncedAt': serializer.toJson<String?>(mediaSyncedAt),
       'hmacSignature': serializer.toJson<String?>(hmacSignature),
@@ -4455,6 +4494,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
     int? retryCount,
     String? createdAt,
     Value<String?> lastAttemptAt = const Value.absent(),
+    Value<String?> failureReason = const Value.absent(),
     Value<String?> jsonSyncedAt = const Value.absent(),
     Value<String?> mediaSyncedAt = const Value.absent(),
     Value<String?> hmacSignature = const Value.absent(),
@@ -4470,6 +4510,9 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
     lastAttemptAt: lastAttemptAt.present
         ? lastAttemptAt.value
         : this.lastAttemptAt,
+    failureReason: failureReason.present
+        ? failureReason.value
+        : this.failureReason,
     jsonSyncedAt: jsonSyncedAt.present ? jsonSyncedAt.value : this.jsonSyncedAt,
     mediaSyncedAt: mediaSyncedAt.present
         ? mediaSyncedAt.value
@@ -4501,6 +4544,9 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
       lastAttemptAt: data.lastAttemptAt.present
           ? data.lastAttemptAt.value
           : this.lastAttemptAt,
+      failureReason: data.failureReason.present
+          ? data.failureReason.value
+          : this.failureReason,
       jsonSyncedAt: data.jsonSyncedAt.present
           ? data.jsonSyncedAt.value
           : this.jsonSyncedAt,
@@ -4525,6 +4571,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
           ..write('retryCount: $retryCount, ')
           ..write('createdAt: $createdAt, ')
           ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('failureReason: $failureReason, ')
           ..write('jsonSyncedAt: $jsonSyncedAt, ')
           ..write('mediaSyncedAt: $mediaSyncedAt, ')
           ..write('hmacSignature: $hmacSignature')
@@ -4543,6 +4590,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
     retryCount,
     createdAt,
     lastAttemptAt,
+    failureReason,
     jsonSyncedAt,
     mediaSyncedAt,
     hmacSignature,
@@ -4560,6 +4608,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
           other.retryCount == this.retryCount &&
           other.createdAt == this.createdAt &&
           other.lastAttemptAt == this.lastAttemptAt &&
+          other.failureReason == this.failureReason &&
           other.jsonSyncedAt == this.jsonSyncedAt &&
           other.mediaSyncedAt == this.mediaSyncedAt &&
           other.hmacSignature == this.hmacSignature);
@@ -4575,6 +4624,7 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
   final Value<int> retryCount;
   final Value<String> createdAt;
   final Value<String?> lastAttemptAt;
+  final Value<String?> failureReason;
   final Value<String?> jsonSyncedAt;
   final Value<String?> mediaSyncedAt;
   final Value<String?> hmacSignature;
@@ -4589,6 +4639,7 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
     this.retryCount = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.lastAttemptAt = const Value.absent(),
+    this.failureReason = const Value.absent(),
     this.jsonSyncedAt = const Value.absent(),
     this.mediaSyncedAt = const Value.absent(),
     this.hmacSignature = const Value.absent(),
@@ -4604,6 +4655,7 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
     this.retryCount = const Value.absent(),
     required String createdAt,
     this.lastAttemptAt = const Value.absent(),
+    this.failureReason = const Value.absent(),
     this.jsonSyncedAt = const Value.absent(),
     this.mediaSyncedAt = const Value.absent(),
     this.hmacSignature = const Value.absent(),
@@ -4624,6 +4676,7 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
     Expression<int>? retryCount,
     Expression<String>? createdAt,
     Expression<String>? lastAttemptAt,
+    Expression<String>? failureReason,
     Expression<String>? jsonSyncedAt,
     Expression<String>? mediaSyncedAt,
     Expression<String>? hmacSignature,
@@ -4639,6 +4692,7 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
       if (retryCount != null) 'retry_count': retryCount,
       if (createdAt != null) 'created_at': createdAt,
       if (lastAttemptAt != null) 'last_attempt_at': lastAttemptAt,
+      if (failureReason != null) 'failure_reason': failureReason,
       if (jsonSyncedAt != null) 'json_synced_at': jsonSyncedAt,
       if (mediaSyncedAt != null) 'media_synced_at': mediaSyncedAt,
       if (hmacSignature != null) 'hmac_signature': hmacSignature,
@@ -4656,6 +4710,7 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
     Value<int>? retryCount,
     Value<String>? createdAt,
     Value<String?>? lastAttemptAt,
+    Value<String?>? failureReason,
     Value<String?>? jsonSyncedAt,
     Value<String?>? mediaSyncedAt,
     Value<String?>? hmacSignature,
@@ -4671,6 +4726,7 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
       retryCount: retryCount ?? this.retryCount,
       createdAt: createdAt ?? this.createdAt,
       lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
+      failureReason: failureReason ?? this.failureReason,
       jsonSyncedAt: jsonSyncedAt ?? this.jsonSyncedAt,
       mediaSyncedAt: mediaSyncedAt ?? this.mediaSyncedAt,
       hmacSignature: hmacSignature ?? this.hmacSignature,
@@ -4708,6 +4764,9 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
     if (lastAttemptAt.present) {
       map['last_attempt_at'] = Variable<String>(lastAttemptAt.value);
     }
+    if (failureReason.present) {
+      map['failure_reason'] = Variable<String>(failureReason.value);
+    }
     if (jsonSyncedAt.present) {
       map['json_synced_at'] = Variable<String>(jsonSyncedAt.value);
     }
@@ -4735,6 +4794,7 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
           ..write('retryCount: $retryCount, ')
           ..write('createdAt: $createdAt, ')
           ..write('lastAttemptAt: $lastAttemptAt, ')
+          ..write('failureReason: $failureReason, ')
           ..write('jsonSyncedAt: $jsonSyncedAt, ')
           ..write('mediaSyncedAt: $mediaSyncedAt, ')
           ..write('hmacSignature: $hmacSignature, ')
@@ -10322,6 +10382,7 @@ typedef $$SyncOutboxTableCreateCompanionBuilder =
       Value<int> retryCount,
       required String createdAt,
       Value<String?> lastAttemptAt,
+      Value<String?> failureReason,
       Value<String?> jsonSyncedAt,
       Value<String?> mediaSyncedAt,
       Value<String?> hmacSignature,
@@ -10338,6 +10399,7 @@ typedef $$SyncOutboxTableUpdateCompanionBuilder =
       Value<int> retryCount,
       Value<String> createdAt,
       Value<String?> lastAttemptAt,
+      Value<String?> failureReason,
       Value<String?> jsonSyncedAt,
       Value<String?> mediaSyncedAt,
       Value<String?> hmacSignature,
@@ -10395,6 +10457,11 @@ class $$SyncOutboxTableFilterComposer
 
   ColumnFilters<String> get lastAttemptAt => $composableBuilder(
     column: $table.lastAttemptAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get failureReason => $composableBuilder(
+    column: $table.failureReason,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10468,6 +10535,11 @@ class $$SyncOutboxTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get failureReason => $composableBuilder(
+    column: $table.failureReason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get jsonSyncedAt => $composableBuilder(
     column: $table.jsonSyncedAt,
     builder: (column) => ColumnOrderings(column),
@@ -10532,6 +10604,11 @@ class $$SyncOutboxTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get failureReason => $composableBuilder(
+    column: $table.failureReason,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get jsonSyncedAt => $composableBuilder(
     column: $table.jsonSyncedAt,
     builder: (column) => column,
@@ -10588,6 +10665,7 @@ class $$SyncOutboxTableTableManager
                 Value<int> retryCount = const Value.absent(),
                 Value<String> createdAt = const Value.absent(),
                 Value<String?> lastAttemptAt = const Value.absent(),
+                Value<String?> failureReason = const Value.absent(),
                 Value<String?> jsonSyncedAt = const Value.absent(),
                 Value<String?> mediaSyncedAt = const Value.absent(),
                 Value<String?> hmacSignature = const Value.absent(),
@@ -10602,6 +10680,7 @@ class $$SyncOutboxTableTableManager
                 retryCount: retryCount,
                 createdAt: createdAt,
                 lastAttemptAt: lastAttemptAt,
+                failureReason: failureReason,
                 jsonSyncedAt: jsonSyncedAt,
                 mediaSyncedAt: mediaSyncedAt,
                 hmacSignature: hmacSignature,
@@ -10618,6 +10697,7 @@ class $$SyncOutboxTableTableManager
                 Value<int> retryCount = const Value.absent(),
                 required String createdAt,
                 Value<String?> lastAttemptAt = const Value.absent(),
+                Value<String?> failureReason = const Value.absent(),
                 Value<String?> jsonSyncedAt = const Value.absent(),
                 Value<String?> mediaSyncedAt = const Value.absent(),
                 Value<String?> hmacSignature = const Value.absent(),
@@ -10632,6 +10712,7 @@ class $$SyncOutboxTableTableManager
                 retryCount: retryCount,
                 createdAt: createdAt,
                 lastAttemptAt: lastAttemptAt,
+                failureReason: failureReason,
                 jsonSyncedAt: jsonSyncedAt,
                 mediaSyncedAt: mediaSyncedAt,
                 hmacSignature: hmacSignature,
