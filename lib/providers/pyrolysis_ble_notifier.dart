@@ -31,6 +31,8 @@ class PyrolysisState {
     this.burnEndAt,
     this.minTemp = 0.0,
     this.maxTemp = 0.0,
+    this.bleError,
+    this.connectionLost = false,
   });
 
   final BleConnState connection;
@@ -44,6 +46,13 @@ class PyrolysisState {
   final double minTemp;
   final double maxTemp;
 
+  /// P1-C4: last BLE stream error, null when healthy.
+  final String? bleError;
+
+  /// P1-C4: true when no sample has arrived within the watchdog window during an
+  /// active burn (the thermocouple link dropped). Cleared on the next sample.
+  final bool connectionLost;
+
   PyrolysisState copyWith({
     BleConnState? connection,
     double? liveCelsius,
@@ -53,6 +62,9 @@ class PyrolysisState {
     DateTime? burnEndAt,
     double? minTemp,
     double? maxTemp,
+    String? bleError,
+    bool clearBleError = false,
+    bool? connectionLost,
   }) => PyrolysisState(
     connection: connection ?? this.connection,
     liveCelsius: liveCelsius ?? this.liveCelsius,
@@ -62,6 +74,8 @@ class PyrolysisState {
     burnEndAt: burnEndAt ?? this.burnEndAt,
     minTemp: minTemp ?? this.minTemp,
     maxTemp: maxTemp ?? this.maxTemp,
+    bleError: clearBleError ? null : (bleError ?? this.bleError),
+    connectionLost: connectionLost ?? this.connectionLost,
   );
 }
 
@@ -80,6 +94,7 @@ class PyrolysisBleNotifier extends StateNotifier<PyrolysisState> {
   StreamSubscription<double>? _tempSub;
   StreamSubscription<BleConnState>? _connSub;
   StreamSubscription<List<int>>? _attestSub;
+  Timer? _watchdog;
   DateTime? _lastSampleAt;
   double _runningMin = double.infinity;
   double _runningMax = double.negativeInfinity;
@@ -94,19 +109,53 @@ class PyrolysisBleNotifier extends StateNotifier<PyrolysisState> {
       attestationLog: const [],
       minTemp: 0.0,
       maxTemp: 0.0,
+      clearBleError: true,
+      connectionLost: false,
     );
     await _source.start();
-    _connSub = _source.connectionStream.listen(_onConn);
-    _tempSub = _source.temperatureStream.listen(_onTemp);
-    _attestSub = _source.attestationStream.listen(_onAttest);
+    // P1-C4: onError on every subscription so a BLE stack error surfaces as a
+    // banner instead of silently killing the stream mid-burn.
+    _connSub = _source.connectionStream.listen(_onConn, onError: _onStreamError);
+    _tempSub = _source.temperatureStream.listen(_onTemp, onError: _onStreamError);
+    _attestSub = _source.attestationStream.listen(
+      _onAttest,
+      onError: _onStreamError,
+    );
+    // P1-C4: watchdog — if no sample arrives for 30s during an active burn the
+    // link has dropped. The periodic timer runs on real time; the staleness
+    // check uses _clock so it is deterministically testable via debugRunWatchdog.
+    _watchdog?.cancel();
+    _watchdog = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _checkWatchdog(),
+    );
   }
 
   void _onConn(BleConnState s) {
     state = state.copyWith(connection: s);
   }
 
+  void _onStreamError(Object e, StackTrace st) {
+    debugPrint('[PyrolysisBle] stream error: $e');
+    state = state.copyWith(bleError: 'Thermocouple link error: $e');
+  }
+
+  /// P1-C4: flip connectionLost if no sample has arrived within 30s of an active
+  /// burn. Uses _clock so it is testable without real timers.
+  void _checkWatchdog() {
+    if (state.burnStartAt == null || state.burnEndAt != null) return;
+    final last = _lastSampleAt;
+    if (last != null &&
+        _clock().difference(last) > const Duration(seconds: 30) &&
+        !state.connectionLost) {
+      state = state.copyWith(connectionLost: true);
+    }
+  }
+
   void _onTemp(double c) {
     final now = _clock();
+    // A fresh sample means the link is alive again.
+    if (state.connectionLost) state = state.copyWith(connectionLost: false);
     final log = state.temperatureLog;
     final shouldAppend =
         _lastSampleAt == null || now.difference(_lastSampleAt!) >= window;
@@ -132,6 +181,7 @@ class PyrolysisBleNotifier extends StateNotifier<PyrolysisState> {
 
   Future<PyrolysisState> endBurn() async {
     state = state.copyWith(burnEndAt: _clock());
+    _watchdog?.cancel();
     await _tempSub?.cancel();
     await _connSub?.cancel();
     await _attestSub?.cancel();
@@ -142,8 +192,17 @@ class PyrolysisBleNotifier extends StateNotifier<PyrolysisState> {
   /// Test hook — inject a synthetic sample directly (bypasses the stream).
   void debugIngest(double celsius) => _onTemp(celsius);
 
+  /// Test hook — run one watchdog tick against the injected clock (P1-C4).
+  @visibleForTesting
+  void debugRunWatchdog() => _checkWatchdog();
+
+  /// Test hook — simulate a BLE stream error (P1-C4).
+  @visibleForTesting
+  void debugStreamError(Object e) => _onStreamError(e, StackTrace.current);
+
   @override
   void dispose() {
+    _watchdog?.cancel();
     _tempSub?.cancel();
     _connSub?.cancel();
     _attestSub?.cancel();

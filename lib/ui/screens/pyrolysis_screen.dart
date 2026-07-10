@@ -209,6 +209,46 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                   ],
                   SizedBox(height: t.gapL),
                   _LinkStatePanel(connection: s.connection),
+                  // P1-C4: surface a dropped thermocouple link during a burn so
+                  // the operator acts instead of silently losing telemetry.
+                  if (s.connectionLost || s.bleError != null) ...[
+                    SizedBox(height: t.gapL),
+                    PremiumFieldPanel(
+                      accentBorderColor: t.danger,
+                      padding: EdgeInsets.all(t.gapL),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.bluetooth_disabled,
+                            color: t.danger,
+                            size: 28,
+                          ),
+                          SizedBox(width: t.gapM),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'THERMOCOUPLE LINK LOST',
+                                  style: t.chipLabel.copyWith(color: t.danger),
+                                ),
+                                SizedBox(height: t.gapS),
+                                Text(
+                                  s.bleError ??
+                                      'No readings for 30s. Move closer to the '
+                                          'kiln — recording resumes automatically.',
+                                  style: t.metadata.copyWith(
+                                    color: t.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   SizedBox(height: t.gapL),
                   _TemperaturePanel(state: s),
                   SizedBox(height: t.gapXL),
