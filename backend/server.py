@@ -1643,52 +1643,63 @@ async def upload_media(
     if not file_path.resolve().is_relative_to(UPLOAD_DIR.resolve()):
         raise HTTPException(status_code=400, detail="path_traversal")
 
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    # Phase 9: extract GPS from the photo's EXIF for server-side corroboration.
-    exif_lat, exif_lon = _parse_exif_gps(content)
-
-    media = MediaFile(
-        operation_id=x_idempotency_key,
-        file_path=str(file_path),
-        sha256_hash=calculated_hash,
-        filename=file.filename,
-        exif_lat=exif_lat,
-        exif_lon=exif_lon,
-    )
-
-    session.add(media)
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        stmt = select(MediaFile).where(MediaFile.operation_id == x_idempotency_key)
-        result = await session.execute(stmt)
-        media = result.scalar_one()
-
-    # Phase 15-A: parse the batch UUID safely (malformed → 400, not a 500) and
-    # bind ownership — only the device that owns the batch may anchor evidence to it.
+    # P1-B5: validate the batch UUID BEFORE writing any bytes, so a malformed
+    # value (400) can never leave an orphaned file on disk.
     try:
         batch_uuid = uuid.UUID(x_batch_uuid)
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="invalid_batch_uuid")
-    media.batch_uuid = batch_uuid
 
-    # Anchor photo to batch if batch was already created (P0-25). The photo only
-    # verifies the batch if its hash matches the batch's declared sha256_hash,
-    # and the EXIF GPS corroborates the claimed coordinates (Phase 9).
-    stmt = select(Batch).where(Batch.batch_uuid == batch_uuid)
-    batch_result = await session.execute(stmt)
-    batch = batch_result.scalar_one_or_none()
-    if batch:
-        if batch.device_id is not None and batch.device_id != device_id:
-            raise HTTPException(status_code=403, detail="not_your_batch")
-        _evaluate_anchor(batch, calculated_hash, exif_lat, exif_lon)
-        session.add(batch)
+    with open(file_path, "wb") as f:
+        f.write(content)
 
-    session.add(media)
-    await session.commit()
+    # P1-B5: the file now exists on disk. ANY subsequent failure (ownership 403,
+    # DB error, etc.) must roll back the session AND remove the just-written file
+    # so a rejected/failed upload never strands an orphan.
+    try:
+        # Phase 9: extract GPS from the photo's EXIF for server-side corroboration.
+        exif_lat, exif_lon = _parse_exif_gps(content)
+
+        media = MediaFile(
+            operation_id=x_idempotency_key,
+            file_path=str(file_path),
+            sha256_hash=calculated_hash,
+            filename=file.filename,
+            exif_lat=exif_lat,
+            exif_lon=exif_lon,
+        )
+
+        session.add(media)
+        try:
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            stmt = select(MediaFile).where(
+                MediaFile.operation_id == x_idempotency_key
+            )
+            result = await session.execute(stmt)
+            media = result.scalar_one()
+
+        media.batch_uuid = batch_uuid
+
+        # Anchor photo to batch if batch was already created (P0-25). The photo
+        # only verifies the batch if its hash matches the batch's declared
+        # sha256_hash, and the EXIF GPS corroborates the claimed coords (Phase 9).
+        stmt = select(Batch).where(Batch.batch_uuid == batch_uuid)
+        batch_result = await session.execute(stmt)
+        batch = batch_result.scalar_one_or_none()
+        if batch:
+            if batch.device_id is not None and batch.device_id != device_id:
+                raise HTTPException(status_code=403, detail="not_your_batch")
+            _evaluate_anchor(batch, calculated_hash, exif_lat, exif_lon)
+            session.add(batch)
+
+        session.add(media)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        file_path.unlink(missing_ok=True)
+        raise
 
     log.info(f"[media] STORED file={file.filename} sha256={calculated_hash}")
     response.status_code = status.HTTP_200_OK
