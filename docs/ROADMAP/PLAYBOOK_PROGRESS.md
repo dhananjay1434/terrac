@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P0/P1a/P1b/**P1c ALL COMPLETE** ✅ — all 8 Rainbow capture screens (S1–S8) done + pushed. P1 EXIT GATE is code-complete + test-green; only the on-device field walkthrough is device-parked. Backend **326/1**, Flutter **229/~2**, all green. Next: **P2 (Lab & Verifier portal)**. P0 agent-work 8/10 (P0.7/P0.8 hardware/decision-parked).
-**Next actionable task:** P1 EXIT GATE verification. All 8 P1c screens (S1–S8) are done + pushed. Then advance to P2 (portal).
+**Next actionable task:** P2.1 (portal auth: users/roles/sessions + login/logout + `require_role` + admin token mint). P2.0 seam done. Then P2.2 read API, P2.3 UI, P2.4 lab flow, P2.5 registry, P2.6 issuance.
 
 ---
 
@@ -56,7 +56,7 @@
 - [~] **P1 EXIT GATE** — all criteria are code-complete + test-green; the on-device manual walkthrough is ⏸ device-blocked (no physical Android device here, same as P0.7). Criterion → implementing task: fresh-phone in-app enroll = **S8** (+7 tests); one batch turns every field criterion green = **S1** moisture / **S2** biomass / **S3** kiln / **S4** flame+ignition / **S5** composite / **S6** delivery+buyer (each screen tested; mandatory flow moisture→kiln→pyrolysis→yield→composite→end-use); kill-and-resume at 3 points = **C3** (`restoreProgress`, 4 tests); stuck sync visible+retryable = **C1**+**S7** (Sync Health, 5 tests); BLE disconnect banner = **C4** (3 tests). Full suites green: backend **326/1**, Flutter **229/~2**. `⏸ HUMAN/device: run the end-to-end field walkthrough on a real phone to close the gate.`
 
 ## PHASE P2 — Lab & Verifier portal
-- [ ] **P2.0** — Backend modularization seam (do before any portal endpoint)
+- [x] **P2.0** — Backend modularization seam · new `backend/portal/` package (`__init__.py` + `auth.py`/`schemas.py` placeholders + `routes.py` with `APIRouter(prefix="/api/v1/portal")`); `server.py` gains exactly ONE mount (`include_router`) at end-of-file so the portal may import server helpers later without a cycle. `core.py` NOT needed — `get_session` already lives in importable `db.py`; `_safe_json`/`_SAFE` deferred to when P2.1 needs them (recorded as coupling to resolve). Temporary auth-free `/api/v1/portal/ping`→200 proves the seam (removed in P2.1). +2 tests (ping mounted, health undisturbed). G1 full backend green. RULE from here: new backend code → modules; server.py only shrinks.
 - [ ] **P2.1** — Portal auth: users, roles, sessions
 - [ ] **P2.2** — Read API (batches, detail, devices, summary, authed media)
 - [ ] **P2.3** — Portal UI: dashboard + batch detail
@@ -85,6 +85,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P2.0 · portal APIRouter seam: backend/portal/ package + single include_router mount at end of server.py (no import cycle); temporary /api/v1/portal/ping→200. +2 tests. G1 full backend green. First P2 task.
 - 2026-07-10 · P1c COMPLETE ✅ / P1 EXIT GATE · all 8 capture screens (S1–S8) done+pushed; every exit criterion code-complete + test-green (enroll=S8, field-green=S1-S6, resume=C3, stuck-sync=C1+S7, BLE-banner=C4); full suites backend 326/1 + Flutter 229/~2. On-device field walkthrough device-parked (no phone, per P0.7). Ready for P2.
 - 2026-07-10 · P1-S8 · in-app enrollment: enrollment_screen + EnrollmentController state machine + error mapping; registerDevice({token,apiBaseUrl}) w/ dart-define fallback (Ed25519 untouched); isEnrolled(); warmUp defers without a baked token; shared resolveApiBaseUrl + reactive apiBaseUrlProvider watched by syncConfigProvider; main.dart enrolled→dashboard/fresh→enrollment gate. +7 tests; crypto regression green. Flutter 229 passed. (2 parallel Explore agents fed crypto_signer + base-URL/routing ground truth.)
 - 2026-07-10 · P1-S4 · pyrolysis completion rework: ADDED 3 flame-stage captures (flame_curtain/quenching/flame_height) + kiln-type-aware completion (open→flame height, closed→ignition type/amount); widened smoke_evidence builder + capturedStagesProvider; reworked canEndBurn (open 7-stage+flame height, closed smoke+ignition); writer guard counts smoke only. +9 tests. Flutter 222 passed, backend corroboration 24 passed. (2 parallel Explore agents fed client capture & backend gate ground truth.)

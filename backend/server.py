@@ -2416,3 +2416,15 @@ async def batch_compliance(
         "reasons": reasons,
         "checklist": checklist,
     }
+
+
+# ---------------------------------------------------------------------------
+# P2.0 — Lab & Verifier portal seam. New portal code lives in the `portal`
+# package; server.py only ever gains this single mount line (see AGENT
+# playbook §0.3: new backend code goes in modules, server.py only shrinks).
+# Imported at the end so the portal package may freely import server helpers
+# in later phases without an import-order cycle.
+# ---------------------------------------------------------------------------
+from portal.routes import router as portal_router  # noqa: E402
+
+app.include_router(portal_router)
