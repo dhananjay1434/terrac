@@ -36,6 +36,30 @@ const _kMethods = <String, String>{
   'COMPOST_AMENDMENT': 'Compost Amendment',
 };
 
+/// Pure commit-gate predicate for the end-use form (P1-S6). Extracted so the
+/// C5 delivery/buyer rules can be unit-tested without the GPS/camera/DB widget
+/// harness. Commit requires every prior field PLUS a buyer name and a positive
+/// delivered amount that does not exceed the recorded yield (when known).
+@visibleForTesting
+bool endUseCanCommit({
+  required bool hasMethod,
+  required bool tonnageValid,
+  required bool transportValid,
+  required bool hasGps,
+  required bool hasPhoto,
+  required String buyerName,
+  required double? deliveredKg,
+  required double? wetYieldKg,
+}) {
+  if (!hasMethod || !tonnageValid || !transportValid || !hasGps || !hasPhoto) {
+    return false;
+  }
+  if (buyerName.trim().isEmpty) return false;
+  if (deliveredKg == null || deliveredKg <= 0) return false;
+  if (wetYieldKg != null && deliveredKg > wetYieldKg) return false;
+  return true;
+}
+
 class EndUseApplicationScreen extends ConsumerStatefulWidget {
   const EndUseApplicationScreen({super.key});
   @override
@@ -49,6 +73,16 @@ class _EndUseApplicationScreenState
   final _tonnageCtrl = TextEditingController();
   final _transportCtrl = TextEditingController(text: '0');
 
+  // Rainbow compliance C5: delivery record + buyer/end-user identity.
+  final _deliveredCtrl = TextEditingController();
+  final _buyerNameCtrl = TextEditingController();
+  final _buyerContactCtrl = TextEditingController();
+  DateTime _deliveryDate = DateTime.now();
+
+  /// Recorded wet yield (kg) for this batch, loaded once so we can refuse a
+  /// delivered amount larger than what was ever produced. Null until loaded.
+  double? _wetYieldKg;
+
   Position? _gpsFix;
   String? _gpsError;
   bool _gpsBusy = false;
@@ -58,9 +92,33 @@ class _EndUseApplicationScreenState
   String? _err;
 
   @override
+  void initState() {
+    super.initState();
+    _loadYield();
+  }
+
+  Future<void> _loadYield() async {
+    try {
+      final batchUuid = ref.read(batchSessionProvider);
+      if (batchUuid == null) return;
+      final db = await ref.read(appDatabaseProvider.future);
+      final row =
+          await (db.select(db.yieldMetrics)
+                ..where((t) => t.batchUuid.equals(batchUuid)))
+              .getSingleOrNull();
+      if (mounted) setState(() => _wetYieldKg = row?.wetYieldWeightKg);
+    } catch (_) {
+      // Best-effort: without the yield we simply skip the ≤-yield check.
+    }
+  }
+
+  @override
   void dispose() {
     _tonnageCtrl.dispose();
     _transportCtrl.dispose();
+    _deliveredCtrl.dispose();
+    _buyerNameCtrl.dispose();
+    _buyerContactCtrl.dispose();
     super.dispose();
   }
 
@@ -91,12 +149,35 @@ class _EndUseApplicationScreenState
     if (r != null) setState(() => _farmerPhoto = r);
   }
 
-  bool get _canCommit =>
-      _methodCode != null &&
-      double.tryParse(_tonnageCtrl.text.trim()) != null &&
-      double.tryParse(_transportCtrl.text.trim()) != null &&
-      _gpsFix != null &&
-      _farmerPhoto != null;
+  double? get _deliveredKg => double.tryParse(_deliveredCtrl.text.trim());
+
+  bool get _deliveredExceedsYield {
+    final d = _deliveredKg;
+    final y = _wetYieldKg;
+    return d != null && y != null && d > y;
+  }
+
+  bool get _canCommit => endUseCanCommit(
+    hasMethod: _methodCode != null,
+    tonnageValid: double.tryParse(_tonnageCtrl.text.trim()) != null,
+    transportValid: double.tryParse(_transportCtrl.text.trim()) != null,
+    hasGps: _gpsFix != null,
+    hasPhoto: _farmerPhoto != null,
+    buyerName: _buyerNameCtrl.text,
+    deliveredKg: _deliveredKg,
+    wetYieldKg: _wetYieldKg,
+  );
+
+  Future<void> _pickDeliveryDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _deliveryDate,
+      firstDate: DateTime(2020),
+      lastDate: now,
+    );
+    if (picked != null) setState(() => _deliveryDate = picked);
+  }
 
   Future<void> _commit() async {
     if (!_canCommit || _busy) return;
@@ -125,6 +206,12 @@ class _EndUseApplicationScreenState
         longitude: _gpsFix!.longitude,
         farmerPhotoPath: _farmerPhoto!.sandboxPath,
         farmerPhotoSha256: _farmerPhoto!.sha256Hash,
+        deliveryDate: _deliveryDate.toUtc().toIso8601String(),
+        deliveredAmountKg: _deliveredKg,
+        buyerName: _buyerNameCtrl.text.trim(),
+        buyerContact: _buyerContactCtrl.text.trim().isEmpty
+            ? null
+            : _buyerContactCtrl.text.trim(),
       );
       await db.closeBatch(batchUuid);
       debugPrint('[EndUse] insertEndUseWithOutbox OK uuid=$uuid');
@@ -183,6 +270,37 @@ class _EndUseApplicationScreenState
                     controller: _transportCtrl,
                     testId: 'transport-distance-input',
                     hint: '0.0',
+                  ),
+                  const SizedBox(height: 16),
+                  _deliveryDateBlock(),
+                  const SizedBox(height: 16),
+                  _numericBlock(
+                    label: 'DELIVERED AMOUNT (kg biochar)',
+                    controller: _deliveredCtrl,
+                    testId: 'delivered-amount-input',
+                    hint: '0.00',
+                  ),
+                  if (_deliveredExceedsYield) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Delivered amount exceeds recorded yield '
+                      '(${_wetYieldKg!.toStringAsFixed(1)} kg).',
+                      style: t.metadata.copyWith(fontSize: 12, color: t.danger),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  _textBlock(
+                    label: 'BUYER / END-USER NAME',
+                    controller: _buyerNameCtrl,
+                    testId: 'buyer-name-input',
+                    hint: 'Name or collective',
+                  ),
+                  const SizedBox(height: 16),
+                  _textBlock(
+                    label: 'BUYER CONTACT (optional)',
+                    controller: _buyerContactCtrl,
+                    testId: 'buyer-contact-input',
+                    hint: 'Phone or email',
                   ),
                   if (_err != null) ...[
                     const SizedBox(height: 16),
@@ -615,6 +733,106 @@ class _EndUseApplicationScreenState
                   hintStyle: t.numericMedium.copyWith(
                     fontSize: 40,
                     color: t.textDisabled,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _textBlock({
+    required String label,
+    required TextEditingController controller,
+    required String testId,
+    required String hint,
+  }) {
+    final t = context.tokens;
+    return PremiumFieldPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: t.chipLabel.copyWith(color: t.accentText)),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: t.surface,
+              borderRadius: BorderRadius.circular(t.radiusM),
+              border: Border.all(color: t.border, width: 1),
+            ),
+            child: Semantics(
+              identifier: testId,
+              textField: true,
+              child: TextField(
+                controller: controller,
+                keyboardType: TextInputType.text,
+                textCapitalization: TextCapitalization.words,
+                cursorColor: t.accentText,
+                style: t.body.copyWith(color: t.textPrimary),
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  isCollapsed: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  hintText: hint,
+                  hintStyle: t.body.copyWith(color: t.textDisabled),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _deliveryDateBlock() {
+    final t = context.tokens;
+    final d = _deliveryDate;
+    final label =
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    return PremiumFieldPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('DELIVERY DATE', style: t.chipLabel.copyWith(color: t.accentText)),
+          const SizedBox(height: 12),
+          Semantics(
+            identifier: 'delivery-date-picker',
+            button: true,
+            child: Material(
+              color: t.surface,
+              borderRadius: BorderRadius.circular(t.radiusM),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.heavyImpact();
+                  _pickDeliveryDate();
+                },
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 56),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(t.radiusM),
+                    border: Border.all(color: t.border, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.event, color: t.accentText, size: 24),
+                      const SizedBox(width: 12),
+                      Text(
+                        label,
+                        style: t.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: t.textPrimary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

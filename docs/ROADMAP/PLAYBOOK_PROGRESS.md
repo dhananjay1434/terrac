@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P1a + P1b COMPLETE ✅ → next is P1c (Rainbow capture screens, S1–S8). Backend 325 / Flutter 194, all green. P0 agent-work 8/10 (P0.7/P0.8 hardware/decision-parked).
-**Next actionable task:** P1-S6 (delivery/buyer fields on End-Use — server `create_application` + `EndUseApplication` columns exist; UI only). Then S5 (composite sample), S3 (kiln select → Drift v25), S4 (pyrolysis rework), S8 (enrollment). S1+S2+S7 done.
+**Next actionable task:** P1-S5 (composite sample screen — writer `insertCompositePileSampleWithOutbox` + endpoint exist; gate = ≥1 photographed sample; add batch-QR card → pin `qr_flutter`). Then S3 (kiln select → Drift v25), S4 (pyrolysis rework), S8 (enrollment). S1+S2+S6+S7 done.
 
 ---
 
@@ -50,7 +50,7 @@
 - [ ] **P1-S3** — Kiln selection at burn start
 - [ ] **P1-S4** — Pyrolysis completion rework (deps: P1-S3) · `DECISION (default: ADD 3 gate stages, keep 4 smoke photos)`
 - [ ] **P1-S5** — Composite sample screen
-- [ ] **P1-S6** — Delivery & buyer fields on End-Use
+- [x] **P1-S6** — Delivery & buyer fields on End-Use · UI-only (writer `insertEndUseWithOutbox` + `EndUseApplication` v21 columns + server `ApplicationPayload`/`derive_delivery_compliance` all already existed). Added to the end-use form: delivery date picker (default today, no future dates), delivered amount kg, buyer name (required), buyer contact (optional); threaded into the existing writer call with the exact server keys `delivery_date`/`delivered_amount_kg`/`buyer_name`/`buyer_contact`. Extracted pure `endUseCanCommit` predicate (commit now requires buyer name + positive delivered amount ≤ recorded yield). Yield loaded once in initState for the ≤-yield check. Buyer PII never logged. +7 tests (6 predicate cases + writer payload key assertion). Backend `test_delivery_buyer_flow` (4) still green; G2 clean; G3 211 passed.
 - [x] **P1-S7** — Sync Health screen · new `sync_health_screen.dart` reachable from a now-tappable dashboard integrity footer; clock-skew danger banner (from `clockSkewProvider`); Synced/Waiting/Stuck summary chips; per problem-row DmrvPanel with human op-label + short batch id + last-tried + verbatim `failureReason` + per-row RETRY; RETRY ALL when stuck; NO delete action. Added `problemOutboxRowsProvider` + `syncedOutboxCountProvider` (thin wrappers over C1's `watchProblemRows` + a SYNCED count). +5 widget tests (fake DB rows via provider overrides, FakeSyncQueueManager records retries). G2 clean (0 new), G3 204 passed.
 - [ ] **P1-S8** — In-app enrollment screen
 - [ ] **P1 EXIT GATE** — fresh phone enrolls in-app · one batch turns every field criterion green · kill-and-resume at 3 points · stuck sync visible+retryable · BLE disconnect banner
@@ -85,6 +85,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1-S6 · delivery date/amount/buyer capture on End-Use (UI-only over existing v21 writer/columns + server model/gate); pure endUseCanCommit predicate (buyer name + positive delivered ≤ yield); yield loaded in initState; server keys delivery_date/delivered_amount_kg/buyer_name/buyer_contact. +7 tests. Flutter 211 passed, backend flow 4 passed. (2 parallel Explore agents fed client + backend ground truth.)
 - 2026-07-10 · P1-S7 · Sync Health screen (tappable integrity footer → clock-skew banner + Synced/Waiting/Stuck chips + per-row human label/reason/RETRY + RETRY ALL; no delete). Added problemOutboxRowsProvider + syncedOutboxCountProvider. +5 widget tests. Flutter 204 passed. (2 parallel Explore agents fed data-layer + house-style ground truth.)
 - 2026-07-10 · P1-S1 · moisture multi-reading loop — THE C2 bug fixed: N photographed moisture_readings rows vs target max(10,ceil(kg/100)); counter UI; pyrolysis gated on count>=target. +3 tests. Flutter 199 passed.
 - 2026-07-10 · P1-S2 · biomass weight + method on Sourcing (state+persist+setBiomass+hasBiomass, UI field+toggle, proceed gate, moisture threading). +2 tests. Flutter 196 passed. First P1c screen.
