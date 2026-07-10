@@ -14,7 +14,7 @@ import '../design/premium_field_components.dart';
 import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
 import 'package:dmrv_app/l10n/app_localizations.dart';
-import 'end_use_application_screen.dart';
+import 'composite_sample_screen.dart';
 
 /// =============================================================================
 /// YieldScaleScreen — India paper skin (tokens + Dmrv components)
@@ -79,7 +79,7 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (_) => const EndUseApplicationScreen(),
+          builder: (_) => const CompositeSampleScreen(),
         ),
       );
     } catch (e) {

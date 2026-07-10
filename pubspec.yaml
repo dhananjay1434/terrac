@@ -32,6 +32,8 @@ dependencies:
   crypto: ^3.0.3
   permission_handler: ^11.3.1
   image: ^4.3.0
+  # Batch chain-of-custody QR (composite-sample card). Pure-Dart, no native lib.
+  qr_flutter: ^4.1.0
 
   # Prompt 4 — BLE ESP32 thermocouple
   flutter_reactive_ble: ^5.4.0
