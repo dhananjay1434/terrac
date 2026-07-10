@@ -17,6 +17,12 @@ import '../../providers/smoke_evidence_provider.dart';
 import 'secure_camera_screen.dart';
 import 'yield_scale_screen.dart';
 
+/// P1-C5: END BURN is allowed only once all 4 smoke-stage proofs are captured
+/// and no persist is in flight. Pure predicate so the gate is unit-testable
+/// without a full widget harness.
+bool canEndBurn({required int proofCount, required bool ending}) =>
+    !ending && proofCount >= 4;
+
 /// =============================================================================
 /// PyrolysisScreen — India paper skin (tokens + Dmrv components)
 /// =============================================================================
@@ -76,9 +82,15 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final msg = e.toString().contains('smoke captures')
+            ? 'Capture all 4 smoke-stage photos before ending the burn.'
+            : e.toString().contains('No temperature')
+            ? 'No thermocouple readings yet — connect and record before ending.'
+            : 'Could not save the burn. Your data is safe on the device; '
+                  'tap END BURN to try again.';
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Persist failed: $e')));
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
     } finally {
       if (mounted) setState(() => _ending = false);
@@ -326,9 +338,10 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                       label: _ending ? 'PERSISTING…' : 'END BURN',
                       testId: 'end-burn-btn',
                       variant: DmrvButtonVariant.danger,
-                      onPressed: (_ending || proofs.length < 4)
-                          ? null
-                          : _endBurn,
+                      onPressed:
+                          canEndBurn(proofCount: proofs.length, ending: _ending)
+                          ? _endBurn
+                          : null,
                     ),
                   SizedBox(height: t.gapL),
                 ],
