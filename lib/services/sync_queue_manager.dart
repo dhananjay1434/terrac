@@ -95,6 +95,30 @@ class SyncConfig {
   final bool enablePeriodicPolling;
 }
 
+/// P1-C2: last observed device-vs-server clock skew (server `date` header minus
+/// device clock). Null when within tolerance. A large skew is why v2-signed
+/// uploads 401 in a loop; the Sync Health screen surfaces it as a
+/// "fix your clock" banner.
+final clockSkewProvider = StateProvider<Duration?>((ref) => null);
+
+/// Parse an HTTP `date` header and return the device-vs-server clock skew if it
+/// exceeds [tolerance], else null. Pure + testable (P1-C2). A positive result
+/// means the server clock is ahead of the device.
+Duration? computeClockSkew(
+  String? dateHeader,
+  DateTime deviceNowUtc, {
+  Duration tolerance = const Duration(minutes: 2),
+}) {
+  if (dateHeader == null || dateHeader.isEmpty) return null;
+  try {
+    final serverUtc = HttpDate.parse(dateHeader).toUtc();
+    final skew = serverUtc.difference(deviceNowUtc);
+    return skew.abs() > tolerance ? skew : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 class SyncQueueManager {
   SyncQueueManager(
     this.ref, {
@@ -182,6 +206,17 @@ class SyncQueueManager {
 
   String _truncate(String s, int max) =>
       s.length <= max ? s : s.substring(0, max);
+
+  /// P1-C2: read the server `date` header and publish any significant clock
+  /// skew so the Sync Health screen can warn the operator. Never throws.
+  void _recordClockSkew(Map<String, String> headers) {
+    final skew = computeClockSkew(headers['date'], DateTime.now().toUtc());
+    try {
+      ref.read(clockSkewProvider.notifier).state = skew;
+    } catch (_) {
+      // In unit tests the Ref may not resolve clockSkewProvider; ignore.
+    }
+  }
 
   static http.Client _createSecureClient() {
     if (kIsWeb) return http.Client();
@@ -405,6 +440,7 @@ class SyncQueueManager {
             },
             body: entry.payloadJson,
           );
+          _recordClockSkew(jsonResponse.headers);
 
           // Fix 4: 409 Conflict means the server already has this payload.
           // Treat it identically to 200/201 — proceed to media phase.
@@ -543,6 +579,10 @@ class SyncQueueManager {
             status: const Value('PENDING'),
             retryCount: Value(entry.retryCount + 1),
             lastAttemptAt: Value(DateTime.now().toUtc().toIso8601String()),
+            // P1-C2: surface the latest transient reason (e.g. a 401 while the
+            // clock is skewed) so the Sync Health screen isn't blank while a row
+            // silently retries.
+            failureReason: Value(_truncate(e.toString(), 500)),
           ),
         );
       }
@@ -586,6 +626,7 @@ class SyncQueueManager {
 
     final streamedResponse = await _client.send(request);
     final mediaResponse = await http.Response.fromStream(streamedResponse);
+    _recordClockSkew(mediaResponse.headers);
 
     if (mediaResponse.statusCode != 200 && mediaResponse.statusCode != 201) {
       final code = mediaResponse.statusCode;
