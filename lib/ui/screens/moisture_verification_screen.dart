@@ -88,41 +88,71 @@ class _MoistureVerificationScreenState
       }
 
       final db = await ref.read(appDatabaseProvider.future);
-      final sourcingUuid = await db.insertBiomassSourcingWithOutbox(
+
+      // S1: how many readings already exist for this batch. Query directly —
+      // the stream provider can be a tick behind right after a write.
+      final existing =
+          await (db.select(db.moistureReadings)
+                ..where((tbl) => tbl.batchUuid.equals(batchUuid)))
+              .get();
+      final sequence = existing.length + 1;
+
+      // The batch's BiomassSourcing summary row is written ONCE (its unique
+      // batch_uuid forbids duplicates): it carries the feedstock/harvest/biomass
+      // /project linkage plus the first photographed meter reading.
+      final srcExists =
+          (await (db.select(db.biomassSourcing)
+                    ..where((tbl) => tbl.batchUuid.equals(batchUuid))
+                    ..limit(1))
+                  .get())
+              .isNotEmpty;
+      if (!srcExists) {
+        await db.insertBiomassSourcingWithOutbox(
+          batchUuid: batchUuid,
+          feedstockSpecies: sourcing.feedstockSpecies,
+          harvestTimestamp:
+              (sourcing.harvestTimestamp ?? DateTime.now().toUtc())
+                  .toIso8601String(),
+          moisturePercent: moisture.moisturePercent!,
+          moistureCompliant: moisture.isCompliant,
+          photoPath: result.sandboxPath,
+          sha256Hash: result.sha256Hash,
+          latitude: result.latitude,
+          longitude: result.longitude,
+          mockLocationEnabled: result.isMocked,
+          harvestUptimeSeconds: sourcing.harvestUptimeSeconds,
+          azimuth: result.azimuth,
+          pitch: result.pitch,
+          roll: result.roll,
+          // Rainbow C1 (S2): biomass weight + method from the Sourcing screen.
+          biomassInputKg: sourcing.biomassInputKg,
+          biomassMeasurementMethod: sourcing.biomassMeasurementMethod,
+          // Rainbow T1.1: project linkage for the C8/C9 gates (null keeps the
+          // batch legacy-shaped and those gates inert).
+          projectId: const String.fromEnvironment('DMRV_PROJECT_ID').isEmpty
+              ? null
+              : const String.fromEnvironment('DMRV_PROJECT_ID'),
+          scaleId: null,
+        );
+      }
+
+      // S1: EVERY capture writes a photographed moisture_readings row — the
+      // actual C2 evidence the server counts (needs max(10, ceil(kg/100))).
+      await db.insertMoistureReadingWithOutbox(
         batchUuid: batchUuid,
-        feedstockSpecies: sourcing.feedstockSpecies,
-        harvestTimestamp: (sourcing.harvestTimestamp ?? DateTime.now().toUtc())
-            .toIso8601String(),
         moisturePercent: moisture.moisturePercent!,
-        moistureCompliant: moisture.isCompliant,
+        sequence: sequence,
         photoPath: result.sandboxPath,
         sha256Hash: result.sha256Hash,
-        latitude: result.latitude,
-        longitude: result.longitude,
-        mockLocationEnabled: result.isMocked,
-        harvestUptimeSeconds: sourcing.harvestUptimeSeconds,
-        azimuth: result.azimuth,
-        pitch: result.pitch,
-        roll: result.roll,
-        // Rainbow C1 (S2): biomass weight + method captured on the Sourcing
-        // screen; drives the server C1 gate and the C2 moisture-sample target.
-        biomassInputKg: sourcing.biomassInputKg,
-        biomassMeasurementMethod: sourcing.biomassMeasurementMethod,
-        // Rainbow T1.1: stamp the configured project so the server can run the
-        // project-scoped C8/C9 gates. Empty (unconfigured build) => null, which
-        // keeps the batch legacy-shaped and the gates inert.
-        projectId: const String.fromEnvironment('DMRV_PROJECT_ID').isEmpty
-            ? null
-            : const String.fromEnvironment('DMRV_PROJECT_ID'),
-        // scale_id is populated once BLE scale pairing exposes an identity.
-        scaleId: null,
       );
       ref.read(dashboardProvider.notifier).markBiomassVerified();
 
+      // Reset the meter input for the next reading in the loop.
+      ref.read(moistureGateProvider.notifier).reset();
+      _controller.clear();
+
       debugPrint(
-        '[MoistureScreen] insertBiomassSourcingWithOutbox OK — '
-        'sourcingUuid=$sourcingUuid batchUuid=$batchUuid '
-        'sha256=${result.sha256Hash}',
+        '[MoistureScreen] moisture reading #$sequence persisted for $batchUuid',
       );
     } catch (e, st) {
       debugPrint('[MoistureScreen] persist failed: $e\n$st');
@@ -140,7 +170,15 @@ class _MoistureVerificationScreenState
     final isNonCompliant = s.status == MoistureGateStatus.nonCompliant;
 
     final hasEvidence = ref.watch(moistureEvidenceProvider).value ?? false;
-    final canInitiatePyrolysis = s.isCompliant && hasEvidence;
+    // S1: Rainbow C2 multi-reading loop. The target is driven by the biomass
+    // weight recorded on Sourcing (S2): max(10, ceil(kg/100)).
+    final biomassKg = ref
+        .watch(lantanaSourcingProvider)
+        .valueOrNull
+        ?.biomassInputKg;
+    final target = moistureSampleTarget(biomassKg);
+    final readingCount = ref.watch(moistureReadingCountProvider).value ?? 0;
+    final canInitiatePyrolysis = readingCount >= target;
     final String footerHash = hasEvidence
         ? 'DECOUPLED-MEDIA-STORED-IN-DB'
         : '----------------------------------------------------------------';
@@ -167,8 +205,12 @@ class _MoistureVerificationScreenState
                     onChanged: notifier.updateReading,
                   ),
                   SizedBox(height: t.gapL),
+                  _ReadingCounterBlock(count: readingCount, target: target),
+                  SizedBox(height: t.gapL),
                   _PhotoBlock(
-                    hasEvidence: hasEvidence,
+                    // S1: "captured" only once the loop target is met, so the
+                    // block keeps prompting a capture for each reading.
+                    hasEvidence: readingCount >= target,
                     persisting: _persisting,
                     enabled: s.isCompliant && !_persisting,
                     onTap: _launchSecureCapture,
@@ -216,6 +258,65 @@ class _MoistureVerificationScreenState
             IntegrityFooter(lastHash: footerHash),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// READING COUNTER BLOCK (S1 — Rainbow C2 multi-reading loop)
+// ---------------------------------------------------------------------------
+
+class _ReadingCounterBlock extends StatelessWidget {
+  const _ReadingCounterBlock({required this.count, required this.target});
+  final int count;
+  final int target;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final met = count >= target;
+    final Color accent = met ? t.success : t.accent;
+    return PremiumFieldPanel(
+      accentBorderColor: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            met
+                ? 'MOISTURE SAMPLES // TARGET MET'
+                : 'MOISTURE SAMPLES CAPTURED',
+            style: t.chipLabel.copyWith(color: accent),
+          ),
+          SizedBox(height: t.gapS),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Semantics(
+                identifier: 'moisture-reading-counter',
+                child: Text(
+                  '$count',
+                  style: t.numericHero.copyWith(color: accent),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10, left: 6),
+                child: Text(
+                  '/ $target',
+                  style: t.numericMedium.copyWith(color: t.textSecondary),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: t.gapS),
+          Text(
+            met
+                ? 'Enough readings captured — proceed, or capture more.'
+                : 'Photograph the meter for each reading. '
+                      '${target - count} more needed (≥1 per 100 kg, min 10).',
+            style: t.metadata.copyWith(color: t.textSecondary),
+          ),
+        ],
       ),
     );
   }

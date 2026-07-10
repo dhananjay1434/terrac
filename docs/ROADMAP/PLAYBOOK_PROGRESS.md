@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P1a + P1b COMPLETE ✅ → next is P1c (Rainbow capture screens, S1–S8). Backend 325 / Flutter 194, all green. P0 agent-work 8/10 (P0.7/P0.8 hardware/decision-parked).
-**Next actionable task:** P1c Rainbow capture screens. Recommended order (deps): S2 biomass input → S1 moisture loop (THE bug; writer already exists) → S7 sync health (data layer C1/C2 done) → S6 delivery/buyer → S5 composite → S3 kiln → S4 pyrolysis rework → S8 enrollment. Each is UI wiring over existing writers/endpoints (verified by the P1-S context earlier).
+**Next actionable task:** P1-S7 (Sync Health screen — the C1/C2 data layer, watchProblemRows + clockSkewProvider, is done; this is the operator-facing UI + retry). Then S6 (delivery/buyer on End-Use), S5 (composite sample), S3 (kiln select), S4 (pyrolysis rework), S8 (enrollment). S1+S2 done.
 
 ---
 
@@ -43,6 +43,7 @@
 - [x] **P1b COMPLETE** ✅ — all 7 client-robustness tasks done + pushed (C3 metadata-anchor sub-item deferred as low-value). Flutter 194 passed.
 
 ## PHASE P1c — Rainbow capture screens
+- [x] **P1-S1** — Moisture multi-reading loop (THE C2 bug) · moisture screen now writes N photographed `moisture_readings` rows (one per capture, sequence-numbered) against target max(10, ceil(biomassKg/100)); BiomassSourcing summary written once; counter-hero UI ("N / target"); INITIATE PYROLYSIS gated on readingCount>=target. `moistureSampleTarget` + `moistureReadingCountProvider` added. +3 target tests (backend test_moisture_flow already proves 10 readings clear C2). Flutter 199 passed. **C2 is now passable from the field.**
 - [x] **P1-S2** — Biomass input on Sourcing · SourcingState gains biomassInputKg/biomassMeasurementMethod (+persist/load) + `setBiomass` + `hasBiomass`; sourcing screen has a weight field + WEIGHED/EST-FROM-YIELD toggle; proceed button now requires biomass; moisture screen threads biomass into insertBiomassSourcingWithOutbox. +2 tests. Flutter 196 passed.
 - [ ] **P1-S2** — Biomass input on Sourcing (do before S1)
 - [ ] **P1-S1** — Moisture multi-reading loop (THE bug) (deps: P1-C1, P1-S2)
@@ -84,6 +85,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1-S1 · moisture multi-reading loop — THE C2 bug fixed: N photographed moisture_readings rows vs target max(10,ceil(kg/100)); counter UI; pyrolysis gated on count>=target. +3 tests. Flutter 199 passed.
 - 2026-07-10 · P1-S2 · biomass weight + method on Sourcing (state+persist+setBiomass+hasBiomass, UI field+toggle, proceed gate, moisture threading). +2 tests. Flutter 196 passed. First P1c screen.
 - 2026-07-10 · P1b EXIT ✅ · all 7 client-robustness tasks (C1 failure-reason+retry, C2 clock-skew, C3 resume-progress, C4 BLE-disconnect, C5 END-BURN gate, C6 passphrase read-back, C7 media-invariant) done+pushed. Backend 325 / Flutter 194 green.
 - 2026-07-10 · P1-C7 · assertOutboxMediaInvariant at insertWithOutbox (media row without photo_path throws at capture site). +4 tests. Flutter 194 passed.

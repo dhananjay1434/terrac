@@ -103,3 +103,24 @@ final moistureEvidenceProvider = StreamProvider<bool>((ref) {
     ..where((t) => t.photoPath.isNotNull());
   return query.watch().map((rows) => rows.isNotEmpty);
 });
+
+/// P1-S1: Rainbow C2 target number of photographed moisture readings —
+/// max(10, ceil(biomassKg / 100)). Pure + testable; mirrors the backend
+/// derive_moisture_compliance formula exactly.
+int moistureSampleTarget(double? biomassKg) {
+  const floor = 10;
+  if (biomassKg == null || biomassKg <= 0) return floor;
+  final perHundred = (biomassKg / 100.0).ceil();
+  return perHundred > floor ? perHundred : floor;
+}
+
+/// P1-S1: live count of moisture_readings rows for the current batch — the C2
+/// evidence. Drives the "Reading X of N" counter and the CONTINUE gate.
+final moistureReadingCountProvider = StreamProvider<int>((ref) {
+  final batchUuid = ref.watch(requiredBatchUuidProvider);
+  final db = ref.watch(appDatabaseProvider).value;
+  if (db == null) return Stream.value(0);
+  final query = db.select(db.moistureReadings)
+    ..where((t) => t.batchUuid.equals(batchUuid));
+  return query.watch().map((rows) => rows.length);
+});
