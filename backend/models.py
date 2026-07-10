@@ -445,3 +445,54 @@ class DeviceKey(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+# ---------------------------------------------------------------------------
+# P2.1 — Lab & Verifier portal auth.
+# ---------------------------------------------------------------------------
+class PortalUser(Base):
+    """A human portal operator (admin / lab / verifier). Distinct from the
+    device fleet — devices sign with Ed25519; humans log in with a password
+    (argon2 hash) and carry an opaque session token."""
+
+    __tablename__ = "portal_users"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('admin', 'lab', 'verifier')",
+            name="ck_portal_users_role",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    disabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class PortalSession(Base):
+    """An opaque 24h session. Only the SHA-256 of the bearer token is stored,
+    so a DB leak can't be replayed as a live session."""
+
+    __tablename__ = "portal_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token_hash: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )

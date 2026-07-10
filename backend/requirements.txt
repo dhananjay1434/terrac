@@ -16,3 +16,5 @@ piexif==1.1.3
 cryptography==44.0.3
 # .env loading in server.py + alembic/env.py (P0.2).
 python-dotenv==1.0.1
+# Portal password hashing (P2.1) — argon2id via argon2-cffi.
+argon2-cffi==25.1.0

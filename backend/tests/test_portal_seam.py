@@ -10,10 +10,11 @@ import pytest
 pytestmark = pytest.mark.asyncio
 
 
-async def test_portal_ping_is_mounted(client):
-    r = await client.get("/api/v1/portal/ping")
-    assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+async def test_portal_router_mounted(client):
+    # The temporary /ping was removed in P2.1; the real /login route proves the
+    # router is still mounted (422 for an invalid body, never 404).
+    r = await client.post("/api/v1/portal/login", json={})
+    assert r.status_code == 422
 
 
 async def test_health_still_ok(client):

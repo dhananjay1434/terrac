@@ -387,7 +387,11 @@ def _rl_now() -> int:
 def _rl_bucket(path: str) -> str:
     if path == "/api/v1/register":
         return "register"
-    if path.startswith("/api/v1/admin/") or path.endswith("/compliance"):
+    # P2.1: portal auth/admin surfaces are brute-force targets — rate-limit them
+    # under the stricter "admin" bucket (keyed by client IP).
+    if path.startswith("/api/v1/admin/") or path.startswith(
+        "/api/v1/portal/"
+    ) or path.endswith("/compliance"):
         return "admin"
     if path == "/api/v1/media":
         return "media"

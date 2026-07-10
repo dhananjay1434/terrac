@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P0/P1a/P1b/**P1c ALL COMPLETE** ✅ — all 8 Rainbow capture screens (S1–S8) done + pushed. P1 EXIT GATE is code-complete + test-green; only the on-device field walkthrough is device-parked. Backend **326/1**, Flutter **229/~2**, all green. Next: **P2 (Lab & Verifier portal)**. P0 agent-work 8/10 (P0.7/P0.8 hardware/decision-parked).
-**Next actionable task:** P2.1 (portal auth: users/roles/sessions + login/logout + `require_role` + admin token mint). P2.0 seam done. Then P2.2 read API, P2.3 UI, P2.4 lab flow, P2.5 registry, P2.6 issuance.
+**Next actionable task:** P2.2 (portal read API — batches list/detail, devices, summary, authed media, using `require_role`). P2.0+P2.1 done. Then P2.3 UI, P2.4 lab flow, P2.5 registry, P2.6 issuance.
 
 ---
 
@@ -57,7 +57,7 @@
 
 ## PHASE P2 — Lab & Verifier portal
 - [x] **P2.0** — Backend modularization seam · new `backend/portal/` package (`__init__.py` + `auth.py`/`schemas.py` placeholders + `routes.py` with `APIRouter(prefix="/api/v1/portal")`); `server.py` gains exactly ONE mount (`include_router`) at end-of-file so the portal may import server helpers later without a cycle. `core.py` NOT needed — `get_session` already lives in importable `db.py`; `_safe_json`/`_SAFE` deferred to when P2.1 needs them (recorded as coupling to resolve). Temporary auth-free `/api/v1/portal/ping`→200 proves the seam (removed in P2.1). +2 tests (ping mounted, health undisturbed). G1 full backend green. RULE from here: new backend code → modules; server.py only shrinks.
-- [ ] **P2.1** — Portal auth: users, roles, sessions
+- [x] **P2.1** — Portal auth: users, roles, sessions · `PortalUser` (email-unique, argon2id hash, role admin/lab/verifier + CHECK, disabled) + `PortalSession` (sha256 of a 256-bit opaque bearer token, 24h) models + alembic `a3b4c5d6e7f8` (fixed a **pre-existing branched-head**: true head was `a2b3c4d5e6f7`, not `f1a2b3c4d5e6` as an agent mis-reported — verified up/down on a full chain → single head). `portal/auth.py`: argon2 hashing, hashed sessions, `require_role(*roles)`, constant-time login (dummy-verify on unknown/disabled user). Endpoints on the portal router: `POST /login` (401 uniform), `POST /logout` (revokes), `POST /tokens` (admin-only, server-mints a 256-bit enrollment token ≫128-bit floor + `dmrv-enroll:v1:{...}` QR). Portal paths → "admin" rate-limit bucket (1-line `_rl_bucket`). Bootstrap `create_portal_user.py` (no HTTP backdoor). `argon2-cffi==25.1.0` pinned. Decoupled from server.py (imports only db+models). +9 tests (login lifecycle, lab→admin 403, disabled 401, no-token 401, mint entropy+QR, logout revocation). G1 full backend green.
 - [ ] **P2.2** — Read API (batches, detail, devices, summary, authed media)
 - [ ] **P2.3** — Portal UI: dashboard + batch detail
 - [ ] **P2.4** — Lab flow: scan QR → results → live recompute
@@ -85,6 +85,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P2.1 · portal auth — PortalUser/PortalSession models + alembic a3b4c5d6e7f8 (fixed pre-existing branched-head; verified up/down→single head); argon2 hashing, hashed 24h sessions, require_role; /login //logout //tokens (server-minted 256-bit enroll token + QR); portal→admin rate bucket; create_portal_user.py; argon2-cffi pinned. +9 tests. G1 full backend 335/1 green. Diagnosed a full-suite-only failure (portal tests hit a leaked/dual-identity get_session override → request fell through to db's empty :memory: engine); fixed by making the portal-auth tests hermetic (own engine+create_all+explicit db.get_session override), the codebase's test_sync idiom. (2 parallel Explore agents fed ground truth.)
 - 2026-07-10 · P2.0 · portal APIRouter seam: backend/portal/ package + single include_router mount at end of server.py (no import cycle); temporary /api/v1/portal/ping→200. +2 tests. G1 full backend green. First P2 task.
 - 2026-07-10 · P1c COMPLETE ✅ / P1 EXIT GATE · all 8 capture screens (S1–S8) done+pushed; every exit criterion code-complete + test-green (enroll=S8, field-green=S1-S6, resume=C3, stuck-sync=C1+S7, BLE-banner=C4); full suites backend 326/1 + Flutter 229/~2. On-device field walkthrough device-parked (no phone, per P0.7). Ready for P2.
 - 2026-07-10 · P1-S8 · in-app enrollment: enrollment_screen + EnrollmentController state machine + error mapping; registerDevice({token,apiBaseUrl}) w/ dart-define fallback (Ed25519 untouched); isEnrolled(); warmUp defers without a baked token; shared resolveApiBaseUrl + reactive apiBaseUrlProvider watched by syncConfigProvider; main.dart enrolled→dashboard/fresh→enrollment gate. +7 tests; crypto regression green. Flutter 229 passed. (2 parallel Explore agents fed crypto_signer + base-URL/routing ground truth.)
