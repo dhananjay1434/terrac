@@ -86,11 +86,22 @@ extension PyrolysisWriter on AppDatabase {
       );
     }
 
-    // 1. Fetch exactly 4 smoke photos from the database.
+    // 1. Fetch the burn evidence photos: the 4 smoke-opacity proofs plus the
+    //    P1-S4 Rainbow C3 stage photos (flame_curtain/quenching/flame_height).
+    //    The server gate keys off the `stage` string, so smoke_* stays '0'/'50'
+    //    /'90'/'100' and the flame stages pass through verbatim.
     final captures =
         await (select(mediaCaptures)
               ..where((t) => t.batchUuid.equals(batchUuid))
-              ..where((t) => t.captureType.like('smoke_%'))
+              ..where(
+                (t) =>
+                    t.captureType.like('smoke_%') |
+                    t.captureType.isIn(const [
+                      'flame_curtain',
+                      'quenching',
+                      'flame_height',
+                    ]),
+              )
               ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
             .get();
 
@@ -156,10 +167,15 @@ extension PyrolysisWriter on AppDatabase {
       ).insert(companion, mode: InsertMode.insertOrReplace),
     );
 
-    if (captures.length != 4) {
+    // The 4 smoke-opacity proofs remain mandatory; the P1-S4 flame stages are
+    // additional (and gated in the UI), so guard on the smoke count alone.
+    final smokeCount = captures
+        .where((c) => c.captureType.startsWith('smoke_'))
+        .length;
+    if (smokeCount != 4) {
       throw StateError(
         'Saved telemetry. Cannot finalise burn: '
-        'need 4 smoke captures, found ${captures.length}. '
+        'need 4 smoke captures, found $smokeCount. '
         'Retake the missing stages and call finaliseBurn(telemetryUuid: $telemetryUuid).',
       );
     }

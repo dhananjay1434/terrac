@@ -187,6 +187,23 @@ def test_open_kiln_requires_all_three_photos_and_low_flame():
     assert derive_pyrolysis_photo_compliance("open", _ALL_STAGES, None)[1] is False
 
 
+def test_open_kiln_passes_with_the_apps_full_seven_stage_list():
+    # P1-S4: the client emits the 4 smoke-opacity proofs alongside the 3
+    # required flame stages. The extra smoke_* stages must not break the subset
+    # check — photos_ok stays True.
+    app_stages = [
+        {"stage": "0", "sha256": "s0"},
+        {"stage": "50", "sha256": "s1"},
+        {"stage": "90", "sha256": "s2"},
+        {"stage": "100", "sha256": "s3"},
+        {"stage": "flame_curtain", "sha256": "a"},
+        {"stage": "quenching", "sha256": "b"},
+        {"stage": "flame_height", "sha256": "c"},
+    ]
+    photos_ok, flame_ok = derive_pyrolysis_photo_compliance("open", app_stages, 0.3)
+    assert photos_ok and flame_ok
+
+
 def test_ignition_required_only_for_closed_kiln():
     assert derive_ignition_compliance("closed", None) is False
     assert derive_ignition_compliance("closed", "syngas") is True

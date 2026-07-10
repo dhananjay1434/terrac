@@ -1,23 +1,112 @@
 import 'package:dmrv_app/ui/screens/pyrolysis_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// P1-C5 — END BURN must stay disabled until all 4 smoke-stage proofs are
-/// captured (and no persist is in flight), so the writer's "need 4 captures"
-/// throw can only be reached via a race, never normal use.
+/// P1-C5 + P1-S4 — END BURN gating is kiln-type aware. Every burn needs the 4
+/// smoke proofs; an OPEN kiln also needs the 3 flame-stage photos + a recorded
+/// flame height; a CLOSED kiln needs a declared ignition-energy type. Pure
+/// predicate, so we cover the matrix without the burn widget harness.
 void main() {
-  group('canEndBurn', () {
-    test('blocked below 4 proofs', () {
-      expect(canEndBurn(proofCount: 0, ending: false), isFalse);
-      expect(canEndBurn(proofCount: 3, ending: false), isFalse);
+  const smoke = {'smoke_0', 'smoke_50', 'smoke_90', 'smoke_100'};
+  const allOpen = {
+    'smoke_0',
+    'smoke_50',
+    'smoke_90',
+    'smoke_100',
+    'flame_curtain',
+    'quenching',
+    'flame_height',
+  };
+
+  group('canEndBurn — always requires the 4 smoke proofs', () {
+    test('blocked when a smoke proof is missing', () {
+      expect(
+        canEndBurn(
+          ending: false,
+          isOpenKiln: false,
+          capturedStages: const {'smoke_0', 'smoke_50', 'smoke_90'},
+          flameHeightM: null,
+          ignitionEnergyType: 'LPG',
+        ),
+        isFalse,
+      );
     });
 
-    test('allowed at exactly 4 proofs when idle', () {
-      expect(canEndBurn(proofCount: 4, ending: false), isTrue);
-      expect(canEndBurn(proofCount: 5, ending: false), isTrue);
+    test('blocked while a persist is in flight', () {
+      expect(
+        canEndBurn(
+          ending: true,
+          isOpenKiln: false,
+          capturedStages: smoke,
+          flameHeightM: null,
+          ignitionEnergyType: 'LPG',
+        ),
+        isFalse,
+      );
     });
+  });
 
-    test('blocked while a persist is already in flight', () {
-      expect(canEndBurn(proofCount: 4, ending: true), isFalse);
+  group('canEndBurn — open kiln', () {
+    test('needs all 3 flame stages AND a flame height', () {
+      // 4 smoke only → blocked.
+      expect(
+        canEndBurn(
+          ending: false,
+          isOpenKiln: true,
+          capturedStages: smoke,
+          flameHeightM: 0.3,
+          ignitionEnergyType: null,
+        ),
+        isFalse,
+      );
+      // all 7 stages but no flame height → blocked.
+      expect(
+        canEndBurn(
+          ending: false,
+          isOpenKiln: true,
+          capturedStages: allOpen,
+          flameHeightM: null,
+          ignitionEnergyType: null,
+        ),
+        isFalse,
+      );
+      // all 7 stages + flame height → allowed.
+      expect(
+        canEndBurn(
+          ending: false,
+          isOpenKiln: true,
+          capturedStages: allOpen,
+          flameHeightM: 0.3,
+          ignitionEnergyType: null,
+        ),
+        isTrue,
+      );
+    });
+  });
+
+  group('canEndBurn — closed kiln', () {
+    test('needs an ignition-energy type, not the flame stages', () {
+      // 4 smoke, no ignition → blocked.
+      expect(
+        canEndBurn(
+          ending: false,
+          isOpenKiln: false,
+          capturedStages: smoke,
+          flameHeightM: null,
+          ignitionEnergyType: null,
+        ),
+        isFalse,
+      );
+      // 4 smoke + ignition type → allowed (no flame stages required).
+      expect(
+        canEndBurn(
+          ending: false,
+          isOpenKiln: false,
+          capturedStages: smoke,
+          flameHeightM: null,
+          ignitionEnergyType: 'LPG',
+        ),
+        isTrue,
+      );
     });
   });
 }

@@ -26,3 +26,19 @@ final smokeEvidenceProvider = StreamProvider<List<MediaCapture>>((ref) async* {
         ..orderBy([(t) => OrderingTerm(expression: t.createdAt)]))
       .watch();
 });
+
+/// P1-S4: the SET of evidence captureType strings recorded for the active batch
+/// (smoke proofs + the flame-stage photos). Backs the kiln-type-aware END BURN
+/// gate and the completion summary.
+final capturedStagesProvider = StreamProvider<Set<String>>((ref) async* {
+  final batchUuid = ref.watch(batchSessionProvider);
+  if (batchUuid == null) {
+    yield <String>{};
+    return;
+  }
+  final db = await ref.watch(appDatabaseProvider.future);
+  yield* (db.select(db.mediaCaptures)
+        ..where((t) => t.batchUuid.equals(batchUuid)))
+      .watch()
+      .map((rows) => rows.map((r) => r.captureType).toSet());
+});

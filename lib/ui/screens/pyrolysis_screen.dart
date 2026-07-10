@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/database_provider.dart';
@@ -18,11 +19,36 @@ import 'kiln_select_screen.dart';
 import 'secure_camera_screen.dart';
 import 'yield_scale_screen.dart';
 
-/// P1-C5: END BURN is allowed only once all 4 smoke-stage proofs are captured
-/// and no persist is in flight. Pure predicate so the gate is unit-testable
-/// without a full widget harness.
-bool canEndBurn({required int proofCount, required bool ending}) =>
-    !ending && proofCount >= 4;
+/// The 4 smoke-opacity proofs every burn documents.
+const kSmokeStages = {'smoke_0', 'smoke_50', 'smoke_90', 'smoke_100'};
+
+/// The 3 extra Rainbow C3 stage photos an OPEN kiln must also carry.
+const kOpenFlameStages = {'flame_curtain', 'quenching', 'flame_height'};
+
+/// P1-C5 + P1-S4: END BURN gating, kiln-type aware and pure so it's unit-tested
+/// without the burn widget harness. Every kiln needs the 4 smoke proofs. An
+/// OPEN kiln additionally needs the 3 flame-stage photos and a recorded flame
+/// height (the server grades the <0.5 m rule; we only require it be entered). A
+/// CLOSED kiln instead needs a declared ignition-energy type.
+bool canEndBurn({
+  required bool ending,
+  required bool isOpenKiln,
+  required Set<String> capturedStages,
+  required double? flameHeightM,
+  required String? ignitionEnergyType,
+}) {
+  if (ending) return false;
+  if (!kSmokeStages.every(capturedStages.contains)) return false;
+  if (isOpenKiln) {
+    if (!kOpenFlameStages.every(capturedStages.contains)) return false;
+    if (flameHeightM == null) return false;
+  } else {
+    if (ignitionEnergyType == null || ignitionEnergyType.trim().isEmpty) {
+      return false;
+    }
+  }
+  return true;
+}
 
 /// =============================================================================
 /// PyrolysisScreen — India paper skin (tokens + Dmrv components)
@@ -37,6 +63,24 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
   bool _permRequested = false;
   String? _permError;
   bool _ending = false;
+
+  // P1-S4 completion evidence (open kiln: flame height; closed kiln: ignition).
+  final _flameHeightCtrl = TextEditingController();
+  final _ignitionAmountCtrl = TextEditingController();
+  String? _ignitionType;
+  static const _ignitionTypes = <String, String>{
+    'LPG': 'LPG',
+    'WOOD_KINDLING': 'Wood kindling',
+    'ELECTRIC': 'Electric',
+    'SYNGAS': 'Syngas',
+  };
+
+  @override
+  void dispose() {
+    _flameHeightCtrl.dispose();
+    _ignitionAmountCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _requestPermsAndStart() async {
     setState(() => _permRequested = true);
@@ -70,6 +114,7 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
         throw StateError('No temperature samples captured. Cannot persist.');
       }
 
+      final isOpen = kiln.kilnType == 'open';
       final db = await ref.read(appDatabaseProvider.future);
       final telemetryUuid = await db.insertPyrolysisTelemetryWithOutbox(
         batchUuid: batchUuid,
@@ -79,6 +124,13 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
         burnStart: final_.burnStartAt!,
         burnEnd: final_.burnEndAt!,
         temperatureReadings: final_.temperatureLog,
+        flameHeightM: isOpen
+            ? double.tryParse(_flameHeightCtrl.text.trim())
+            : null,
+        ignitionEnergyType: isOpen ? null : _ignitionType,
+        ignitionEnergyAmount: isOpen
+            ? null
+            : double.tryParse(_ignitionAmountCtrl.text.trim()),
       );
       ref.read(dashboardProvider.notifier).markBleVerified();
       debugPrint(
@@ -111,9 +163,22 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
   bool _isCapturingSmoke = false;
 
   Future<void> _captureSmoke(int currentProofsLength) async {
-    if (_isCapturingSmoke) return;
     if (currentProofsLength >= 4) return;
+    await _captureStage(
+      const [
+        'smoke_0',
+        'smoke_50',
+        'smoke_90',
+        'smoke_100',
+      ][currentProofsLength],
+    );
+  }
 
+  /// Photograph one evidence stage and persist it as a `mediaCaptures` row with
+  /// the given [captureType] (also enqueued for /media sync). Used by both the
+  /// smoke proofs and the P1-S4 flame-stage photos.
+  Future<void> _captureStage(String captureType) async {
+    if (_isCapturingSmoke) return;
     setState(() => _isCapturingSmoke = true);
     try {
       final result = await Navigator.of(context).push<SecureCaptureResult>(
@@ -122,18 +187,10 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
       if (result != null && mounted) {
         final batchUuid = ref.read(batchSessionProvider);
         if (batchUuid == null) return;
-
-        final type = [
-          'smoke_0',
-          'smoke_50',
-          'smoke_90',
-          'smoke_100',
-        ][currentProofsLength];
-
         final db = await ref.read(appDatabaseProvider.future);
         await db.insertMediaCaptureAndEnqueue(
           batchUuid: batchUuid,
-          captureType: type,
+          captureType: captureType,
           sandboxPath: result.sandboxPath,
           sha256Hash: result.sha256Hash,
           isMockLocation: result.isMocked,
@@ -151,6 +208,9 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
     final lastHash = ref.watch(dashboardProvider).lastHash;
     final proofsAsync = ref.watch(smokeEvidenceProvider);
     final proofs = proofsAsync.valueOrNull ?? [];
+    final kiln = ref.watch(selectedKilnProvider);
+    final isOpenKiln = kiln?.kilnType == 'open';
+    final captured = ref.watch(capturedStagesProvider).valueOrNull ?? <String>{};
 
     return Scaffold(
       backgroundColor: t.surface,
@@ -344,13 +404,29 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                         ),
                       );
                     }),
+                  // P1-S4: kiln-type-specific completion evidence, once the
+                  // burn is live and the 4 smoke proofs are in.
+                  if (s.burnStartAt != null &&
+                      kiln != null &&
+                      proofs.length >= 4) ...[
+                    _completionSection(t, isOpenKiln, captured),
+                    SizedBox(height: t.gapL),
+                  ],
                   if (s.burnStartAt != null)
                     DmrvButton(
                       label: _ending ? 'PERSISTING…' : 'END BURN',
                       testId: 'end-burn-btn',
                       variant: DmrvButtonVariant.danger,
                       onPressed:
-                          canEndBurn(proofCount: proofs.length, ending: _ending)
+                          canEndBurn(
+                            ending: _ending,
+                            isOpenKiln: isOpenKiln,
+                            capturedStages: captured,
+                            flameHeightM: double.tryParse(
+                              _flameHeightCtrl.text.trim(),
+                            ),
+                            ignitionEnergyType: _ignitionType,
+                          )
                           ? _endBurn
                           : null,
                     ),
@@ -362,6 +438,138 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ===========================================================================
+  // P1-S4 completion evidence
+  // ===========================================================================
+
+  Widget _completionSection(
+    DmrvTokens t,
+    bool isOpenKiln,
+    Set<String> captured,
+  ) {
+    return PremiumFieldPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isOpenKiln ? 'OPEN-KILN COMPLETION' : 'CLOSED-KILN IGNITION',
+            style: t.chipLabel.copyWith(color: t.accentText),
+          ),
+          SizedBox(height: t.gapM),
+          if (isOpenKiln) ...[
+            _stageCaptureRow(t, 'flame_curtain', 'Flame curtain photo', captured),
+            SizedBox(height: t.gapM),
+            _stageCaptureRow(t, 'quenching', 'Quenching photo', captured),
+            SizedBox(height: t.gapM),
+            _stageCaptureRow(t, 'flame_height', 'Flame-height photo', captured),
+            SizedBox(height: t.gapM),
+            _numericField(
+              t,
+              'FLAME HEIGHT (m)',
+              _flameHeightCtrl,
+              'flame-height-input',
+              'e.g. 0.30',
+            ),
+          ] else ...[
+            Text(
+              'KILN IGNITION ENERGY',
+              style: t.chipLabel.copyWith(color: t.textSecondary),
+            ),
+            SizedBox(height: t.gapS),
+            Wrap(
+              spacing: t.gapS,
+              runSpacing: t.gapS,
+              children: [
+                for (final e in _ignitionTypes.entries)
+                  Semantics(
+                    identifier: 'ignition-${e.key}',
+                    button: true,
+                    selected: _ignitionType == e.key,
+                    child: ChoiceChip(
+                      label: Text(e.value),
+                      selected: _ignitionType == e.key,
+                      onSelected: (_) => setState(() => _ignitionType = e.key),
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: t.gapM),
+            _numericField(
+              t,
+              'IGNITION AMOUNT (optional)',
+              _ignitionAmountCtrl,
+              'ignition-amount-input',
+              'e.g. 2.0',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _stageCaptureRow(
+    DmrvTokens t,
+    String stage,
+    String label,
+    Set<String> captured,
+  ) {
+    final done = captured.contains(stage);
+    return DmrvButton(
+      label: done ? '✓ ${label.toUpperCase()}' : 'CAPTURE ${label.toUpperCase()}',
+      testId: 'capture-$stage-btn',
+      icon: done ? Icons.check_circle : Icons.camera_alt,
+      variant: done ? DmrvButtonVariant.success : DmrvButtonVariant.neutral,
+      onPressed: () => _captureStage(stage),
+    );
+  }
+
+  Widget _numericField(
+    DmrvTokens t,
+    String label,
+    TextEditingController controller,
+    String testId,
+    String hint,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: t.chipLabel.copyWith(color: t.textSecondary)),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: t.surface,
+            borderRadius: BorderRadius.circular(t.radiusM),
+            border: Border.all(color: t.border, width: 1),
+          ),
+          child: Semantics(
+            identifier: testId,
+            textField: true,
+            child: TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              ],
+              cursorColor: t.accentText,
+              style: t.body.copyWith(color: t.textPrimary),
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                isCollapsed: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                hintText: hint,
+                hintStyle: t.body.copyWith(color: t.textDisabled),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
