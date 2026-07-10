@@ -25,9 +25,22 @@ Future<String> resolveOrCreatePassphrase({
   if (legacy != null && legacy.isNotEmpty) {
     debugPrint('[DB] migrating passphrase SharedPreferences → secure storage.');
     await secureStorage.write(key: kDbPassphraseKey, value: legacy);
-    await prefs.remove(kDbPassphraseKey);
-    await prefs.reload(); // P1-22: Force synchronous flush on iOS
-    debugPrint('[DB] plaintext passphrase scrubbed from SharedPreferences.');
+    // P1-C6: read-back-VERIFY before scrubbing the only other copy. On some
+    // OEMs a secure-storage write reports success but doesn't persist; scrubbing
+    // SharedPreferences then would lose the passphrase entirely and leave the
+    // SQLCipher DB permanently unreadable. Only scrub once the write is proven;
+    // otherwise keep the prefs copy and retry the migration on the next launch.
+    final check = await secureStorage.read(key: kDbPassphraseKey);
+    if (check == legacy) {
+      await prefs.remove(kDbPassphraseKey);
+      await prefs.reload(); // P1-22: Force synchronous flush on iOS
+      debugPrint('[DB] plaintext passphrase scrubbed from SharedPreferences.');
+    } else {
+      debugPrint(
+        '[DB] secure-storage write NOT verified — keeping SharedPreferences '
+        'copy; will retry migration next launch.',
+      );
+    }
     return legacy;
   }
 
@@ -41,6 +54,16 @@ Future<String> resolveOrCreatePassphrase({
   final bytes = List<int>.generate(32, (_) => rng.nextInt(256));
   final passphrase = base64Url.encode(bytes);
   await secureStorage.write(key: kDbPassphraseKey, value: passphrase);
+  // P1-C6: verify the key actually persisted before the DB is opened/encrypted
+  // under it. A silent write failure here would create a database that can
+  // never be decrypted again — fail loudly instead.
+  final check = await secureStorage.read(key: kDbPassphraseKey);
+  if (check != passphrase) {
+    throw StateError(
+      'Secure storage did not persist the DB passphrase; refusing to open an '
+      'unrecoverable encrypted database.',
+    );
+  }
   debugPrint('[DB] new passphrase generated and written to secure storage.');
   return passphrase;
 }

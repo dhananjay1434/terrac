@@ -6,7 +6,7 @@
 
 **Started:** 2026-07-10
 **Current phase:** P1a COMPLETE ✅ → advancing to P1b (client robustness, P1-C1..C7). P0 agent-work done 8/10 (P0.7/P0.8 hardware/decision-parked).
-**Next actionable task:** P1-C6 (passphrase read-back-verified migration in passphrase_resolver.dart — never scrub the last copy). Then C7 (two-phase insert invariant), then P1c (Rainbow screens: S1 moisture loop, S2 biomass, S3 kiln, S4 pyrolysis rework, S5 composite, S6 delivery, S7 sync health, S8 enrollment).
+**Next actionable task:** P1-C7 (two-phase invariant at insert — media outbox rows must carry photoPath at insert time, not fail at sync). Then P1c (Rainbow screens: S1 moisture loop, S2 biomass, S3 kiln, S4 pyrolysis rework, S5 composite, S6 delivery, S7 sync health, S8 enrollment).
 
 ---
 
@@ -38,7 +38,7 @@
 - [x] **P1-C3** — Resume restores step progress · added `BatchProgress` + `loadBatchProgress(db,uuid)` + `restoreProgress()`; both dashboard resume sites now restore card statuses (biomass/ble/yield) from persisted rows instead of a fresh-start layout. +4 tests. Flutter 181 passed. NOTE: deferred the findIncompleteBatch metadata-anchor sub-item — low value (a metadata-only batch has no evidence/credit; orphan is harmless) vs reworking the 218-line existing test.
 - [x] **P1-C4** — BLE stream error handling + disconnect banner · onError on all 3 subscriptions → bleError state; 30s watchdog → connectionLost (cleared on next sample); pyrolysis_screen shows a danger banner while lost/errored. +3 tests (watchdog via injected clock, stream-error, beginBurn clears). Flutter 184 passed. NOTE: playbook's gap-marker omitted — temperatureLog is List<double>, a marker would corrupt telemetry; the banner + honest truncation is the fix.
 - [x] **P1-C5** — Pyrolysis END BURN pre-validation · gating already existed; extracted testable `canEndBurn(proofCount, ending)` predicate + wired the button to it; humanized the persist-failure snackbar (was raw `$e`). +3 tests. Flutter 187 passed.
-- [ ] **P1-C6** — Read-back-verified passphrase migration
+- [x] **P1-C6** — Read-back-verified passphrase migration · migration now reads back the secure-storage write and scrubs SharedPreferences ONLY on a verified match (else keeps the copy + retries next launch); fresh-generation throws if the key didn't persist (never encrypt under an unstored key). +3 tests (mocktail fake storage). Flutter 190 passed.
 - [ ] **P1-C7** — Two-phase invariant at insert time
 
 ## PHASE P1c — Rainbow capture screens
@@ -82,6 +82,7 @@
 ---
 
 ## EXECUTION LOG (newest first — one line per committed task / exit-gate run)
+- 2026-07-10 · P1-C6 · read-back-verified passphrase migration (never scrub the last copy; fresh-gen throws on non-persist). +3 tests. Flutter 190 passed.
 - 2026-07-10 · P1-C5 · extracted testable canEndBurn predicate + wired END BURN button; humanized persist-failure snackbar. +3 tests. Flutter 187 passed.
 - 2026-07-10 · P1-C4 · BLE onError on all subs → bleError; 30s watchdog → connectionLost; pyrolysis_screen disconnect banner. +3 tests. Flutter 184 passed.
 - 2026-07-10 · P1-C3 · resume restores dashboard card statuses (BatchProgress + loadBatchProgress + restoreProgress; both dashboard resume sites wired). +4 tests. Flutter 181 passed. Metadata-anchor sub-item deferred (low-value edge).
