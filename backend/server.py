@@ -1721,7 +1721,28 @@ def _assert_same_uuid(*, expected: str, **kwargs: str) -> None:
 # Phase 11-R: free-text string fields are length-bounded so a single huge string
 # cannot slip past the array bounds. Identifiers/short text -> 128, paths -> 512,
 # timestamps -> 64, hex hashes -> 64.
-class TelemetryPayload(BaseModel):
+class _BatchScopedPayload(BaseModel):
+    """Base for evidence payloads that reference a batch by UUID string (P1-B4).
+
+    Evidence tables store batch_uuid as String(36) and are joined against the
+    batches row's canonical UUID. A non-canonical case (e.g. an uppercase UUID
+    from a future client) would silently orphan the evidence on a case-sensitive
+    engine, so canonicalize to the lowercase str(UUID(...)) form here and reject
+    a malformed value with 422 rather than storing an unmatchable key.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("batch_uuid", check_fields=False)
+    @classmethod
+    def _canonicalize_batch_uuid(cls, v: str) -> str:
+        try:
+            return str(uuid.UUID(str(v)))
+        except (ValueError, AttributeError, TypeError):
+            raise ValueError("batch_uuid must be a valid UUID")
+
+
+class TelemetryPayload(_BatchScopedPayload):
     model_config = ConfigDict(extra="forbid")
     telemetry_uuid: str = Field(..., max_length=64)
     batch_uuid: str = Field(..., max_length=64)
@@ -1752,7 +1773,7 @@ class TelemetryPayload(BaseModel):
         return v
 
 
-class YieldPayload(BaseModel):
+class YieldPayload(_BatchScopedPayload):
     model_config = ConfigDict(extra="forbid")
     yield_uuid: str = Field(..., max_length=64)
     batch_uuid: str = Field(..., max_length=64)
@@ -1765,7 +1786,7 @@ class YieldPayload(BaseModel):
     dry_yield_weight_kg: Optional[float] = Field(None, ge=0.0, le=100_000.0)
 
 
-class MetadataPayload(BaseModel):
+class MetadataPayload(_BatchScopedPayload):
     model_config = ConfigDict(extra="forbid")
     batch_uuid: str = Field(..., max_length=64)
     artisan_id: Optional[str] = Field(None, max_length=128)
@@ -1775,7 +1796,7 @@ class MetadataPayload(BaseModel):
     created_at: Optional[str] = Field(None, max_length=64)
 
 
-class ApplicationPayload(BaseModel):
+class ApplicationPayload(_BatchScopedPayload):
     model_config = ConfigDict(extra="forbid")
     application_uuid: str = Field(..., max_length=64)
     batch_uuid: str = Field(..., max_length=64)
@@ -1795,7 +1816,7 @@ class ApplicationPayload(BaseModel):
     buyer_contact: Optional[str] = Field(None, max_length=256)
 
 
-class MoisturePayload(BaseModel):
+class MoisturePayload(_BatchScopedPayload):
     # Rainbow compliance C2: one moisture-meter reading (many per batch).
     model_config = ConfigDict(extra="forbid")
     reading_uuid: str = Field(..., max_length=64)
@@ -1806,7 +1827,7 @@ class MoisturePayload(BaseModel):
     sha256_hash: Optional[str] = Field(None, min_length=64, max_length=64)
 
 
-class CompositeSamplePayload(BaseModel):
+class CompositeSamplePayload(_BatchScopedPayload):
     # Rainbow compliance C4: one site composite pile sub-sample (many per batch).
     model_config = ConfigDict(extra="forbid")
     sample_uuid: str = Field(..., max_length=64)
@@ -1820,7 +1841,7 @@ class CompositeSamplePayload(BaseModel):
     sha256_hash: Optional[str] = Field(None, min_length=64, max_length=64)
 
 
-class TransportEventPayload(BaseModel):
+class TransportEventPayload(_BatchScopedPayload):
     # Rainbow compliance C6: one transport leg (many per batch).
     model_config = ConfigDict(extra="forbid")
     event_uuid: str = Field(..., max_length=64)

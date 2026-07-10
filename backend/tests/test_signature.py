@@ -48,9 +48,12 @@ async def test_valid_ed25519_signature_accepted(client, session_factory):
     dev = "sig-dev-ok"
     await _enroll(session_factory, dev, _pub_b64(priv))
 
-    body = json.dumps({"batch_uuid": "b-sig-1", "telemetry_uuid": "t-1"}).encode(
-        "utf-8"
-    )
+    # P1-B4: evidence batch_uuid is now validated as a real UUID (a malformed
+    # value 422s). This test's concern is signature acceptance, so use a valid
+    # UUID; the old "b-sig-1" placeholder only passed under the pre-B4 lax rule.
+    body = json.dumps(
+        {"batch_uuid": "b5f1c2d3-4e5a-4b6c-8d7e-9f0a1b2c3d4e", "telemetry_uuid": "t-1"}
+    ).encode("utf-8")
     op = "op-sig-1"
     sig = _sign(priv, "POST", "/api/v1/telemetry", op, dev, body)
 
