@@ -12,6 +12,7 @@ import 'package:workmanager/workmanager.dart';
 
 import '../data/local/app_database.dart';
 import '../data/local/database_provider.dart';
+import 'api_base.dart';
 import 'crypto_signer.dart';
 import 'device_integrity_service.dart';
 
@@ -702,9 +703,12 @@ class SyncQueueManager {
 }
 
 /// Production configuration. Tests should override this provider.
+///
+/// P1-S8: the base URL now flows from [apiBaseUrlProvider] (secure-storage value
+/// seeded at launch → dart-define fallback), so enrolling with a URL retargets
+/// sync in the same session without a restart.
 final syncConfigProvider = Provider<SyncConfig>((ref) {
-  const apiBase = String.fromEnvironment('DMRV_API_BASE_URL', defaultValue: '');
-  return const SyncConfig(apiBase: apiBase);
+  return SyncConfig(apiBase: ref.watch(apiBaseUrlProvider));
 });
 
 final syncQueueManagerProvider = Provider<SyncQueueManager>((ref) {

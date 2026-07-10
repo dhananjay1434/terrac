@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'package:http/http.dart' as http;
+import 'api_base.dart';
 import 'device_integrity_service.dart';
 
 /// Ed25519 device identity. The PRIVATE seed never leaves the device;
@@ -74,6 +75,12 @@ class CryptoSigner {
     // the app on the splash screen.
     final enrolled = await _storage.read(key: _enrolledKey);
     if (enrolled == '1') return;
+    // P1-S8: enrollment is now explicit in-app UI. Only the legacy compile-time
+    // path auto-registers here — when an ENROLLMENT_TOKEN dart-define is baked
+    // in. Without it we defer to the enrollment screen and never touch the
+    // network on startup.
+    const envToken = String.fromEnvironment('ENROLLMENT_TOKEN');
+    if (envToken.isEmpty) return;
     try {
       await registerDevice();
     } catch (e) {
@@ -81,22 +88,36 @@ class CryptoSigner {
     }
   }
 
-  static Future<void> registerDevice() async {
+  /// True once this device's public key has been accepted by the server. Reads
+  /// only local secure storage — never the network — so it's safe as a launch
+  /// gate for an offline-first, already-enrolled device.
+  static Future<bool> isEnrolled() async =>
+      (await _storage.read(key: _enrolledKey)) == '1';
+
+  /// Enroll this device. [token] / [apiBaseUrl] come from the in-app enrollment
+  /// screen; when omitted they fall back to the compile-time dart-defines (and
+  /// the shared [resolveApiBaseUrl] resolver). The Ed25519 key material and
+  /// signing scheme are untouched — only the public key + device id are sent.
+  static Future<void> registerDevice({String? token, String? apiBaseUrl}) async {
     final deviceId = await getDeviceId();
     final publicKey = await publicKeyB64();
-    const enrollmentToken = String.fromEnvironment('ENROLLMENT_TOKEN');
+    final enrollmentToken = (token != null && token.isNotEmpty)
+        ? token
+        : const String.fromEnvironment('ENROLLMENT_TOKEN');
     if (enrollmentToken.isEmpty) {
       throw StateError(
-        'ENROLLMENT_TOKEN is required; pass via --dart-define-from-file=secrets.json.',
+        'ENROLLMENT_TOKEN is required; enroll in-app or pass --dart-define.',
       );
     }
-    const apiBaseUrl = String.fromEnvironment('DMRV_API_BASE_URL');
-    if (apiBaseUrl.isEmpty) {
+    final base = (apiBaseUrl != null && apiBaseUrl.isNotEmpty)
+        ? apiBaseUrl
+        : await resolveApiBaseUrl();
+    if (base.isEmpty) {
       throw StateError('DMRV_API_BASE_URL is required.');
     }
     final response = await http
         .post(
-          Uri.parse('$apiBaseUrl/api/v1/register'),
+          Uri.parse('$base/api/v1/register'),
           headers: {
             'Content-Type': 'application/json',
             'X-Enrollment-Token': enrollmentToken,

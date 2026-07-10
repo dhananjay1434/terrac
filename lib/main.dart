@@ -19,11 +19,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:dmrv_app/l10n/app_localizations.dart';
 
+import 'services/api_base.dart';
 import 'services/crypto_signer.dart';
 import 'services/device_integrity_service.dart';
 import 'services/secure_capture_service.dart';
 import 'ui/design/tokens.dart';
 import 'ui/screens/dashboard_screen.dart';
+import 'ui/screens/enrollment_screen.dart';
 
 /// Validates release-critical runtime config and returns the DSN to use.
 ///
@@ -73,6 +75,11 @@ void main() async {
       final container = ProviderContainer();
       await container.read(deviceIntegrityServiceProvider).initialize();
 
+      // P1-S8: seed the live API base URL (enrolled secure-storage value →
+      // dart-define fallback) so sync targets the right backend from launch.
+      container.read(apiBaseUrlProvider.notifier).state =
+          await resolveApiBaseUrl();
+
       runApp(
         UncontrolledProviderScope(
           container: container,
@@ -99,7 +106,30 @@ class TerraCipherApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('en'), Locale('hi')],
-      home: const DashboardScreen(),
+      home: const _RootGate(),
+    );
+  }
+}
+
+/// Launch gate: an already-enrolled device goes straight to the dashboard; a
+/// fresh device sees the in-app enrollment screen. The enrolled check reads
+/// only local secure storage (never the network), so an offline enrolled device
+/// boots instantly.
+class _RootGate extends StatelessWidget {
+  const _RootGate();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: CryptoSigner.isEnrolled(),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return snap.data! ? const DashboardScreen() : const EnrollmentScreen();
+      },
     );
   }
 }
