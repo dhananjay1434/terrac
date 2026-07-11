@@ -39,7 +39,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -47,6 +47,7 @@ from cryptography.exceptions import InvalidSignature
 import piexif
 
 import attestation
+import observability
 from db import get_session, init_db
 from storage import get_storage
 from models import (
@@ -246,7 +247,10 @@ def _require_canonical_v2() -> bool:
 
 
 log = logging.getLogger("dmrv")
-logging.basicConfig(level=logging.INFO)
+# P3.4: JSON structured logging (request_id bound per request) replaces
+# basicConfig; Sentry initializes here if DMRV_SENTRY_DSN is set.
+observability.configure_json_logging()
+observability.init_sentry()
 
 
 def _safe_json(raw, *, context: str):
@@ -439,6 +443,12 @@ async def _rate_limit(request: Request, call_next):
     return await call_next(request)
 
 
+# P3.4: registered LAST so it is the OUTERMOST middleware — it assigns the
+# request id and records latency/status metrics around everything else, so even
+# a 429 from the rate-limiter above still echoes X-Request-Id.
+observability.install_middleware(app)
+
+
 # Media upload directory — relative to this file, works on Windows + Linux + Docker.
 UPLOAD_DIR = Path(__file__).parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -580,6 +590,28 @@ async def health(session: AsyncSession = Depends(get_session)) -> JSONResponse:
         body,
         status_code=status.HTTP_200_OK if db_ok else status.HTTP_503_SERVICE_UNAVAILABLE,
     )
+
+
+@app.get("/metrics")
+async def metrics(
+    x_metrics_token: Optional[str] = Header(None, alias="X-Metrics-Token"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Prometheus exposition. P3.4: guarded by DMRV_METRICS_TOKEN (a public
+    scrape leaks operational intel). The provisional-ratio gauge is refreshed at
+    scrape time from a cheap COUNT so it never drifts."""
+    observability.require_metrics_token(x_metrics_token)  # 401 if missing/wrong
+    if observability.metrics_enabled():
+        total = (
+            await session.execute(select(func.count()).select_from(Batch))
+        ).scalar() or 0
+        prov = (
+            await session.execute(
+                select(func.count()).select_from(Batch).where(Batch.provisional.is_(True))
+            )
+        ).scalar() or 0
+        observability.set_provisional_ratio((prov / total) if total else 0.0)
+    return observability.metrics_payload()
 
 
 def _b64url_decode(s: str) -> bytes:
@@ -927,6 +959,7 @@ async def ingest_lab_results(
     }
 
 
+@observability.timed_recompute
 async def recompute_batch_credit(
     session: AsyncSession,
     batch: Batch,

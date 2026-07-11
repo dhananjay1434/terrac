@@ -87,3 +87,36 @@ DMRV_S3_SECRET_KEY=minioadmin \
 
 The `media-s3-smoke` CI job (`.github/workflows/backend-ci.yml`) runs the real
 boto3 path against a MinIO service container: write → hash-verify → stream back.
+
+---
+
+## Observability (P3.4)
+
+Wired in [`backend/observability.py`](../backend/observability.py):
+
+- **Structured logs.** Every log line is JSON (`ts/level/logger/msg/request_id`).
+  A per-request UUID is minted (or taken from an inbound `X-Request-Id`), bound
+  into a contextvar so it appears on every line emitted during the request, and
+  echoed back in the `X-Request-Id` response header.
+- **Metrics.** `GET /metrics` (Prometheus exposition), **guarded by the
+  `X-Metrics-Token` header matching `DMRV_METRICS_TOKEN`** — unset ⇒ endpoint
+  closed. Series: `dmrv_requests_total{method,route,status}`,
+  `dmrv_request_duration_seconds{route}`, `dmrv_sync_5xx_total{route}`,
+  `dmrv_provisional_ratio` (refreshed per scrape), `dmrv_recompute_duration_seconds`.
+  Route labels use the **path template** (e.g. `/api/v1/portal/batches/{batch_uuid}`)
+  so UUIDs never explode label cardinality.
+- **Sentry.** Enabled only when `DMRV_SENTRY_DSN` is set; `traces_sample_rate`
+  from `DMRV_SENTRY_TRACES` (default 0.05). `before_send`/`before_breadcrumb`
+  scrub `lat`/`lon`/`device_id` (mirrors the client's `beforeBreadcrumb`), and
+  `send_default_pii=False`.
+
+### Alerting (configure in your monitoring stack against `/metrics`)
+
+| Alert | Condition | Why |
+|-------|-----------|-----|
+| **5xx rate** | `rate(dmrv_sync_5xx_total[5m]) > 0` sustained 10 m | Device syncs are failing — data loss risk. |
+| **p95 latency** | p95 of `dmrv_request_duration_seconds` > 2 s (JSON routes) for 10 m | Backpressure / DB saturation. |
+| **Health-check fail** | `/api/health` non-200, 2 consecutive probes | DB unreachable; container should be recycled. |
+| **Provisional-ratio spike** | `dmrv_provisional_ratio` up >20% day-over-day | A capture regression or a systemic corroboration failure in the field. |
+| **DB connections** | pool usage > 80% of `DMRV_POOL_SIZE + DMRV_POOL_MAX_OVERFLOW` | Approaching connection exhaustion. |
+| **Disk** | evidence volume > 80% (local backend only) | Move to object storage (P3.2) before it fills. |

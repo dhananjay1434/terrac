@@ -22,3 +22,8 @@ argon2-cffi==25.1.0
 # The default LocalMediaStorage path does not import boto3, so it stays optional
 # at runtime, but it is pinned so the s3 backend + MinIO CI job are reproducible.
 boto3==1.35.99
+# Observability (P3.4). prometheus_client backs the guarded /metrics endpoint;
+# sentry-sdk is the error reporter (no-op unless DMRV_SENTRY_DSN is set). Both
+# are imported defensively in observability.py so their absence never bricks boot.
+prometheus-client==0.21.1
+sentry-sdk[fastapi]==2.20.0

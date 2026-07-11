@@ -41,6 +41,17 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       # Migrations run at startup (init_db) against Postgres. Leave unset to run.
       DMRV_SKIP_MIGRATIONS: ${DMRV_SKIP_MIGRATIONS:-}
+      # Observability (P3.4): /metrics token + Sentry (both optional/empty-safe).
+      DMRV_METRICS_TOKEN: ${DMRV_METRICS_TOKEN:-}
+      DMRV_SENTRY_DSN: ${DMRV_SENTRY_DSN:-}
+      DMRV_SENTRY_TRACES: ${DMRV_SENTRY_TRACES:-0.05}
+      DMRV_ENV: ${DMRV_ENV:-compose}
+      # Media storage (P3.2): default local; point at minio with the s3 backend.
+      DMRV_MEDIA_BACKEND: ${DMRV_MEDIA_BACKEND:-local}
+      DMRV_MEDIA_BUCKET: ${DMRV_MEDIA_BUCKET:-}
+      DMRV_S3_ENDPOINT: ${DMRV_S3_ENDPOINT:-}
+      DMRV_S3_ACCESS_KEY: ${DMRV_S3_ACCESS_KEY:-}
+      DMRV_S3_SECRET_KEY: ${DMRV_S3_SECRET_KEY:-}
     ports:
       # Host:container. The container listens on 8001 (Dockerfile CMD/HEALTHCHECK).
       - "${API_PORT:-8001}:8001"
