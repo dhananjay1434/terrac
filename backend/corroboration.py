@@ -372,3 +372,71 @@ def assemble(
         provisional=bool(reasons),
         reasons=reasons,
     )
+
+
+# ---------------------------------------------------------------------------
+# P4.4 (H15) — cross-field plausibility. ADVISORY: each failing check adds a
+# provisional reason (the batch stays PROVISIONAL for human review, never
+# rejected). Bounds are deliberately generous and PENDING METHODOLOGY-OWNER
+# REVIEW — they should flag only clearly-implausible values, not narrow the
+# accepted operating envelope.
+# ---------------------------------------------------------------------------
+# Biochar mass yield from biomass is typically 0.15–0.45; flag only well outside.
+YIELD_BIOMASS_RATIO_MIN = 0.05
+YIELD_BIOMASS_RATIO_MAX = 0.60
+# Biochar pyrolysis needs sustained heat; below this °C the "biochar" claim is
+# physically implausible.
+PYROLYSIS_MIN_C = 350.0
+# At least this fraction of temperature samples should be in the pyrolysis range
+# to substantiate a sustained-burn (min-temp) claim.
+TEMP_SUSTAIN_MIN_FRACTION = 0.5
+# Moisture variance sanity: a single biomass batch shouldn't span a huge moisture
+# range. We flag implausibly HIGH spread (not zero variance — uniform biomass
+# legitimately reads identically), so constant readings are never penalized.
+MOISTURE_VARIANCE_MIN_READINGS = 5
+MOISTURE_SPREAD_MAX_PCT = 40.0
+
+
+def derive_plausibility_reasons(
+    *,
+    biomass_input_kg: Optional[float],
+    wet_yield_kg: Optional[float],
+    min_temp: Optional[float],
+    temperature_readings: Optional[list],
+    moisture_values: Optional[list],
+) -> list[str]:
+    """Pure cross-field plausibility checks (H15). Returns advisory provisional
+    reasons; an empty list means nothing looked implausible."""
+    reasons: list[str] = []
+
+    # 1. Yield vs biomass ratio (yield stream cross-checked against batch biomass).
+    if (
+        biomass_input_kg
+        and biomass_input_kg > 0
+        and wet_yield_kg
+        and wet_yield_kg > 0
+    ):
+        ratio = wet_yield_kg / biomass_input_kg
+        if ratio < YIELD_BIOMASS_RATIO_MIN or ratio > YIELD_BIOMASS_RATIO_MAX:
+            reasons.append("implausible_yield_biomass_ratio")
+
+    # 2. Temp-log coverage vs the claimed min temp: a sustained burn should keep
+    #    most samples in the pyrolysis range. Only checked once a min-temp claim
+    #    exists (i.e. a qualifying, >= MIN_TEMPERATURE_SAMPLES log).
+    temps = [t for t in (temperature_readings or []) if isinstance(t, (int, float))]
+    if min_temp is not None and temps:
+        in_range = sum(1 for t in temps if t >= PYROLYSIS_MIN_C)
+        if in_range / len(temps) < TEMP_SUSTAIN_MIN_FRACTION:
+            reasons.append("insufficient_temp_sustain")
+
+    # 3. Moisture-reading variance sanity: an implausibly wide spread across one
+    #    batch's readings suggests they aren't all from the same biomass. Uniform
+    #    (identical) readings are legitimate, so only high spread is flagged.
+    vals = [v for v in (moisture_values or []) if isinstance(v, (int, float))]
+    if (
+        len(vals) >= MOISTURE_VARIANCE_MIN_READINGS
+        and (max(vals) - min(vals)) > MOISTURE_SPREAD_MAX_PCT
+    ):
+        reasons.append("implausible_moisture_spread")
+
+    return reasons

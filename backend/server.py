@@ -88,6 +88,7 @@ from corroboration import (
     derive_min_temp,
     derive_moisture_compliance,
     derive_pah_compliance,
+    derive_plausibility_reasons,
     derive_pyrolysis_photo_compliance,
     derive_scale_calibration_compliance,
     derive_transport_km,
@@ -1180,6 +1181,14 @@ async def _recompute_batch_credit_impl(
         and _p.get("sha256_hash")
     )
     moisture_ok, _ = derive_moisture_compliance(photographed, batch.biomass_input_kg)
+    # P4.4: moisture reading values for the variance plausibility check.
+    _moisture_values = [
+        _mp.get("moisture_percent")
+        for r in m_rows
+        if isinstance(
+            _mp := _safe_json(r.payload_json, context=f"moisture {buid}"), dict
+        )
+    ]
 
     # Rainbow C4: count photographed composite pile sub-samples. Inert by default
     # (enforced at the C10 unified gate) so existing flows are unaffected.
@@ -1335,6 +1344,20 @@ async def _recompute_batch_credit_impl(
         _pah_ok, _pah_reason = derive_pah_compliance(kiln_type, _pah_measured)
         if _pah_reason:
             c10_reasons.append(_pah_reason)
+
+    # P4.4 (H15): cross-field plausibility. Advisory — each failing check adds a
+    # provisional reason for human review; it never rejects or auto-issues.
+    c10_reasons.extend(
+        derive_plausibility_reasons(
+            biomass_input_kg=batch.biomass_input_kg,
+            wet_yield_kg=wet_yield,
+            min_temp=min_temp,
+            temperature_readings=(
+                tel_payload.get("temperature_readings") if tel_payload else None
+            ),
+            moisture_values=_moisture_values,
+        )
+    )
 
     effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
     # C7: prefer a lab-measured organic-carbon fraction over the species constant.
