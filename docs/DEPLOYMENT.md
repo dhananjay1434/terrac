@@ -148,3 +148,76 @@ already-issued signature. Each batch records the key id it was signed under
 
 Device authentication (Ed25519) is a **separate** mechanism and is unaffected by
 this rotation.
+
+---
+
+## Cloud Run deployment (P3.3)
+
+Artifacts: [`deploy/cloudrun.service.yaml`](../deploy/cloudrun.service.yaml)
+(service), [`deploy/migrate-job.yaml`](../deploy/migrate-job.yaml) (one-shot
+migrations), [`deploy/deploy.sh`](../deploy/deploy.sh) (build → migrate → deploy).
+
+### `[HUMAN]` one-time GCP setup
+
+```bash
+export PROJECT_ID=... REGION=asia-south1
+gcloud config set project $PROJECT_ID
+
+# Artifact Registry (container images)
+gcloud artifacts repositories create dmrv --repository-format=docker --location=$REGION
+
+# Cloud SQL Postgres (private IP recommended)
+gcloud sql instances create dmrv-pg --database-version=POSTGRES_16 \
+  --tier=db-custom-1-3840 --region=$REGION --storage-auto-increase
+gcloud sql databases create dmrv --instance=dmrv-pg
+gcloud sql users create dmrv --instance=dmrv-pg --password='<strong>'
+# Connection name -> deploy/*.yaml CLOUDSQL_CONNECTION (project:region:dmrv-pg)
+
+# GCS evidence bucket (see "Media storage" above for versioning/retention)
+gcloud storage buckets create gs://dmrv-evidence-prod --location=$REGION \
+  --uniform-bucket-level-access
+gcloud storage buckets update gs://dmrv-evidence-prod --versioning --retention-period=10y
+# GCS S3-interop HMAC key for DMRV_S3_ACCESS_KEY/SECRET
+gcloud storage hmac create <service-account>@$PROJECT_ID.iam.gserviceaccount.com
+
+# Secrets (Secret Manager — never env-in-yaml). Generate fresh 32-byte values.
+printf '%s' 'postgresql+asyncpg://dmrv:<pw>@/dmrv?host=/cloudsql/<CONN>' \
+  | gcloud secrets create dmrv-database-url --data-file=-
+printf '%s' '{"k1":"<hex>"}'    | gcloud secrets create dmrv-hmac-keys      --data-file=-
+printf '%s' '<admin-secret>'    | gcloud secrets create dmrv-admin-secret   --data-file=-
+printf '%s' '<metrics-token>'   | gcloud secrets create dmrv-metrics-token  --data-file=-
+printf '%s' '<sentry-dsn>'      | gcloud secrets create dmrv-sentry-dsn     --data-file=-
+printf '%s' '<gcs-access>'      | gcloud secrets create dmrv-gcs-hmac-access --data-file=-
+printf '%s' '<gcs-secret>'      | gcloud secrets create dmrv-gcs-hmac-secret --data-file=-
+# Grant the Cloud Run service account secretmanager.secretAccessor + cloudsql.client.
+```
+
+### Deploy (repeatable)
+
+```bash
+PROJECT_ID=$PROJECT_ID REGION=$REGION ./deploy/deploy.sh
+```
+
+`deploy.sh` builds the `backend/` image, applies + **executes the migration Job
+first** (so instances never race Alembic), then replaces the service revision
+and prints the URL.
+
+### Key decisions
+
+- **min-instances 1**: cold starts + first-request latency hurt device sync.
+- **max-instances 1**: the rate limiter (`_rl_counters`) and the recompute
+  coalescing lock are per-process/in-memory. Raising max-instances gives
+  per-instance limits (a flooder gets `N×` the cap) and un-coalesced recomputes.
+  Keep max 1 for the pilot; lift only after moving both to a shared store (Redis).
+- **Migrations off the service** (`DMRV_SKIP_MIGRATIONS=1`) + a Cloud Run Job.
+- **TLS / pinning**: Cloud Run terminates TLS with Google-rotated leaf certs, so
+  SPKI/leaf pinning on the client would break on every rotation. **Default:
+  system trust on Cloud Run** — build the app with `--dart-define DMRV_TLS_TRUST=system`
+  (see `RELEASE_CHECKLIST.md`). The pinning path is retained for self-hosted
+  deployments with a stable cert (`DMRV_TLS_TRUST=pinned` + `DMRV_PINNED_CERT_PEM`).
+
+### Exit criterion `[HUMAN]`
+
+A real phone (release build, `DMRV_TLS_TRUST=system`, `DMRV_API_BASE_URL` = the
+Cloud Run URL) enrolls and syncs one batch over TLS; the portal is served from
+the same origin.

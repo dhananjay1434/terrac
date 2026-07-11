@@ -1,0 +1,31 @@
+# P3.3 — one-shot Alembic migration Job. Runs migrations ONCE per deploy so the
+# autoscaled service (DMRV_SKIP_MIGRATIONS=1) never races them across instances.
+#
+# Create/update:  gcloud run jobs replace deploy/migrate-job.yaml --region $REGION
+# Execute:        gcloud run jobs execute dmrv-migrate --region $REGION --wait
+# Run the execute step BEFORE routing traffic to a new revision.
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: dmrv-migrate
+spec:
+  template:
+    spec:
+      template:
+        spec:
+          maxRetries: 1
+          timeoutSeconds: 300
+          containers:
+            - image: IMAGE
+              command: ["python", "-m", "alembic", "upgrade", "head"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: dmrv-database-url
+                      key: latest
+                # alembic env.py strips +asyncpg itself; keep the URL verbatim.
+              resources:
+                limits:
+                  cpu: "1"
+                  memory: "512Mi"

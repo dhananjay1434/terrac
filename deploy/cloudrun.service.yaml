@@ -1,0 +1,106 @@
+# P3.3 — Cloud Run service (declarative). Apply with:
+#   gcloud run services replace deploy/cloudrun.service.yaml --region $REGION
+#
+# Secrets come from Secret Manager via valueFrom (NEVER inline env — an env-in-
+# yaml secret leaks into revision history and `gcloud run services describe`).
+# Migrations do NOT run here (DMRV_SKIP_MIGRATIONS=1); a separate Cloud Run Job
+# (deploy/migrate-job.yaml) applies them once per deploy so N booting instances
+# never race Alembic.
+#
+# Replace: PROJECT_ID, REGION, IMAGE (Artifact Registry), CLOUDSQL_CONNECTION
+# (project:region:instance), and the media bucket.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: dmrv-api
+  labels:
+    cloud.googleapis.com/location: REGION
+spec:
+  template:
+    metadata:
+      annotations:
+        # Pilot: min 1 (cold start + first-request latency hurts device sync),
+        # max 1 because the rate limiter is per-process/in-memory (see P3.6/P3.7)
+        # — raise max only after moving the limiter to a shared store.
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "1"
+        run.googleapis.com/cloudsql-instances: CLOUDSQL_CONNECTION
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 40
+      timeoutSeconds: 60
+      containers:
+        - image: IMAGE
+          ports:
+            - containerPort: 8001
+          env:
+            # DB via the Cloud SQL connector unix socket (no password in URL when
+            # using IAM auth; here we still read the password from Secret Manager).
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dmrv-database-url
+                  key: latest
+            - name: DMRV_HMAC_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: dmrv-hmac-keys
+                  key: latest
+            - name: DMRV_HMAC_ACTIVE_KEY
+              value: "k1"
+            - name: DMRV_ADMIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dmrv-admin-secret
+                  key: latest
+            - name: DMRV_METRICS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dmrv-metrics-token
+                  key: latest
+            - name: DMRV_SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: dmrv-sentry-dsn
+                  key: latest
+            - name: DMRV_ALLOWED_ORIGIN
+              value: "https://portal.example.org"
+            - name: DMRV_MEDIA_BACKEND
+              value: "s3"
+            - name: DMRV_MEDIA_BUCKET
+              value: "dmrv-evidence-prod"
+            - name: DMRV_S3_ENDPOINT
+              value: "https://storage.googleapis.com"
+            - name: DMRV_S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dmrv-gcs-hmac-access
+                  key: latest
+            - name: DMRV_S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dmrv-gcs-hmac-secret
+                  key: latest
+            # Instances must not race migrations — the migrate Job owns them.
+            - name: DMRV_SKIP_MIGRATIONS
+              value: "1"
+            - name: DMRV_ENV
+              value: "staging"
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8001
+            periodSeconds: 30

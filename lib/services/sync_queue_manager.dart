@@ -120,6 +120,34 @@ Duration? computeClockSkew(
   }
 }
 
+/// P3.3 TLS trust strategy for the sync HTTP client.
+enum TlsTrust { systemDebug, system, pinned }
+
+/// Pure decision for which TLS trust a build uses (extracted so it is unit
+/// testable — the caller reads the compile-time defines and builds the client).
+///
+/// - debug/profile: always system trust (staging certs must work).
+/// - release + DMRV_TLS_TRUST=system: system trust (e.g. Cloud Run's rotated
+///   leaf certs, where leaf pinning would break on rotation).
+/// - release + pinned (default): requires DMRV_PINNED_CERT_PEM; throws if empty
+///   so a release can never silently fall back to system trust.
+TlsTrust resolveTlsTrust({
+  required bool isRelease,
+  required String trustMode,
+  required String pinnedPem,
+}) {
+  if (!isRelease) return TlsTrust.systemDebug;
+  if (trustMode == 'system') return TlsTrust.system;
+  if (pinnedPem.isEmpty) {
+    throw StateError(
+      'DMRV_PINNED_CERT_PEM is required for release builds with '
+      'DMRV_TLS_TRUST=pinned. Pass it via --dart-define-from-file=secrets.json, '
+      'or set --dart-define DMRV_TLS_TRUST=system for Cloud Run.',
+    );
+  }
+  return TlsTrust.pinned;
+}
+
 class SyncQueueManager {
   SyncQueueManager(
     this.ref, {
@@ -226,25 +254,33 @@ class SyncQueueManager {
       'DMRV_PINNED_CERT_PEM',
       defaultValue: '',
     );
+    // P3.3: pin strategy. Default 'pinned' (self-hosted, stable cert). Cloud Run
+    // terminates TLS with Google-rotated leaf certs, so leaf pinning would break
+    // on rotation — deploy against it with --dart-define DMRV_TLS_TRUST=system.
+    const trustMode = String.fromEnvironment(
+      'DMRV_TLS_TRUST',
+      defaultValue: 'pinned',
+    );
 
-    if (!kReleaseMode) {
-      // Debug / profile builds use the system trust store so staging certs work.
-      return http.Client();
+    final trust = resolveTlsTrust(
+      isRelease: kReleaseMode,
+      trustMode: trustMode,
+      pinnedPem: pinnedPem,
+    );
+    switch (trust) {
+      case TlsTrust.systemDebug:
+      case TlsTrust.system:
+        // System trust store (debug/profile always; release only when the
+        // operator explicitly opted into DMRV_TLS_TRUST=system).
+        return http.Client();
+      case TlsTrust.pinned:
+        final context = SecurityContext(withTrustedRoots: false);
+        context.setTrustedCertificatesBytes(utf8.encode(pinnedPem));
+        final ioClient = HttpClient(context: context)
+          ..badCertificateCallback =
+              (X509Certificate cert, String host, int port) => false;
+        return IOClient(ioClient);
     }
-
-    if (pinnedPem.isEmpty) {
-      throw StateError(
-        'DMRV_PINNED_CERT_PEM is required for release builds. '
-        'Pass it via --dart-define-from-file=secrets.json',
-      );
-    }
-
-    final context = SecurityContext(withTrustedRoots: false);
-    context.setTrustedCertificatesBytes(utf8.encode(pinnedPem));
-    final ioClient = HttpClient(context: context)
-      ..badCertificateCallback =
-          (X509Certificate cert, String host, int port) => false;
-    return IOClient(ioClient);
   }
 
   final Ref ref;

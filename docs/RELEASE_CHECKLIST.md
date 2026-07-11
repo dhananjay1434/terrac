@@ -33,6 +33,23 @@ are added as the release engineering tasks (P0.6–P0.8, P4.9) land.
   manager and one offline location. Losing it = losing the Play update identity
   permanently. Until backed up, this is a single point of failure.
 
+## TLS trust / cert pinning (P3.3)
+
+The sync client (`sync_queue_manager.dart`, `resolveTlsTrust`) picks its trust
+store from `--dart-define DMRV_TLS_TRUST` at build time:
+
+- **Cloud Run / managed TLS (default target):** build with
+  `--dart-define DMRV_TLS_TRUST=system`. Google rotates the leaf cert, so leaf
+  pinning would break on rotation. System trust is correct here.
+- **Self-hosted with a stable cert:** `DMRV_TLS_TRUST=pinned` (the default) plus
+  `--dart-define-from-file=secrets.json` carrying `DMRV_PINNED_CERT_PEM`. A
+  release build with `pinned` and an empty PEM **fails closed** (throws) — it
+  can never silently fall back to system trust.
+- Debug/profile builds always use the system store (staging certs work).
+
+Covered by `test/tls_trust_test.dart`. Pick the mode to match the deployment
+target in `docs/DEPLOYMENT.md` (Cloud Run section).
+
 ## 16 KB page-size compliance (P0.8 — DIAGNOSED, fix deferred)
 
 Analyzed the arm64-v8a native libs in the release APK (ELF LOAD-segment
