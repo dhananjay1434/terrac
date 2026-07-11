@@ -8,6 +8,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -284,6 +285,18 @@ def _safe_json(raw, *, context: str):
         return None
 
 
+# P3.7/H3: telemetry payloads can be ~100k floats. Parsing that on the event loop
+# stalls every other request, so offload the big ones to a thread. Small payloads
+# (yield/application) stay inline — a thread hop would cost more than it saves.
+_BIG_JSON_BYTES = 512_000
+
+
+async def _safe_json_async(raw, *, context: str):
+    if raw and len(raw) > _BIG_JSON_BYTES:
+        return await asyncio.to_thread(_safe_json, raw, context=context)
+    return _safe_json(raw, context=context)
+
+
 # Identifier guard reused for device_id / operation_id path segments (blocks
 # path traversal + injection). Module-level so both the device media upload and
 # the portal media download validate against the SAME pattern (P2.2).
@@ -384,8 +397,30 @@ _RL_CAP_ENV = {
     "default": "DMRV_RATELIMIT_DEFAULT",
 }
 
-# {(bucket, key, window_index): count} — bounded-clear when it grows unbounded.
+# {(bucket, key, window_index): count} — bounded by pruning when it grows large.
 _rl_counters: dict = {}
+_RL_MAX_COUNTERS = 4096
+
+
+def _rl_prune(current_window: int) -> None:
+    """P3.7/M1: bound memory WITHOUT wiping live windows.
+
+    The previous ``_rl_counters.clear()`` at the cap was an attack surface: a
+    flooder could push the dict past the cap and reset EVERYONE's current-window
+    counters to zero, defeating the limiter. Instead, drop only dead windows
+    (older than the current one); if still over cap, evict the oldest windows
+    first. Current-window counts always survive.
+    """
+    stale = [k for k in _rl_counters if k[2] < current_window]
+    for k in stale:
+        del _rl_counters[k]
+    if len(_rl_counters) > _RL_MAX_COUNTERS:
+        # Still over cap with only live/future windows — evict oldest-window
+        # entries first (lowest window index) until back under the cap.
+        for k in sorted(_rl_counters, key=lambda kk: kk[2])[
+            : len(_rl_counters) - _RL_MAX_COUNTERS
+        ]:
+            del _rl_counters[k]
 
 
 def _rl_int(name: str, default: int) -> int:
@@ -442,8 +477,8 @@ async def _rate_limit(request: Request, call_next):
     now = _rl_now()
     window = now // window_seconds
     ckey = (bucket, key, window)
-    if len(_rl_counters) > 4096:  # bound memory; old windows are dead weight
-        _rl_counters.clear()
+    if len(_rl_counters) > 4096:
+        _rl_prune(window)
     count = _rl_counters.get(ckey, 0) + 1
     _rl_counters[ckey] = count
     if count > cap:
@@ -972,8 +1007,66 @@ async def ingest_lab_results(
     }
 
 
-@observability.timed_recompute
+# P3.7/H2: per-batch recompute coalescing. recompute reads the FULL committed
+# evidence set for a batch and is idempotent, so under a burst of evidence posts
+# a single run reflects all of them. State: buid -> {lock, dirty}. `dirty` means
+# "committed evidence has landed that a recompute must still observe".
+_recompute_state: dict = {}
+_RECOMPUTE_STATE_CAP = 8192
+
+
+def _recompute_slot(buid: str) -> dict:
+    st = _recompute_state.get(buid)
+    if st is None:
+        if len(_recompute_state) > _RECOMPUTE_STATE_CAP:
+            # Drop idle, clean slots (never a locked/dirty one).
+            for k in [
+                k
+                for k, v in _recompute_state.items()
+                if not v["dirty"] and not v["lock"].locked()
+            ][: len(_recompute_state) // 2]:
+                _recompute_state.pop(k, None)
+        st = {"lock": asyncio.Lock(), "dirty": False}
+        _recompute_state[buid] = st
+    return st
+
+
 async def recompute_batch_credit(
+    session: AsyncSession,
+    batch: Batch,
+    *,
+    lab_h_corg: Optional[float] = None,
+    lab_corg: Optional[float] = None,
+    coalesce: bool = False,
+) -> None:
+    """Serialize (and optionally coalesce) recomputes for one batch.
+
+    The lock prevents two concurrent recomputes of the same batch from racing on
+    its credit/provisional fields (a lost-update guard). When ``coalesce=True``
+    — used ONLY by the post-commit evidence path, where the caller's evidence is
+    already committed — a caller returns early if another recompute already ran
+    after it marked the batch dirty, since that run observed its committed
+    evidence. Pre-commit callers (create_batch, lab) pass coalesce=False so they
+    always run against their own session's pending state.
+    """
+    buid = str(batch.batch_uuid)
+    st = _recompute_slot(buid)
+    st["dirty"] = True
+    async with st["lock"]:
+        if coalesce and not st["dirty"]:
+            return  # a concurrent recompute already reflected our evidence
+        st["dirty"] = False
+        await _recompute_batch_credit_impl(
+            session, batch, lab_h_corg=lab_h_corg, lab_corg=lab_corg
+        )
+
+
+# Test/metrics observability: total impl runs (monkeypatch-free counter).
+_recompute_run_count = 0
+
+
+@observability.timed_recompute
+async def _recompute_batch_credit_impl(
     session: AsyncSession,
     batch: Batch,
     *,
@@ -988,6 +1081,8 @@ async def recompute_batch_credit(
     evidence endpoint so the credit converges as evidence arrives. A batch stays
     PROVISIONAL (never issued) until every input is corroborated.
     """
+    global _recompute_run_count
+    _recompute_run_count += 1
     buid = str(batch.batch_uuid)
 
     tel = (
@@ -1006,7 +1101,13 @@ async def recompute_batch_credit(
         )
     ).scalar_one_or_none()
 
-    tel_payload = _safe_json(tel.payload_json, context=f"telemetry {buid}") if tel else None
+    # H3: the telemetry payload is the large one (100k floats) — parse off-thread
+    # when big. yield/application are small scalars, parsed inline.
+    tel_payload = (
+        await _safe_json_async(tel.payload_json, context=f"telemetry {buid}")
+        if tel
+        else None
+    )
     yld_payload = _safe_json(yld.payload_json, context=f"yield {buid}") if yld else None
     app_payload = (
         _safe_json(app_row.payload_json, context=f"application {buid}") if app_row else None
@@ -1627,7 +1728,10 @@ async def _recompute_if_batch_exists(
         await session.execute(select(Batch).where(Batch.batch_uuid == buid))
     ).scalar_one_or_none()
     if batch is not None:
-        await recompute_batch_credit(session, batch)
+        # Evidence is already committed here (caller commits before this), so a
+        # coalesced recompute is safe: a concurrent run observes our committed
+        # rows. This collapses redundant recomputes under a burst of posts.
+        await recompute_batch_credit(session, batch, coalesce=True)
         await session.commit()
 
 
