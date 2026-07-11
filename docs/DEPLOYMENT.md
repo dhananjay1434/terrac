@@ -102,7 +102,9 @@ Wired in [`backend/observability.py`](../backend/observability.py):
   `X-Metrics-Token` header matching `DMRV_METRICS_TOKEN`** — unset ⇒ endpoint
   closed. Series: `dmrv_requests_total{method,route,status}`,
   `dmrv_request_duration_seconds{route}`, `dmrv_sync_5xx_total{route}`,
-  `dmrv_provisional_ratio` (refreshed per scrape), `dmrv_recompute_duration_seconds`.
+  `dmrv_provisional_ratio` (refreshed per scrape), `dmrv_recompute_duration_seconds`,
+  `dmrv_canonical_v1_requests_total` (P4.2 — verified v1-canonical traffic; flip
+  `DMRV_REQUIRE_CANONICAL_V2` on only after this stays zero fleet-wide for 14 days).
   Route labels use the **path template** (e.g. `/api/v1/portal/batches/{batch_uuid}`)
   so UUIDs never explode label cardinality.
 - **Sentry.** Enabled only when `DMRV_SENTRY_DSN` is set; `traces_sample_rate`

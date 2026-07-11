@@ -731,6 +731,11 @@ async def verify_signature(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="signature_mismatch"
         )
+    # P4.2: count verified v1 (unversioned) traffic so the fleet's migration to
+    # the v2 canonical is observable. DMRV_REQUIRE_CANONICAL_V2 is flipped on only
+    # after this counter stays zero across the fleet for 14 days.
+    if x_canonical_version != "2":
+        observability.record_canonical_v1(request.url.path)
     return x_device_id
 
 

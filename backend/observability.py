@@ -114,6 +114,13 @@ if _PROM:
         "dmrv_recompute_duration_seconds",
         "Wall time of recompute_batch_credit.",
     )
+    CANONICAL_V1 = Counter(
+        "dmrv_canonical_v1_requests_total",
+        "Verified requests using the v1 (unversioned) signature canonical. Flip "
+        "DMRV_REQUIRE_CANONICAL_V2 on only after this stays zero across the fleet "
+        "(P4.2).",
+        ["route"],
+    )
 
 
 def _route_template(request) -> str:
@@ -137,6 +144,12 @@ def record_request(request, status_code: int, duration_s: float) -> None:
 def observe_recompute(duration_s: float) -> None:
     if _PROM:
         RECOMPUTE_DURATION.observe(duration_s)
+
+
+def record_canonical_v1(route: str) -> None:
+    """Count a verified request that used the legacy v1 signature canonical."""
+    if _PROM:
+        CANONICAL_V1.labels(route).inc()
 
 
 def timed_recompute(fn):
