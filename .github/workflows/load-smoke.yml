@@ -1,0 +1,81 @@
+name: load-smoke
+
+# P3.8 — manual-dispatch device-fleet load smoke against a Postgres-backed API.
+# The full 200-device run targets staging (P3.3); this CI variant runs a reduced
+# 20-device fleet against a service-container Postgres + a locally-booted app so
+# the script and the evidence path stay exercised on every intentional run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      devices:
+        description: "Number of simulated devices"
+        default: "20"
+      concurrency:
+        description: "Concurrent devices"
+        default: "20"
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  load-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dmrv
+          POSTGRES_PASSWORD: dmrv
+          POSTGRES_DB: dmrv
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dmrv"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DMRV_DISABLE_DOTENV: "1"
+      DMRV_HMAC_SECRET: load-smoke-hmac-secret
+      DMRV_ADMIN_SECRET: load-smoke-admin-secret
+      DMRV_ALLOW_WEAK_SECRETS: "1"
+      # Fleet share one runner IP; the default/media buckets are device-keyed, so
+      # per-device counts stay low — but disable to keep the smoke deterministic.
+      DMRV_RATELIMIT_ENABLED: "0"
+      DATABASE_URL: "postgresql+asyncpg://dmrv:dmrv@localhost:5432/dmrv"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Apply migrations
+        run: python -m alembic upgrade head
+      - name: Boot API
+        run: |
+          DMRV_SKIP_MIGRATIONS=1 python -m uvicorn server:app \
+            --host 127.0.0.1 --port 8098 > /tmp/api.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:8098/api/health | grep -q '"db": "ok"'; then
+              echo "api up"; break
+            fi
+            sleep 1
+          done
+      - name: Run load smoke
+        run: |
+          python scripts/load_smoke.py \
+            --url http://127.0.0.1:8098 \
+            --database-url "$DATABASE_URL" \
+            --devices "${{ github.event.inputs.devices || '20' }}" \
+            --concurrency "${{ github.event.inputs.concurrency || '20' }}" \
+            --media-count 2 --telemetry-size 50000
+      - name: API log on failure
+        if: failure()
+        run: cat /tmp/api.log || true
