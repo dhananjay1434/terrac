@@ -4,6 +4,8 @@ import { logout } from "./api";
 import Login from "./pages/Login";
 import Batches from "./pages/Batches";
 import BatchDetail from "./pages/BatchDetail";
+import LabScan from "./pages/LabScan";
+import LabEntry from "./pages/LabEntry";
 import type { JSX } from "react";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -25,6 +27,9 @@ function TopBar() {
           TerraCipher <span>· Verifier Portal</span>
         </div>
         <span className="spacer" />
+        <button className="linkbtn" onClick={() => nav("/lab/scan")}>
+          Lab scan
+        </button>
         <button className="linkbtn" onClick={signOut}>
           Sign out
         </button>
@@ -62,6 +67,26 @@ export default function App() {
           <RequireAuth>
             <Shell>
               <BatchDetail />
+            </Shell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/lab/scan"
+        element={
+          <RequireAuth>
+            <Shell>
+              <LabScan />
+            </Shell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/lab/:uuid"
+        element={
+          <RequireAuth>
+            <Shell>
+              <LabEntry />
             </Shell>
           </RequireAuth>
         }

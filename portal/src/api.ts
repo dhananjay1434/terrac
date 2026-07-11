@@ -121,6 +121,37 @@ export function getSummary(): Promise<{
   return req("/api/v1/portal/summary");
 }
 
+export function submitLabResults(
+  uuid: string,
+  body: Record<string, unknown>,
+): Promise<{ status: string; provisional: boolean; reasons: string[] }> {
+  return req(`/api/v1/portal/batches/${uuid}/lab-results`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function uploadLabCertificate(
+  uuid: string,
+  file: File,
+): Promise<{ operation_id: string; sha256_hash: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  const headers = new Headers();
+  const token = getToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(
+    `${BASE}/api/v1/portal/batches/${uuid}/lab-certificate`,
+    { method: "POST", body: form, headers },
+  );
+  if (res.status === 401) {
+    clearSession();
+    throw new AuthError("unauthenticated");
+  }
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  return (await res.json()) as { operation_id: string; sha256_hash: string };
+}
+
 // Authed media bytes → object URL (an <img src> cannot carry a bearer header).
 export async function fetchMediaUrl(operationId: string): Promise<string> {
   const headers = new Headers();

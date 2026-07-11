@@ -6,14 +6,26 @@ line. Rate limiting for `/api/v1/portal/*` maps to the "admin" bucket in
 `server._rl_bucket`.
 """
 
+import hashlib
 import json
 import secrets
+import uuid as _uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +50,7 @@ from .auth import (
     verify_login,
 )
 from .schemas import (
+    LabResultsInput,
     LoginRequest,
     LoginResponse,
     MintTokenRequest,
@@ -346,3 +359,103 @@ async def get_media(
         media_type="application/octet-stream",
         filename=row.filename or f"{operation_id}.bin",
     )
+
+
+# ---------------------------------------------------------------------------
+# P2.4 — Lab flow. A lab tech (or admin) submits results for a batch; the SAME
+# recompute the legacy X-Admin-Secret channel runs fires, so the assumed_*
+# provisional reasons flip identically. The certificate PDF is stored via the
+# media mechanism under a labcert-<uuid> operation id.
+# ---------------------------------------------------------------------------
+
+
+async def _load_batch(session: AsyncSession, batch_uuid: str) -> Batch:
+    try:
+        buid = _uuid.UUID(batch_uuid)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail="invalid_batch_uuid")
+    batch = (
+        await session.execute(select(Batch).where(Batch.batch_uuid == buid))
+    ).scalar_one_or_none()
+    if batch is None:
+        raise HTTPException(status_code=404, detail="unknown_batch")
+    return batch
+
+
+@router.post("/batches/{batch_uuid}/lab-results")
+async def submit_lab_results(
+    batch_uuid: str,
+    payload: LabResultsInput,
+    _user: PortalUser = Depends(require_role("lab", "admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    from server import apply_lab_results  # the ONE lab-ingestion path (P2.4)
+
+    batch = await _load_batch(session, batch_uuid)
+    await apply_lab_results(
+        session,
+        batch,
+        lab_h_corg=payload.lab_h_corg,
+        organic_carbon_pct=payload.organic_carbon_pct,
+        biochar_moisture_samples=payload.biochar_moisture_samples,
+        dry_bulk_density=payload.dry_bulk_density,
+        inertinite_pct=payload.inertinite_pct,
+        residual_corg_pct=payload.residual_corg_pct,
+        ro_measurements_count=payload.ro_measurements_count,
+    )
+    await session.commit()
+    reasons = batch.provisional_reasons
+    try:
+        parsed = json.loads(reasons) if reasons else []
+    except (ValueError, TypeError):
+        parsed = []
+    return {
+        "status": "ok",
+        "batch_uuid": batch_uuid,
+        "provisional": batch.provisional,
+        "reasons": parsed,
+    }
+
+
+@router.post("/batches/{batch_uuid}/lab-certificate", status_code=status.HTTP_201_CREATED)
+async def upload_lab_certificate(
+    batch_uuid: str,
+    file: UploadFile = File(...),
+    _user: PortalUser = Depends(require_role("lab", "admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    from server import UPLOAD_DIR
+
+    batch = await _load_batch(session, batch_uuid)
+    op = f"labcert-{batch.batch_uuid}"
+    target_dir = Path(UPLOAD_DIR) / "labcerts"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    fpath = target_dir / f"{op}.bin"
+    data = await file.read()
+    fpath.write_bytes(data)
+    sha = hashlib.sha256(data).hexdigest()
+
+    row = MediaFile(
+        operation_id=op,
+        file_path=str(fpath),
+        sha256_hash=sha,
+        filename=file.filename,
+        batch_uuid=batch.batch_uuid,
+    )
+    session.add(row)
+    try:
+        await session.commit()
+    except IntegrityError:
+        # A re-submitted certificate overwrites the prior one (same op id).
+        await session.rollback()
+        existing = (
+            await session.execute(
+                select(MediaFile).where(MediaFile.operation_id == op)
+            )
+        ).scalar_one()
+        existing.file_path = str(fpath)
+        existing.sha256_hash = sha
+        existing.filename = file.filename
+        existing.batch_uuid = batch.batch_uuid
+        await session.commit()
+    return {"operation_id": op, "sha256_hash": sha}
