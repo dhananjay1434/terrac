@@ -379,3 +379,18 @@ a.back {
   text-decoration: none;
   font-weight: 650;
 }
+.seal {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(46, 58, 140, 0.1);
+  color: var(--indigo);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+button.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

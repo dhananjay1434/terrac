@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_session
 from models import (
+    AuditEvent,
     Batch,
     CompositePileSample,
     DeviceKey,
@@ -75,6 +76,25 @@ from .schemas import (
 )
 
 router = APIRouter(prefix="/api/v1/portal", tags=["portal"])
+
+
+async def write_audit(
+    session: AsyncSession,
+    *,
+    event_type: str,
+    actor_user_id: Optional[int],
+    batch_uuid: Optional[str] = None,
+    payload: Optional[dict] = None,
+) -> None:
+    """Append one row to the immutable audit trail (P2.6). The caller commits."""
+    session.add(
+        AuditEvent(
+            event_type=event_type,
+            batch_uuid=batch_uuid,
+            actor_user_id=actor_user_id,
+            payload_json=json.dumps(payload or {}),
+        )
+    )
 
 # Enrollment tokens are minted server-side with 256 bits of entropy — far above
 # the ≥128-bit floor (M3). token_urlsafe(n) draws n random bytes.
@@ -124,7 +144,7 @@ async def logout(
 )
 async def mint_enrollment_token(
     payload: MintTokenRequest,
-    _admin: PortalUser = Depends(require_role("admin")),
+    admin: PortalUser = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_session),
 ):
     """Admin-only: mint a single-use device enrollment token (256-bit) and
@@ -132,6 +152,12 @@ async def mint_enrollment_token(
     token = secrets.token_urlsafe(_ENROLL_TOKEN_BYTES)
     expires = datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days)
     session.add(EnrollmentToken(token=token, expires_at=expires))
+    await write_audit(
+        session,
+        event_type="token_minted",
+        actor_user_id=admin.id,
+        payload={"expires_at": expires.isoformat()},
+    )
     await session.commit()
 
     qr_payload = "dmrv-enroll:v1:" + json.dumps(
@@ -403,7 +429,7 @@ async def _load_batch(session: AsyncSession, batch_uuid: str) -> Batch:
 async def submit_lab_results(
     batch_uuid: str,
     payload: LabResultsInput,
-    _user: PortalUser = Depends(require_role("lab", "admin")),
+    user: PortalUser = Depends(require_role("lab", "admin")),
     session: AsyncSession = Depends(get_session),
 ):
     from server import apply_lab_results  # the ONE lab-ingestion path (P2.4)
@@ -419,6 +445,13 @@ async def submit_lab_results(
         inertinite_pct=payload.inertinite_pct,
         residual_corg_pct=payload.residual_corg_pct,
         ro_measurements_count=payload.ro_measurements_count,
+    )
+    await write_audit(
+        session,
+        event_type="lab_results",
+        actor_user_id=user.id,
+        batch_uuid=batch_uuid,
+        payload={"provisional": batch.provisional},
     )
     await session.commit()
     reasons = batch.provisional_reasons
@@ -488,10 +521,18 @@ async def upload_lab_certificate(
 @router.post("/registry/kilns")
 async def portal_register_kiln(
     payload: KilnRequest,
-    _user: PortalUser = Depends(require_role("admin")),
+    user: PortalUser = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_session),
 ):
-    return await upsert_kiln(session, payload)
+    result = await upsert_kiln(session, payload)
+    await write_audit(
+        session,
+        event_type="kiln_registered",
+        actor_user_id=user.id,
+        payload={"kiln_id": payload.kiln_id},
+    )
+    await session.commit()
+    return result
 
 
 @router.get("/registry/kilns")
@@ -519,34 +560,131 @@ async def portal_list_kilns(
 @router.post("/registry/operator-training")
 async def portal_operator_training(
     payload: OperatorTrainingRequest,
-    _user: PortalUser = Depends(require_role("admin")),
+    user: PortalUser = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_session),
 ):
-    return await upsert_operator_training(session, payload)
+    result = await upsert_operator_training(session, payload)
+    await write_audit(
+        session,
+        event_type="operator_training",
+        actor_user_id=user.id,
+        payload={"operator_id": payload.operator_id},
+    )
+    await session.commit()
+    return result
 
 
 @router.post("/registry/supervisor-visit")
 async def portal_supervisor_visit(
     payload: SupervisorVisitRequest,
-    _user: PortalUser = Depends(require_role("admin")),
+    user: PortalUser = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_session),
 ):
-    return await upsert_supervisor_visit(session, payload)
+    result = await upsert_supervisor_visit(session, payload)
+    await write_audit(
+        session,
+        event_type="supervisor_visit",
+        actor_user_id=user.id,
+        payload={"kiln_id": payload.kiln_id},
+    )
+    await session.commit()
+    return result
 
 
 @router.post("/registry/scale-calibration")
 async def portal_scale_calibration(
     payload: ScaleCalibrationRequest,
-    _user: PortalUser = Depends(require_role("admin")),
+    user: PortalUser = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_session),
 ):
-    return await upsert_scale_calibration(session, payload)
+    result = await upsert_scale_calibration(session, payload)
+    await write_audit(
+        session,
+        event_type="scale_calibration",
+        actor_user_id=user.id,
+        payload={"scale_id": payload.scale_id},
+    )
+    await session.commit()
+    return result
 
 
 @router.post("/registry/annual-verification")
 async def portal_annual_verification(
     payload: AnnualVerificationRequest,
-    _user: PortalUser = Depends(require_role("admin")),
+    user: PortalUser = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_session),
 ):
-    return await upsert_annual_verification(session, payload)
+    result = await upsert_annual_verification(session, payload)
+    await write_audit(
+        session,
+        event_type="annual_verification",
+        actor_user_id=user.id,
+        payload={"project_id": payload.project_id, "year": payload.year},
+    )
+    await session.commit()
+    return result
+
+
+# ---------------------------------------------------------------------------
+# P2.6 — Deliberate credit issuance. Admin-only, re-verified server-side, and
+# recorded in the append-only audit trail.
+# ---------------------------------------------------------------------------
+
+
+@router.post("/batches/{batch_uuid}/issue")
+async def issue_credit(
+    batch_uuid: str,
+    user: PortalUser = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    batch = await _load_batch(session, batch_uuid)
+    if batch.status == "ISSUED":
+        raise HTTPException(status_code=409, detail="already_issued")
+    # Never trust the UI: the server's own provisional flag (recomputed from all
+    # gates) is the authority — a provisional batch can never be issued.
+    if batch.provisional:
+        raise HTTPException(status_code=409, detail="batch_provisional")
+
+    batch.status = "ISSUED"
+    await write_audit(
+        session,
+        event_type="credit_issued",
+        actor_user_id=user.id,
+        batch_uuid=str(batch.batch_uuid),
+        payload={
+            "net_credit_t_co2e": batch.net_credit_t_co2e,
+            "lca_signature": batch.lca_signature,
+        },
+    )
+    await session.commit()
+    return {
+        "status": "ISSUED",
+        "batch_uuid": batch_uuid,
+        "net_credit_t_co2e": batch.net_credit_t_co2e,
+    }
+
+
+@router.get("/batches/{batch_uuid}/audit")
+async def batch_audit(
+    batch_uuid: str,
+    _user: PortalUser = Depends(require_role()),
+    session: AsyncSession = Depends(get_session),
+):
+    rows = (
+        await session.execute(
+            select(AuditEvent)
+            .where(AuditEvent.batch_uuid == batch_uuid)
+            .order_by(AuditEvent.created_at.asc())
+        )
+    ).scalars().all()
+    return {
+        "events": [
+            {
+                "event_type": e.event_type,
+                "actor_user_id": e.actor_user_id,
+                "payload": json.loads(e.payload_json or "{}"),
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in rows
+        ]
+    }

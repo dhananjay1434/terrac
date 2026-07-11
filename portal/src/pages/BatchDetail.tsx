@@ -3,10 +3,12 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   getBatch,
   fetchMediaUrl,
+  issueCredit,
   AuthError,
   type BatchDetail as Detail,
   type MediaItem,
 } from "../api";
+import { getRole } from "../auth";
 import ComplianceChecklist from "../components/ComplianceChecklist";
 import CreditRing from "../components/CreditRing";
 
@@ -54,15 +56,38 @@ export default function BatchDetail() {
   const nav = useNavigate();
   const [d, setD] = useState<Detail | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [issuing, setIssuing] = useState(false);
 
-  useEffect(() => {
+  function reload() {
     getBatch(uuid)
       .then(setD)
       .catch((e) => {
         if (e instanceof AuthError) nav("/login");
         else setErr("Batch not found.");
       });
-  }, [uuid, nav]);
+  }
+  useEffect(reload, [uuid, nav]);
+
+  async function issue() {
+    if (!d) return;
+    if (
+      !window.confirm(
+        `Issue ${d.batch.net_credit_t_co2e.toFixed(2)} tCO₂e for batch ` +
+          `${d.batch.batch_uuid.slice(0, 8)}? This is recorded permanently.`,
+      )
+    )
+      return;
+    setIssuing(true);
+    try {
+      await issueCredit(uuid);
+      reload();
+    } catch (e) {
+      if (e instanceof AuthError) nav("/login");
+      else setErr("Issue failed — the server re-checks eligibility.");
+    } finally {
+      setIssuing(false);
+    }
+  }
 
   if (err) return <div className="wrap err">{err}</div>;
   if (!d) return <div className="wrap">Loading…</div>;
@@ -92,6 +117,24 @@ export default function BatchDetail() {
             Batch {d.batch.batch_uuid.slice(0, 8)} · device{" "}
             {d.batch.device_id ?? "—"}
           </div>
+          {d.batch.status === "ISSUED" ? (
+            <div className="seal">✓ CREDIT ISSUED</div>
+          ) : (
+            getRole() === "admin" && (
+              <button
+                className="primary"
+                style={{ marginTop: 16 }}
+                disabled={!d.compliance.issuable || issuing}
+                onClick={issue}
+              >
+                {issuing
+                  ? "Issuing…"
+                  : d.compliance.issuable
+                    ? "Issue credit"
+                    : "Not yet issuable"}
+              </button>
+            )
+          )}
         </div>
         <CreditRing okCount={okCount} total={total} />
       </div>

@@ -149,6 +149,12 @@ export function listKilns(): Promise<{ kilns: KilnRow[] }> {
   return req("/api/v1/portal/registry/kilns");
 }
 
+export function issueCredit(
+  uuid: string,
+): Promise<{ status: string; net_credit_t_co2e: number }> {
+  return req(`/api/v1/portal/batches/${uuid}/issue`, { method: "POST" });
+}
+
 export function mintToken(
   body: { expires_in_days?: number; base_url?: string } = {},
 ): Promise<{ token: string; expires_at: string; qr_payload: string }> {

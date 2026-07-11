@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    event,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -496,3 +497,28 @@ class PortalSession(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class AuditEvent(Base):
+    """P2.6 — append-only audit trail for every portal mutation (token mint, lab
+    results, registry writes, credit issuance). INSERT-only: there is no update
+    or delete route anywhere, and the ORM event below hard-blocks any UPDATE as
+    a belt-and-braces guard."""
+
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    batch_uuid: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
+    actor_user_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+@event.listens_for(AuditEvent, "before_update", propagate=True)
+def _audit_events_are_immutable(_mapper, _connection, _target):
+    raise RuntimeError("audit_events are append-only; UPDATE is forbidden")
