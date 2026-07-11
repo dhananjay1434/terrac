@@ -11,7 +11,6 @@ import json
 import secrets
 import uuid as _uuid
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Optional
 
 from fastapi import (
@@ -24,7 +23,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -380,7 +379,8 @@ async def get_media(
     _user: PortalUser = Depends(require_role()),
     session: AsyncSession = Depends(get_session),
 ):
-    from server import UPLOAD_DIR, _SAFE  # shared identity guard + storage root
+    from server import _SAFE  # shared identity guard
+    from storage import get_storage
 
     if not _SAFE.match(operation_id or ""):
         raise HTTPException(status_code=400, detail="invalid_operation_id")
@@ -392,15 +392,21 @@ async def get_media(
     if row is None:
         raise HTTPException(status_code=404, detail="unknown_media")
 
-    path = Path(row.file_path)
-    if not path.resolve().is_relative_to(Path(UPLOAD_DIR).resolve()):
+    # P3.2: read back through the storage abstraction (local FS or S3/MinIO).
+    # file_path holds an abstract key for new rows and a legacy absolute path
+    # for old ones; the local backend resolves both and guards traversal.
+    storage = get_storage()
+    try:
+        stream = storage.open_stream(row.file_path)
+    except ValueError:
         raise HTTPException(status_code=400, detail="path_traversal")
-    if not path.is_file():
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="media_missing")
-    return FileResponse(
-        str(path),
+    filename = row.filename or f"{operation_id}.bin"
+    return StreamingResponse(
+        stream,
         media_type="application/octet-stream",
-        filename=row.filename or f"{operation_id}.bin",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -474,20 +480,18 @@ async def upload_lab_certificate(
     _user: PortalUser = Depends(require_role("lab", "admin")),
     session: AsyncSession = Depends(get_session),
 ):
-    from server import UPLOAD_DIR
+    from storage import get_storage
 
     batch = await _load_batch(session, batch_uuid)
     op = f"labcert-{batch.batch_uuid}"
-    target_dir = Path(UPLOAD_DIR) / "labcerts"
-    target_dir.mkdir(parents=True, exist_ok=True)
-    fpath = target_dir / f"{op}.bin"
     data = await file.read()
-    fpath.write_bytes(data)
     sha = hashlib.sha256(data).hexdigest()
+    # P3.2: store the certificate under the "labcerts" prefix via the abstraction.
+    stored_key = get_storage().write(op, "labcerts", data)
 
     row = MediaFile(
         operation_id=op,
-        file_path=str(fpath),
+        file_path=stored_key,
         sha256_hash=sha,
         filename=file.filename,
         batch_uuid=batch.batch_uuid,
@@ -503,7 +507,7 @@ async def upload_lab_certificate(
                 select(MediaFile).where(MediaFile.operation_id == op)
             )
         ).scalar_one()
-        existing.file_path = str(fpath)
+        existing.file_path = stored_key
         existing.sha256_hash = sha
         existing.filename = file.filename
         existing.batch_uuid = batch.batch_uuid

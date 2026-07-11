@@ -48,6 +48,7 @@ import piexif
 
 import attestation
 from db import get_session, init_db
+from storage import get_storage
 from models import (
     AnnualVerification,
     Batch,
@@ -1855,33 +1856,30 @@ async def upload_media(
 
     device = _safe_device(x_device_id)
     op = _safe_op(x_idempotency_key)
-    target_dir = UPLOAD_DIR / device
-    target_dir.mkdir(parents=True, exist_ok=True)
-    file_path = target_dir / f"{op}.bin"
-
-    if not file_path.resolve().is_relative_to(UPLOAD_DIR.resolve()):
-        raise HTTPException(status_code=400, detail="path_traversal")
 
     # P1-B5: validate the batch UUID BEFORE writing any bytes, so a malformed
-    # value (400) can never leave an orphaned file on disk.
+    # value (400) can never leave an orphaned object.
     try:
         batch_uuid = uuid.UUID(x_batch_uuid)
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="invalid_batch_uuid")
 
-    with open(file_path, "wb") as f:
-        f.write(content)
+    # P3.2: persist through the storage abstraction (local FS or S3/MinIO). The
+    # returned key — not an OS path — is what lands in media_files.file_path;
+    # traversal is guarded inside the backend.
+    storage = get_storage()
+    stored_key = storage.write(op, device, content)
 
-    # P1-B5: the file now exists on disk. ANY subsequent failure (ownership 403,
-    # DB error, etc.) must roll back the session AND remove the just-written file
-    # so a rejected/failed upload never strands an orphan.
+    # P1-B5: the object now exists in storage. ANY subsequent failure (ownership
+    # 403, DB error, etc.) must roll back the session AND remove the just-written
+    # object so a rejected/failed upload never strands an orphan.
     try:
         # Phase 9: extract GPS from the photo's EXIF for server-side corroboration.
         exif_lat, exif_lon = _parse_exif_gps(content)
 
         media = MediaFile(
             operation_id=x_idempotency_key,
-            file_path=str(file_path),
+            file_path=stored_key,
             sha256_hash=calculated_hash,
             filename=file.filename,
             exif_lat=exif_lat,
@@ -1917,7 +1915,7 @@ async def upload_media(
         await session.commit()
     except Exception:
         await session.rollback()
-        file_path.unlink(missing_ok=True)
+        storage.delete(stored_key)
         raise
 
     log.info(f"[media] STORED file={file.filename} sha256={calculated_hash}")
@@ -1925,7 +1923,7 @@ async def upload_media(
     return MediaUploadResponse(
         server_sha256=calculated_hash,
         stored=True,
-        file_path=file_path.name,
+        file_path=Path(stored_key).name,
     )
 
 
