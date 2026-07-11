@@ -1,0 +1,138 @@
+// Typed client for the P2.1/P2.2 portal API. Attaches the bearer token, and
+// raises AuthError on 401 so pages can bounce to the login screen.
+import { clearSession, getToken } from "./auth";
+
+const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
+
+export class AuthError extends Error {}
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export interface BatchRow {
+  batch_uuid: string;
+  device_id: string | null;
+  project_id: string | null;
+  status: string;
+  provisional: boolean;
+  reason_count: number;
+  net_credit_t_co2e: number;
+  wet_yield_kg: number;
+  received_at: string | null;
+}
+
+export interface ChecklistItem {
+  code: string;
+  section: string;
+  label: string;
+  ok: boolean;
+  enforcement: string;
+}
+
+export interface Compliance {
+  batch_uuid: string;
+  provisional: boolean;
+  issuable: boolean;
+  reasons: string[];
+  checklist: ChecklistItem[];
+}
+
+export interface MediaItem {
+  operation_id: string;
+  filename: string | null;
+  sha256_hash: string;
+  uploaded_at: string | null;
+}
+
+export interface BatchDetail {
+  batch: BatchRow;
+  compliance: Compliance;
+  evidence_counts: Record<string, number>;
+  media: MediaItem[];
+}
+
+async function req<T>(
+  path: string,
+  opts: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(opts.headers);
+  const token = getToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (opts.body && !headers.has("Content-Type"))
+    headers.set("Content-Type", "application/json");
+
+  const res = await fetch(`${BASE}${path}`, { ...opts, headers });
+  if (res.status === 401) {
+    clearSession();
+    throw new AuthError("unauthenticated");
+  }
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      detail = (await res.json()).detail ?? detail;
+    } catch {
+      /* non-JSON body */
+    }
+    throw new ApiError(res.status, detail);
+  }
+  return (await res.json()) as T;
+}
+
+export async function login(
+  email: string,
+  password: string,
+): Promise<{ token: string; role: string; expires_at: string }> {
+  return req("/api/v1/portal/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await req("/api/v1/portal/logout", { method: "POST" });
+  } catch {
+    /* best-effort */
+  }
+}
+
+export function listBatches(params: Record<string, string> = {}): Promise<{
+  batches: BatchRow[];
+  next_cursor: string | null;
+}> {
+  const q = new URLSearchParams(params).toString();
+  return req(`/api/v1/portal/batches${q ? `?${q}` : ""}`);
+}
+
+export function getBatch(uuid: string): Promise<BatchDetail> {
+  return req(`/api/v1/portal/batches/${uuid}`);
+}
+
+export function getSummary(): Promise<{
+  by_status: Record<string, number>;
+  provisional: number;
+  reasons_histogram: Record<string, number>;
+}> {
+  return req("/api/v1/portal/summary");
+}
+
+// Authed media bytes → object URL (an <img src> cannot carry a bearer header).
+export async function fetchMediaUrl(operationId: string): Promise<string> {
+  const headers = new Headers();
+  const token = getToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const res = await fetch(`${BASE}/api/v1/portal/media/${operationId}`, {
+    headers,
+  });
+  if (res.status === 401) {
+    clearSession();
+    throw new AuthError("unauthenticated");
+  }
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  return URL.createObjectURL(await res.blob());
+}
