@@ -121,6 +121,43 @@ export function getSummary(): Promise<{
   return req("/api/v1/portal/summary");
 }
 
+// --- P2.5 registry (admin) + token mint ---
+export function registryPost(
+  kind:
+    | "kilns"
+    | "operator-training"
+    | "supervisor-visit"
+    | "scale-calibration"
+    | "annual-verification",
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  return req(`/api/v1/portal/registry/${kind}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export interface KilnRow {
+  kiln_id: string;
+  kiln_type: string | null;
+  material: string | null;
+  weight_kg: number | null;
+  lifetime_years: number | null;
+}
+
+export function listKilns(): Promise<{ kilns: KilnRow[] }> {
+  return req("/api/v1/portal/registry/kilns");
+}
+
+export function mintToken(
+  body: { expires_in_days?: number; base_url?: string } = {},
+): Promise<{ token: string; expires_at: string; qr_payload: string }> {
+  return req("/api/v1/portal/tokens", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export function submitLabResults(
   uuid: string,
   body: Record<string, unknown>,

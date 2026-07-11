@@ -35,6 +35,7 @@ from models import (
     CompositePileSample,
     DeviceKey,
     EndUseApplication,
+    Kiln,
     MediaFile,
     MoistureReading,
     PortalUser,
@@ -42,6 +43,22 @@ from models import (
     TransportEvent,
     YieldMetrics,
     EnrollmentToken,
+)
+# P2.5: reuse the admin registry request models + upsert helpers directly from
+# server (imported at server-load time, after they're defined; the include-at-end
+# seam avoids a cycle). Recorded as a P4.8 coupling to resolve when server.py is
+# split.
+from server import (  # noqa: E402
+    AnnualVerificationRequest,
+    KilnRequest,
+    OperatorTrainingRequest,
+    ScaleCalibrationRequest,
+    SupervisorVisitRequest,
+    upsert_annual_verification,
+    upsert_kiln,
+    upsert_operator_training,
+    upsert_scale_calibration,
+    upsert_supervisor_visit,
 )
 from .auth import (
     create_session,
@@ -459,3 +476,77 @@ async def upload_lab_certificate(
         existing.batch_uuid = batch.batch_uuid
         await session.commit()
     return {"operation_id": op, "sha256_hash": sha}
+
+
+# ---------------------------------------------------------------------------
+# P2.5 — Registry admin forms. Thin portal (admin-role) wrappers over the SAME
+# upsert helpers the legacy X-Admin-Secret routes use. Operator-training and
+# supervisor-visit are idempotent on their natural key (M5).
+# ---------------------------------------------------------------------------
+
+
+@router.post("/registry/kilns")
+async def portal_register_kiln(
+    payload: KilnRequest,
+    _user: PortalUser = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    return await upsert_kiln(session, payload)
+
+
+@router.get("/registry/kilns")
+async def portal_list_kilns(
+    _user: PortalUser = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    rows = (
+        await session.execute(select(Kiln).order_by(Kiln.registered_at.desc()))
+    ).scalars().all()
+    return {
+        "kilns": [
+            {
+                "kiln_id": k.kiln_id,
+                "kiln_type": k.kiln_type,
+                "material": k.material,
+                "weight_kg": k.weight_kg,
+                "lifetime_years": k.lifetime_years,
+            }
+            for k in rows
+        ]
+    }
+
+
+@router.post("/registry/operator-training")
+async def portal_operator_training(
+    payload: OperatorTrainingRequest,
+    _user: PortalUser = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    return await upsert_operator_training(session, payload)
+
+
+@router.post("/registry/supervisor-visit")
+async def portal_supervisor_visit(
+    payload: SupervisorVisitRequest,
+    _user: PortalUser = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    return await upsert_supervisor_visit(session, payload)
+
+
+@router.post("/registry/scale-calibration")
+async def portal_scale_calibration(
+    payload: ScaleCalibrationRequest,
+    _user: PortalUser = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    return await upsert_scale_calibration(session, payload)
+
+
+@router.post("/registry/annual-verification")
+async def portal_annual_verification(
+    payload: AnnualVerificationRequest,
+    _user: PortalUser = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    return await upsert_annual_verification(session, payload)

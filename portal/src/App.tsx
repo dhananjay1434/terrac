@@ -6,6 +6,7 @@ import Batches from "./pages/Batches";
 import BatchDetail from "./pages/BatchDetail";
 import LabScan from "./pages/LabScan";
 import LabEntry from "./pages/LabEntry";
+import Registry from "./pages/Registry";
 import type { JSX } from "react";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -29,6 +30,9 @@ function TopBar() {
         <span className="spacer" />
         <button className="linkbtn" onClick={() => nav("/lab/scan")}>
           Lab scan
+        </button>
+        <button className="linkbtn" onClick={() => nav("/registry")}>
+          Registry
         </button>
         <button className="linkbtn" onClick={signOut}>
           Sign out
@@ -87,6 +91,16 @@ export default function App() {
           <RequireAuth>
             <Shell>
               <LabEntry />
+            </Shell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/registry"
+        element={
+          <RequireAuth>
+            <Shell>
+              <Registry />
             </Shell>
           </RequireAuth>
         }

@@ -1,0 +1,235 @@
+import { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import {
+  registryPost,
+  listKilns,
+  mintToken,
+  AuthError,
+  type KilnRow,
+} from "../api";
+import { kilnQrPayload } from "../qr";
+import { useNavigate } from "react-router-dom";
+
+// A tiny generic form: field defs -> values -> POST. Keeps this admin page
+// compact without a form library.
+type Field = { key: string; label: string; type?: string };
+
+function Form({
+  title,
+  fields,
+  onSubmit,
+}: {
+  title: string;
+  fields: Field[];
+  onSubmit: (values: Record<string, string>) => Promise<void>;
+}) {
+  const [v, setV] = useState<Record<string, string>>({});
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <form
+      className="card"
+      style={{ marginBottom: 14 }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setMsg(null);
+        try {
+          await onSubmit(v);
+          setMsg("Saved.");
+          setV({});
+        } catch {
+          setMsg("Save failed.");
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <span className="micro">{title}</span>
+      <div className="filters" style={{ marginTop: 10 }}>
+        {fields.map((f) => (
+          <input
+            key={f.key}
+            placeholder={f.label}
+            type={f.type ?? "text"}
+            value={v[f.key] ?? ""}
+            onChange={(e) => setV((s) => ({ ...s, [f.key]: e.target.value }))}
+          />
+        ))}
+        <button className="primary" type="submit" disabled={busy}>
+          Save
+        </button>
+      </div>
+      {msg && <div className="micro" style={{ marginTop: 6 }}>{msg}</div>}
+    </form>
+  );
+}
+
+function num(s: string | undefined): number | undefined {
+  if (!s || !s.trim()) return undefined;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+export default function Registry() {
+  const nav = useNavigate();
+  const [kilns, setKilns] = useState<KilnRow[]>([]);
+  const [caps, setCaps] = useState<Record<string, string>>({});
+  const [token, setToken] = useState<{ token: string; qr_payload: string } | null>(
+    null,
+  );
+
+  async function refreshKilns() {
+    try {
+      setKilns((await listKilns()).kilns);
+    } catch (e) {
+      if (e instanceof AuthError) nav("/login");
+    }
+  }
+  useEffect(() => {
+    refreshKilns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="wrap">
+      <h1 style={{ fontSize: 20, marginBottom: 14 }}>Registry</h1>
+
+      <Form
+        title="Register kiln (C8)"
+        fields={[
+          { key: "kiln_id", label: "kiln id" },
+          { key: "kiln_type", label: "type (open/closed)" },
+          { key: "material", label: "material" },
+          { key: "weight_kg", label: "weight kg" },
+          { key: "capacity_l", label: "capacity litres" },
+        ]}
+        onSubmit={async (val) => {
+          if (val.capacity_l)
+            setCaps((c) => ({ ...c, [val.kiln_id]: val.capacity_l }));
+          await registryPost("kilns", {
+            kiln_id: val.kiln_id,
+            kiln_type: val.kiln_type || null,
+            material: val.material || null,
+            weight_kg: num(val.weight_kg),
+          });
+          await refreshKilns();
+        }}
+      />
+
+      {kilns.length > 0 && (
+        <section className="card" style={{ marginBottom: 14 }}>
+          <span className="micro">Kiln cards (print &amp; mount)</span>
+          <div className="media-grid" style={{ marginTop: 12 }}>
+            {kilns.map((k) => (
+              <div className="media-cell" key={k.kiln_id} style={{ padding: 10 }}>
+                <QRCodeSVG
+                  value={kilnQrPayload({
+                    kiln_id: k.kiln_id,
+                    kiln_type: k.kiln_type ?? "",
+                    capacity_l: num(caps[k.kiln_id]) ?? null,
+                  })}
+                  size={110}
+                />
+                <div className="cap">
+                  {k.kiln_id} · {k.kiln_type}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="card" style={{ marginBottom: 14 }}>
+        <span className="micro">Enrollment token</span>
+        <div className="filters" style={{ marginTop: 10 }}>
+          <button
+            className="primary"
+            onClick={async () => {
+              try {
+                setToken(await mintToken({ expires_in_days: 7 }));
+              } catch (e) {
+                if (e instanceof AuthError) nav("/login");
+              }
+            }}
+          >
+            Mint enrollment token
+          </button>
+        </div>
+        {token && (
+          <div style={{ marginTop: 12, display: "flex", gap: 16, alignItems: "center" }}>
+            <QRCodeSVG value={token.qr_payload} size={130} />
+            <code style={{ fontSize: 11, wordBreak: "break-all" }}>{token.token}</code>
+          </div>
+        )}
+      </section>
+
+      <Form
+        title="Operator training (idempotent on operator+date)"
+        fields={[
+          { key: "operator_id", label: "operator id" },
+          { key: "completed_at", label: "completed date" },
+          { key: "training_type", label: "training type" },
+        ]}
+        onSubmit={(val) =>
+          registryPost("operator-training", {
+            record_uuid: crypto.randomUUID(),
+            operator_id: val.operator_id || null,
+            completed_at: val.completed_at || null,
+            training_type: val.training_type || null,
+          }).then(() => undefined)
+        }
+      />
+
+      <Form
+        title="Supervisor visit (idempotent on kiln+date)"
+        fields={[
+          { key: "kiln_id", label: "kiln id" },
+          { key: "visited_at", label: "visit date" },
+          { key: "notes", label: "notes" },
+        ]}
+        onSubmit={(val) =>
+          registryPost("supervisor-visit", {
+            visit_uuid: crypto.randomUUID(),
+            kiln_id: val.kiln_id || null,
+            visited_at: val.visited_at || null,
+            notes: val.notes || null,
+          }).then(() => undefined)
+        }
+      />
+
+      <Form
+        title="Scale calibration (C8)"
+        fields={[
+          { key: "scale_id", label: "scale id" },
+          { key: "calibrated_at", label: "calibrated at (ISO)" },
+          { key: "valid_until", label: "valid until (ISO)" },
+        ]}
+        onSubmit={(val) =>
+          registryPost("scale-calibration", {
+            calibration_uuid: crypto.randomUUID(),
+            scale_id: val.scale_id || null,
+            calibrated_at: val.calibrated_at || null,
+            valid_until: val.valid_until || null,
+          }).then(() => undefined)
+        }
+      />
+
+      <Form
+        title="Annual verification (C9, keyed by project+year)"
+        fields={[
+          { key: "project_id", label: "project id" },
+          { key: "year", label: "year" },
+          { key: "methane_rate_g_per_kg", label: "methane g/kg" },
+        ]}
+        onSubmit={(val) =>
+          registryPost("annual-verification", {
+            project_id: val.project_id,
+            year: num(val.year) ?? 2026,
+            methane_rate_g_per_kg: num(val.methane_rate_g_per_kg),
+          }).then(() => undefined)
+        }
+      />
+    </div>
+  );
+}
