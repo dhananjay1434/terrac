@@ -221,3 +221,25 @@ and prints the URL.
 A real phone (release build, `DMRV_TLS_TRUST=system`, `DMRV_API_BASE_URL` = the
 Cloud Run URL) enrolls and syncs one batch over TLS; the portal is served from
 the same origin.
+
+---
+
+## Attestation enforcement (P4.1)
+
+Play Integrity verdicts gate batch issuance (an unverified device keeps a batch
+provisional) once enforcement is on. The verdict **policy** and the enforcement
+**grace window** are implemented (`backend/attestation.py`); the token→claims
+**decode needs Google Play Console credentials** (`[HUMAN]`), injected via
+`attestation.configure_play_integrity_decoder(...)` in deploy wiring.
+
+Rollout (staging first):
+
+1. `[HUMAN]` obtain Play Console credentials; wire a real decoder into
+   `configure_play_integrity_decoder`. Set `DMRV_PLAY_INTEGRITY_PACKAGE`.
+2. Confirm genuine devices return verified (watch logs / a metrics counter).
+3. Set a grace window so the existing fleet isn't bricked on flip:
+   `DMRV_ATTESTATION_ENFORCED_SINCE=<now ISO>` and
+   `DMRV_ATTESTATION_GRACE_DAYS=30` — devices enrolled before that instant stay
+   issuable for 30 days while they update; devices enrolling after it must
+   attest immediately.
+4. Flip `DMRV_ATTESTATION_ENFORCED=1` on staging, then production.

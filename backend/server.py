@@ -1065,6 +1065,18 @@ async def recompute_batch_credit(
 _recompute_run_count = 0
 
 
+async def _device_registered_at(session: AsyncSession, device_id):
+    """The DeviceKey.registered_at for a device, or None if unknown. Used only by
+    the attestation grace check (P4.1)."""
+    if not device_id:
+        return None
+    return (
+        await session.execute(
+            select(DeviceKey.registered_at).where(DeviceKey.device_id == device_id)
+        )
+    ).scalar_one_or_none()
+
+
 @observability.timed_recompute
 async def _recompute_batch_credit_impl(
     session: AsyncSession,
@@ -1126,7 +1138,18 @@ async def _recompute_batch_credit_impl(
         log.warning(
             "batch %s hw_attestation not verified: %s", buid, _att_verdict.reason
         )
-    attestation_ok = True if not _attestation_enforced() else attestation_verified
+    if not _attestation_enforced() or attestation_verified:
+        attestation_ok = True
+    else:
+        # P4.1: enforced + unverified. Honor a grace window for devices that
+        # enrolled BEFORE enforcement began, so flipping the flag on doesn't
+        # instantly brick the existing fleet. Only queried on this rare path.
+        reg_at = await _device_registered_at(session, batch.device_id)
+        attestation_ok = attestation.attestation_in_grace(
+            reg_at, datetime.now(timezone.utc)
+        )
+        if attestation_ok:
+            log.info("batch %s attestation unverified but device in grace", buid)
 
     min_temp, _ = derive_min_temp(tel_payload)
     wet_yield, _ = derive_wet_yield(yld_payload)
