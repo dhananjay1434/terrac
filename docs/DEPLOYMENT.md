@@ -120,3 +120,31 @@ Wired in [`backend/observability.py`](../backend/observability.py):
 | **Provisional-ratio spike** | `dmrv_provisional_ratio` up >20% day-over-day | A capture regression or a systemic corroboration failure in the field. |
 | **DB connections** | pool usage > 80% of `DMRV_POOL_SIZE + DMRV_POOL_MAX_OVERFLOW` | Approaching connection exhaustion. |
 | **Disk** | evidence volume > 80% (local backend only) | Move to object storage (P3.2) before it fills. |
+
+---
+
+## HMAC key rotation (P3.6)
+
+The server's `lca_signature` (an HMAC over each issued batch's LCA audit) uses
+**versioned keys** so the key can be rotated without invalidating any
+already-issued signature. Each batch records the key id it was signed under
+(`batches.lca_signature_key_id`); verification resolves that id.
+
+- **Legacy (default):** set only `DMRV_HMAC_SECRET`. It is used as key id `k0`;
+  rows written before P3.6 (null key id) also resolve to `k0`.
+- **Versioned:** set `DMRV_HMAC_KEYS={"k2":"<hex>","k1":"<hex>"}` and
+  `DMRV_HMAC_ACTIVE_KEY=k2`. New signatures use the active key; old ones keep
+  verifying under their recorded id.
+
+**Rotation procedure (zero downtime, no historical breakage):**
+
+1. Generate a fresh secret, e.g. `k3`.
+2. Deploy with `DMRV_HMAC_KEYS` containing **both the new and all still-relevant
+   old keys** — e.g. `{"k3":"<new>","k2":"<old>"}` — and
+   `DMRV_HMAC_ACTIVE_KEY=k3`. New issuances now sign under `k3`.
+3. **Never remove a key id that still has issued signatures you must verify.**
+   Dropping a key from `DMRV_HMAC_KEYS` makes those signatures report
+   `unverifiable` (by design — no crash), not `invalid`.
+
+Device authentication (Ed25519) is a **separate** mechanism and is unaffected by
+this rotation.

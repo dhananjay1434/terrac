@@ -69,7 +69,13 @@ from models import (
     YieldMetrics,
 )
 from emission_factors import TRANSPORT_EVENTS_ENFORCED, fuel_emissions_kg_co2e
-from lca_engine import CORG_TABLE, calculate_carbon_credit, sign_lca_audit
+import hmac_keys
+from lca_engine import (
+    CORG_TABLE,
+    calculate_carbon_credit,
+    lca_sign_payload_bytes,
+    sign_lca_audit,
+)
 from corroboration import (
     assemble,
     derive_annual_methane_compliance,
@@ -216,7 +222,14 @@ def _require_secret(name: str) -> str:
     return value
 
 
-_HMAC_SECRET = _require_secret("DMRV_HMAC_SECRET")
+# P3.6: the lca_signature HMAC key is now versioned (DMRV_HMAC_KEYS +
+# DMRV_HMAC_ACTIVE_KEY, or the legacy DMRV_HMAC_SECRET as key id k0). Fail loud
+# at import if no valid key is configured — same guarantee _require_secret gave.
+hmac_keys.validate_startup()
+# Back-compat shim: the active key's secret under its historical name. Live
+# signing goes through hmac_keys.active_key() (versioned); this stays so existing
+# guards/tests that read the resolved secret keep working.
+_HMAC_SECRET = hmac_keys.active_key()[1]
 _ADMIN_SECRET = _require_secret("DMRV_ADMIN_SECRET")
 
 # Platform attestation (Play Integrity / DeviceCheck). T2.1 added a verifier
@@ -1275,11 +1288,30 @@ async def recompute_batch_credit(
     batch.lca_audit_json = json.dumps(audit)
     # Phase 8-R: only a fully-corroborated, non-provisional batch carries an
     # issuance signature. A provisional audit must never look issuable downstream.
-    batch.lca_signature = (
-        None
-        if batch.provisional
-        else sign_lca_audit(lca, _HMAC_SECRET, batch_uuid=str(batch.batch_uuid))
-    )
+    # P3.6: sign under the ACTIVE versioned key and record its id, so a later key
+    # rotation never invalidates this signature.
+    if batch.provisional:
+        batch.lca_signature = None
+        batch.lca_signature_key_id = None
+    else:
+        _key_id, _secret = hmac_keys.active_key()
+        batch.lca_signature = sign_lca_audit(
+            lca, _secret, batch_uuid=str(batch.batch_uuid)
+        )
+        batch.lca_signature_key_id = _key_id
+
+
+def verify_lca_signature(batch: Batch, lca) -> str:
+    """P3.6: verify a batch's lca_signature under the key it was signed with.
+
+    Returns 'unsigned' (no signature), 'unverifiable' (the signing key id is no
+    longer in the environment — rotated out), 'valid', or 'invalid'. Never raises
+    on a missing key so a caller can surface the state instead of 500ing.
+    """
+    if not batch.lca_signature:
+        return "unsigned"
+    payload = lca_sign_payload_bytes(lca, batch_uuid=str(batch.batch_uuid))
+    return hmac_keys.verify(payload, batch.lca_signature, batch.lca_signature_key_id)
 
 
 async def apply_lab_results(

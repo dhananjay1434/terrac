@@ -314,11 +314,23 @@ def sign_lca_audit(audit: LCAAudit, secret: str, *, batch_uuid: str) -> str:
     """
     # Deterministic dict of the physical audit (minus the signature field) + the
     # batch identity that scopes this signature to exactly one minting event.
-    data = {k: v for k, v in audit.__dict__.items() if k != "audit_signature"}
-    data["batch_uuid"] = str(batch_uuid)
-    payload_str = json.dumps(data, sort_keys=True)
+    payload_str = _lca_sign_payload(audit, batch_uuid=batch_uuid)
     signature = hmac.new(
         secret.encode(), payload_str.encode(), hashlib.sha256
     ).hexdigest()
     audit.audit_signature = signature
     return signature
+
+
+def _lca_sign_payload(audit: "LCAAudit", *, batch_uuid: str) -> str:
+    """The exact deterministic string sign_lca_audit HMACs. Factored out so
+    verification (P3.6) reconstructs the identical payload."""
+    data = {k: v for k, v in audit.__dict__.items() if k != "audit_signature"}
+    data["batch_uuid"] = str(batch_uuid)
+    return json.dumps(data, sort_keys=True)
+
+
+def lca_sign_payload_bytes(audit: "LCAAudit", *, batch_uuid: str) -> bytes:
+    """Public helper: the signable bytes for an audit (used by hmac_keys.sign/
+    verify so the versioned-key path signs the same payload as sign_lca_audit)."""
+    return _lca_sign_payload(audit, batch_uuid=batch_uuid).encode()

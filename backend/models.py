@@ -384,6 +384,9 @@ class Batch(Base):
     lca_methodology_version: Mapped[str] = mapped_column(String(255), nullable=True)
     lca_audit_json: Mapped[str] = mapped_column(Text, nullable=True)
     lca_signature: Mapped[str] = mapped_column(String(64), nullable=True)
+    # P3.6: id of the versioned HMAC key that produced lca_signature. Null on
+    # rows written before key versioning ⇒ resolves to the legacy key id k0.
+    lca_signature_key_id: Mapped[str] = mapped_column(String(16), nullable=True)
     received_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
