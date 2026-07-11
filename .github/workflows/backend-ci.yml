@@ -15,10 +15,12 @@ on:
     branches: [main, "remediation/**"]
     paths:
       - "backend/**"
+      - "docker-compose.yml"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     paths:
       - "backend/**"
+      - "docker-compose.yml"
       - ".github/workflows/backend-ci.yml"
 
 defaults:
@@ -111,6 +113,48 @@ jobs:
         run: python -m alembic check
       - name: Run test suite on Postgres
         run: python -m pytest -q
+
+  docker-smoke:
+    name: docker image boots (smoke)
+    runs-on: ubuntu-latest
+    # P3.1: prove the production image actually builds and the app comes up.
+    # We boot on a file-backed SQLite (no Postgres service needed) so this is a
+    # pure image/startup check — migrations run at startup (init_db) and
+    # /api/health does a real SELECT 1, so a 200 means "image built, deps
+    # importable, migrations applied, DB reachable". Weak secrets are allowed
+    # here exactly as the pytest lane does it; never in production.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image (context = backend/)
+        run: docker build -t dmrv-api:smoke backend
+      - name: Boot container on SQLite
+        run: |
+          docker run -d --name dmrv-smoke -p 8001:8001 \
+            -e DATABASE_URL="sqlite+aiosqlite:////app/smoke.db" \
+            -e DMRV_HMAC_SECRET="ci-smoke-hmac-secret" \
+            -e DMRV_ADMIN_SECRET="ci-smoke-admin-secret" \
+            -e DMRV_ALLOW_WEAK_SECRETS="1" \
+            dmrv-api:smoke
+      - name: Wait for /api/health to return 200 (max 90s)
+        run: |
+          for i in $(seq 1 90); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/api/health || true)
+            if [ "$code" = "200" ]; then
+              echo "healthy after ${i}s"
+              curl -s http://localhost:8001/api/health
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::container did not become healthy within 90s"
+          docker logs dmrv-smoke
+          exit 1
+      - name: Container logs (always)
+        if: always()
+        run: docker logs dmrv-smoke || true
+      - name: Tear down
+        if: always()
+        run: docker rm -f dmrv-smoke || true
 
   lint:
     name: ruff (informational)

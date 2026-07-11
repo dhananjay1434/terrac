@@ -1,0 +1,77 @@
+# P3.1 — local production-shaped stack: the API on Postgres (not the dev
+# SQLite file), with MinIO available behind a profile for the P3.3 object-store
+# work. Bring it up with:  docker compose up --build
+# MinIO is opt-in until P3.2/P3.3:  docker compose --profile storage up --build
+#
+# Config comes from a .env file next to this one — copy .env.compose.example to
+# .env and fill in real secrets. Compose interpolates ${VAR} from that file.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dmrv}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dmrv}
+      POSTGRES_DB: ${POSTGRES_DB:-dmrv}
+    volumes:
+      - dmrv-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dmrv} -d ${POSTGRES_DB:-dmrv}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    restart: unless-stopped
+
+  api:
+    build:
+      # Context is backend/ so backend/.dockerignore applies and the Flutter
+      # tree never enters the build (see backend/Dockerfile header).
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # asyncpg URL for the app engine; Alembic strips +asyncpg itself (db.py).
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-dmrv}:${POSTGRES_PASSWORD:-dmrv}@db:5432/${POSTGRES_DB:-dmrv}
+      DMRV_HMAC_SECRET: ${DMRV_HMAC_SECRET:?set DMRV_HMAC_SECRET in .env}
+      DMRV_ADMIN_SECRET: ${DMRV_ADMIN_SECRET:?set DMRV_ADMIN_SECRET in .env}
+      DMRV_ALLOWED_ORIGIN: ${DMRV_ALLOWED_ORIGIN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Migrations run at startup (init_db) against Postgres. Leave unset to run.
+      DMRV_SKIP_MIGRATIONS: ${DMRV_SKIP_MIGRATIONS:-}
+    ports:
+      # Host:container. The container listens on 8001 (Dockerfile CMD/HEALTHCHECK).
+      - "${API_PORT:-8001}:8001"
+    volumes:
+      # Evidence uploads persist outside the image (object store lands in P3.3).
+      - dmrv-uploads:/app/uploads
+    restart: unless-stopped
+
+  # Opt-in until the object-storage abstraction (P3.2) and cloud wiring (P3.3)
+  # use it. Enable with: docker compose --profile storage up
+  minio:
+    image: minio/minio:latest
+    profiles: ["storage"]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - dmrv-minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  dmrv-pgdata:
+  dmrv-uploads:
+  dmrv-minio:

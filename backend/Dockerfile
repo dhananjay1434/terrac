@@ -1,6 +1,12 @@
 # T3.2 — production image for the dMRV backend.
 # Slim, pinned, non-root. Migrations run at startup via the FastAPI lifespan
 # (init_db) unless DMRV_SKIP_MIGRATIONS=1.
+#
+# BUILD CONTEXT IS backend/  (P3.1): keep the context tiny and let
+# backend/.dockerignore take effect — Docker reads .dockerignore from the
+# context root, so a root context would both bloat the image with the Flutter
+# tree and silently ignore backend/.dockerignore. Build with either
+# `docker build backend` or compose's `build.context: ./backend`.
 FROM python:3.11-slim
 
 # curl is used by the container HEALTHCHECK below; keep the layer minimal.
@@ -11,11 +17,11 @@ RUN apt-get update \
 WORKDIR /app
 
 # Install deps first for layer caching.
-COPY backend/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # App code.
-COPY backend/ .
+COPY . .
 
 # Drop privileges — the process never needs root.
 RUN useradd -r -u 10001 dmrv && chown -R dmrv /app

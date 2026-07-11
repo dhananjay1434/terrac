@@ -5,8 +5,8 @@
 **Legend:** `[ ]` not started · `[~]` in progress · `[x]` done (committed) · `⏸` blocked (waiting on a human/decision — note what it needs)
 
 **Started:** 2026-07-10
-**Current phase:** P0/P1/**P2 ALL COMPLETE** ✅ — the Lab & Verifier portal (P2.0–P2.6) is done + pushed: APIRouter seam, role auth, read API, React UI, lab QR-scan+recompute, registry forms+M5, deliberate issuance+immutable audit. P2 exit gate code-green (on-device walkthrough parked). Backend **351/1**, portal tsc/vitest **19**/build green, Flutter **229/~2**. Next: **P3 (deploy & scale-hardening)** starting P3.1. P0 agent-work 8/10 (hardware/decision-parked).
-**Next actionable task:** P3.1 (docker-compose + .dockerignore + CI image smoke). **P2 COMPLETE** ✅ — all 7 tasks (P2.0–P2.6) done + pushed; P2 exit gate code-green (on-device walkthrough parked).
+**Current phase:** **P3 (deploy & scale-hardening) IN PROGRESS** — P3.1 done: production image (context retargeted to `backend/`), `docker-compose.yml` (api+db+profile-gated minio), `.dockerignore`, and a CI docker-boot smoke job; **verified live** (Docker 26.1.1: builds, boots healthy 4s, migrations→head in-image, lean image). P0/P1/**P2 ALL COMPLETE** ✅. Backend **351/1**, portal tsc/vitest **19**/build green, Flutter **229/~2**.
+**Next actionable task:** **P3.2** (object-storage abstraction for evidence media). P3.1 ✅ done + verified live.
 
 ---
 
@@ -66,7 +66,7 @@
 - [~] **P2 EXIT GATE** — code-complete + test-green; the on-device end-to-end walkthrough is ⏸ device/human. Criterion → impl: (a) lab scans real batch QR → gates flip green = **S8 enroll + P2.4** `/lab/scan`+`/lab/:uuid`+recompute (state-parity tested; needs a printed QR + phone browser to demo); (b) admin issues credit with full audit trail = **P2.6** issue + audit on mint/lab/registry/issue (tested, actor ids recorded); (c) zero curl in workflow = the portal UI covers login/lab/registry/token-mint/issue end-to-end (the `demo_tools` X-Admin-Secret page is retired from use, file may remain). Backend **351/1**, portal tsc/vitest **19**/build all green. `⏸ HUMAN/device: run the lab-tech phone walkthrough on a real printed batch card to close the gate.`
 
 ## PHASE P3 — Deploy & scale-hardening
-- [ ] **P3.1** — docker-compose + .dockerignore + CI image smoke
+- [x] **P3.1** — docker-compose + .dockerignore + CI image smoke · **retargeted the image build context to `backend/`** (was repo-root — that both bloated the context with the whole Flutter tree and made a `backend/.dockerignore` a no-op, since Docker reads `.dockerignore` from the context root); Dockerfile `COPY backend/… → COPY …` accordingly. `backend/.dockerignore` (pycache/pyc/pytest_cache/*.db+sidecars/uploads/.env*/tests). Root `docker-compose.yml`: `api` (build ./backend, Postgres asyncpg URL, uploads volume, `${VAR:?}`-required secrets, port 8001), `db` (postgres:16, pg_isready healthcheck, named volume, start_period 60s), `minio` (profile `storage`, opt-in until P3.2/P3.3). `.env.compose.example` placeholders (+ `!.env.compose.example` gitignore negation). CI: new **docker-smoke** job in backend-ci.yml (`docker build backend` → boot on file SQLite w/ weak-secrets → poll `/api/health` for 200, max 90s, dumps logs on fail). **VERIFIED LIVE** (started Docker Desktop, daemon 26.1.1): image builds, boots healthy in 4s (`db:ok`), migrations ran to head `b4c5d6e7f8a9` (20 tables) in-image, and `tests/`/`dmrv.db`/`__pycache__` confirmed excluded from the image. No app code touched → pytest suite unaffected.
 - [ ] **P3.2** — Object storage abstraction for evidence media
 - [ ] **P3.3** — Cloud deployment (Cloud Run + Cloud SQL + GCS) · `⏸ needs HUMAN: GCP project + resources`
 - [ ] **P3.4** — Observability (structured logs, request IDs, /metrics, Sentry)
