@@ -158,6 +158,7 @@ async def client(session_factory):
             yield s
 
     app.dependency_overrides[get_session] = override_session
+
     from httpx import ASGITransport
 
     async with SignedAsyncClient(

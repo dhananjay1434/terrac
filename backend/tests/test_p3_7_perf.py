@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 import server
+import credit_engine
 
 
 # --------------------------------------------------------------------------
@@ -58,7 +59,7 @@ async def test_concurrent_posts_coalesce(monkeypatch):
         calls["n"] += 1
         await asyncio.sleep(0.02)  # hold the lock so others pile up behind it
 
-    monkeypatch.setattr(server, "_recompute_batch_credit_impl", _fake_impl)
+    monkeypatch.setattr(credit_engine, "_recompute_batch_credit_impl", _fake_impl)
     buid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     server._recompute_state.pop(buid, None)
     batch = SimpleNamespace(batch_uuid=buid)
@@ -81,7 +82,7 @@ async def test_spaced_posts_each_recompute(monkeypatch):
     async def _fake_impl(session, batch, **kw):
         calls["n"] += 1
 
-    monkeypatch.setattr(server, "_recompute_batch_credit_impl", _fake_impl)
+    monkeypatch.setattr(credit_engine, "_recompute_batch_credit_impl", _fake_impl)
     buid = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
     server._recompute_state.pop(buid, None)
     batch = SimpleNamespace(batch_uuid=buid)
@@ -100,7 +101,7 @@ async def test_pre_commit_path_never_coalesces(monkeypatch):
         calls["n"] += 1
         await asyncio.sleep(0.01)
 
-    monkeypatch.setattr(server, "_recompute_batch_credit_impl", _fake_impl)
+    monkeypatch.setattr(credit_engine, "_recompute_batch_credit_impl", _fake_impl)
     buid = "cccccccc-cccc-cccc-cccc-cccccccccccc"
     server._recompute_state.pop(buid, None)
     batch = SimpleNamespace(batch_uuid=buid)

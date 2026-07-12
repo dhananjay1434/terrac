@@ -20,12 +20,10 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
 from typing import Optional, Literal
 from uuid import UUID
 
-from dotenv import load_dotenv
 from fastapi import (
     Depends,
     FastAPI,
@@ -40,11 +38,25 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from schemas import (
+    BatchPayload,
+    BatchResponse,
+    MediaUploadResponse,
+    RegistrationRequest,
+    RegistrationResponse,
+    MintTokenRequest,
+    LabHCorgRequest,
+    LabResultsRequest,
+    _BatchScopedPayload,
+    KilnRequest,
+    OperatorTrainingRequest,
+    SupervisorVisitRequest,
+    ScaleCalibrationRequest,
+    AnnualVerificationRequest
+)
 from sqlalchemy import desc, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from cryptography.exceptions import InvalidSignature
 import piexif
 
 import attestation
@@ -71,6 +83,16 @@ from models import (
 )
 from emission_factors import TRANSPORT_EVENTS_ENFORCED, fuel_emissions_kg_co2e
 import hmac_keys
+from credit_engine import (
+    _recompute_slot,
+    recompute_batch_credit,
+    _recompute_batch_credit_impl,
+    verify_lca_signature,
+    _recompute_lock,
+    _recompute_state,
+    _RECOMPUTE_STATE_CAP,
+    _recompute_run_count,
+)
 from lca_engine import (
     CORG_TABLE,
     calculate_carbon_credit,
@@ -94,227 +116,43 @@ from corroboration import (
     derive_transport_km,
     derive_wet_yield,
 )
+from jsonsafe import _as_utc, _safe_json, _safe_json_async, _BIG_JSON_BYTES  # noqa: F401  (R1 facade)
+from geo import (  # noqa: F401  (R1 facade)
+    GPS_ANCHOR_MISMATCH_KM,
+    _evaluate_anchor,
+    _gps_mismatch_km,
+    _parse_exif_gps,
+    haversine_km,
+)
+# R2: when server.py is reloaded (test_p0_21 does sys.modules.pop("server") +
+# reimport), settings must also re-initialize so the startup validation
+# (hmac_keys.validate_startup, _require_secret) fires again with the test's
+# monkeypatched env. This is a no-op on first import (settings runs normally).
+import importlib as _importlib
+import settings as _settings_mod
+_importlib.reload(_settings_mod)
+from settings import (  # noqa: F401  (R2 facade)
+    _ADMIN_SECRET,
+    _HMAC_SECRET,
+    _MIN_SECRET_LEN,
+    _MIN_SECRET_UNIQUE,
+    _attestation_enforced,
+    _canonical_skew_seconds,
+    _load_env,
+    _require_canonical_v2,
+    _require_secret,
+    _rl_int,
+    env_int,
+    log,
+)
+from security import (  # noqa: F401  (R3 facade)
+    _SAFE,
+    _b64url_decode,
+    _require_admin,
+    verify_media_signature,
+    verify_signature,
+)
 
-def _load_env() -> None:
-    """Populate os.environ from a local .env for developer convenience.
-
-    Skipped when DMRV_DISABLE_DOTENV=1. CI and production supply configuration
-    through the environment (not a checked-out .env), and the P0-21 regression
-    test relies on this flag to assert the "refuse to start without a secret"
-    guard against a genuinely clean environment — otherwise a developer .env on
-    disk silently repopulates a deliberately-removed variable. load_dotenv never
-    overrides a value already present in the environment.
-    """
-    if os.environ.get("DMRV_DISABLE_DOTENV") == "1":
-        return
-    load_dotenv()
-
-
-_load_env()
-
-
-def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    lon1, lat1, lon2, lat2 = map(radians, (lon1, lat1, lon2, lat2))
-    a = (
-        sin((lat2 - lat1) / 2) ** 2
-        + cos(lat1) * cos(lat2) * sin((lon2 - lon1) / 2) ** 2
-    )
-    return 6371.0 * 2 * asin(sqrt(a))
-
-
-def _exif_to_decimal(dms, ref) -> Optional[float]:
-    """Convert an EXIF GPS (degrees, minutes, seconds) rational triple + ref
-    ('N'/'S'/'E'/'W') to a signed decimal degree. Returns None if absent."""
-    if not dms or ref is None:
-        return None
-    try:
-
-        def _r(x):
-            return x[0] / x[1]
-
-        deg = _r(dms[0]) + _r(dms[1]) / 60.0 + _r(dms[2]) / 3600.0
-    except (TypeError, IndexError, ZeroDivisionError):
-        return None
-    if isinstance(ref, bytes):
-        ref = ref.decode("ascii", "ignore")
-    if ref in ("S", "W"):
-        deg = -deg
-    return deg
-
-
-def _parse_exif_gps(content: bytes) -> tuple[Optional[float], Optional[float]]:
-    """Best-effort GPS extraction from a photo's EXIF. Non-JPEG / no-EXIF /
-    no-GPS uploads return (None, None) rather than raising."""
-    try:
-        gps = piexif.load(content).get("GPS") or {}
-    except Exception:
-        return (None, None)
-    lat = _exif_to_decimal(
-        gps.get(piexif.GPSIFD.GPSLatitude), gps.get(piexif.GPSIFD.GPSLatitudeRef)
-    )
-    lon = _exif_to_decimal(
-        gps.get(piexif.GPSIFD.GPSLongitude), gps.get(piexif.GPSIFD.GPSLongitudeRef)
-    )
-    return (lat, lon)
-
-
-# T2.7: client-authored EXIF is WEAK corroboration — the app injects the GPS it
-# later "matches" against, so this catches careless fraud and honest error, not a
-# determined attacker. The strong device control is attestation (T2.1). The
-# threshold is deliberately generous to avoid false quarantines on GPS drift.
-GPS_ANCHOR_MISMATCH_KM = 1.0
-
-
-def _gps_mismatch_km(
-    lat1, lon1, lat2, lon2, threshold_km: float = GPS_ANCHOR_MISMATCH_KM
-) -> bool:
-    """True only when all four coordinates are present AND the photo EXIF and
-    the claimed location disagree by more than `threshold_km`."""
-    if None in (lat1, lon1, lat2, lon2):
-        return False
-    return haversine_km(lon1, lat1, lon2, lat2) > threshold_km
-
-
-def _evaluate_anchor(batch, photo_sha: Optional[str], exif_lat, exif_lon) -> None:
-    """Decide a batch's status when a photo is anchored to it.
-
-    Phase 9 + media integrity: only a photo whose SHA-256 matches the batch's
-    declared `sha256_hash` may verify it (a mismatching upload never upgrades
-    the batch). When the photo's EXIF GPS disagrees with the batch's claimed
-    coordinates by >1 km the batch is quarantined for review.
-    """
-    if not batch.sha256_hash or not photo_sha:
-        return
-    if photo_sha.lower() != batch.sha256_hash.lower():
-        return  # wrong photo — do not upgrade
-    if _gps_mismatch_km(batch.latitude, batch.longitude, exif_lat, exif_lon):
-        batch.status = "QUARANTINE_GPS_MISMATCH"
-    elif batch.status == "UNVERIFIED":
-        batch.status = "RECEIVED"
-
-
-_MIN_SECRET_LEN = 32
-_MIN_SECRET_UNIQUE = 10
-
-
-def _require_secret(name: str) -> str:
-    """Resolve a mandatory secret from the environment or refuse to start.
-
-    Single choke point for required-secret resolution so the fail-loud guarantee
-    lives in exactly one place. T2.6 adds an entropy/length floor so a weak
-    placeholder can never reach production. The floor is bypassed only when
-    DMRV_ALLOW_WEAK_SECRETS=1 (the test suite sets this so its short fixed
-    literals stay valid; never set it in production). Raises RuntimeError naming
-    the offending variable.
-    """
-    # TODO(deploy, T2.8): at first real deployment generate FRESH 32-byte
-    # DMRV_HMAC_SECRET / DMRV_ADMIN_SECRET (base64url) in the platform secret
-    # manager — never a file. Rotating DMRV_HMAC_SECRET invalidates verification
-    # of already-issued lca_signature values, so archive the old key for
-    # historical verification or re-sign historical audits in a migration.
-    value = os.environ.get(name)
-    if not value:
-        raise RuntimeError(f"{name} env var is required.")
-    if os.environ.get("DMRV_ALLOW_WEAK_SECRETS") != "1":
-        if len(value) < _MIN_SECRET_LEN or len(set(value)) < _MIN_SECRET_UNIQUE:
-            raise RuntimeError(
-                f"{name} is too weak: require >= {_MIN_SECRET_LEN} chars and "
-                f">= {_MIN_SECRET_UNIQUE} distinct characters."
-            )
-    return value
-
-
-# P3.6: the lca_signature HMAC key is now versioned (DMRV_HMAC_KEYS +
-# DMRV_HMAC_ACTIVE_KEY, or the legacy DMRV_HMAC_SECRET as key id k0). Fail loud
-# at import if no valid key is configured — same guarantee _require_secret gave.
-hmac_keys.validate_startup()
-# Back-compat shim: the active key's secret under its historical name. Live
-# signing goes through hmac_keys.active_key() (versioned); this stays so existing
-# guards/tests that read the resolved secret keep working.
-_HMAC_SECRET = hmac_keys.active_key()[1]
-_ADMIN_SECRET = _require_secret("DMRV_ADMIN_SECRET")
-
-# Platform attestation (Play Integrity / DeviceCheck). T2.1 added a verifier
-# interface (attestation.py); real provider verification still awaits Google /
-# Apple credentials, so verify_attestation returns UNVERIFIED for genuine tokens.
-# Policy switch (env-live so it survives importlib.reload + is runtime-tunable):
-#   0 (default, "Option B") — non-blocking: log a loud warning, do not gate.
-#   1 ("Option A")          — fail closed: an unverified attestation keeps the
-#                             batch PROVISIONAL (attestation_unverified). Flip via
-#                             DMRV_ATTESTATION_ENFORCED=1 once the verifier is real
-#                             and the fleet is verified-capable. See FINDINGS_BACKLOG.
-def _attestation_enforced() -> bool:
-    return os.environ.get("DMRV_ATTESTATION_ENFORCED", "0") == "1"
-
-# T2.3 replay protection. The v1 request canonical carries no timestamp, so a
-# captured request replays forever. v2 appends a client-signed unix timestamp and
-# the server rejects requests outside a skew window. Rollout is backward
-# compatible: v1 (no X-Canonical-Version header) is still accepted until the
-# fleet ships v2 signing, then DMRV_REQUIRE_CANONICAL_V2=1 refuses v1. The skew
-# window is generous (rural devices drift) and env-tunable. Read live from env so
-# it survives importlib.reload(server) (see the rate-limit note).
-def _canonical_skew_seconds() -> int:
-    return max(1, _rl_int("DMRV_CANONICAL_SKEW_SECONDS", 300))
-
-
-def _require_canonical_v2() -> bool:
-    return os.environ.get("DMRV_REQUIRE_CANONICAL_V2", "0") == "1"
-
-
-log = logging.getLogger("dmrv")
-# P3.4: JSON structured logging (request_id bound per request) replaces
-# basicConfig; Sentry initializes here if DMRV_SENTRY_DSN is set.
-observability.configure_json_logging()
-observability.init_sentry()
-
-
-def _safe_json(raw, *, context: str):
-    """Parse stored payload JSON defensively (P1-B1).
-
-    A corrupt stored payload — a bad write, a manual DB edit, a partial
-    migration — must degrade to "this row contributes nothing" plus a log line,
-    never a JSONDecodeError that aborts the whole recompute and permanently
-    bricks a batch's credit path (or 500s the compliance read). Returns the
-    parsed object, or None when raw is empty/unparseable.
-    """
-    if not raw:
-        return None
-    try:
-        return json.loads(raw)
-    except (ValueError, TypeError):
-        log.error("corrupt payload_json (%s) — treating as empty", context)
-        return None
-
-
-# P3.7/H3: telemetry payloads can be ~100k floats. Parsing that on the event loop
-# stalls every other request, so offload the big ones to a thread. Small payloads
-# (yield/application) stay inline — a thread hop would cost more than it saves.
-_BIG_JSON_BYTES = 512_000
-
-
-async def _safe_json_async(raw, *, context: str):
-    if raw and len(raw) > _BIG_JSON_BYTES:
-        return await asyncio.to_thread(_safe_json, raw, context=context)
-    return _safe_json(raw, context=context)
-
-
-# Identifier guard reused for device_id / operation_id path segments (blocks
-# path traversal + injection). Module-level so both the device media upload and
-# the portal media download validate against the SAME pattern (P2.2).
-_SAFE = re.compile(r"^[A-Za-z0-9_\-]{1,128}$")
-
-
-def _as_utc(dt: datetime) -> datetime:
-    """Normalize any datetime to aware-UTC (P1-B3).
-
-    Naive datetimes are treated as UTC (the client always sends UTC ISO); aware
-    ones are converted. Every cross-datetime comparison/subtraction goes through
-    this so a mixed naive/aware pair can never silently skew by the tz offset
-    (which previously let the teleport check strip tzinfo and mis-time by hours).
-    """
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
 
 
 @asynccontextmanager
@@ -424,11 +262,7 @@ def _rl_prune(current_window: int) -> None:
             del _rl_counters[k]
 
 
-def _rl_int(name: str, default: int) -> int:
-    try:
-        return int(os.environ.get(name, str(default)))
-    except ValueError:
-        return default
+
 
 
 def _rl_enabled() -> bool:
@@ -505,119 +339,14 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 # ==================== Pydantic Models ====================
 
 
-class BatchPayload(BaseModel):
-    """Strict Pydantic V2 model for batch payload."""
-
-    batch_uuid: UUID
-    feedstock_species: str
-    harvest_timestamp: datetime
-    moisture_percent: float = Field(..., ge=0.0, le=100.0)
-    photo_path: Optional[str] = Field(None, max_length=512)
-    sha256_hash: Optional[str] = Field(None, min_length=64, max_length=64)
-    latitude: Optional[float] = Field(None, ge=-90.0, le=90.0)
-    longitude: Optional[float] = Field(None, ge=-180.0, le=180.0)
-    harvest_uptime_seconds: Optional[int] = Field(0, ge=0)
-
-    sourcing_uuid: Optional[str] = Field(None, max_length=64)
-    moisture_compliant: Optional[bool] = None
-    mock_location_enabled: Optional[bool] = False
-    # Compass telemetry (advisory). Generous ±360 bounds accept any sensor
-    # convention while blocking absurd floats (P1-B5b).
-    azimuth: Optional[float] = Field(None, ge=-360.0, le=360.0)
-    pitch: Optional[float] = Field(None, ge=-360.0, le=360.0)
-    roll: Optional[float] = Field(None, ge=-360.0, le=360.0)
-
-    # Rainbow compliance C1: biomass input amount + how it was measured.
-    biomass_input_kg: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
-    biomass_measurement_method: Optional[
-        Literal["direct_weigh", "yield_conversion"]
-    ] = None
-
-    # Rainbow T1.1: optional batch->project/scale linkage. Configured on the
-    # device (dart-define) — enables the project-scoped C8/C9 gates. Old clients
-    # omit these; the gates stay inert for their batches.
-    project_id: Optional[str] = Field(None, min_length=1, max_length=128)
-    scale_id: Optional[str] = Field(None, min_length=1, max_length=128)
-
-    # --- LCA inputs (Prompt 8) ---
-    # Phase 7-R: these are NOT client-supplied. They are corroborated server-side
-    # from the /telemetry (min temp), /yield (wet yield) and /application (transport
-    # GPS) streams, which arrive AFTER the batch. They are optional on the payload;
-    # an uncorroborated input keeps the batch PROVISIONAL (never issued as final).
-    wet_yield_kg: Optional[float] = Field(
-        None, gt=0.0, le=100_000.0, description="Corroborated server-side from /yield"
-    )
-    min_recorded_temp_c: Optional[float] = Field(
-        None,
-        ge=-50.0,
-        le=1500.0,
-        description="Corroborated server-side from /telemetry",
-    )
-    transport_distance_km: Optional[float] = Field(
-        None,
-        ge=0.0,
-        le=20000.0,
-        description="Corroborated server-side from /application GPS",
-    )
-
-    @field_validator("feedstock_species")
-    @classmethod
-    def validate_feedstock(cls, v: str) -> str:
-        if v not in CORG_TABLE:
-            raise ValueError(
-                f"feedstock_species must be one of {list(CORG_TABLE.keys())}"
-            )
-        return v
-
-    @field_validator("sha256_hash")
-    @classmethod
-    def validate_hex(cls, v: Optional[str]) -> Optional[str]:
-        """Ensure SHA-256 hash is valid hexadecimal."""
-        if v is None:
-            return v
-        try:
-            int(v, 16)
-        except ValueError:
-            raise ValueError("sha256_hash must be valid hexadecimal")
-        return v.lower()
-
-    # Phase 7-R: the payload-temp validator was removed. min_recorded_temp_c is
-    # no longer client-asserted; the <100 C / >=60-sample burn-compliance rule now
-    # lives in corroboration.derive_min_temp against the real /telemetry log.
-
-    # Phase 8-R: lab_h_corg is NOT accepted from the device. A lab-measured
-    # permanence ratio is authoritative and must arrive on the admin-authenticated
-    # /api/v1/admin/lab-hcorg channel (range-checked). extra="forbid" now 422s any
-    # client that tries to self-assert it.
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
-class BatchResponse(BaseModel):
-    batch_uuid: str
-    operation_id: str
-    status: str
-    duplicate: bool
-    received_at: datetime
-    net_credit_t_co2e: Optional[float] = None
-    # Phase 8: True when net_credit_t_co2e was computed on an ASSUMED H:Corg
-    # (no lab value). Such a credit is NOT issuable as final.
-    provisional: Optional[bool] = None
 
 
-class MediaUploadResponse(BaseModel):
-    server_sha256: str
-    stored: bool
-    file_path: str
 
 
-class RegistrationRequest(BaseModel):
-    device_id: str = Field(..., min_length=1)
-    public_key: str = Field(..., min_length=40, max_length=64)  # base64url Ed25519
 
 
-class RegistrationResponse(BaseModel):
-    status: str
-    device_id: str
 
 
 # ==================== Endpoints ====================\n
@@ -663,134 +392,7 @@ async def metrics(
     return observability.metrics_payload()
 
 
-def _b64url_decode(s: str) -> bytes:
-    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
 
-
-async def verify_signature(
-    request: Request,
-    x_device_id: Optional[str] = Header(None, alias="X-Device-Id"),
-    x_signature: Optional[str] = Header(None, alias="X-Signature"),
-    x_idempotency_key: Optional[str] = Header(None, alias="X-Idempotency-Key"),
-    x_canonical_version: Optional[str] = Header(None, alias="X-Canonical-Version"),
-    x_signed_at: Optional[str] = Header(None, alias="X-Signed-At"),
-    session: AsyncSession = Depends(get_session),
-) -> str:
-    if not x_signature:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_signature"
-        )
-    if not x_device_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="unknown_device"
-        )
-    device = (
-        await session.execute(
-            select(DeviceKey).where(DeviceKey.device_id == x_device_id)
-        )
-    ).scalar_one_or_none()
-    if not device:
-        log.error(f"Signature Error: unknown_device '{x_device_id}'")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="unknown_device"
-        )
-    pub = Ed25519PublicKey.from_public_bytes(_b64url_decode(device.public_key))
-    body_hash = hashlib.sha256(await request.body()).hexdigest()
-    fields = [
-        request.method.upper(),
-        request.url.path,
-        x_idempotency_key or "",
-        body_hash,
-        x_device_id,
-    ]
-    # T2.3: v2 binds a client timestamp and rejects stale/skewed requests (replay
-    # window). v1 (no version header) is still accepted unless v2 is required.
-    if x_canonical_version == "2":
-        if not x_signed_at:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_signed_at"
-            )
-        try:
-            signed_at = int(x_signed_at)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="bad_signed_at"
-            )
-        if abs(int(time.time()) - signed_at) > _canonical_skew_seconds():
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="stale_signature"
-            )
-        fields.append(str(signed_at))
-    elif _require_canonical_v2():
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="canonical_v2_required"
-        )
-    canonical = "\n".join(fields).encode("utf-8")
-    try:
-        pub.verify(_b64url_decode(x_signature), canonical)
-    except InvalidSignature:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="signature_mismatch"
-        )
-    # P4.2: count verified v1 (unversioned) traffic so the fleet's migration to
-    # the v2 canonical is observable. DMRV_REQUIRE_CANONICAL_V2 is flipped on only
-    # after this counter stays zero across the fleet for 14 days.
-    if x_canonical_version != "2":
-        observability.record_canonical_v1(request.url.path)
-    return x_device_id
-
-
-async def verify_media_signature(
-    x_device_id: Optional[str] = Header(None, alias="X-Device-Id"),
-    x_signature: Optional[str] = Header(None, alias="X-Signature"),
-    x_idempotency_key: Optional[str] = Header(None, alias="X-Idempotency-Key"),
-    x_declared_sha256: Optional[str] = Header(None, alias="X-Declared-SHA256"),
-    x_batch_uuid: Optional[str] = Header(None, alias="X-Batch-UUID"),
-    session: AsyncSession = Depends(get_session),
-) -> str:
-    """Phase 15-A: Ed25519 auth for the media evidence channel.
-
-    FROZEN media canonical — MUST byte-match the client's CryptoSigner.signMediaUpload:
-        POST\\n/api/v1/media\\n{idempotency_key}\\n{declared_sha256_lower}\\n{batch_uuid}\\n{device_id}
-    We sign the DECLARED file hash rather than sha256(multipart body) — the client
-    cannot reproduce the exact multipart bytes. upload_media separately enforces
-    calculated_hash == declared, so signing the declared hash binds the real bytes.
-    """
-    if not x_signature:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_signature"
-        )
-    if not x_device_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="unknown_device"
-        )
-    device = (
-        await session.execute(
-            select(DeviceKey).where(DeviceKey.device_id == x_device_id)
-        )
-    ).scalar_one_or_none()
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="unknown_device"
-        )
-    pub = Ed25519PublicKey.from_public_bytes(_b64url_decode(device.public_key))
-    canonical = "\n".join(
-        [
-            "POST",
-            "/api/v1/media",
-            x_idempotency_key or "",
-            (x_declared_sha256 or "").lower(),
-            x_batch_uuid or "",
-            x_device_id,
-        ]
-    ).encode("utf-8")
-    try:
-        pub.verify(_b64url_decode(x_signature), canonical)
-    except InvalidSignature:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="signature_mismatch"
-        )
-    return x_device_id
 
 
 @app.post(
@@ -850,9 +452,6 @@ async def register_device(
     return RegistrationResponse(status="registered", device_id=payload.device_id)
 
 
-class MintTokenRequest(BaseModel):
-    token: str
-    expires_in_days: int = 7
 
 
 @app.post("/api/v1/admin/mint-token", status_code=status.HTTP_201_CREATED)
@@ -883,46 +482,8 @@ async def mint_enrollment_token(
     }
 
 
-class LabHCorgRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    batch_uuid: UUID
-    # Physically plausible H:Corg molar ratio for biochar (~0.1–0.7 typical; Lantana
-    # ~0.3–0.35). Bounds reject forged/absurd values that would inflate permanence.
-    lab_h_corg: float = Field(..., ge=0.1, le=1.5)
 
 
-class LabResultsRequest(BaseModel):
-    """C7 full per-batch lab-results channel (admin-authenticated, range-checked).
-
-    All fields optional so a lab can report incrementally. `organic_carbon_pct` is
-    the credit-affecting one (replaces the species CORG_TABLE constant); `lab_h_corg`
-    is accepted here too so a single lab report can supply both permanence inputs.
-    The rest are captured for verification / the 1000-year pathway (gated to C8).
-    """
-
-    model_config = ConfigDict(extra="forbid")
-    batch_uuid: UUID
-    lab_h_corg: Optional[float] = Field(None, ge=0.1, le=1.5)
-    # Organic carbon as a FRACTION in (0, 1] (e.g. Lantana ~0.60), matching CORG_TABLE.
-    organic_carbon_pct: Optional[float] = Field(None, gt=0.0, le=1.0)
-    # Biochar moisture: the methodology requires >= 3 samples when measured by mass.
-    biochar_moisture_samples: Optional[list[float]] = Field(
-        None, min_length=3, max_length=100
-    )
-    dry_bulk_density: Optional[float] = Field(None, gt=0.0, le=2000.0)
-    # 1000-year pathway inputs (data capture only in C7; pathway gated to C8).
-    inertinite_pct: Optional[float] = Field(None, ge=0.0, le=100.0)
-    residual_corg_pct: Optional[float] = Field(None, ge=0.0, le=100.0)
-    ro_measurements_count: Optional[int] = Field(None, ge=0)
-
-    @field_validator("biochar_moisture_samples")
-    @classmethod
-    def _validate_moisture_samples(
-        cls, v: Optional[list[float]]
-    ) -> Optional[list[float]]:
-        if v is not None and any((m < 0.0 or m > 100.0) for m in v):
-            raise ValueError("biochar_moisture_samples must be percentages in [0, 100]")
-        return v
 
 
 @app.post("/api/v1/admin/lab-hcorg", status_code=status.HTTP_200_OK)
@@ -1017,58 +578,13 @@ async def ingest_lab_results(
 # evidence set for a batch and is idempotent, so under a burst of evidence posts
 # a single run reflects all of them. State: buid -> {lock, dirty}. `dirty` means
 # "committed evidence has landed that a recompute must still observe".
-_recompute_state: dict = {}
-_RECOMPUTE_STATE_CAP = 8192
 
 
-def _recompute_slot(buid: str) -> dict:
-    st = _recompute_state.get(buid)
-    if st is None:
-        if len(_recompute_state) > _RECOMPUTE_STATE_CAP:
-            # Drop idle, clean slots (never a locked/dirty one).
-            for k in [
-                k
-                for k, v in _recompute_state.items()
-                if not v["dirty"] and not v["lock"].locked()
-            ][: len(_recompute_state) // 2]:
-                _recompute_state.pop(k, None)
-        st = {"lock": asyncio.Lock(), "dirty": False}
-        _recompute_state[buid] = st
-    return st
 
 
-async def recompute_batch_credit(
-    session: AsyncSession,
-    batch: Batch,
-    *,
-    lab_h_corg: Optional[float] = None,
-    lab_corg: Optional[float] = None,
-    coalesce: bool = False,
-) -> None:
-    """Serialize (and optionally coalesce) recomputes for one batch.
-
-    The lock prevents two concurrent recomputes of the same batch from racing on
-    its credit/provisional fields (a lost-update guard). When ``coalesce=True``
-    — used ONLY by the post-commit evidence path, where the caller's evidence is
-    already committed — a caller returns early if another recompute already ran
-    after it marked the batch dirty, since that run observed its committed
-    evidence. Pre-commit callers (create_batch, lab) pass coalesce=False so they
-    always run against their own session's pending state.
-    """
-    buid = str(batch.batch_uuid)
-    st = _recompute_slot(buid)
-    st["dirty"] = True
-    async with st["lock"]:
-        if coalesce and not st["dirty"]:
-            return  # a concurrent recompute already reflected our evidence
-        st["dirty"] = False
-        await _recompute_batch_credit_impl(
-            session, batch, lab_h_corg=lab_h_corg, lab_corg=lab_corg
-        )
 
 
 # Test/metrics observability: total impl runs (monkeypatch-free counter).
-_recompute_run_count = 0
 
 
 async def _device_registered_at(session: AsyncSession, device_id):
@@ -1084,386 +600,8 @@ async def _device_registered_at(session: AsyncSession, device_id):
 
 
 @observability.timed_recompute
-async def _recompute_batch_credit_impl(
-    session: AsyncSession,
-    batch: Batch,
-    *,
-    lab_h_corg: Optional[float] = None,
-    lab_corg: Optional[float] = None,
-) -> None:
-    """Corroborate a batch's credit inputs from the telemetry/yield/application
-    streams, recompute the LCA credit, and update the batch row in place.
-
-    Pure derivation lives in corroboration.py; this is the thin DB glue. The
-    caller commits. Idempotent — safe to call from create_batch and from every
-    evidence endpoint so the credit converges as evidence arrives. A batch stays
-    PROVISIONAL (never issued) until every input is corroborated.
-    """
-    global _recompute_run_count
-    _recompute_run_count += 1
-    buid = str(batch.batch_uuid)
-
-    tel = (
-        await session.execute(
-            select(PyrolysisTelemetry).where(PyrolysisTelemetry.batch_uuid == buid)
-        )
-    ).scalar_one_or_none()
-    yld = (
-        await session.execute(
-            select(YieldMetrics).where(YieldMetrics.batch_uuid == buid)
-        )
-    ).scalar_one_or_none()
-    app_row = (
-        await session.execute(
-            select(EndUseApplication).where(EndUseApplication.batch_uuid == buid)
-        )
-    ).scalar_one_or_none()
-
-    # H3: the telemetry payload is the large one (100k floats) — parse off-thread
-    # when big. yield/application are small scalars, parsed inline.
-    tel_payload = (
-        await _safe_json_async(tel.payload_json, context=f"telemetry {buid}")
-        if tel
-        else None
-    )
-    yld_payload = _safe_json(yld.payload_json, context=f"yield {buid}") if yld else None
-    app_payload = (
-        _safe_json(app_row.payload_json, context=f"application {buid}") if app_row else None
-    )
-
-    # T2.1: platform attestation runs through the attestation.py verifier
-    # interface. Real Play Integrity / DeviceCheck verification awaits provider
-    # credentials, so a genuine token still returns unverified today — but the
-    # wiring + enforcement switch are in place, and enabling
-    # DMRV_ATTESTATION_ENFORCED makes an unverified batch PROVISIONAL. Module-
-    # qualified call so tests can inject a verdict double via monkeypatch.
-    attestation_blob = tel_payload.get("hw_attestation") if tel_payload else None
-    _att_verdict = attestation.verify_attestation(attestation_blob)
-    attestation_verified = _att_verdict.verified
-    if attestation_blob and not attestation_verified:
-        log.warning(
-            "batch %s hw_attestation not verified: %s", buid, _att_verdict.reason
-        )
-    if not _attestation_enforced() or attestation_verified:
-        attestation_ok = True
-    else:
-        # P4.1: enforced + unverified. Honor a grace window for devices that
-        # enrolled BEFORE enforcement began, so flipping the flag on doesn't
-        # instantly brick the existing fleet. Only queried on this rare path.
-        reg_at = await _device_registered_at(session, batch.device_id)
-        attestation_ok = attestation.attestation_in_grace(
-            reg_at, datetime.now(timezone.utc)
-        )
-        if attestation_ok:
-            log.info("batch %s attestation unverified but device in grace", buid)
-
-    min_temp, _ = derive_min_temp(tel_payload)
-    wet_yield, _ = derive_wet_yield(yld_payload)
-    transport, _ = derive_transport_km(
-        batch.latitude, batch.longitude, app_payload, haversine=haversine_km
-    )
-
-    # Rainbow C2: count photographed moisture readings and evaluate the ≥1/100 kg,
-    # min-10 rule against the batch's biomass input.
-    m_rows = (
-        (
-            await session.execute(
-                select(MoistureReading).where(MoistureReading.batch_uuid == buid)
-            )
-        )
-        .scalars()
-        .all()
-    )
-    photographed = sum(
-        1
-        for r in m_rows
-        if isinstance(_p := _safe_json(r.payload_json, context=f"moisture {buid}"), dict)
-        and _p.get("sha256_hash")
-    )
-    moisture_ok, _ = derive_moisture_compliance(photographed, batch.biomass_input_kg)
-    # P4.4: moisture reading values for the variance plausibility check.
-    _moisture_values = [
-        _mp.get("moisture_percent")
-        for r in m_rows
-        if isinstance(
-            _mp := _safe_json(r.payload_json, context=f"moisture {buid}"), dict
-        )
-    ]
-
-    # Rainbow C4: count photographed composite pile sub-samples. Inert by default
-    # (enforced at the C10 unified gate) so existing flows are unaffected.
-    cs_rows = (
-        (
-            await session.execute(
-                select(CompositePileSample).where(
-                    CompositePileSample.batch_uuid == buid
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    photographed_samples = sum(
-        1
-        for r in cs_rows
-        if isinstance(_p := _safe_json(r.payload_json, context=f"composite {buid}"), dict)
-        and _p.get("sha256_hash")
-    )
-    composite_sample_ok, _ = derive_composite_sample_compliance(photographed_samples)
-
-    # Rainbow C3/C3b: kiln-type-conditional pyrolysis-photo, flame-height and
-    # ignition-energy compliance, read from the telemetry payload. Inert unless
-    # kiln_type is explicitly 'open'/'closed'.
-    kiln_type = tel_payload.get("kiln_type") if tel_payload else None
-    photos_ok, flame_ok = derive_pyrolysis_photo_compliance(
-        kiln_type,
-        tel_payload.get("smoke_evidence") if tel_payload else None,
-        tel_payload.get("flame_height_m") if tel_payload else None,
-    )
-    ignition_ok = derive_ignition_compliance(
-        kiln_type,
-        tel_payload.get("ignition_energy_type") if tel_payload else None,
-    )
-
-    # Rainbow C5: delivery record + buyer identity, read from the /application
-    # payload. Inert by default (enforced at the C10 unified gate).
-    delivery_ok, buyer_ok = derive_delivery_compliance(app_payload)
-
-    # Rainbow C6: transport events. AUDIT-ONLY while TRANSPORT_EVENTS_ENFORCED is
-    # False — we sum the per-leg fuel emissions and run a GPS-vs-reported
-    # under-reporting cross-check, but neither touches the issued credit (the
-    # GPS-haversine transport penalty in the LCA stays authoritative until the
-    # methodology's real fuel emission factors are cited; see emission_factors.py).
-    te_rows = (
-        (
-            await session.execute(
-                select(TransportEvent).where(TransportEvent.batch_uuid == buid)
-            )
-        )
-        .scalars()
-        .all()
-    )
-    te_payloads = [
-        _p
-        for r in te_rows
-        if isinstance(_p := _safe_json(r.payload_json, context=f"transport {buid}"), dict)
-    ]
-    transport_fuel_co2e_kg = sum(
-        fuel_emissions_kg_co2e(p.get("fuel_type"), p.get("fuel_amount_litres"))
-        for p in te_payloads
-    )
-    reported_transport_km = sum((p.get("distance_km") or 0.0) for p in te_payloads)
-    # Cross-check: the GPS-derived transport (production→application haversine) is
-    # a lower bound on real hauling; if the operator's REPORTED legs sum to far
-    # less than the GPS distance, the fuel/transport burden is being under-stated.
-    # Flag for review (audit-only) — never gates issuance here.
-    gps_km = transport if transport is not None else 0.0
-    transport_underreported = bool(
-        te_payloads and gps_km > 0.0 and reported_transport_km < 0.5 * gps_km
-    )
-
-    # ---- Rainbow C10: unified issuance-gate signals -------------------------
-    # Fold the methodology checks into the provisional gate. Project/scale-scoped
-    # checks (scale calibration, annual methane, PAH) resolve through the batch's
-    # project_id/scale_id linkage (T1.1); they stay inert for legacy batches that
-    # carry no linkage, so those are never gated spuriously.
-    c10_reasons: list[str] = []
-
-    # C1: biomass input amount + method (persisted on the batch).
-    _biomass_ok, _biomass_reason = derive_biomass_compliance(
-        batch.biomass_input_kg, batch.biomass_measurement_method
-    )
-    if _biomass_reason:
-        c10_reasons.append(_biomass_reason)
-
-    # C8: the batch's kiln (telemetry kiln_id) must be in the project registry.
-    kiln_id = tel_payload.get("kiln_id") if tel_payload else None
-    kiln_registered = False
-    if kiln_id:
-        kiln_registered = (
-            await session.execute(select(Kiln.id).where(Kiln.kiln_id == kiln_id))
-        ).first() is not None
-    _kiln_ok, _kiln_reason = derive_kiln_registration_compliance(
-        kiln_id, kiln_registered
-    )
-    if _kiln_reason:
-        c10_reasons.append(_kiln_reason)
-
-    # C8 (T1.2): the batch's weighing scale must have an in-date calibration.
-    # Inert when the batch has no scale linkage (legacy batches / no scale_id).
-    # The validity comparison is done in Python (not SQL) so it is identical on
-    # the SQLite test path and Postgres regardless of stored-tz handling.
-    if batch.scale_id:
-        _now = datetime.now(timezone.utc)
-        _cal_valid_untils = (
-            (
-                await session.execute(
-                    select(ScaleCalibration.valid_until).where(
-                        ScaleCalibration.scale_id == batch.scale_id,
-                        ScaleCalibration.valid_until.is_not(None),
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-        _has_in_date_cal = any(_as_utc(vu) >= _now for vu in _cal_valid_untils)
-        _sc_ok, _sc_reason = derive_scale_calibration_compliance(_has_in_date_cal)
-        if _sc_reason:
-            c10_reasons.append(_sc_reason)
-
-    # C9 (T1.3): the batch's project must have a methane verification (>= 3
-    # representative runs) for the batch's production year. Inert when the batch
-    # has no project linkage. The verification row is reused by the PAH gate
-    # below. Year policy: harvest-timestamp year (production vintage) — flagged
-    # to the methodology owner in the T1.3 PR.
-    annual_verif = None
-    if batch.project_id:
-        _verif_year = batch.harvest_timestamp.year
-        annual_verif = (
-            await session.execute(
-                select(AnnualVerification).where(
-                    AnnualVerification.project_id == batch.project_id,
-                    AnnualVerification.year == _verif_year,
-                )
-            )
-        ).scalar_one_or_none()
-        _am_ok, _am_reason = derive_annual_methane_compliance(
-            annual_verif.methane_run_count if annual_verif else None
-        )
-        if _am_reason:
-            c10_reasons.append(_am_reason)
-
-    # C9 (T1.4): PAH measurement is mandatory for closed kilns, resolved from the
-    # project-year verification fetched above. Inert when the batch has no project
-    # linkage or kiln_type isn't explicitly 'closed' (the deriver also guards
-    # kiln-conditionality). The deriver now runs under the default
-    # COMPLIANCE_ENFORCED policy — the previous hardcoded bypass is removed.
-    if batch.project_id and kiln_type == "closed":
-        _pah_measured = bool(annual_verif and annual_verif.pah_measured)
-        _pah_ok, _pah_reason = derive_pah_compliance(kiln_type, _pah_measured)
-        if _pah_reason:
-            c10_reasons.append(_pah_reason)
-
-    # P4.4 (H15): cross-field plausibility. Advisory — each failing check adds a
-    # provisional reason for human review; it never rejects or auto-issues.
-    c10_reasons.extend(
-        derive_plausibility_reasons(
-            biomass_input_kg=batch.biomass_input_kg,
-            wet_yield_kg=wet_yield,
-            min_temp=min_temp,
-            temperature_readings=(
-                tel_payload.get("temperature_readings") if tel_payload else None
-            ),
-            moisture_values=_moisture_values,
-        )
-    )
-
-    effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
-    # C7: prefer a lab-measured organic-carbon fraction over the species constant.
-    effective_corg = lab_corg if lab_corg is not None else batch.organic_carbon_pct
-    corr = assemble(
-        wet_yield,
-        min_temp,
-        transport,
-        has_lab_hcorg=effective_lab is not None,
-        has_lab_corg=effective_corg is not None,
-        attestation_ok=attestation_ok,
-        moisture_ok=moisture_ok,
-        pyrolysis_photos_ok=photos_ok,
-        flame_height_ok=flame_ok,
-        ignition_ok=ignition_ok,
-        composite_sample_ok=composite_sample_ok,
-        delivery_ok=delivery_ok,
-        buyer_ok=buyer_ok,
-        extra_reasons=c10_reasons,
-    )
-
-    kwargs = {}
-    if effective_lab is not None:
-        kwargs["h_corg_ratio"] = effective_lab
-    if effective_corg is not None:
-        kwargs["corg_override"] = effective_corg
-
-    lca = calculate_carbon_credit(
-        wet_yield_kg=corr.wet_yield_kg if corr.wet_yield_kg is not None else 0.0,
-        moisture_percent=batch.moisture_percent,
-        min_recorded_temp_c=(
-            corr.min_recorded_temp_c if corr.min_recorded_temp_c is not None else 0.0
-        ),
-        transport_distance_km=(
-            corr.transport_distance_km
-            if corr.transport_distance_km is not None
-            else 0.0
-        ),
-        feedstock_species=batch.feedstock_species,
-        **kwargs,
-    )
-
-    # Persist derived inputs (0.0 where uncorroborated; columns are NOT NULL).
-    batch.wet_yield_kg = corr.wet_yield_kg if corr.wet_yield_kg is not None else 0.0
-    batch.min_recorded_temp_c = (
-        corr.min_recorded_temp_c if corr.min_recorded_temp_c is not None else 0.0
-    )
-    batch.transport_distance_km = (
-        corr.transport_distance_km if corr.transport_distance_km is not None else 0.0
-    )
-    if lab_h_corg is not None:
-        batch.lab_h_corg = lab_h_corg
-    if lab_corg is not None:
-        batch.organic_carbon_pct = lab_corg
-    # Provisional if any input is uncorroborated OR H:Corg / Corg was assumed.
-    batch.provisional = corr.provisional or lca.provisional or lca.corg_assumed
-    batch.provisional_reasons = json.dumps(corr.reasons)
-    batch.net_credit_t_co2e = lca.net_credit_t_co2e
-    batch.lca_methodology_version = lca.methodology_version
-    # Rainbow C6 audit trail (audit-only; not part of the signed credit while
-    # transport events are unenforced — see emission_factors.TRANSPORT_EVENTS_ENFORCED).
-    audit = {k: v for k, v in lca.__dict__.items()}
-    audit["transport_events"] = {
-        "enforced": TRANSPORT_EVENTS_ENFORCED,
-        "event_count": len(te_payloads),
-        "fuel_co2e_kg": transport_fuel_co2e_kg,
-        "reported_transport_km": reported_transport_km,
-        "gps_transport_km": gps_km,
-        "underreported_flag": transport_underreported,
-    }
-    # T2.7: surface the device-integrity plausibility signals per batch so a
-    # verifier sees the trust level in-band. exif_trust documents that the GPS
-    # anchor is client-authored (weak) — the strong control is attestation.
-    audit["integrity_signals"] = {
-        "mock_location_enabled": bool(batch.mock_location_enabled),
-        "gps_anchor_status": batch.status,
-        "gps_anchor_mismatch_km": GPS_ANCHOR_MISMATCH_KM,
-        "exif_trust": "client_authored_weak",
-    }
-    batch.lca_audit_json = json.dumps(audit)
-    # Phase 8-R: only a fully-corroborated, non-provisional batch carries an
-    # issuance signature. A provisional audit must never look issuable downstream.
-    # P3.6: sign under the ACTIVE versioned key and record its id, so a later key
-    # rotation never invalidates this signature.
-    if batch.provisional:
-        batch.lca_signature = None
-        batch.lca_signature_key_id = None
-    else:
-        _key_id, _secret = hmac_keys.active_key()
-        batch.lca_signature = sign_lca_audit(
-            lca, _secret, batch_uuid=str(batch.batch_uuid)
-        )
-        batch.lca_signature_key_id = _key_id
 
 
-def verify_lca_signature(batch: Batch, lca) -> str:
-    """P3.6: verify a batch's lca_signature under the key it was signed with.
-
-    Returns 'unsigned' (no signature), 'unverifiable' (the signing key id is no
-    longer in the environment — rotated out), 'valid', or 'invalid'. Never raises
-    on a missing key so a caller can surface the state instead of 500ing.
-    """
-    if not batch.lca_signature:
-        return "unsigned"
-    payload = lca_sign_payload_bytes(lca, batch_uuid=str(batch.batch_uuid))
-    return hmac_keys.verify(payload, batch.lca_signature, batch.lca_signature_key_id)
 
 
 async def apply_lab_results(
@@ -2169,25 +1307,6 @@ def _assert_same_uuid(*, expected: str, **kwargs: str) -> None:
 # Phase 11-R: free-text string fields are length-bounded so a single huge string
 # cannot slip past the array bounds. Identifiers/short text -> 128, paths -> 512,
 # timestamps -> 64, hex hashes -> 64.
-class _BatchScopedPayload(BaseModel):
-    """Base for evidence payloads that reference a batch by UUID string (P1-B4).
-
-    Evidence tables store batch_uuid as String(36) and are joined against the
-    batches row's canonical UUID. A non-canonical case (e.g. an uppercase UUID
-    from a future client) would silently orphan the evidence on a case-sensitive
-    engine, so canonicalize to the lowercase str(UUID(...)) form here and reject
-    a malformed value with 422 rather than storing an unmatchable key.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    @field_validator("batch_uuid", check_fields=False)
-    @classmethod
-    def _canonicalize_batch_uuid(cls, v: str) -> str:
-        try:
-            return str(uuid.UUID(str(v)))
-        except (ValueError, AttributeError, TypeError):
-            raise ValueError("batch_uuid must be a valid UUID")
 
 
 class TelemetryPayload(_BatchScopedPayload):
@@ -2500,11 +1619,7 @@ async def create_application(
 # gate — C8 lands the registry only, so no batch's issuance changes here.
 
 
-def _require_admin(x_admin_secret: str) -> None:
-    if not hmac.compare_digest(x_admin_secret, _ADMIN_SECRET):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthorized"
-        )
+
 
 
 def _parse_dt(s: Optional[str]) -> Optional[datetime]:
@@ -2518,40 +1633,12 @@ def _parse_dt(s: Optional[str]) -> Optional[datetime]:
     return _as_utc(dt)
 
 
-class KilnRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    kiln_id: str = Field(..., min_length=1, max_length=128)
-    material: Optional[str] = Field(None, max_length=128)
-    weight_kg: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
-    lifetime_years: Optional[float] = Field(None, ge=0.0, le=200.0)
-    kiln_type: Optional[Literal["open", "closed"]] = None
 
 
-class OperatorTrainingRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    record_uuid: str = Field(..., max_length=64)
-    operator_id: Optional[str] = Field(None, max_length=128)
-    training_type: Optional[str] = Field(None, max_length=128)
-    completed_at: Optional[str] = Field(None, max_length=64)
-    report_sha256: Optional[str] = Field(None, min_length=64, max_length=64)
 
 
-class SupervisorVisitRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    visit_uuid: str = Field(..., max_length=64)
-    kiln_id: Optional[str] = Field(None, max_length=128)
-    visited_at: Optional[str] = Field(None, max_length=64)
-    notes: Optional[str] = Field(None, max_length=2000)
-    report_sha256: Optional[str] = Field(None, min_length=64, max_length=64)
 
 
-class ScaleCalibrationRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    calibration_uuid: str = Field(..., max_length=64)
-    scale_id: Optional[str] = Field(None, max_length=128)
-    calibrated_at: Optional[str] = Field(None, max_length=64)
-    valid_until: Optional[str] = Field(None, max_length=64)
-    report_sha256: Optional[str] = Field(None, min_length=64, max_length=64)
 
 
 @app.post("/api/v1/admin/kiln", status_code=status.HTTP_200_OK)
@@ -2605,21 +1692,6 @@ async def register_scale_calibration(
 # missing_pah) are deferred to the C10 unified gate.
 
 
-class AnnualVerificationRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    project_id: str = Field(..., min_length=1, max_length=128)
-    year: int = Field(..., ge=2000, le=2100)
-    # Methane emission rate over >= 3 representative runs (independent provider).
-    methane_rate_g_per_kg: Optional[float] = Field(None, ge=0.0, le=100_000.0)
-    methane_run_count: Optional[int] = Field(None, ge=0)
-    # Biomass->biochar conversion factor (if not directly weighing biomass).
-    conversion_factor: Optional[float] = Field(None, gt=0.0, le=100.0)
-    pah_measured: Optional[bool] = None
-    heavy_metals_measured: Optional[bool] = None
-    leakage_assessment_done: Optional[bool] = None
-    dry_bulk_density: Optional[float] = Field(None, gt=0.0, le=2000.0)
-    quality_oversight_sha256: Optional[str] = Field(None, min_length=64, max_length=64)
-    report_sha256: Optional[str] = Field(None, min_length=64, max_length=64)
 
 
 @app.post("/api/v1/admin/annual-verification", status_code=status.HTTP_200_OK)

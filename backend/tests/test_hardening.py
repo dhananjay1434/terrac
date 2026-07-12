@@ -279,9 +279,13 @@ def test_p0_17_missing_db_url_raises(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     import sys
 
-    sys.modules.pop("db", None)
-    with pytest.raises((RuntimeError, KeyError)):
-        importlib.import_module("db")
+    old_db = sys.modules.pop("db", None)
+    try:
+        with pytest.raises((RuntimeError, KeyError)):
+            importlib.import_module("db")
+    finally:
+        if old_db:
+            sys.modules["db"] = old_db
 
 
 # =============================================================================
@@ -305,8 +309,8 @@ def test_p0_18_init_db_respects_skip_env():
     """When DMRV_SKIP_MIGRATIONS=1, init_db() must early-return."""
     import sys
 
-    sys.modules.pop("db", None)
-    db = importlib.import_module("db")
+    import db
+    
     src = Path(db.__file__).read_text(encoding="utf-8")
     assert "DMRV_SKIP_MIGRATIONS" in src, (
         "init_db() must honour DMRV_SKIP_MIGRATIONS=1 escape hatch for the test suite."

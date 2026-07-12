@@ -1,0 +1,486 @@
+import asyncio
+import logging
+import uuid
+from typing import Optional, List, Dict, Any, Tuple
+from datetime import datetime, timezone
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from models import (
+    AnnualVerification,
+    Batch,
+    CompositePileSample,
+    DeviceKey,
+    EndUseApplication,
+    EnrollmentToken,
+    Kiln,
+    MediaFile,
+    MoistureReading,
+    OperatorTraining,
+    PyrolysisTelemetry,
+    ScaleCalibration,
+    SupervisorVisit,
+    SystemMetadata,
+    TransportEvent,
+    YieldMetrics,
+)
+import lca_engine
+from corroboration import (
+    derive_annual_methane_compliance,
+    derive_biomass_compliance,
+    derive_composite_sample_compliance,
+    derive_delivery_compliance,
+    derive_ignition_compliance,
+    derive_kiln_registration_compliance,
+    derive_min_temp,
+    derive_moisture_compliance,
+    derive_pah_compliance,
+    derive_plausibility_reasons,
+    derive_pyrolysis_photo_compliance,
+    derive_scale_calibration_compliance,
+    derive_transport_km,
+    derive_wet_yield,
+)
+import emission_factors
+import attestation
+from settings import _attestation_enforced
+from geo import haversine_km
+from jsonsafe import _safe_json, _safe_json_async, _as_utc
+from schemas import *
+
+log = logging.getLogger(__name__)
+
+# P3.7 globals
+_recompute_lock = asyncio.Lock()
+_recompute_state = {}
+_RECOMPUTE_STATE_CAP = 8192
+_recompute_run_count = 0
+
+
+def _recompute_slot(buid: str) -> dict:
+    st = _recompute_state.get(buid)
+    if st is None:
+        if len(_recompute_state) > _RECOMPUTE_STATE_CAP:
+            # Drop idle, clean slots (never a locked/dirty one).
+            for k in [
+                k
+                for k, v in _recompute_state.items()
+                if not v["dirty"] and not v["lock"].locked()
+            ][: len(_recompute_state) // 2]:
+                _recompute_state.pop(k, None)
+        st = {"lock": asyncio.Lock(), "dirty": False}
+        _recompute_state[buid] = st
+    return st
+
+
+async def recompute_batch_credit(
+    session: AsyncSession,
+    batch: Batch,
+    *,
+    lab_h_corg: Optional[float] = None,
+    lab_corg: Optional[float] = None,
+    coalesce: bool = False,
+) -> None:
+    """Serialize (and optionally coalesce) recomputes for one batch.
+
+    The lock prevents two concurrent recomputes of the same batch from racing on
+    its credit/provisional fields (a lost-update guard). When ``coalesce=True``
+    — used ONLY by the post-commit evidence path, where the caller's evidence is
+    already committed — a caller returns early if another recompute already ran
+    after it marked the batch dirty, since that run observed its committed
+    evidence. Pre-commit callers (create_batch, lab) pass coalesce=False so they
+    always run against their own session's pending state.
+    """
+    buid = str(batch.batch_uuid)
+    st = _recompute_slot(buid)
+    st["dirty"] = True
+    async with st["lock"]:
+        if coalesce and not st["dirty"]:
+            return  # a concurrent recompute already reflected our evidence
+        st["dirty"] = False
+        await _recompute_batch_credit_impl(
+            session, batch, lab_h_corg=lab_h_corg, lab_corg=lab_corg
+        )
+
+
+async def _recompute_batch_credit_impl(
+    session: AsyncSession,
+    batch: Batch,
+    *,
+    lab_h_corg: Optional[float] = None,
+    lab_corg: Optional[float] = None,
+) -> None:
+    """Corroborate a batch's credit inputs from the telemetry/yield/application
+    streams, recompute the LCA credit, and update the batch row in place.
+
+    Pure derivation lives in corroboration.py; this is the thin DB glue. The
+    caller commits. Idempotent — safe to call from create_batch and from every
+    evidence endpoint so the credit converges as evidence arrives. A batch stays
+    PROVISIONAL (never issued) until every input is corroborated.
+    """
+    global _recompute_run_count
+    _recompute_run_count += 1
+    buid = str(batch.batch_uuid)
+
+    tel = (
+        await session.execute(
+            select(PyrolysisTelemetry).where(PyrolysisTelemetry.batch_uuid == buid)
+        )
+    ).scalar_one_or_none()
+    yld = (
+        await session.execute(
+            select(YieldMetrics).where(YieldMetrics.batch_uuid == buid)
+        )
+    ).scalar_one_or_none()
+    app_row = (
+        await session.execute(
+            select(EndUseApplication).where(EndUseApplication.batch_uuid == buid)
+        )
+    ).scalar_one_or_none()
+
+    # H3: the telemetry payload is the large one (100k floats) — parse off-thread
+    # when big. yield/application are small scalars, parsed inline.
+    tel_payload = (
+        await _safe_json_async(tel.payload_json, context=f"telemetry {buid}")
+        if tel
+        else None
+    )
+    yld_payload = _safe_json(yld.payload_json, context=f"yield {buid}") if yld else None
+    app_payload = (
+        _safe_json(app_row.payload_json, context=f"application {buid}") if app_row else None
+    )
+
+    # T2.1: platform attestation runs through the attestation.py verifier
+    # interface. Real Play Integrity / DeviceCheck verification awaits provider
+    # credentials, so a genuine token still returns unverified today — but the
+    # wiring + enforcement switch are in place, and enabling
+    # DMRV_ATTESTATION_ENFORCED makes an unverified batch PROVISIONAL. Module-
+    # qualified call so tests can inject a verdict double via monkeypatch.
+    attestation_blob = tel_payload.get("hw_attestation") if tel_payload else None
+    _att_verdict = attestation.verify_attestation(attestation_blob)
+    attestation_verified = _att_verdict.verified
+    if attestation_blob and not attestation_verified:
+        log.warning(
+            "batch %s hw_attestation not verified: %s", buid, _att_verdict.reason
+        )
+    if not _attestation_enforced() or attestation_verified:
+        attestation_ok = True
+    else:
+        # P4.1: enforced + unverified. Honor a grace window for devices that
+        # enrolled BEFORE enforcement began, so flipping the flag on doesn't
+        # instantly brick the existing fleet. Only queried on this rare path.
+        reg_at = await _device_registered_at(session, batch.device_id)
+        attestation_ok = attestation.attestation_in_grace(
+            reg_at, datetime.now(timezone.utc)
+        )
+        if attestation_ok:
+            log.info("batch %s attestation unverified but device in grace", buid)
+
+    min_temp, _ = derive_min_temp(tel_payload)
+    wet_yield, _ = derive_wet_yield(yld_payload)
+    transport, _ = derive_transport_km(
+        batch.latitude, batch.longitude, app_payload, haversine=haversine_km
+    )
+
+    # Rainbow C2: count photographed moisture readings and evaluate the ≥1/100 kg,
+    # min-10 rule against the batch's biomass input.
+    m_rows = (
+        (
+            await session.execute(
+                select(MoistureReading).where(MoistureReading.batch_uuid == buid)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    photographed = sum(
+        1
+        for r in m_rows
+        if isinstance(_p := _safe_json(r.payload_json, context=f"moisture {buid}"), dict)
+        and _p.get("sha256_hash")
+    )
+    moisture_ok, _ = derive_moisture_compliance(photographed, batch.biomass_input_kg)
+    # P4.4: moisture reading values for the variance plausibility check.
+    _moisture_values = [
+        _mp.get("moisture_percent")
+        for r in m_rows
+        if isinstance(
+            _mp := _safe_json(r.payload_json, context=f"moisture {buid}"), dict
+        )
+    ]
+
+    # Rainbow C4: count photographed composite pile sub-samples. Inert by default
+    # (enforced at the C10 unified gate) so existing flows are unaffected.
+    cs_rows = (
+        (
+            await session.execute(
+                select(CompositePileSample).where(
+                    CompositePileSample.batch_uuid == buid
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    photographed_samples = sum(
+        1
+        for r in cs_rows
+        if isinstance(_p := _safe_json(r.payload_json, context=f"composite {buid}"), dict)
+        and _p.get("sha256_hash")
+    )
+    composite_sample_ok, _ = derive_composite_sample_compliance(photographed_samples)
+
+    # Rainbow C3/C3b: kiln-type-conditional pyrolysis-photo, flame-height and
+    # ignition-energy compliance, read from the telemetry payload. Inert unless
+    # kiln_type is explicitly 'open'/'closed'.
+    kiln_type = tel_payload.get("kiln_type") if tel_payload else None
+    photos_ok, flame_ok = derive_pyrolysis_photo_compliance(
+        kiln_type,
+        tel_payload.get("smoke_evidence") if tel_payload else None,
+        tel_payload.get("flame_height_m") if tel_payload else None,
+    )
+    ignition_ok = derive_ignition_compliance(
+        kiln_type,
+        tel_payload.get("ignition_energy_type") if tel_payload else None,
+    )
+
+    # Rainbow C5: delivery record + buyer identity, read from the /application
+    # payload. Inert by default (enforced at the C10 unified gate).
+    delivery_ok, buyer_ok = derive_delivery_compliance(app_payload)
+
+    # Rainbow C6: transport events. AUDIT-ONLY while TRANSPORT_EVENTS_ENFORCED is
+    # False — we sum the per-leg fuel emissions and run a GPS-vs-reported
+    # under-reporting cross-check, but neither touches the issued credit (the
+    # GPS-haversine transport penalty in the LCA stays authoritative until the
+    # methodology's real fuel emission factors are cited; see emission_factors.py).
+    te_rows = (
+        (
+            await session.execute(
+                select(TransportEvent).where(TransportEvent.batch_uuid == buid)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    te_payloads = [
+        _p
+        for r in te_rows
+        if isinstance(_p := _safe_json(r.payload_json, context=f"transport {buid}"), dict)
+    ]
+    transport_fuel_co2e_kg = sum(
+        fuel_emissions_kg_co2e(p.get("fuel_type"), p.get("fuel_amount_litres"))
+        for p in te_payloads
+    )
+    reported_transport_km = sum((p.get("distance_km") or 0.0) for p in te_payloads)
+    # Cross-check: the GPS-derived transport (production→application haversine) is
+    # a lower bound on real hauling; if the operator's REPORTED legs sum to far
+    # less than the GPS distance, the fuel/transport burden is being under-stated.
+    # Flag for review (audit-only) — never gates issuance here.
+    gps_km = transport if transport is not None else 0.0
+    transport_underreported = bool(
+        te_payloads and gps_km > 0.0 and reported_transport_km < 0.5 * gps_km
+    )
+
+    # ---- Rainbow C10: unified issuance-gate signals -------------------------
+    # Fold the methodology checks into the provisional gate. Project/scale-scoped
+    # checks (scale calibration, annual methane, PAH) resolve through the batch's
+    # project_id/scale_id linkage (T1.1); they stay inert for legacy batches that
+    # carry no linkage, so those are never gated spuriously.
+    c10_reasons: list[str] = []
+
+    # C1: biomass input amount + method (persisted on the batch).
+    _biomass_ok, _biomass_reason = derive_biomass_compliance(
+        batch.biomass_input_kg, batch.biomass_measurement_method
+    )
+    if _biomass_reason:
+        c10_reasons.append(_biomass_reason)
+
+    # C8: the batch's kiln (telemetry kiln_id) must be in the project registry.
+    kiln_id = tel_payload.get("kiln_id") if tel_payload else None
+    kiln_registered = False
+    if kiln_id:
+        kiln_registered = (
+            await session.execute(select(Kiln.id).where(Kiln.kiln_id == kiln_id))
+        ).first() is not None
+    _kiln_ok, _kiln_reason = derive_kiln_registration_compliance(
+        kiln_id, kiln_registered
+    )
+    if _kiln_reason:
+        c10_reasons.append(_kiln_reason)
+
+    # C8 (T1.2): the batch's weighing scale must have an in-date calibration.
+    # Inert when the batch has no scale linkage (legacy batches / no scale_id).
+    # The validity comparison is done in Python (not SQL) so it is identical on
+    # the SQLite test path and Postgres regardless of stored-tz handling.
+    if batch.scale_id:
+        _now = datetime.now(timezone.utc)
+        _cal_valid_untils = (
+            (
+                await session.execute(
+                    select(ScaleCalibration.valid_until).where(
+                        ScaleCalibration.scale_id == batch.scale_id,
+                        ScaleCalibration.valid_until.is_not(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        _has_in_date_cal = any(_as_utc(vu) >= _now for vu in _cal_valid_untils)
+        _sc_ok, _sc_reason = derive_scale_calibration_compliance(_has_in_date_cal)
+        if _sc_reason:
+            c10_reasons.append(_sc_reason)
+
+    # C9 (T1.3): the batch's project must have a methane verification (>= 3
+    # representative runs) for the batch's production year. Inert when the batch
+    # has no project linkage. The verification row is reused by the PAH gate
+    # below. Year policy: harvest-timestamp year (production vintage) — flagged
+    # to the methodology owner in the T1.3 PR.
+    annual_verif = None
+    if batch.project_id:
+        _verif_year = batch.harvest_timestamp.year
+        annual_verif = (
+            await session.execute(
+                select(AnnualVerification).where(
+                    AnnualVerification.project_id == batch.project_id,
+                    AnnualVerification.year == _verif_year,
+                )
+            )
+        ).scalar_one_or_none()
+        _am_ok, _am_reason = derive_annual_methane_compliance(
+            annual_verif.methane_run_count if annual_verif else None
+        )
+        if _am_reason:
+            c10_reasons.append(_am_reason)
+
+    # C9 (T1.4): PAH measurement is mandatory for closed kilns, resolved from the
+    # project-year verification fetched above. Inert when the batch has no project
+    # linkage or kiln_type isn't explicitly 'closed' (the deriver also guards
+    # kiln-conditionality). The deriver now runs under the default
+    # COMPLIANCE_ENFORCED policy — the previous hardcoded bypass is removed.
+    if batch.project_id and kiln_type == "closed":
+        _pah_measured = bool(annual_verif and annual_verif.pah_measured)
+        _pah_ok, _pah_reason = derive_pah_compliance(kiln_type, _pah_measured)
+        if _pah_reason:
+            c10_reasons.append(_pah_reason)
+
+    # P4.4 (H15): cross-field plausibility. Advisory — each failing check adds a
+    # provisional reason for human review; it never rejects or auto-issues.
+    c10_reasons.extend(
+        derive_plausibility_reasons(
+            biomass_input_kg=batch.biomass_input_kg,
+            wet_yield_kg=wet_yield,
+            min_temp=min_temp,
+            temperature_readings=(
+                tel_payload.get("temperature_readings") if tel_payload else None
+            ),
+            moisture_values=_moisture_values,
+        )
+    )
+
+    effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
+    # C7: prefer a lab-measured organic-carbon fraction over the species constant.
+    effective_corg = lab_corg if lab_corg is not None else batch.organic_carbon_pct
+    corr = assemble(
+        wet_yield,
+        min_temp,
+        transport,
+        has_lab_hcorg=effective_lab is not None,
+        has_lab_corg=effective_corg is not None,
+        attestation_ok=attestation_ok,
+        moisture_ok=moisture_ok,
+        pyrolysis_photos_ok=photos_ok,
+        flame_height_ok=flame_ok,
+        ignition_ok=ignition_ok,
+        composite_sample_ok=composite_sample_ok,
+        delivery_ok=delivery_ok,
+        buyer_ok=buyer_ok,
+        extra_reasons=c10_reasons,
+    )
+
+    kwargs = {}
+    if effective_lab is not None:
+        kwargs["h_corg_ratio"] = effective_lab
+    if effective_corg is not None:
+        kwargs["corg_override"] = effective_corg
+
+    lca = calculate_carbon_credit(
+        wet_yield_kg=corr.wet_yield_kg if corr.wet_yield_kg is not None else 0.0,
+        moisture_percent=batch.moisture_percent,
+        min_recorded_temp_c=(
+            corr.min_recorded_temp_c if corr.min_recorded_temp_c is not None else 0.0
+        ),
+        transport_distance_km=(
+            corr.transport_distance_km
+            if corr.transport_distance_km is not None
+            else 0.0
+        ),
+        feedstock_species=batch.feedstock_species,
+        **kwargs,
+    )
+
+    # Persist derived inputs (0.0 where uncorroborated; columns are NOT NULL).
+    batch.wet_yield_kg = corr.wet_yield_kg if corr.wet_yield_kg is not None else 0.0
+    batch.min_recorded_temp_c = (
+        corr.min_recorded_temp_c if corr.min_recorded_temp_c is not None else 0.0
+    )
+    batch.transport_distance_km = (
+        corr.transport_distance_km if corr.transport_distance_km is not None else 0.0
+    )
+    if lab_h_corg is not None:
+        batch.lab_h_corg = lab_h_corg
+    if lab_corg is not None:
+        batch.organic_carbon_pct = lab_corg
+    # Provisional if any input is uncorroborated OR H:Corg / Corg was assumed.
+    batch.provisional = corr.provisional or lca.provisional or lca.corg_assumed
+    batch.provisional_reasons = json.dumps(corr.reasons)
+    batch.net_credit_t_co2e = lca.net_credit_t_co2e
+    batch.lca_methodology_version = lca.methodology_version
+    # Rainbow C6 audit trail (audit-only; not part of the signed credit while
+    # transport events are unenforced — see emission_factors.TRANSPORT_EVENTS_ENFORCED).
+    audit = {k: v for k, v in lca.__dict__.items()}
+    audit["transport_events"] = {
+        "enforced": TRANSPORT_EVENTS_ENFORCED,
+        "event_count": len(te_payloads),
+        "fuel_co2e_kg": transport_fuel_co2e_kg,
+        "reported_transport_km": reported_transport_km,
+        "gps_transport_km": gps_km,
+        "underreported_flag": transport_underreported,
+    }
+    # T2.7: surface the device-integrity plausibility signals per batch so a
+    # verifier sees the trust level in-band. exif_trust documents that the GPS
+    # anchor is client-authored (weak) — the strong control is attestation.
+    audit["integrity_signals"] = {
+        "mock_location_enabled": bool(batch.mock_location_enabled),
+        "gps_anchor_status": batch.status,
+        "gps_anchor_mismatch_km": GPS_ANCHOR_MISMATCH_KM,
+        "exif_trust": "client_authored_weak",
+    }
+    batch.lca_audit_json = json.dumps(audit)
+    # Phase 8-R: only a fully-corroborated, non-provisional batch carries an
+    # issuance signature. A provisional audit must never look issuable downstream.
+    # P3.6: sign under the ACTIVE versioned key and record its id, so a later key
+    # rotation never invalidates this signature.
+    if batch.provisional:
+        batch.lca_signature = None
+        batch.lca_signature_key_id = None
+    else:
+        _key_id, _secret = hmac_keys.active_key()
+        batch.lca_signature = sign_lca_audit(
+            lca, _secret, batch_uuid=str(batch.batch_uuid)
+        )
+        batch.lca_signature_key_id = _key_id
+
+
+def verify_lca_signature(batch: Batch, lca) -> str:
+    """P3.6: verify a batch's lca_signature under the key it was signed with.
+
+    Returns 'unsigned' (no signature), 'unverifiable' (the signing key id is no
+    longer in the environment — rotated out), 'valid', or 'invalid'. Never raises
+    on a missing key so a caller can surface the state instead of 500ing.
+    """
+    if not batch.lca_signature:
+        return "unsigned"
+    payload = lca_sign_payload_bytes(lca, batch_uuid=str(batch.batch_uuid))
+    return hmac_keys.verify(payload, batch.lca_signature, batch.lca_signature_key_id)
+
+
