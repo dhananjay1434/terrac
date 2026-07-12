@@ -93,6 +93,28 @@ from credit_engine import (
     _RECOMPUTE_STATE_CAP,
     _recompute_run_count,
 )
+
+from services.registry import (  # noqa: F401  (R6 facade)
+    _find_by_payload_key,
+    _parse_dt,
+    upsert_annual_verification,
+    upsert_kiln,
+    upsert_operator_training,
+    upsert_scale_calibration,
+    upsert_supervisor_visit,
+)
+from services.lab import apply_lab_results  # noqa: F401  (R6 facade)
+from services.compliance import (  # noqa: F401  (R6 facade)
+    _COMPLIANCE_CATALOG,
+    compliance_view,
+)
+from services.evidence import (  # noqa: F401  (R6 facade)
+    _assert_batch_ownership,
+    _assert_same_uuid,
+    _recompute_if_batch_exists,
+    _upsert_one_to_one_evidence,
+)
+
 from lca_engine import (
     CORG_TABLE,
     calculate_carbon_credit,
@@ -584,56 +606,9 @@ async def ingest_lab_results(
 
 
 
-# Test/metrics observability: total impl runs (monkeypatch-free counter).
-
-
-async def _device_registered_at(session: AsyncSession, device_id):
-    """The DeviceKey.registered_at for a device, or None if unknown. Used only by
-    the attestation grace check (P4.1)."""
-    if not device_id:
-        return None
-    return (
-        await session.execute(
-            select(DeviceKey.registered_at).where(DeviceKey.device_id == device_id)
-        )
-    ).scalar_one_or_none()
-
-
-@observability.timed_recompute
 
 
 
-
-async def apply_lab_results(
-    session: AsyncSession,
-    batch: Batch,
-    *,
-    lab_h_corg: Optional[float] = None,
-    organic_carbon_pct: Optional[float] = None,
-    biochar_moisture_samples: Optional[list] = None,
-    dry_bulk_density: Optional[float] = None,
-    inertinite_pct: Optional[float] = None,
-    residual_corg_pct: Optional[float] = None,
-    ro_measurements_count: Optional[int] = None,
-) -> None:
-    """Persist the non-credit lab verification fields, then recompute the batch
-    credit. THE single lab-ingestion path — reused by the admin `/lab` route and
-    the portal `POST /batches/{uuid}/lab-results` (P2.4) so gate flips are
-    identical across channels. The caller commits.
-    """
-    if biochar_moisture_samples is not None:
-        batch.biochar_moisture_samples_json = json.dumps(biochar_moisture_samples)
-    if dry_bulk_density is not None:
-        batch.dry_bulk_density = dry_bulk_density
-    if inertinite_pct is not None:
-        batch.inertinite_pct = inertinite_pct
-    if residual_corg_pct is not None:
-        batch.residual_corg_pct = residual_corg_pct
-    if ro_measurements_count is not None:
-        batch.ro_measurements_count = ro_measurements_count
-    await recompute_batch_credit(
-        session, batch, lab_h_corg=lab_h_corg, lab_corg=organic_carbon_pct
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -644,284 +619,22 @@ async def apply_lab_results(
 # ---------------------------------------------------------------------------
 
 
-async def upsert_kiln(session: AsyncSession, payload) -> dict:
-    existing = (
-        await session.execute(select(Kiln).where(Kiln.kiln_id == payload.kiln_id))
-    ).scalar_one_or_none()
-    extra = payload.model_dump(mode="json")
-    if existing is None:
-        session.add(
-            Kiln(
-                kiln_id=payload.kiln_id,
-                material=payload.material,
-                weight_kg=payload.weight_kg,
-                lifetime_years=payload.lifetime_years,
-                kiln_type=payload.kiln_type,
-                payload_json=json.dumps(extra),
-            )
-        )
-        await session.commit()
-        return {"status": "ok", "kiln_id": payload.kiln_id, "updated": False}
-    existing.material = payload.material
-    existing.weight_kg = payload.weight_kg
-    existing.lifetime_years = payload.lifetime_years
-    existing.kiln_type = payload.kiln_type
-    existing.payload_json = json.dumps(extra)
-    await session.commit()
-    return {"status": "ok", "kiln_id": payload.kiln_id, "updated": True}
 
 
-async def _find_by_payload_key(session, model, indexed_col, indexed_val, key, val):
-    """Return the row whose indexed column matches AND whose payload_json[key]
-    equals val — the natural-key lookup for the M5 idempotency fix."""
-    if not indexed_val or val is None:
-        return None
-    rows = (
-        await session.execute(select(model).where(indexed_col == indexed_val))
-    ).scalars().all()
-    for r in rows:
-        parsed = _safe_json(r.payload_json, context=f"{model.__tablename__} nat-key")
-        if isinstance(parsed, dict) and parsed.get(key) == val:
-            return r
-    return None
 
 
-async def upsert_operator_training(session: AsyncSession, payload) -> dict:
-    payload_json = json.dumps(payload.model_dump(mode="json"))
-    existing = await _find_by_payload_key(
-        session,
-        OperatorTraining,
-        OperatorTraining.operator_id,
-        payload.operator_id,
-        "completed_at",
-        payload.completed_at,
-    )
-    if existing is not None:
-        existing.record_uuid = payload.record_uuid
-        existing.payload_json = payload_json
-        await session.commit()
-        return {"status": "ok", "duplicate": True}
-    session.add(
-        OperatorTraining(
-            record_uuid=payload.record_uuid,
-            operator_id=payload.operator_id,
-            payload_json=payload_json,
-        )
-    )
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        return {"status": "ok", "duplicate": True}
-    return {"status": "ok", "duplicate": False}
 
 
-async def upsert_supervisor_visit(session: AsyncSession, payload) -> dict:
-    payload_json = json.dumps(payload.model_dump(mode="json"))
-    existing = await _find_by_payload_key(
-        session,
-        SupervisorVisit,
-        SupervisorVisit.kiln_id,
-        payload.kiln_id,
-        "visited_at",
-        payload.visited_at,
-    )
-    if existing is not None:
-        existing.visit_uuid = payload.visit_uuid
-        existing.report_sha256 = payload.report_sha256
-        existing.payload_json = payload_json
-        await session.commit()
-        return {"status": "ok", "duplicate": True}
-    session.add(
-        SupervisorVisit(
-            visit_uuid=payload.visit_uuid,
-            kiln_id=payload.kiln_id,
-            report_sha256=payload.report_sha256,
-            payload_json=payload_json,
-        )
-    )
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        return {"status": "ok", "duplicate": True}
-    return {"status": "ok", "duplicate": False}
 
 
-async def upsert_scale_calibration(session: AsyncSession, payload) -> dict:
-    session.add(
-        ScaleCalibration(
-            calibration_uuid=payload.calibration_uuid,
-            scale_id=payload.scale_id,
-            calibrated_at=_parse_dt(payload.calibrated_at),
-            valid_until=_parse_dt(payload.valid_until),
-            report_sha256=payload.report_sha256,
-            payload_json=json.dumps(payload.model_dump(mode="json")),
-        )
-    )
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        return {"status": "ok", "duplicate": True}
-    return {"status": "ok", "duplicate": False}
 
 
-async def upsert_annual_verification(session: AsyncSession, payload) -> dict:
-    existing = (
-        await session.execute(
-            select(AnnualVerification).where(
-                AnnualVerification.project_id == payload.project_id,
-                AnnualVerification.year == payload.year,
-            )
-        )
-    ).scalar_one_or_none()
-    fields = dict(
-        methane_rate_g_per_kg=payload.methane_rate_g_per_kg,
-        methane_run_count=payload.methane_run_count,
-        conversion_factor=payload.conversion_factor,
-        pah_measured=payload.pah_measured,
-        heavy_metals_measured=payload.heavy_metals_measured,
-        leakage_assessment_done=payload.leakage_assessment_done,
-        dry_bulk_density=payload.dry_bulk_density,
-        quality_oversight_sha256=payload.quality_oversight_sha256,
-        report_sha256=payload.report_sha256,
-    )
-    payload_json = json.dumps(payload.model_dump(mode="json"))
-    if existing is None:
-        session.add(
-            AnnualVerification(
-                project_id=payload.project_id,
-                year=payload.year,
-                payload_json=payload_json,
-                **fields,
-            )
-        )
-        await session.commit()
-        return {
-            "status": "ok",
-            "project_id": payload.project_id,
-            "year": payload.year,
-            "updated": False,
-        }
-    for k, v in fields.items():
-        setattr(existing, k, v)
-    existing.payload_json = payload_json
-    await session.commit()
-    return {
-        "status": "ok",
-        "project_id": payload.project_id,
-        "year": payload.year,
-        "updated": True,
-    }
 
 
-async def _assert_batch_ownership(
-    session: AsyncSession, batch_uuid_str: str, device_id: str
-) -> None:
-    """Reject evidence targeting a batch owned by a DIFFERENT device.
-
-    Security (batch-ownership hardening): the evidence endpoints authenticate the
-    caller but historically never checked that the caller owns the batch the
-    evidence is anchored to. Because the credit is corroborated server-side from
-    these streams (recompute_batch_credit), any enrolled device could otherwise
-    inject telemetry/yield/application/moisture/composite rows into a victim's
-    batch and move its credit. This mirrors the media handler's `not_your_batch`
-    rule (upload_media).
-
-    Policy:
-      * batch exists AND is owned by another device  -> 403 not_your_batch
-      * batch exists AND owned by this device         -> OK
-      * batch owned by nobody yet (device_id NULL)    -> OK (legacy/unowned)
-      * batch does NOT exist yet                      -> OK (evidence-first is a
-        legitimate flow; create_batch establishes ownership from its own signed
-        payload when it arrives, and drives the authoritative recompute then)
-
-    A malformed batch_uuid is left for the endpoint's own persistence/validation
-    to handle; it cannot match an existing owned batch, so it is not a bypass.
-    """
-    try:
-        buid = uuid.UUID(batch_uuid_str)
-    except (ValueError, AttributeError, TypeError):
-        return
-    batch = (
-        await session.execute(select(Batch).where(Batch.batch_uuid == buid))
-    ).scalar_one_or_none()
-    if (
-        batch is not None
-        and batch.device_id is not None
-        and batch.device_id != device_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="not_your_batch"
-        )
 
 
-async def _upsert_one_to_one_evidence(
-    session: AsyncSession,
-    model,
-    *,
-    uuid_attr: str,
-    uuid_value: str,
-    batch_uuid: str,
-    payload_json: str,
-) -> dict:
-    """Recover from an IntegrityError on a one-to-one evidence table
-    (telemetry / yield / application: both `<x>_uuid` AND `batch_uuid` are UNIQUE).
-
-    The commit can collide on either unique key, and the two cases mean different
-    things:
-      * same `<x>_uuid` again  -> a genuine idempotent retry of the SAME record.
-        No-op; report duplicate. (Overwriting would be pointless and would reset
-        received_at semantics.)
-      * different `<x>_uuid`, same `batch_uuid` -> a CORRECTION / resubmission for
-        the batch. Pre-fix this was silently dropped as `duplicate` — the batch
-        kept the first (possibly attacker- or stale-) value and the real one was
-        lost. Now we UPDATE the existing row in place so the corrected evidence
-        wins and the credit re-derives from it.
-      * `<x>_uuid` collides against a row on a DIFFERENT batch (pathological UUID
-        reuse) -> there is no batch row to upsert; report duplicate rather than
-        clobber another batch's record.
-
-    The caller must have already rolled back the failed insert. Returns the JSON
-    response body; caller commits + recomputes on the `updated` path.
-    """
-    await session.rollback()
-    existing = (
-        await session.execute(select(model).where(model.batch_uuid == batch_uuid))
-    ).scalar_one_or_none()
-    if existing is None or getattr(existing, uuid_attr) == uuid_value:
-        # Same-record retry, or a cross-batch <x>_uuid clash we must not clobber.
-        return {"status": "success", "duplicate": True}
-    # Correction for this batch: overwrite the natural key + payload in place.
-    setattr(existing, uuid_attr, uuid_value)
-    existing.payload_json = payload_json
-    await session.commit()
-    await _recompute_if_batch_exists(session, batch_uuid)
-    return {"status": "success", "updated": True}
 
 
-async def _recompute_if_batch_exists(
-    session: AsyncSession, batch_uuid_str: str
-) -> None:
-    """Recompute a batch's corroborated credit if the batch already exists.
-
-    Called by the evidence endpoints so a batch's credit converges the moment its
-    telemetry/yield/application lands. No-op if the batch hasn't arrived yet
-    (create_batch will recompute when it does)."""
-    try:
-        buid = uuid.UUID(batch_uuid_str)
-    except (ValueError, AttributeError, TypeError):
-        return
-    batch = (
-        await session.execute(select(Batch).where(Batch.batch_uuid == buid))
-    ).scalar_one_or_none()
-    if batch is not None:
-        # Evidence is already committed here (caller commits before this), so a
-        # coalesced recompute is safe: a concurrent run observes our committed
-        # rows. This collapses redundant recomputes under a burst of posts.
-        await recompute_batch_credit(session, batch, coalesce=True)
-        await session.commit()
 
 
 @app.post(
@@ -1285,14 +998,6 @@ async def upload_media(
     )
 
 
-def _assert_same_uuid(*, expected: str, **kwargs: str) -> None:
-    """Raise 422 if any value in kwargs differs from expected."""
-    for name, value in kwargs.items():
-        if value != expected:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"batch_uuid mismatch: {name}={value} expected={expected}",
-            )
 
 
 # ==================== Evidence-endpoint schemas (Phase 11) ====================
@@ -1622,15 +1327,6 @@ async def create_application(
 
 
 
-def _parse_dt(s: Optional[str]) -> Optional[datetime]:
-    """Parse an ISO-8601 timestamp to an aware UTC datetime, or 400 on garbage."""
-    if s is None:
-        return None
-    try:
-        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
-        raise HTTPException(status_code=400, detail="invalid_timestamp")
-    return _as_utc(dt)
 
 
 
@@ -1707,93 +1403,8 @@ async def register_annual_verification(
     return await upsert_annual_verification(session, payload)
 
 
-# ==================== C10: unified compliance gate + report ====================
-# Every provisional reason `assemble` can emit, mapped to its methodology section
-# and a human-readable label. Ordered so the checklist reads project → per-run →
-# per-batch → lab. This is the single source of truth for the compliance report.
-_COMPLIANCE_CATALOG: list[tuple[str, str, str]] = [
-    # (reason_code, methodology_section, human_label)
-    ("missing_biomass_input", "per-run (C1)", "Biomass input amount not recorded"),
-    (
-        "missing_conversion_factor",
-        "per-run (C1)",
-        "Biomass yield-conversion factor missing",
-    ),
-    ("wet_yield_uncorroborated", "per-run", "Wet biochar yield not corroborated"),
-    ("min_temp_uncorroborated", "per-run", "Minimum burn temperature not corroborated"),
-    (
-        "insufficient_moisture_samples",
-        "per-run (C2)",
-        "Too few photographed moisture readings",
-    ),
-    ("missing_pyrolysis_photos", "per-run (C3)", "Open-kiln pyrolysis photos missing"),
-    (
-        "flame_height_out_of_range",
-        "per-run (C3)",
-        "Open-kiln flame height out of range",
-    ),
-    ("missing_ignition_energy", "per-run (C3b)", "Closed-kiln ignition energy missing"),
-    (
-        "missing_composite_sample",
-        "per-run (C4)",
-        "Site composite pile sub-sample missing",
-    ),
-    ("transport_uncorroborated", "per-event", "Transport distance not corroborated"),
-    ("missing_delivery_record", "per-batch (C5)", "Delivery record missing"),
-    ("missing_buyer_identity", "per-batch (C5)", "Buyer/end-user identity missing"),
-    ("unregistered_kiln", "project (C8)", "Kiln not in the project registry"),
-    ("scale_calibration_expired", "project (C8)", "Scale calibration missing/expired"),
-    ("missing_annual_methane", "annual (C9)", "Current methane measurement missing"),
-    ("missing_pah", "annual (C9)", "Closed-kiln PAH measurement missing"),
-    ("assumed_h_corg", "lab (C7)", "H:Corg permanence ratio not lab-measured"),
-    ("assumed_corg", "lab (C7)", "Organic carbon not lab-measured"),
-    ("attestation_unverified", "security", "Device attestation unverified"),
-]
 
 
-def compliance_view(batch) -> dict:
-    """Build the C10 compliance report (ordered provisional reasons + a human
-    per-item checklist) for a batch. THE single grading view — reused by the
-    admin `/compliance` route and the portal read API (P2.2); never forked.
-    """
-    reasons = _safe_json(
-        batch.provisional_reasons, context=f"provisional_reasons {batch.batch_uuid}"
-    )
-    if not isinstance(reasons, list):
-        reasons = []
-    reason_set = set(reasons)
-
-    # T1.10: per-item enforcement provenance so a verifier can tell "checked and
-    # passed" from "not applicable to this batch". 'enforced' = the gate can fire
-    # for this batch; 'inert_no_linkage' = needs project/scale linkage this batch
-    # lacks; 'awaiting_methodology' = code path exists but is flag-gated pending
-    # Rainbow sign-off (device attestation).
-    def _enforcement(code: str) -> str:
-        if code == "scale_calibration_expired" and not batch.scale_id:
-            return "inert_no_linkage"
-        if code in ("missing_annual_methane", "missing_pah") and not batch.project_id:
-            return "inert_no_linkage"
-        if code == "attestation_unverified" and not _attestation_enforced():
-            return "awaiting_methodology"
-        return "enforced"
-
-    checklist = [
-        {
-            "code": code,
-            "section": section,
-            "label": label,
-            "ok": code not in reason_set,
-            "enforcement": _enforcement(code),
-        }
-        for code, section, label in _COMPLIANCE_CATALOG
-    ]
-    return {
-        "batch_uuid": str(batch.batch_uuid),
-        "provisional": batch.provisional,
-        "issuable": not batch.provisional,
-        "reasons": reasons,
-        "checklist": checklist,
-    }
 
 
 @app.get("/api/v1/batches/{batch_uuid}/compliance")
