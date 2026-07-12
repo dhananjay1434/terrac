@@ -1,4 +1,6 @@
 import asyncio
+import hmac_keys
+import json
 import logging
 import uuid
 from typing import Optional, List, Dict, Any, Tuple
@@ -23,8 +25,9 @@ from models import (
     TransportEvent,
     YieldMetrics,
 )
-import lca_engine
+from lca_engine import calculate_carbon_credit, sign_lca_audit, lca_sign_payload_bytes
 from corroboration import (
+    assemble,
     derive_annual_methane_compliance,
     derive_biomass_compliance,
     derive_composite_sample_compliance,
@@ -40,10 +43,10 @@ from corroboration import (
     derive_transport_km,
     derive_wet_yield,
 )
-import emission_factors
+from emission_factors import TRANSPORT_EVENTS_ENFORCED, fuel_emissions_kg_co2e
 import attestation
 from settings import _attestation_enforced
-from geo import haversine_km
+from geo import haversine_km, GPS_ANCHOR_MISMATCH_KM
 from jsonsafe import _safe_json, _safe_json_async, _as_utc
 from schemas import *
 
@@ -71,6 +74,17 @@ def _recompute_slot(buid: str) -> dict:
         _recompute_state[buid] = st
     return st
 
+
+async def _device_registered_at(session: AsyncSession, device_id):
+    """The DeviceKey.registered_at for a device, or None if unknown. Used only by
+    the attestation grace check (P4.1)."""
+    if not device_id:
+        return None
+    return (
+        await session.execute(
+            select(DeviceKey.registered_at).where(DeviceKey.device_id == device_id)
+        )
+    ).scalar_one_or_none()
 
 async def recompute_batch_credit(
     session: AsyncSession,
