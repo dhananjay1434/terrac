@@ -13,8 +13,8 @@ def test_log_redaction(caplog):
 
     import os
 
-    server_path = os.path.join(os.path.dirname(__file__), "..", "server.py")
-    with open(server_path, "r") as f:
+    server_path = os.path.join(os.path.dirname(__file__), "..", "routers", "media.py")
+    with open(server_path, "r", encoding="utf-8") as f:
         content = f.read()
 
     assert "x_declared_sha256[:8]" in content

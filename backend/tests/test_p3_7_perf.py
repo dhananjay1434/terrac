@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 import server
+import middleware
 import credit_engine
 
 
@@ -19,33 +20,33 @@ import credit_engine
 # M1 — rate-limit pruning keeps live windows
 # --------------------------------------------------------------------------
 def test_prune_drops_stale_windows_keeps_current():
-    server._rl_counters.clear()
+    middleware._rl_counters.clear()
     current = 1000
     # Stale windows (older) + a live current-window counter under attack.
     for i in range(50):
-        server._rl_counters[("default", f"dev{i}", current - 1)] = 7
-    server._rl_counters[("register", "attacker-ip", current)] = 4
+        middleware._rl_counters[("default", f"dev{i}", current - 1)] = 7
+    middleware._rl_counters[("register", "attacker-ip", current)] = 4
 
-    server._rl_prune(current)
+    middleware._rl_prune(current)
 
     # Every stale entry is gone; the current-window count SURVIVES intact.
-    assert all(k[2] >= current for k in server._rl_counters)
-    assert server._rl_counters[("register", "attacker-ip", current)] == 4
+    assert all(k[2] >= current for k in middleware._rl_counters)
+    assert middleware._rl_counters[("register", "attacker-ip", current)] == 4
 
 
 def test_prune_evicts_oldest_first_when_all_live():
-    server._rl_counters.clear()
+    middleware._rl_counters.clear()
     # No stale entries — spread across increasing windows; force over-cap eviction.
-    cap = server._RL_MAX_COUNTERS
+    cap = middleware._RL_MAX_COUNTERS
     for w in range(cap + 100):
-        server._rl_counters[("default", "k", w)] = 1
+        middleware._rl_counters[("default", "k", w)] = 1
     newest = cap + 99
-    server._rl_prune(newest)
-    assert len(server._rl_counters) <= cap
+    middleware._rl_prune(newest)
+    assert len(middleware._rl_counters) <= cap
     # The newest window must not be the one evicted.
-    assert ("default", "k", newest) in server._rl_counters
+    assert ("default", "k", newest) in middleware._rl_counters
     # The very oldest window should have been dropped.
-    assert ("default", "k", 0) not in server._rl_counters
+    assert ("default", "k", 0) not in middleware._rl_counters
 
 
 # --------------------------------------------------------------------------

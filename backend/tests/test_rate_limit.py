@@ -14,6 +14,7 @@ import json
 import pytest
 
 import server
+import middleware
 
 pytestmark = pytest.mark.asyncio
 
@@ -23,7 +24,7 @@ def _enable(monkeypatch, **caps):
     monkeypatch.setenv("DMRV_RATELIMIT_WINDOW_SECONDS", "3600")
     for bucket, value in caps.items():
         monkeypatch.setenv(f"DMRV_RATELIMIT_{bucket.upper()}", str(value))
-    server._rl_counters.clear()
+    middleware._rl_counters.clear()
 
 
 async def _register(client, i):
@@ -72,6 +73,6 @@ async def test_admin_bucket_is_rate_limited(client, monkeypatch):
 async def test_disabled_limiter_does_not_throttle(client, monkeypatch):
     # Default test posture: disabled. Many requests, never a 429.
     monkeypatch.setenv("DMRV_RATELIMIT_ENABLED", "0")
-    server._rl_counters.clear()
+    middleware._rl_counters.clear()
     codes = [(await _register(client, i)).status_code for i in range(8)]
     assert 429 not in codes, codes
