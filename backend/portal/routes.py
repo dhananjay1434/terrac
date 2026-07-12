@@ -45,15 +45,15 @@ from models import (
     EnrollmentToken,
 )
 # P2.5: reuse the admin registry request models + upsert helpers directly from
-# server (imported at server-load time, after they're defined; the include-at-end
-# seam avoids a cycle). Recorded as a P4.8 coupling to resolve when server.py is
-# split.
-from server import (  # noqa: E402
+# schemas + services.registry (P4.8/R7 — repointed off server to break the cycle).
+from schemas import (
     AnnualVerificationRequest,
     KilnRequest,
     OperatorTrainingRequest,
     ScaleCalibrationRequest,
     SupervisorVisitRequest,
+)
+from services.registry import (
     upsert_annual_verification,
     upsert_kiln,
     upsert_operator_training,
@@ -251,7 +251,7 @@ async def batch_detail(
 ):
     import uuid as _uuid
 
-    from server import compliance_view  # reuse the ONE grading view (P2.0 coupling)
+    from services.compliance import compliance_view  # reuse the ONE grading view (P2.0 coupling)
 
     try:
         buid = _uuid.UUID(batch_uuid)
@@ -379,7 +379,7 @@ async def get_media(
     _user: PortalUser = Depends(require_role()),
     session: AsyncSession = Depends(get_session),
 ):
-    from server import _SAFE  # shared identity guard
+    from security import _SAFE  # shared identity guard
     from storage import get_storage
 
     if not _SAFE.match(operation_id or ""):
@@ -438,7 +438,7 @@ async def submit_lab_results(
     user: PortalUser = Depends(require_role("lab", "admin")),
     session: AsyncSession = Depends(get_session),
 ):
-    from server import apply_lab_results  # the ONE lab-ingestion path (P2.4)
+    from services.lab import apply_lab_results  # the ONE lab-ingestion path (P2.4)
 
     batch = await _load_batch(session, batch_uuid)
     await apply_lab_results(
