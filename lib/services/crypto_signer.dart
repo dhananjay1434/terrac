@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
@@ -21,23 +22,35 @@ class CryptoSigner {
   static final _algo = Ed25519();
 
   static SimpleKeyPair? _pair;
+  static Completer<SimpleKeyPair>? _pairCompleter;
   static String? _deviceId;
+  static Completer<String>? _deviceIdCompleter;
 
   static Future<SimpleKeyPair> _keyPair() async {
     if (_pair != null) return _pair!;
-    final stored = await _storage.read(key: _seedKey);
-    if (stored != null) {
-      _pair = await _algo.newKeyPairFromSeed(base64Url.decode(_pad(stored)));
-      return _pair!;
+    if (_pairCompleter != null) return _pairCompleter!.future;
+    _pairCompleter = Completer<SimpleKeyPair>();
+    try {
+      final stored = await _storage.read(key: _seedKey);
+      if (stored != null) {
+        _pair = await _algo.newKeyPairFromSeed(base64Url.decode(_pad(stored)));
+        _pairCompleter!.complete(_pair);
+        return _pair!;
+      }
+      final pair = await _algo.newKeyPair();
+      final seed = await pair.extractPrivateKeyBytes();
+      await _storage.write(
+        key: _seedKey,
+        value: base64Url.encode(seed).replaceAll('=', ''),
+      );
+      _pair = pair;
+      _pairCompleter!.complete(pair);
+      return pair;
+    } catch (e) {
+      _pairCompleter!.completeError(e);
+      _pairCompleter = null;
+      rethrow;
     }
-    final pair = await _algo.newKeyPair();
-    final seed = await pair.extractPrivateKeyBytes();
-    await _storage.write(
-      key: _seedKey,
-      value: base64Url.encode(seed).replaceAll('=', ''),
-    );
-    _pair = pair;
-    return pair;
   }
 
   static String _pad(String s) {
@@ -49,15 +62,25 @@ class CryptoSigner {
 
   static Future<String> getDeviceId() async {
     if (_deviceId != null) return _deviceId!;
-    final existing = await _storage.read(key: _deviceIdKey);
-    if (existing != null) {
-      _deviceId = existing;
-      return existing;
+    if (_deviceIdCompleter != null) return _deviceIdCompleter!.future;
+    _deviceIdCompleter = Completer<String>();
+    try {
+      final existing = await _storage.read(key: _deviceIdKey);
+      if (existing != null) {
+        _deviceId = existing;
+        _deviceIdCompleter!.complete(existing);
+        return existing;
+      }
+      final id = const Uuid().v4();
+      await _storage.write(key: _deviceIdKey, value: id);
+      _deviceId = id;
+      _deviceIdCompleter!.complete(id);
+      return id;
+    } catch (e) {
+      _deviceIdCompleter!.completeError(e);
+      _deviceIdCompleter = null;
+      rethrow;
     }
-    final id = const Uuid().v4();
-    await _storage.write(key: _deviceIdKey, value: id);
-    _deviceId = id;
-    return id;
   }
 
   static Future<String> publicKeyB64() async {
@@ -213,7 +236,9 @@ class CryptoSigner {
 
   static Future<void> clear() async {
     _pair = null;
+    _pairCompleter = null;
     _deviceId = null;
+    _deviceIdCompleter = null;
     await _storage.delete(key: _seedKey);
     await _storage.delete(key: _deviceIdKey);
   }
@@ -221,7 +246,9 @@ class CryptoSigner {
   @visibleForTesting
   static void resetForTest() {
     _pair = null;
+    _pairCompleter = null;
     _deviceId = null;
+    _deviceIdCompleter = null;
   }
 
   static Future<void> resetKeyForTesting() => clear();
