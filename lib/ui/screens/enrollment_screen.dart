@@ -9,6 +9,7 @@ import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
 import '../design/tokens.dart';
 import 'dashboard_screen.dart';
+import 'farmer_kyc_screen.dart';
 
 /// Maps an enrollment failure to a human, cause-specific message. Pure so the
 /// mapping is unit-tested without the network.
@@ -167,6 +168,17 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen> {
                   : () => ref
                         .read(enrollmentControllerProvider.notifier)
                         .enroll(_tokenCtrl.text, _urlCtrl.text),
+            ),
+            SizedBox(height: t.gapL),
+            DmrvButton(
+              label: 'FARMER KYC SETUP',
+              testId: 'kyc-setup-btn',
+              variant: DmrvButtonVariant.secondary,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const FarmerKycScreen(),
+                ),
+              ),
             ),
           ],
         ),
