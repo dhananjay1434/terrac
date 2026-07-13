@@ -60,14 +60,13 @@ android {
 
     buildTypes {
         release {
-            // P0.6: sign with the real release key when key.properties is present
-            // (local dev + the publish pipeline); fall back to debug signing only
-            // so a keystore-less environment (CI) can still compile-smoke. A
-            // debug-signed APK is package-replaceable and MUST NOT be published.
+            // P0.6: Enforce release signing safety. The build MUST fail if
+            // key.properties is missing, rather than silently falling back
+            // to a debug signature that could be published by mistake.
             signingConfig = if (keystorePropertiesFile.exists())
                 signingConfigs.getByName("release")
             else
-                signingConfigs.getByName("debug")
+                throw GradleException("Missing key.properties: Refusing to build a release APK without the production signing key. NEVER publish a debug-signed build.")
 
             // T2.4: obfuscate + shrink release builds. Keep rules in
             // proguard-rules.pro. Build with:
