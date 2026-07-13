@@ -1,9 +1,7 @@
 from __future__ import annotations
-import json
-import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Request, Response, Depends, Header, HTTPException, Response, status
+from fastapi import APIRouter, Response, Depends, Header, HTTPException, status
 from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +12,6 @@ from schemas import BatchPayload, BatchResponse
 from security import verify_signature
 from credit_engine import recompute_batch_credit
 from storage import get_storage
-import observability
 from settings import log
 from jsonsafe import _as_utc
 

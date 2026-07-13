@@ -172,10 +172,15 @@ async def test_pah_inert_without_project_linkage(
 
 
 def test_no_enforced_false_bypass_in_server_source():
-    """Regression: the hardcoded PAH bypass must never come back."""
+    """Regression: the hardcoded PAH bypass must never come back.
+
+    Post-refactor (R1-R10), server.py is a facade; the actual attestation/compliance
+    logic this guards lives in settings.py and services/compliance.py. Scan those
+    (and server.py, for good measure) rather than just the facade.
+    """
     from pathlib import Path
 
-    src = (Path(__file__).resolve().parents[1] / "server.py").read_text(
-        encoding="utf-8"
-    )
-    assert "enforced=False" not in src
+    backend_dir = Path(__file__).resolve().parents[1]
+    for filename in ("server.py", "settings.py", "services/compliance.py"):
+        src = (backend_dir / filename).read_text(encoding="utf-8")
+        assert "enforced=False" not in src, f"found in {filename}"

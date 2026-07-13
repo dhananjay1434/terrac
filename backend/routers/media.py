@@ -6,6 +6,7 @@ import uuid
 from typing import Optional
 from fastapi import APIRouter, Request, Response, Depends, File, Header, HTTPException, UploadFile, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_session
 from models import Batch, MediaFile

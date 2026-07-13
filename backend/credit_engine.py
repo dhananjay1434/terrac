@@ -2,6 +2,7 @@ import asyncio
 import hmac_keys
 import json
 import logging
+import observability
 import uuid
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone
@@ -86,6 +87,7 @@ async def _device_registered_at(session: AsyncSession, device_id):
         )
     ).scalar_one_or_none()
 
+@observability.timed_recompute
 async def recompute_batch_credit(
     session: AsyncSession,
     batch: Batch,

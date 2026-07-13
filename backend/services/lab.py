@@ -1,14 +1,8 @@
 import json
-import observability
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Batch
 from credit_engine import recompute_batch_credit
-
-@observability.timed_recompute
-
-
-
 
 async def apply_lab_results(
     session: AsyncSession,

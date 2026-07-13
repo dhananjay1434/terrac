@@ -9,105 +9,15 @@ from models import MoistureReading, CompositePileSample, TransportEvent, Pyrolys
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from schemas import _BatchScopedPayload
-class TelemetryPayload(_BatchScopedPayload):
-    model_config = ConfigDict(extra="forbid")
-    telemetry_uuid: str = Field(..., max_length=64)
-    batch_uuid: str = Field(..., max_length=64)
-    kiln_gross_capacity: Optional[float] = Field(None, ge=0.0, le=100_000.0)
-    burn_start_timestamp: Optional[str] = Field(None, max_length=64)
-    burn_end_timestamp: Optional[str] = Field(None, max_length=64)
-    min_temp: Optional[float] = Field(None, ge=-50.0, le=1500.0)
-    max_temp: Optional[float] = Field(None, ge=-50.0, le=1500.0)
-    temperature_readings: Optional[list[float]] = Field(None, max_length=100_000)
-    smoke_evidence: Optional[list[dict]] = Field(None, max_length=1_000)
-    hw_attestation: Optional[list] = Field(None, max_length=1_000)
-    # Rainbow compliance C0: kiln type/id (persisted in payload_json).
-    kiln_type: Optional[Literal["open", "closed"]] = None
-    kiln_id: Optional[str] = Field(None, max_length=128)
-    # Rainbow compliance C3 (open-kiln) / C3b (closed-kiln); read from payload_json
-    # by recompute_batch_credit for kiln-type-conditional compliance.
-    flame_height_m: Optional[float] = Field(None, ge=0.0, le=5.0)
-    ignition_energy_type: Optional[str] = Field(None, max_length=128)
-    ignition_energy_amount: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
-
-    @field_validator("temperature_readings")
-    @classmethod
-    def _validate_temp_range(cls, v: Optional[list[float]]) -> Optional[list[float]]:
-        # Phase 15-C: every reading must be physically plausible so a fabricated
-        # constant array can't inflate the burn-quality (CH4) gate with absurd values.
-        if v is not None and any((t < -50.0 or t > 1500.0) for t in v):
-            raise ValueError("temperature_readings values must be in [-50, 1500] C")
-        return v
-class YieldPayload(_BatchScopedPayload):
-    model_config = ConfigDict(extra="forbid")
-    yield_uuid: str = Field(..., max_length=64)
-    batch_uuid: str = Field(..., max_length=64)
-    quench_methodology: Optional[str] = Field(None, max_length=128)
-    gross_volume: Optional[float] = Field(None, ge=0.0, le=100_000.0)
-    # Phase 15-C: hard upper bound so a single self-asserted field can't linearly
-    # inflate the credit to arbitrary size (100 t/batch ceiling — confirm vs real
-    # kiln throughput). A kiln-capacity cross-check remains a documented follow-up.
-    wet_yield_weight_kg: Optional[float] = Field(None, gt=0.0, le=100_000.0)
-    dry_yield_weight_kg: Optional[float] = Field(None, ge=0.0, le=100_000.0)
-class MetadataPayload(_BatchScopedPayload):
-    model_config = ConfigDict(extra="forbid")
-    batch_uuid: str = Field(..., max_length=64)
-    artisan_id: Optional[str] = Field(None, max_length=128)
-    device_hardware_mac: Optional[str] = Field(None, max_length=128)
-    app_build_version: Optional[str] = Field(None, max_length=128)
-    sync_status: Optional[str] = Field(None, max_length=64)
-    created_at: Optional[str] = Field(None, max_length=64)
-class ApplicationPayload(_BatchScopedPayload):
-    model_config = ConfigDict(extra="forbid")
-    application_uuid: str = Field(..., max_length=64)
-    batch_uuid: str = Field(..., max_length=64)
-    application_methodology: Optional[str] = Field(None, max_length=128)
-    application_rate_tonnes: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
-    transport_distance_km: Optional[float] = Field(None, ge=0.0, le=20000.0)
-    latitude: Optional[float] = Field(None, ge=-90.0, le=90.0)
-    longitude: Optional[float] = Field(None, ge=-180.0, le=180.0)
-    farmer_photo_path: Optional[str] = Field(None, max_length=512)
-    farmer_photo_sha256: Optional[str] = Field(None, max_length=64)
-    # Rainbow compliance C5: delivery record + buyer/end-user identity.
-    # Persisted in payload_json (no server column); read by
-    # derive_delivery_compliance in recompute_batch_credit.
-    delivery_date: Optional[str] = Field(None, max_length=64)
-    delivered_amount_kg: Optional[float] = Field(None, ge=0.0, le=100_000.0)
-    buyer_name: Optional[str] = Field(None, max_length=256)
-    buyer_contact: Optional[str] = Field(None, max_length=256)
-class MoisturePayload(_BatchScopedPayload):
-    # Rainbow compliance C2: one moisture-meter reading (many per batch).
-    model_config = ConfigDict(extra="forbid")
-    reading_uuid: str = Field(..., max_length=64)
-    batch_uuid: str = Field(..., max_length=64)
-    moisture_percent: float = Field(..., ge=0.0, le=100.0)
-    sequence: int = Field(..., ge=1)
-    photo_path: Optional[str] = Field(None, max_length=512)
-    sha256_hash: Optional[str] = Field(None, min_length=64, max_length=64)
-class CompositeSamplePayload(_BatchScopedPayload):
-    # Rainbow compliance C4: one site composite pile sub-sample (many per batch).
-    model_config = ConfigDict(extra="forbid")
-    sample_uuid: str = Field(..., max_length=64)
-    batch_uuid: str = Field(..., max_length=64)
-    sampled_at: Optional[str] = Field(None, max_length=64)
-    latitude: Optional[float] = Field(None, ge=-90.0, le=90.0)
-    longitude: Optional[float] = Field(None, ge=-180.0, le=180.0)
-    kiln_qr: Optional[str] = Field(None, max_length=128)
-    batch_qr: Optional[str] = Field(None, max_length=128)
-    photo_path: Optional[str] = Field(None, max_length=512)
-    sha256_hash: Optional[str] = Field(None, min_length=64, max_length=64)
-class TransportEventPayload(_BatchScopedPayload):
-    # Rainbow compliance C6: one transport leg (many per batch).
-    model_config = ConfigDict(extra="forbid")
-    event_uuid: str = Field(..., max_length=64)
-    batch_uuid: str = Field(..., max_length=64)
-    material: Literal["biomass", "biochar"]
-    distance_km: Optional[float] = Field(None, ge=0.0, le=20000.0)
-    weight_kg: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
-    vehicle_type: Optional[str] = Field(None, max_length=128)
-    fuel_type: Optional[str] = Field(None, max_length=64)
-    fuel_amount_litres: Optional[float] = Field(None, ge=0.0, le=100_000.0)
-    occurred_at: Optional[str] = Field(None, max_length=64)
+from schemas import (
+    ApplicationPayload,
+    CompositeSamplePayload,
+    MetadataPayload,
+    MoisturePayload,
+    TelemetryPayload,
+    TransportEventPayload,
+    YieldPayload,
+)
 
 from security import verify_signature
 from services.evidence import _assert_batch_ownership, _upsert_one_to_one_evidence, _recompute_if_batch_exists, _assert_same_uuid

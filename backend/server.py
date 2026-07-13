@@ -2,7 +2,7 @@
 
 This module re-exports every public and internal name that tests and other modules
 historically imported as ``from server import X``. The real implementations live in
-the domain modules extracted during the P4.8 server.py refactor (R1–R9).
+the domain modules extracted during the P4.8 server.py refactor (R1–R10).
 
 New code should import from the domain module directly:
     from schemas import BatchPayload
@@ -69,18 +69,25 @@ from security import (  # noqa: F401
 # ---- R4: schemas ----
 from schemas import (  # noqa: F401
     AnnualVerificationRequest,
+    ApplicationPayload,
     BatchPayload,
     BatchResponse,
+    CompositeSamplePayload,
     KilnRequest,
     LabHCorgRequest,
     LabResultsRequest,
     MediaUploadResponse,
+    MetadataPayload,
     MintTokenRequest,
+    MoisturePayload,
     OperatorTrainingRequest,
     RegistrationRequest,
     RegistrationResponse,
     ScaleCalibrationRequest,
     SupervisorVisitRequest,
+    TelemetryPayload,
+    TransportEventPayload,
+    YieldPayload,
     _BatchScopedPayload,
 )
 
