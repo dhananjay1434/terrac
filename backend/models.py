@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from uuid import UUID
 
 from sqlalchemy import (
     CheckConstraint,
@@ -15,7 +14,6 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
 )
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -306,8 +304,8 @@ class Batch(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    batch_uuid: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), unique=True, nullable=False, index=True
+    batch_uuid: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, index=True
     )
     operation_id: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True
@@ -404,8 +402,8 @@ class MediaFile(Base):
     # (Postgres rejected it; SQLite silently ignored FKs, hiding the bug). The
     # five sibling evidence tables (moisture/composite/transport/telemetry/
     # yield) already carry batch_uuid as a plain indexed column; media now matches.
-    batch_uuid: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), nullable=True
+    batch_uuid: Mapped[str] = mapped_column(
+        String(36), nullable=True
     )
     operation_id: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True
