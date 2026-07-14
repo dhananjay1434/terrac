@@ -30,7 +30,9 @@ USER dmrv
 EXPOSE 8001
 
 # /api/health is a real DB probe (T2.6) — a healthy container means the DB is reachable.
+# Honor $PORT so the same image runs on Render / Cloud Run (which inject it);
+# default 8001 for docker-compose, local, and CI.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
-    CMD curl -fsS http://localhost:8001/api/health || exit 1
+    CMD curl -fsS http://localhost:${PORT:-8001}/api/health || exit 1
 
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8001}"]

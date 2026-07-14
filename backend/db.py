@@ -19,7 +19,31 @@ if not _DATABASE_URL_RAW:
     raise RuntimeError(
         "DATABASE_URL env var is required. Refusing to fall back to a local default."
     )
-DATABASE_URL = _DATABASE_URL_RAW
+
+
+def normalize_db_url(url: str) -> str:
+    """Upgrade a bare Postgres URL to the async driver our engine requires.
+
+    Managed Postgres providers (Render, Heroku, Supabase, Railway) hand out
+    ``postgres://…`` or ``postgresql://…`` with NO async driver. Both our runtime
+    engine (create_async_engine) and the startup Alembic migration (env.py online
+    mode is async) require an async driver, so a bare Postgres scheme is rewritten
+    to ``postgresql+asyncpg://``. Any URL that already names a driver
+    (``+asyncpg``, ``+psycopg2``, ``+aiosqlite``) or a non-Postgres backend is
+    returned unchanged — so operators can still pin a driver explicitly.
+    """
+    if url.startswith("postgres://"):  # legacy Heroku-style scheme
+        url = "postgresql://" + url[len("postgres://") :]
+    if url.startswith("postgresql://"):  # bare scheme, no +driver
+        url = "postgresql+asyncpg://" + url[len("postgresql://") :]
+    return url
+
+
+DATABASE_URL = normalize_db_url(_DATABASE_URL_RAW)
+# Write the canonical form back so Alembic's env.py (which re-reads
+# os.environ["DATABASE_URL"] and builds an async engine) inherits the async
+# driver too — otherwise the startup migration would crash on a bare URL.
+os.environ["DATABASE_URL"] = DATABASE_URL
 
 # T3.1: production connection-pool tuning. pool_size/max_overflow are ONLY
 # valid for a real server-side pool (Postgres/asyncpg). SQLite/aiosqlite uses
