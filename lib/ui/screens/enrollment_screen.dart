@@ -173,7 +173,7 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen> {
             DmrvButton(
               label: 'FARMER KYC SETUP',
               testId: 'kyc-setup-btn',
-              variant: DmrvButtonVariant.secondary,
+              variant: DmrvButtonVariant.neutral,
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const FarmerKycScreen(),
