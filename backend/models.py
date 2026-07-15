@@ -12,6 +12,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
     event,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -305,7 +306,7 @@ class Batch(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     batch_uuid: Mapped[str] = mapped_column(
-        String(36), unique=True, nullable=False, index=True
+        Uuid(as_uuid=False), unique=True, nullable=False, index=True
     )
     operation_id: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True
@@ -403,7 +404,7 @@ class MediaFile(Base):
     # five sibling evidence tables (moisture/composite/transport/telemetry/
     # yield) already carry batch_uuid as a plain indexed column; media now matches.
     batch_uuid: Mapped[str] = mapped_column(
-        String(36), nullable=True
+        Uuid(as_uuid=False), nullable=True
     )
     operation_id: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True
