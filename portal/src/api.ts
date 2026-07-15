@@ -155,6 +155,30 @@ export function issueCredit(
   return req(`/api/v1/portal/batches/${uuid}/issue`, { method: "POST" });
 }
 
+// Fetch a registry export (JSON) with the bearer token and trigger a browser
+// download. The endpoint is admin-gated server-side, so the browser never holds
+// the admin secret. Returns the parsed report so callers/tests can assert on it.
+export async function downloadExport(
+  uuid: string,
+  fmt: "csi" | "rainbow",
+): Promise<Record<string, unknown>> {
+  const report = await req<Record<string, unknown>>(
+    `/api/v1/portal/batches/${uuid}/export/${fmt}`,
+  );
+  const blob = new Blob([JSON.stringify(report, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `batch-${uuid}-${fmt}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return report;
+}
+
 export function mintToken(
   body: { expires_in_days?: number; base_url?: string } = {},
 ): Promise<{ token: string; expires_at: string; qr_payload: string }> {

@@ -4,6 +4,7 @@ import {
   getBatch,
   fetchMediaUrl,
   issueCredit,
+  downloadExport,
   AuthError,
   type BatchDetail as Detail,
   type MediaItem,
@@ -57,6 +58,7 @@ export default function BatchDetail() {
   const [d, setD] = useState<Detail | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [issuing, setIssuing] = useState(false);
+  const [exporting, setExporting] = useState<"csi" | "rainbow" | null>(null);
 
   function reload() {
     getBatch(uuid)
@@ -86,6 +88,19 @@ export default function BatchDetail() {
       else setErr("Issue failed — the server re-checks eligibility.");
     } finally {
       setIssuing(false);
+    }
+  }
+
+  async function exportAs(fmt: "csi" | "rainbow") {
+    if (!d) return;
+    setExporting(fmt);
+    try {
+      await downloadExport(uuid, fmt);
+    } catch (e) {
+      if (e instanceof AuthError) nav("/login");
+      else setErr("Export failed — the batch must be issuable to export.");
+    } finally {
+      setExporting(null);
     }
   }
 
@@ -134,6 +149,27 @@ export default function BatchDetail() {
                     : "Not yet issuable"}
               </button>
             )
+          )}
+          {getRole() === "admin" && d.compliance.issuable && (
+            <div
+              className="export-row"
+              style={{ marginTop: 12, display: "flex", gap: 8 }}
+            >
+              <button
+                className="neutral"
+                disabled={exporting !== null}
+                onClick={() => exportAs("csi")}
+              >
+                {exporting === "csi" ? "Exporting…" : "Export CSI"}
+              </button>
+              <button
+                className="neutral"
+                disabled={exporting !== null}
+                onClick={() => exportAs("rainbow")}
+              >
+                {exporting === "rainbow" ? "Exporting…" : "Export Rainbow"}
+              </button>
+            </div>
           )}
         </div>
         <CreditRing okCount={okCount} total={total} />

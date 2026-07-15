@@ -668,6 +668,56 @@ async def issue_credit(
     }
 
 
+@router.get("/batches/{batch_uuid}/export/{fmt}")
+async def export_batch(
+    batch_uuid: str,
+    fmt: str,
+    user: PortalUser = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    """Portal-native registry export (Bearer + admin role).
+
+    Reuses the SAME CSIExportService/RainbowExportService as the admin-secret
+    ops endpoints (routers/exports.py), so the browser never needs the admin
+    secret. Provisional batches are rejected — a batch that cannot be issued
+    cannot be exported.
+    """
+    from services.export import CSIExportService, RainbowExportService
+
+    if fmt not in ("csi", "rainbow"):
+        raise HTTPException(status_code=400, detail="unknown_export_format")
+
+    batch = await _load_batch(session, batch_uuid)
+    if batch.provisional:
+        reasons = batch.provisional_reasons
+        try:
+            parsed = json.loads(reasons) if reasons else []
+        except (ValueError, TypeError):
+            parsed = []
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "batch_provisional", "reasons": parsed},
+        )
+
+    try:
+        if fmt == "csi":
+            report = await CSIExportService.export_batch_as_csi(batch, session)
+        else:
+            report = await RainbowExportService.export_batch_as_rainbow(batch, session)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    await write_audit(
+        session,
+        event_type="batch_exported",
+        actor_user_id=user.id,
+        batch_uuid=str(batch.batch_uuid),
+        payload={"format": fmt},
+    )
+    await session.commit()
+    return report
+
+
 @router.get("/batches/{batch_uuid}/audit")
 async def batch_audit(
     batch_uuid: str,
