@@ -73,6 +73,7 @@ def create_app() -> FastAPI:
     from routers.lab import router as lab_router
     from routers.admin import router as admin_router
     from routers.compliance import router as compliance_router
+    from routers.exports import router as exports_router
 
     application.include_router(health_router)
     application.include_router(devices_router)
@@ -82,6 +83,7 @@ def create_app() -> FastAPI:
     application.include_router(lab_router)
     application.include_router(admin_router)
     application.include_router(compliance_router)
+    application.include_router(exports_router)
 
     # Portal
     from portal.routes import router as portal_router

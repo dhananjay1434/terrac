@@ -1,0 +1,95 @@
+"""Export projections for CSI and Rainbow registries.
+
+Schema-accurate against the recovered CSI GlobalCSinkVerificationReport field set
+(EXECUTION_MASTER_PLAN E11/E23). Admin-gated at the router layer.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from models import Batch, MoistureReading, CompositePileSample, TransportEvent
+from jsonsafe import _safe_json
+from settings import log
+
+
+async def _load_child_payloads(session: AsyncSession, model, batch_uuid: str) -> list[dict]:
+    rows = (
+        await session.execute(select(model).where(model.batch_uuid == batch_uuid))
+    ).scalars().all()
+    out = []
+    for r in rows:
+        d = _safe_json(r.payload_json, context=f"{model.__tablename__} {r.batch_uuid}")
+        out.append(d if isinstance(d, dict) else {"_raw": d})
+    return out
+
+
+async def export_batch_common(batch: Batch, session: AsyncSession) -> Dict[str, Any]:
+    """Shared, schema-accurate projection of an issuable batch."""
+    if batch.provisional:
+        reasons = _safe_json(batch.provisional_reasons, context=f"reasons {batch.batch_uuid}")
+        raise ValueError(f"batch_provisional:{reasons if isinstance(reasons, list) else []}")
+
+    moisture = await _load_child_payloads(session, MoistureReading, batch.batch_uuid)
+    composite = await _load_child_payloads(session, CompositePileSample, batch.batch_uuid)
+    transport = await _load_child_payloads(session, TransportEvent, batch.batch_uuid)
+
+    return {
+        "batch_uuid": str(batch.batch_uuid),
+        "project_id": batch.project_id,
+        "scale_id": batch.scale_id,
+        "feedstock_species": batch.feedstock_species,
+        "harvest_timestamp": batch.harvest_timestamp.isoformat() if batch.harvest_timestamp else None,
+        "location": {"latitude": batch.latitude, "longitude": batch.longitude},
+        "inputs": {
+            "wet_yield_kg": batch.wet_yield_kg,
+            "moisture_percent": batch.moisture_percent,
+            "biomass_input_kg": batch.biomass_input_kg,
+            "biomass_measurement_method": batch.biomass_measurement_method,
+            "min_recorded_temp_c": batch.min_recorded_temp_c,
+            "transport_distance_km": batch.transport_distance_km,
+        },
+        "lab": {
+            "lab_h_corg": batch.lab_h_corg,
+            "organic_carbon_pct": batch.organic_carbon_pct,
+        },
+        "moisture_readings": moisture,
+        "composite_samples": composite,
+        "transport_events": transport,
+        "credit": {
+            "net_credit_t_co2e": batch.net_credit_t_co2e,
+            "lca_signature": batch.lca_signature,
+            "lca_signature_key_id": batch.lca_signature_key_id,
+            "lca_methodology_version": batch.lca_methodology_version,
+            "lca_audit": _safe_json(batch.lca_audit_json, context=f"lca_audit {batch.batch_uuid}"),
+        },
+        "status": batch.status,
+        "provisional": batch.provisional,
+        # Stamped in the route so tests can assert equality deterministically.
+        "exported_at": None,
+    }
+
+
+class CSIExportService:
+    @staticmethod
+    async def export_batch_as_csi(batch: Batch, session: AsyncSession) -> Dict[str, Any]:
+        common = await export_batch_common(batch, session)
+        common["standard"] = "CSI GlobalCSinkVerificationReport v1"
+        log.info(f"[CSI Export] batch={batch.batch_uuid}")
+        return common
+
+
+class RainbowExportService:
+    @staticmethod
+    async def export_batch_as_rainbow(batch: Batch, session: AsyncSession) -> Dict[str, Any]:
+        common = await export_batch_common(batch, session)
+        common["standard"] = "Rainbow Biochar Standard (Distributed Closed-Kiln)"
+        # ICVCM headline field: prefer measured lab H:Corg, else organic carbon fraction.
+        common["h_corg_ratio"] = (
+            batch.lab_h_corg if batch.lab_h_corg is not None else batch.organic_carbon_pct
+        )
+        log.info(f"[Rainbow Export] batch={batch.batch_uuid}")
+        return common
