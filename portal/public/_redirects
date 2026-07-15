@@ -1,0 +1,3 @@
+# Netlify SPA rewrite — the portal uses BrowserRouter, so every deep link
+# (/batches/<uuid>, /login) must serve index.html and let React Router route.
+/*    /index.html   200
