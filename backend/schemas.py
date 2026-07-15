@@ -8,7 +8,7 @@ from lca_engine import CORG_TABLE
 class BatchPayload(BaseModel):
     """Strict Pydantic V2 model for batch payload."""
 
-    batch_uuid: UUID
+    batch_uuid: str = Field(..., max_length=36)
     feedstock_species: str
     harvest_timestamp: datetime
     moisture_percent: float = Field(..., ge=0.0, le=100.0)
@@ -127,7 +127,7 @@ class MintTokenRequest(BaseModel):
 
 class LabHCorgRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    batch_uuid: UUID
+    batch_uuid: str = Field(..., max_length=36)
     # Physically plausible H:Corg molar ratio for biochar (~0.1–0.7 typical; Lantana
     # ~0.3–0.35). Bounds reject forged/absurd values that would inflate permanence.
     lab_h_corg: float = Field(..., ge=0.1, le=1.5)
@@ -143,7 +143,7 @@ class LabResultsRequest(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
-    batch_uuid: UUID
+    batch_uuid: str = Field(..., max_length=36)
     lab_h_corg: Optional[float] = Field(None, ge=0.1, le=1.5)
     # Organic carbon as a FRACTION in (0, 1] (e.g. Lantana ~0.60), matching CORG_TABLE.
     organic_carbon_pct: Optional[float] = Field(None, gt=0.0, le=1.0)

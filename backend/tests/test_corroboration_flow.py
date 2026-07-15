@@ -43,7 +43,7 @@ async def _fetch(session_factory, batch_uuid: str) -> Batch:
     async with session_factory() as s:
         row = (
             await s.execute(
-                select(Batch).where(Batch.batch_uuid == uuid.UUID(batch_uuid))
+                select(Batch).where(Batch.batch_uuid == str(uuid.UUID(batch_uuid)))
             )
         ).scalar_one()
         return row

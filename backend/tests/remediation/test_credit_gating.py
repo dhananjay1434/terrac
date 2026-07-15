@@ -102,7 +102,7 @@ async def test_verified_batch_gets_credit(
 
     async with session_factory() as session:
         result = await session.execute(
-            select(Batch).where(Batch.batch_uuid == uuid.UUID(payload["batch_uuid"]))
+            select(Batch).where(Batch.batch_uuid == str(uuid.UUID(payload["batch_uuid"])))
         )
         batch = result.scalar_one_or_none()
         assert batch is not None

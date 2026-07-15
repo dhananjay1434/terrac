@@ -151,7 +151,7 @@ async def _fully_compliant_batch(
 async def _reasons(session_factory, bu):
     async with session_factory() as s:
         b = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
         return b.provisional, json.loads(b.provisional_reasons or "[]")
 
@@ -210,7 +210,7 @@ async def test_compliance_endpoint_requires_admin(client, registered_device):
 
 
 async def test_compliance_endpoint_unknown_batch_404(client, registered_device):
-    r = await client.get(f"/api/v1/batches/{uuid.uuid4()}/compliance", headers=_ADMIN)
+    r = await client.get(f"/api/v1/batches/{str(uuid.uuid4())}/compliance", headers=_ADMIN)
     assert r.status_code == 404, r.text
 
 

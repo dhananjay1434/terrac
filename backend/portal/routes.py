@@ -254,7 +254,7 @@ async def batch_detail(
     from services.compliance import compliance_view  # reuse the ONE grading view (P2.0 coupling)
 
     try:
-        buid = _uuid.UUID(batch_uuid)
+        buid = str(_uuid.UUID(batch_uuid))
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="invalid_batch_uuid")
     batch = (
@@ -420,7 +420,7 @@ async def get_media(
 
 async def _load_batch(session: AsyncSession, batch_uuid: str) -> Batch:
     try:
-        buid = _uuid.UUID(batch_uuid)
+        buid = str(_uuid.UUID(batch_uuid))
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="invalid_batch_uuid")
     batch = (

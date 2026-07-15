@@ -34,7 +34,7 @@ async def test_lca_defensibility(client, session_factory):
     async with session_factory() as db_session:
         batch_row = (
             await db_session.execute(
-                select(Batch).where(Batch.batch_uuid == uuid.UUID(batch_uuid))
+                select(Batch).where(Batch.batch_uuid == str(uuid.UUID(batch_uuid)))
             )
         ).scalar_one()
         assert batch_row.lca_methodology_version == "CSI-3.2"

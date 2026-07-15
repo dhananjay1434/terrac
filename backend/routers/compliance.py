@@ -24,7 +24,7 @@ async def batch_compliance(
     """
     _require_admin(x_admin_secret)
     try:
-        buid = uuid.UUID(batch_uuid)
+        buid = str(uuid.UUID(batch_uuid))
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="invalid_batch_uuid")
     batch = (

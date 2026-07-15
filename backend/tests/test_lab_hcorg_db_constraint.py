@@ -17,7 +17,7 @@ from lca_engine import step3_cremain
 
 def _batch(lab_h_corg):
     return Batch(
-        batch_uuid=uuid.uuid4(),
+        batch_uuid=str(uuid.uuid4()),
         operation_id="ck-" + uuid.uuid4().hex[:8],
         feedstock_species="Lantana_camara",
         harvest_timestamp=datetime.now(timezone.utc),

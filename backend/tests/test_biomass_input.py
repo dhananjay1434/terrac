@@ -43,7 +43,7 @@ async def test_biomass_input_persists(client, registered_device, session_factory
     assert r.status_code == 201, r.text
     async with session_factory() as s:
         batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
     assert batch.biomass_input_kg == 250.0
     assert batch.biomass_measurement_method == "direct_weigh"

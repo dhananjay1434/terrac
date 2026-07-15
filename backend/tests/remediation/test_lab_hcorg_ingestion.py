@@ -100,7 +100,7 @@ async def _set_lab_and_read_credit(client, session_factory, bu, ratio):
     assert r.status_code == 200, r.text
     async with session_factory() as s:
         batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
         return batch.net_credit_t_co2e
 

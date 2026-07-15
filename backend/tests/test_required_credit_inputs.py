@@ -54,7 +54,7 @@ async def test_uncorroborated_input_is_provisional_not_fabricated(
     async with session_factory() as s:
         batch = (
             await s.execute(
-                select(Batch).where(Batch.batch_uuid == UUID(payload["batch_uuid"]))
+                select(Batch).where(Batch.batch_uuid == payload["batch_uuid"])
             )
         ).scalar_one()
     reasons = json.loads(batch.provisional_reasons)

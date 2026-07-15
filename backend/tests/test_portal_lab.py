@@ -1,3 +1,4 @@
+import uuid as _uuid
 """P2.4 — portal lab flow. The session-authed portal lab-results endpoint must
 trigger the SAME recompute as the legacy X-Admin-Secret channel (identical batch
 state), and be gated to the lab/admin roles (verifier -> 403)."""
@@ -32,8 +33,8 @@ _LAB = {
 
 def _mk_batch():
     return Batch(
-        batch_uuid=uuid.uuid4(),
-        operation_id=f"op-{uuid.uuid4().hex[:8]}",
+        batch_uuid=str(_uuid.uuid4()),
+        operation_id=f"op-{_uuid.uuid4().hex[:8]}",
         feedstock_species="Lantana_camara",
         harvest_timestamp=datetime(2026, 7, 1, tzinfo=timezone.utc),
         moisture_percent=12.0,

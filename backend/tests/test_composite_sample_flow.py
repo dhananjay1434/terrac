@@ -91,7 +91,7 @@ async def test_composite_sample_persists_and_is_inert(
         assert json.loads(rows[0].payload_json)["kiln_qr"] == "KILN-42"
 
         batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
         reasons = json.loads(batch.provisional_reasons or "[]")
         # Inert by default — must NOT gate issuance yet.

@@ -153,7 +153,7 @@ async def test_late_photo_upgrades_batch_to_received(client, session_factory):
     async with session_factory() as db_session:
         batch_row = (
             await db_session.execute(
-                select(Batch).where(Batch.batch_uuid == uuid.UUID(batch_uuid))
+                select(Batch).where(Batch.batch_uuid == str(uuid.UUID(batch_uuid)))
             )
         ).scalar_one()
         assert batch_row.status == "RECEIVED"

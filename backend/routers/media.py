@@ -122,7 +122,7 @@ async def upload_media(
     # P1-B5: validate the batch UUID BEFORE writing any bytes, so a malformed
     # value (400) can never leave an orphaned object.
     try:
-        batch_uuid = uuid.UUID(x_batch_uuid)
+        batch_uuid = str(uuid.UUID(x_batch_uuid))
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="invalid_batch_uuid")
 

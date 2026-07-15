@@ -100,7 +100,7 @@ async def _corrupt_first(session_factory, model, bu):
 async def _reasons(session_factory, bu):
     async with session_factory() as s:
         batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
         return json.loads(batch.provisional_reasons or "[]")
 
@@ -157,7 +157,7 @@ async def test_corrupt_provisional_reasons_compliance_still_200(
     await _create_batch(client, bu)
     async with session_factory() as s:
         batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
         batch.provisional_reasons = "{ not a list, not valid"
         await s.commit()

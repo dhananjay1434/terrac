@@ -113,7 +113,7 @@ async def _corroborated_batch(client, bu):
 async def _batch(session_factory, bu):
     async with session_factory() as s:
         return (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
 
 

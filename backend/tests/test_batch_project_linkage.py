@@ -40,7 +40,7 @@ async def _post_batch(client, payload):
 async def _load(session_factory, bu):
     async with session_factory() as s:
         return (
-            await s.execute(select(Batch).where(Batch.batch_uuid == _uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(_uuid.UUID(bu))))
         ).scalar_one()
 
 

@@ -299,7 +299,7 @@ async def test_under_reported_transport_flagged(
     assert resp.status_code == 201
 
     async with session_factory() as session:
-        stmt = select(Batch).where(Batch.batch_uuid == uuid.UUID(b1_uuid))
+        stmt = select(Batch).where(Batch.batch_uuid == str(uuid.UUID(b1_uuid)))
         result = await session.execute(stmt)
         batch = result.scalar_one()
         assert batch.transport_distance_km > 100.0

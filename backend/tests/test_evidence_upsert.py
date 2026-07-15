@@ -104,7 +104,7 @@ async def test_yield_correction_re_derives_the_credit(
     async def _wet_yield():
         async with session_factory() as s:
             b = (
-                await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+                await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
             ).scalar_one()
             return b.wet_yield_kg
 

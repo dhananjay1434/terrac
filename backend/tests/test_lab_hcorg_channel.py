@@ -184,7 +184,7 @@ async def test_lab_hcorg_alone_leaves_only_assumed_corg(
 
     async with session_factory() as s:
         batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
     assert batch.provisional is True
     assert batch.lab_h_corg == 0.3
@@ -211,7 +211,7 @@ async def test_full_lab_channel_clears_provisional(
 
     async with session_factory() as s:
         batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
     assert batch.provisional is False
     assert batch.lab_h_corg == 0.3
@@ -228,7 +228,7 @@ async def test_provisional_batch_has_no_issuance_signature(
     await _create_batch(client, bu)  # no evidence → provisional
     async with session_factory() as s:
         batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
     assert batch.provisional is True
     assert batch.lca_signature is None  # must not look issuable

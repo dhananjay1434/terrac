@@ -1,3 +1,4 @@
+import uuid as _uuid
 """P2.6 — deliberate credit issuance + immutable audit trail. Issue requires a
 non-provisional batch (server re-verified), is admin-only, records an audit
 event, is single-shot (double-issue -> 409), and audit rows cannot be updated."""
@@ -24,8 +25,8 @@ pytestmark = pytest.mark.asyncio
 
 def _mk_batch(*, provisional: bool):
     return Batch(
-        batch_uuid=uuid.uuid4(),
-        operation_id=f"op-{uuid.uuid4().hex[:8]}",
+        batch_uuid=str(_uuid.uuid4()),
+        operation_id=f"op-{_uuid.uuid4().hex[:8]}",
         feedstock_species="Lantana_camara",
         harvest_timestamp=datetime(2026, 7, 1, tzinfo=timezone.utc),
         moisture_percent=12.0,

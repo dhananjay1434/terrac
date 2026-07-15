@@ -39,7 +39,7 @@ async def _make_batch(client, bu, *, mock_location):
 async def _signals(session_factory, bu):
     async with session_factory() as s:
         b = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
     return json.loads(b.lca_audit_json)["integrity_signals"]
 

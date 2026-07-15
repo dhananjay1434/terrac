@@ -103,7 +103,7 @@ async def test_media_anchors_by_explicit_batch_uuid(
     async with session_factory() as session:
         batch = (
             await session.execute(
-                select(Batch).where(Batch.batch_uuid == uuid.UUID(b1_uuid))
+                select(Batch).where(Batch.batch_uuid == str(uuid.UUID(b1_uuid)))
             )
         ).scalar_one()
         assert batch.status == "RECEIVED"
@@ -113,7 +113,7 @@ async def test_media_anchors_by_explicit_batch_uuid(
                 select(MediaFile).where(MediaFile.operation_id == "op-media-anch")
             )
         ).scalar_one()
-        assert media.batch_uuid == uuid.UUID(b1_uuid)
+        assert media.batch_uuid == str(uuid.UUID(b1_uuid))
 
 
 async def test_duplicate_photo_hash_does_not_500(
@@ -227,14 +227,14 @@ async def test_reused_photo_anchors_to_correct_batch(
                 select(MediaFile).where(MediaFile.operation_id == "op-media-ru1")
             )
         ).scalar_one()
-        assert m1.batch_uuid == uuid.UUID(b1_uuid)
+        assert m1.batch_uuid == str(uuid.UUID(b1_uuid))
 
         m2 = (
             await session.execute(
                 select(MediaFile).where(MediaFile.operation_id == "op-media-ru2")
             )
         ).scalar_one()
-        assert m2.batch_uuid == uuid.UUID(b2_uuid)
+        assert m2.batch_uuid == str(uuid.UUID(b2_uuid))
 
 
 async def test_missing_device_id_on_media_rejected(client: AsyncClient):

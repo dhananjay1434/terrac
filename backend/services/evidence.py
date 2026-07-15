@@ -30,7 +30,7 @@ async def _assert_batch_ownership(
     to handle; it cannot match an existing owned batch, so it is not a bypass.
     """
     try:
-        buid = uuid.UUID(batch_uuid_str)
+        buid = str(uuid.UUID(batch_uuid_str))
     except (ValueError, AttributeError, TypeError):
         return
     batch = (
@@ -97,7 +97,7 @@ async def _recompute_if_batch_exists(
     telemetry/yield/application lands. No-op if the batch hasn't arrived yet
     (create_batch will recompute when it does)."""
     try:
-        buid = uuid.UUID(batch_uuid_str)
+        buid = str(uuid.UUID(batch_uuid_str))
     except (ValueError, AttributeError, TypeError):
         return
     batch = (

@@ -1,3 +1,4 @@
+import uuid as _uuid
 """P2.2 — portal read API: batches list (cursor pagination + filters), detail
 (reused compliance view + evidence counts + media list), devices, summary, and
 authed media streaming (path-traversal guarded). Hermetic, like the auth tests."""
@@ -26,8 +27,8 @@ _T0 = datetime(2026, 7, 1, 12, 0, 0, tzinfo=timezone.utc)
 
 def _mk_batch(i: int, *, status="RECEIVED", provisional=True, device="dev-A", project=None):
     return Batch(
-        batch_uuid=uuid.uuid4(),
-        operation_id=f"op-{i}-{uuid.uuid4().hex[:8]}",
+        batch_uuid=str(_uuid.uuid4()),
+        operation_id=f"op-{i}-{_uuid.uuid4().hex[:8]}",
         feedstock_species="Lantana_camara",
         harvest_timestamp=_T0,
         moisture_percent=12.0,
@@ -172,7 +173,7 @@ async def test_media_streams_bytes_with_auth(read_client):
     upload_root.mkdir(parents=True, exist_ok=True)
     fpath = upload_root / f"{op}.bin"
     fpath.write_bytes(b"PROOFBYTES")
-    bu = uuid.uuid4()
+    bu = str(_uuid.uuid4())
     try:
         async with Session() as s:
             s.add(

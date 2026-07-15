@@ -138,7 +138,7 @@ async def test_annual_verification_does_not_change_batch_provisional(
     )
     async with session_factory() as s:
         b = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
     reasons = json.loads(b.provisional_reasons or "[]")
     assert "missing_annual_methane" not in reasons

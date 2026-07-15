@@ -101,7 +101,7 @@ async def test_application_with_buyer_delivery_round_trips_and_is_inert(
         assert stored["buyer_contact"] == "+91-99999-00000"
 
         batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
         reasons = json.loads(batch.provisional_reasons or "[]")
         # Inert by default — C5 must NOT gate issuance yet.

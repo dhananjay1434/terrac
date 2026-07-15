@@ -102,7 +102,7 @@ async def test_matching_gps_anchors_to_received(client, session_factory):
 
     async with session_factory() as s:
         batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
         assert batch.status == "RECEIVED"
 
@@ -122,7 +122,7 @@ async def test_mismatched_gps_is_quarantined(client, session_factory):
 
     async with session_factory() as s:
         batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == uuid.UUID(bu)))
+            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
         ).scalar_one()
         assert batch.status == "QUARANTINE_GPS_MISMATCH"
 
