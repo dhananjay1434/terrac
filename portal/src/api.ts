@@ -47,6 +47,8 @@ export interface MediaItem {
   filename: string | null;
   sha256_hash: string;
   uploaded_at: string | null;
+  capture_type: string | null;
+  capture_type_verified: boolean;
 }
 
 export interface BatchDetail {
