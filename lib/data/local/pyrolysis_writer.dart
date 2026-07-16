@@ -167,18 +167,29 @@ extension PyrolysisWriter on AppDatabase {
       ).insert(companion, mode: InsertMode.insertOrReplace),
     );
 
-    // The 4 smoke-opacity proofs remain mandatory; the P1-S4 flame stages are
-    // additional (and gated in the UI), so guard on the smoke count alone.
     final smokeCount = captures
         .where((c) => c.captureType.startsWith('smoke_'))
         .length;
-    if (smokeCount != 4) {
+        
+    if (kilnType != 'open' && smokeCount != 4) {
       throw StateError(
         'Saved telemetry. Cannot finalise burn: '
         'need 4 smoke captures, found $smokeCount. '
         'Retake the missing stages and call finaliseBurn(telemetryUuid: $telemetryUuid).',
       );
+    } else if (kilnType == 'open') {
+      final flameCount = captures
+          .where((c) => const ['flame_curtain', 'quenching', 'flame_height'].contains(c.captureType))
+          .length;
+      if (flameCount != 3) {
+        throw StateError(
+          'Saved telemetry. Cannot finalise burn: '
+          'need 3 flame captures (curtain, quenching, height), found $flameCount. '
+          'Retake the missing stages and call finaliseBurn(telemetryUuid: $telemetryUuid).'
+        );
+      }
     }
+    
     return telemetryUuid;
   }
 }

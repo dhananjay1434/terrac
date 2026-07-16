@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,11 +39,12 @@ bool canEndBurn({
   required String? ignitionEnergyType,
 }) {
   if (ending) return false;
-  if (!kSmokeStages.every(capturedStages.contains)) return false;
+  
   if (isOpenKiln) {
     if (!kOpenFlameStages.every(capturedStages.contains)) return false;
     if (flameHeightM == null) return false;
   } else {
+    if (!kSmokeStages.every(capturedStages.contains)) return false;
     if (ignitionEnergyType == null || ignitionEnergyType.trim().isEmpty) {
       return false;
     }
@@ -235,6 +237,21 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                       variant: DmrvButtonVariant.primary,
                       onPressed: _requestPermsAndStart,
                     ),
+                  if (kDebugMode)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: DmrvButton(
+                        label: 'DEV BYPASS // INJECT TEMP',
+                        testId: 'dev-bypass-temp-btn',
+                        variant: DmrvButtonVariant.danger,
+                        onPressed: () async {
+                          if (s.burnStartAt == null) {
+                             await ref.read(pyrolysisBleProvider.notifier).beginBurn();
+                          }
+                          ref.read(pyrolysisBleProvider.notifier).debugIngest(400.0);
+                        },
+                      ),
+                    ),
                   if (_permError != null) ...[
                     SizedBox(height: t.gapL),
                     PremiumFieldPanel(
@@ -336,7 +353,7 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                   _TemperaturePanel(state: s),
                   SizedBox(height: t.gapXL),
                   // Smoke photo capture button (only during active burn)
-                  if (s.burnStartAt != null && proofs.length < 4)
+                  if (s.burnStartAt != null && !isOpenKiln && proofs.length < 4)
                     Padding(
                       padding: EdgeInsets.only(bottom: t.gapL),
                       child: DmrvButton(
@@ -405,10 +422,10 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                       );
                     }),
                   // P1-S4: kiln-type-specific completion evidence, once the
-                  // burn is live and the 4 smoke proofs are in.
+                  // burn is live and the 4 smoke proofs are in (for closed kilns).
                   if (s.burnStartAt != null &&
                       kiln != null &&
-                      proofs.length >= 4) ...[
+                      (isOpenKiln || proofs.length >= 4)) ...[
                     _completionSection(t, isOpenKiln, captured),
                     SizedBox(height: t.gapL),
                   ],

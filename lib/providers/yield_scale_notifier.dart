@@ -108,6 +108,13 @@ class YieldScaleNotifier extends StateNotifier<YieldScaleState> {
     );
   }
 
+  /// DEV HELPER: Bypass BLE scale and force a stable 30kg reading
+  void mockDevYield() {
+    for (int i = 0; i < kStabilizationBufferSize; i++) {
+      pushReading(30.0);
+    }
+  }
+
   /// Operator presses LOCK / CONFIRM YIELD. Persists the current stable value
   /// into `confirmedKg` so the UI can render SAVE YIELD.
   void confirm() {

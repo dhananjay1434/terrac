@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -198,7 +199,7 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
                 child: ListView(
                   padding: EdgeInsets.fromLTRB(t.gapL, 4, t.gapL, t.gapL),
                   children: [
-                    if (!_permRequested)
+                    if (!_permRequested) ...[
                       DmrvButton(
                         key: const Key('connect-crane-scale-btn'),
                         label: AppLocalizations.of(
@@ -208,6 +209,17 @@ class _YieldScaleScreenState extends ConsumerState<YieldScaleScreen> {
                         testId: 'connect-crane-scale-btn',
                         onPressed: _requestPermsAndStart,
                       ),
+                      SizedBox(height: t.gapM),
+                      if (kDebugMode)
+                        DmrvButton(
+                          key: const Key('dev-mock-yield-btn'),
+                          label: 'DEV: MOCK YIELD (30kg)',
+                          variant: DmrvButtonVariant.neutral,
+                          onPressed: () {
+                            ref.read(yieldScaleProvider.notifier).mockDevYield();
+                          },
+                        ),
+                    ],
                     if (_permError != null) ...[
                       SizedBox(height: t.gapL),
                       Container(
