@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     Float,
@@ -417,6 +418,15 @@ class MediaFile(Base):
     # upload carries no EXIF GPS.
     exif_lat: Mapped[float] = mapped_column(Float, nullable=True)
     exif_lon: Mapped[float] = mapped_column(Float, nullable=True)
+    # Evidence-step label. `capture_type` arrives as an OPTIONAL client hint
+    # (X-Capture-Type header — NOT in the frozen media canonical, so unsigned);
+    # `capture_type_verified` flips True only when the server corroborates the
+    # label against the Ed25519-signed telemetry smoke_evidence (stage, sha256)
+    # pairs. NULL = legacy row or non-burn media not yet classified.
+    capture_type: Mapped[str] = mapped_column(String(64), nullable=True)
+    capture_type_verified: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

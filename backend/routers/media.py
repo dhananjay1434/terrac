@@ -9,7 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_session
-from models import Batch, MediaFile
+from models import Batch, MediaFile, PyrolysisTelemetry
+import json
+from services.evidence import label_media_from_telemetry
 from pydantic import BaseModel, Field
 from schemas import MediaUploadResponse
 
@@ -34,6 +36,7 @@ async def upload_media(
     x_declared_sha256: str = Header(..., alias="X-Declared-SHA256"),
     x_batch_uuid: str = Header(..., alias="X-Batch-UUID"),
     x_device_id: str = Header(..., alias="X-Device-Id"),
+    x_capture_type: Optional[str] = Header(None, alias="X-Capture-Type"),
     device_id: str = Depends(verify_media_signature),
     session: AsyncSession = Depends(get_session),
 ) -> MediaUploadResponse:
@@ -61,6 +64,11 @@ async def upload_media(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="X-Declared-SHA256 header must be 64-character hex string",
         )
+
+    if x_capture_type is not None and not re.match(
+        r"^[a-z0-9_]{1,64}$", x_capture_type
+    ):
+        raise HTTPException(status_code=400, detail="invalid_capture_type")
 
     stmt = select(MediaFile).where(MediaFile.operation_id == x_idempotency_key)
     result = await session.execute(stmt)
@@ -157,6 +165,7 @@ async def upload_media(
             filename=file.filename,
             exif_lat=exif_lat,
             exif_lon=exif_lon,
+            capture_type=x_capture_type,
         )
 
         session.add(media)
@@ -180,6 +189,20 @@ async def upload_media(
             session.add(batch)
 
         session.add(media)
+
+        # Look up telemetry to retroactively label media arriving after telemetry
+        telemetry = (
+            await session.execute(
+                select(PyrolysisTelemetry).where(PyrolysisTelemetry.batch_uuid == batch_uuid)
+            )
+        ).scalar_one_or_none()
+        if telemetry and telemetry.payload_json:
+            try:
+                parsed = json.loads(telemetry.payload_json)
+                await label_media_from_telemetry(session, batch_uuid, parsed.get("smoke_evidence"))
+            except (ValueError, TypeError):
+                pass
+
         await session.commit()
     except Exception:
         await session.rollback()
