@@ -47,7 +47,11 @@ async def create_batch(
     existing = result.scalar_one_or_none()
 
     if existing:
-        if existing.sha256_hash.lower() != payload.sha256_hash.lower() or str(
+        # None-safe: photo-less batches (sha256_hash NULL) must retry as clean
+        # duplicates too — mirrors the None handling in the race path below.
+        existing_sha = existing.sha256_hash.lower() if existing.sha256_hash else None
+        payload_sha = payload.sha256_hash.lower() if payload.sha256_hash else None
+        if existing_sha != payload_sha or str(
             existing.batch_uuid
         ) != str(payload.batch_uuid):
             raise HTTPException(
