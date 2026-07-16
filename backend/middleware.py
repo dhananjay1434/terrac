@@ -105,8 +105,18 @@ async def _rate_limit(request: Request, call_next):
         else:
             key = request.client.host if request.client else "ip-unknown"
     else:
-        key = request.headers.get("X-Device-Id") or (
-            request.client.host if request.client else "unknown"
+        # Key by client IP, NOT the client-supplied X-Device-Id: the device id
+        # is unauthenticated at middleware time (signature auth runs later), so
+        # rotating it must not mint fresh buckets and evade the cap. Prefer the
+        # first X-Forwarded-For hop (Task 1) so the limit tracks the real client
+        # behind Render's proxy. Tradeoff: devices behind one NAT share a
+        # bucket — acceptable for an abuse limit; per-device throughput is
+        # enforced after auth.
+        fwd = request.headers.get("x-forwarded-for")
+        key = (
+            fwd.split(",")[0].strip()
+            if fwd
+            else (request.client.host if request.client else "unknown")
         )
     window_seconds = _rl_window_seconds()
     now = _rl_now()
