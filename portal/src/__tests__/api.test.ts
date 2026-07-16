@@ -76,3 +76,29 @@ describe("api client", () => {
     expect(revokeObjURL).toHaveBeenCalledOnce();
   });
 });
+
+import { groupMedia } from "../pages/BatchDetail";
+import { type MediaItem } from "../api";
+
+describe("groupMedia", () => {
+  it("groups by capture type in correct order, unclassified last", () => {
+    const items: MediaItem[] = [
+      { capture_type: "flame_curtain", operation_id: "op1", filename: null, sha256_hash: "1", uploaded_at: null, capture_type_verified: true, exif_lat: null, exif_lon: null },
+      { capture_type: "0", operation_id: "op2", filename: null, sha256_hash: "2", uploaded_at: null, capture_type_verified: true, exif_lat: null, exif_lon: null },
+      { capture_type: null, operation_id: "op3", filename: null, sha256_hash: "3", uploaded_at: null, capture_type_verified: false, exif_lat: null, exif_lon: null },
+      { capture_type: "flame_curtain", operation_id: "op4", filename: null, sha256_hash: "4", uploaded_at: null, capture_type_verified: true, exif_lat: null, exif_lon: null },
+    ];
+    const grouped = groupMedia(items);
+    expect(grouped.length).toBe(3);
+    
+    expect(grouped[0][0]).toBe("flame_curtain");
+    expect(grouped[0][1][0].operation_id).toBe("op1");
+    expect(grouped[0][1][1].operation_id).toBe("op4");
+
+    expect(grouped[1][0]).toBe("0");
+    expect(grouped[1][1][0].operation_id).toBe("op2");
+
+    expect(grouped[2][0]).toBe("__unclassified__");
+    expect(grouped[2][1][0].operation_id).toBe("op3");
+  });
+});
