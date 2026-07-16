@@ -83,10 +83,10 @@ import { type MediaItem } from "../api";
 describe("groupMedia", () => {
   it("groups by capture type in correct order, unclassified last", () => {
     const items: MediaItem[] = [
-      { capture_type: "flame_curtain", operation_id: "op1", filename: null, sha256_hash: "1", uploaded_at: null, capture_type_verified: true, exif_lat: null, exif_lon: null },
-      { capture_type: "0", operation_id: "op2", filename: null, sha256_hash: "2", uploaded_at: null, capture_type_verified: true, exif_lat: null, exif_lon: null },
-      { capture_type: null, operation_id: "op3", filename: null, sha256_hash: "3", uploaded_at: null, capture_type_verified: false, exif_lat: null, exif_lon: null },
-      { capture_type: "flame_curtain", operation_id: "op4", filename: null, sha256_hash: "4", uploaded_at: null, capture_type_verified: true, exif_lat: null, exif_lon: null },
+      { capture_type: "flame_curtain", operation_id: "op1", filename: null, sha256_hash: "1", uploaded_at: null, capture_type_verified: true },
+      { capture_type: "0", operation_id: "op2", filename: null, sha256_hash: "2", uploaded_at: null, capture_type_verified: true },
+      { capture_type: null, operation_id: "op3", filename: null, sha256_hash: "3", uploaded_at: null, capture_type_verified: false },
+      { capture_type: "flame_curtain", operation_id: "op4", filename: null, sha256_hash: "4", uploaded_at: null, capture_type_verified: true },
     ];
     const grouped = groupMedia(items);
     expect(grouped.length).toBe(3);

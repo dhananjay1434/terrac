@@ -13,6 +13,27 @@ import { getRole } from "../auth";
 import ComplianceChecklist from "../components/ComplianceChecklist";
 import CreditRing from "../components/CreditRing";
 
+const STEP_ORDER = [
+  "batch_photo", "flame_curtain", "quenching", "flame_height",
+  "smoke_0", "0", "smoke_50", "50", "smoke_90", "90", "smoke_100", "100",
+  "lab_certificate",
+];
+
+export function groupMedia(items: MediaItem[]): [string, MediaItem[]][] {
+  const groups = new Map<string, MediaItem[]>();
+  for (const m of items) {
+    const k = m.capture_type ?? "__unclassified__";
+    (groups.get(k) ?? groups.set(k, []).get(k)!).push(m);
+  }
+  const keys = [...groups.keys()].sort((a, b) => {
+    const ia = STEP_ORDER.indexOf(a), ib = STEP_ORDER.indexOf(b);
+    if (a === "__unclassified__") return 1;
+    if (b === "__unclassified__") return -1;
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+  return keys.map((k) => [k, groups.get(k)!]);
+}
+
 function MediaThumb({ item }: { item: MediaItem }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -191,67 +212,19 @@ export default function BatchDetail() {
           <span className="micro">Evidence media</span>
           {/* MEDIA GALLERY REPLACEMENT START */}
           <div className="space-y-6" style={{ marginTop: 12 }}>
-            {['lab_certificate', 'batch_photo', 'flame_curtain', 'quench'].map(stage => {
-              const stageMedia = d.media.filter(m => m.capture_type === stage);
-              if (stageMedia.length === 0) return null;
-              
-              return (
-                <div key={stage} className="border rounded-md p-4 bg-gray-50" style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12, borderRadius: 6 }}>
-                  <h3 className="font-semibold text-lg mb-4 capitalize" style={{ textTransform: 'capitalize', marginBottom: 8, fontSize: 14 }}>
-                    {stage.replace('_', ' ')}
-                  </h3>
-                  <div className="media-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12 }}>
-                    {stageMedia.map(m => (
-                      <div key={m.sha256_hash} className="border rounded bg-white shadow-sm overflow-hidden" style={{ border: '1px solid #eee', borderRadius: 4, overflow: 'hidden' }}>
-                        <a href={`/api/v1/media/${m.sha256_hash}`} target="_blank" rel="noreferrer">
-                          <img 
-                            src={`/api/v1/media/${m.sha256_hash}`} 
-                            alt="Evidence" 
-                            className="w-full h-32 object-cover"
-                            style={{ width: '100%', height: 100, objectFit: 'cover' }} 
-                          />
-                        </a>
-                        <div className="p-2 text-xs text-gray-600" style={{ padding: 8, fontSize: 11 }}>
-                          <p><strong>SHA256:</strong> {m.sha256_hash?.substring(0,8)}...</p>
-                          <p>
-                            <strong>Status:</strong> {m.capture_type_verified 
-                              ? <span style={{ color: 'green' }}>Verified (Signed)</span>
-                              : <span style={{ color: 'orange' }}>Unverified (Hint)</span>}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-            
-            {/* UNKNOWN / OTHER */}
-            {d.media.filter(m => !['lab_certificate', 'batch_photo', 'flame_curtain', 'quench'].includes(m.capture_type ?? '')).length > 0 && (
-              <div className="border rounded-md p-4 bg-gray-50 mt-8" style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12, borderRadius: 6 }}>
-                <h3 className="font-semibold text-lg mb-4 text-gray-700" style={{ marginBottom: 8, fontSize: 14 }}>Other / Uncategorized</h3>
+            {groupMedia(d.media).map(([stage, items]) => (
+              <div key={stage} className="border rounded-md p-4 bg-gray-50" style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12, borderRadius: 6 }}>
+                <h3 className="font-semibold text-lg mb-4 capitalize" style={{ textTransform: 'capitalize', marginBottom: 8, fontSize: 14, color: stage === '__unclassified__' ? '#888' : 'inherit' }}>
+                  {stage === '__unclassified__' ? 'Other / Uncategorized' : stage.replace('_', ' ')}
+                </h3>
                 <div className="media-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12 }}>
-                  {d.media.filter(m => !['lab_certificate', 'batch_photo', 'flame_curtain', 'quench'].includes(m.capture_type ?? '')).map(m => (
-                    <div key={m.sha256_hash} className="border rounded bg-white shadow-sm overflow-hidden" style={{ border: '1px solid #eee', borderRadius: 4, overflow: 'hidden' }}>
-                      <a href={`/api/v1/media/${m.sha256_hash}`} target="_blank" rel="noreferrer">
-                        <img 
-                          src={`/api/v1/media/${m.sha256_hash}`} 
-                          alt="Evidence" 
-                          className="w-full h-32 object-cover" 
-                          style={{ width: '100%', height: 100, objectFit: 'cover' }}
-                        />
-                      </a>
-                      <div className="p-2 text-xs text-gray-600" style={{ padding: 8, fontSize: 11 }}>
-                        <p><strong>SHA256:</strong> {m.sha256_hash?.substring(0,8)}...</p>
-                        <p style={{ color: '#888' }}>Uncategorized</p>
-                      </div>
-                    </div>
+                  {items.map(m => (
+                    <MediaThumb key={m.sha256_hash} item={m} />
                   ))}
                 </div>
               </div>
-            )}
+            ))}
           </div>
-          {/* MEDIA GALLERY REPLACEMENT END */}
         </section>
       )}
     </div>
