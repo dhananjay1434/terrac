@@ -67,6 +67,9 @@ async def test_csi_export_provisional_400(client, session_factory):
     bu = await _seed(session_factory, provisional=True, reasons=["assumed_h_corg"])
     r = await client.get(f"/api/v1/batches/{bu}/export/csi", headers=ADMIN)
     assert r.status_code == 400
+    detail = r.json()["detail"]
+    assert detail["error"] == "batch_is_provisional"
+    assert detail["reasons"] == ["assumed_h_corg"]      # a LIST, not a raw string
 
 
 async def test_csi_export_requires_admin(client, session_factory):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -32,11 +33,18 @@ async def _load_exportable_batch(session: AsyncSession, batch_uuid: str) -> Batc
         raise HTTPException(status_code=404, detail="batch_not_found")
 
     if batch.provisional:
+        # Parse the JSON TEXT column so clients get a list, not a raw string
+        # (mirrors the portal export route).
+        reasons = batch.provisional_reasons
+        try:
+            parsed = json.loads(reasons) if reasons else []
+        except (ValueError, TypeError):
+            parsed = []
         raise HTTPException(
             status_code=400,
             detail={
                 "error": "batch_is_provisional",
-                "reasons": batch.provisional_reasons or [],
+                "reasons": parsed,
                 "message": "Batch cannot be exported until all compliance gaps are resolved.",
             },
         )
