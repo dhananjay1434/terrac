@@ -126,6 +126,17 @@ async def upload_media(
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="invalid_batch_uuid")
 
+    # Audit fix 3: resolve the batch and enforce ownership BEFORE any bytes or
+    # rows are persisted. Previously the ownership 403 fired AFTER the media row
+    # was committed; the except-path rollback could not undo that commit, so a
+    # rejected upload stranded a row whose bytes were deleted — and the
+    # duplicate fast-path then reported stored=True for evidence that no longer
+    # existed. Loading the batch first makes rejection side-effect-free.
+    stmt = select(Batch).where(Batch.batch_uuid == batch_uuid)
+    batch = (await session.execute(stmt)).scalar_one_or_none()
+    if batch is not None and batch.device_id is not None and batch.device_id != device_id:
+        raise HTTPException(status_code=403, detail="not_your_batch")
+
     # P3.2: persist through the storage abstraction (local FS or S3/MinIO). The
     # returned key — not an OS path — is what lands in media_files.file_path;
     # traversal is guarded inside the backend.
@@ -164,12 +175,7 @@ async def upload_media(
         # Anchor photo to batch if batch was already created (P0-25). The photo
         # only verifies the batch if its hash matches the batch's declared
         # sha256_hash, and the EXIF GPS corroborates the claimed coords (Phase 9).
-        stmt = select(Batch).where(Batch.batch_uuid == batch_uuid)
-        batch_result = await session.execute(stmt)
-        batch = batch_result.scalar_one_or_none()
         if batch:
-            if batch.device_id is not None and batch.device_id != device_id:
-                raise HTTPException(status_code=403, detail="not_your_batch")
             _evaluate_anchor(batch, calculated_hash, exif_lat, exif_lon)
             session.add(batch)
 
