@@ -82,6 +82,12 @@ def _evaluate_anchor(batch, photo_sha: Optional[str], exif_lat, exif_lon) -> Non
     declared `sha256_hash` may verify it (a mismatching upload never upgrades
     the batch). When the photo's EXIF GPS disagrees with the batch's claimed
     coordinates by >1 km the batch is quarantined for review.
+
+    NOTE (audit): a photo with NO EXIF GPS bypasses the mismatch check entirely
+    (None coordinates short-circuit _gps_mismatch_km) and still upgrades the
+    batch. Deliberate for now — EXIF is client-authored/weak and attestation is
+    the strong control — but flagged for methodology-owner review: an EXIF-less
+    anchor could set a distinct status (e.g. RECEIVED_NO_GPS) instead.
     """
     if not batch.sha256_hash or not photo_sha:
         return

@@ -1,4 +1,14 @@
 # Findings Backlog
+
+## AUDIT-9: EXIF-strip bypasses GPS quarantine (accepted, needs policy)
+- Where: backend/geo.py `_evaluate_anchor` / `_gps_mismatch_km`
+- A photo with no EXIF GPS can never mismatch -> batch anchors to RECEIVED.
+- Catches only attackers who INCLUDE wrong GPS; stripping EXIF evades review.
+- Options: (a) status RECEIVED_NO_GPS + portal badge, (b) require capture-time
+  GPS envelope (RequestMetadata pattern) once mobile ships it, (c) accept until
+  Play Integrity attestation is enforced (DMRV_ATTESTATION_ENFORCED=1).
+- Decision owner: methodology owner. No code gate changed by the audit.
+
 - Deleted out-of-scope test_req.py as it caused collection to hang by attempting external TCP connections.
 - **[RESOLVED · Phase 15] Post-audit authenticity holes.** `/api/v1/media` now Ed25519-signed +
   device-ownership bound (15A); the LCA issuance signature is bound to `batch_uuid` (15B); self-asserted
