@@ -14,6 +14,7 @@ ADMIN = {"X-Admin-Secret": "test-admin-secret"}
 
 
 async def _seed(session_factory, *, provisional=False, reasons=None) -> str:
+    from models import MediaFile
     bu = str(uuid4())
     b = Batch(
         batch_uuid=bu,
@@ -38,8 +39,17 @@ async def _seed(session_factory, *, provisional=False, reasons=None) -> str:
         provisional=provisional,
         provisional_reasons=json.dumps(reasons) if reasons is not None else None,
     )
+    m = MediaFile(
+        batch_uuid=bu,
+        operation_id="test-media-op",
+        file_path="/tmp/fake.jpg",
+        sha256_hash="deadbeef",
+        capture_type="flame_curtain",
+        capture_type_verified=True,
+    )
     async with session_factory() as s:
         s.add(b)
+        s.add(m)
         await s.commit()
     return bu
 
@@ -53,6 +63,9 @@ async def test_csi_export_ok(client, session_factory):
     assert body["standard"] == "CSI GlobalCSinkVerificationReport v1"
     assert body["exported_at"] is not None
     assert body["credit"]["net_credit_t_co2e"] == 150.5
+    assert len(body["evidence_media"]) == 1
+    assert body["evidence_media"][0]["capture_type"] == "flame_curtain"
+    assert body["evidence_media"][0]["capture_type_verified"] is True
 
 
 async def test_rainbow_export_ok(client, session_factory):

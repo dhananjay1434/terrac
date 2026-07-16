@@ -11,7 +11,7 @@ from typing import Any, Dict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Batch, MoistureReading, CompositePileSample, TransportEvent
+from models import Batch, MoistureReading, CompositePileSample, TransportEvent, MediaFile
 from jsonsafe import _safe_json
 from settings import log
 
@@ -43,6 +43,12 @@ async def export_batch_common(batch: Batch, session: AsyncSession) -> Dict[str, 
     composite = await _load_child_payloads(session, CompositePileSample, batch.batch_uuid)
     transport = await _load_child_payloads(session, TransportEvent, batch.batch_uuid)
 
+    media_rows = (
+        await session.execute(
+            select(MediaFile).where(MediaFile.batch_uuid == batch.batch_uuid)
+        )
+    ).scalars().all()
+
     return {
         "batch_uuid": str(batch.batch_uuid),
         "project_id": batch.project_id,
@@ -65,6 +71,18 @@ async def export_batch_common(batch: Batch, session: AsyncSession) -> Dict[str, 
         "moisture_readings": moisture,
         "composite_samples": composite,
         "transport_events": transport,
+        "evidence_media": [
+            {
+                "operation_id": m.operation_id,
+                "sha256_hash": m.sha256_hash,
+                "capture_type": m.capture_type,
+                "capture_type_verified": bool(m.capture_type_verified),
+                "exif_lat": m.exif_lat,
+                "exif_lon": m.exif_lon,
+                "uploaded_at": m.uploaded_at.isoformat() if m.uploaded_at else None,
+            }
+            for m in media_rows
+        ],
         "credit": {
             "net_credit_t_co2e": batch.net_credit_t_co2e,
             "lca_signature": batch.lca_signature,
