@@ -33,6 +33,12 @@ async def export_batch_common(batch: Batch, session: AsyncSession) -> Dict[str, 
         reasons = _safe_json(batch.provisional_reasons, context=f"reasons {batch.batch_uuid}")
         raise ValueError(f"batch_provisional:{reasons if isinstance(reasons, list) else []}")
 
+    # Audit fix 8: a non-provisional batch always carries an issuance signature
+    # (recompute nulls it on provisional rows). Its absence at export time means
+    # the row was tampered or corrupted — refuse to emit a registry report.
+    if not batch.lca_signature:
+        raise ValueError("unsigned_batch")
+
     moisture = await _load_child_payloads(session, MoistureReading, batch.batch_uuid)
     composite = await _load_child_payloads(session, CompositePileSample, batch.batch_uuid)
     transport = await _load_child_payloads(session, TransportEvent, batch.batch_uuid)

@@ -33,6 +33,8 @@ async def _seed(session_factory, *, provisional=False, reasons=None) -> str:
         biomass_measurement_method="WEIGHED",
         status="RECEIVED",
         net_credit_t_co2e=150.5,
+        lca_signature="sig-test",
+        lca_signature_key_id="k0",
         provisional=provisional,
         provisional_reasons=json.dumps(reasons) if reasons is not None else None,
     )
@@ -94,3 +96,20 @@ async def test_csi_export_not_found(client):
 async def test_csi_export_invalid_uuid_400(client):
     r = await client.get("/api/v1/batches/not-a-uuid/export/csi", headers=ADMIN)
     assert r.status_code == 400
+
+
+async def test_export_refuses_unsigned_nonprovisional_batch(client, session_factory):
+    """Audit fix 8: non-provisional + NULL lca_signature = tampered row -> 400."""
+    bu = await _seed(session_factory)
+    from sqlalchemy import update
+    from models import Batch
+
+    async with session_factory() as s:
+        await s.execute(
+            update(Batch).where(Batch.batch_uuid == bu).values(lca_signature=None)
+        )
+        await s.commit()
+
+    r = await client.get(f"/api/v1/batches/{bu}/export/csi", headers=ADMIN)
+    assert r.status_code == 400
+    assert "unsigned_batch" in r.text
