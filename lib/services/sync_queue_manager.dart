@@ -562,6 +562,7 @@ class SyncQueueManager {
             file: file,
             declaredSha256: declaredSha256,
             isMockLocation: isMock,
+            captureType: payload['capture_type'] as String?,
           );
         } else if (entry.targetTable == 'media' || declaredSha256 != null) {
           // Fix 3: Prevent unverified payloads/media from marking as SYNCED
@@ -636,6 +637,7 @@ class SyncQueueManager {
     required File file,
     required String? declaredSha256,
     required bool isMockLocation,
+    required String? captureType,
   }) async {
     debugPrint('[SyncQueue] Uploading media: $photoPath');
     final request = http.MultipartRequest(
@@ -648,6 +650,9 @@ class SyncQueueManager {
     request.headers['X-Device-Id'] = mediaDeviceId;
     request.headers['X-Mock-Location'] = isMockLocation.toString();
     request.headers['X-Batch-UUID'] = entry.batchUuid;
+    if (captureType != null) {
+      request.headers['X-Capture-Type'] = captureType;
+    }
     if (declaredSha256 != null) {
       request.headers['X-Declared-SHA256'] = declaredSha256;
       // Phase 15-A: Ed25519-sign the media upload (frozen media canonical) so the
