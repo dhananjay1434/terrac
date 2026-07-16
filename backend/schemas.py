@@ -196,6 +196,11 @@ class KilnRequest(BaseModel):
     lifetime_years: Optional[float] = Field(None, ge=0.0, le=200.0)
     kiln_type: Optional[Literal["open", "closed"]] = None
 
+    @field_validator("kiln_type", mode="before")
+    @classmethod
+    def lower_kiln_type(cls, v):
+        return v.lower() if isinstance(v, str) else v
+
 
 class OperatorTrainingRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
