@@ -60,6 +60,7 @@ from services.registry import (
     upsert_scale_calibration,
     upsert_supervisor_visit,
 )
+from routers.devices import _hash_enroll_token
 from .auth import (
     create_session,
     require_role,
@@ -150,7 +151,9 @@ async def mint_enrollment_token(
     return it plus a scannable QR payload `dmrv-enroll:v1:{...}`."""
     token = secrets.token_urlsafe(_ENROLL_TOKEN_BYTES)
     expires = datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days)
-    session.add(EnrollmentToken(token=token, expires_at=expires))
+    # Audit fix 6: store only the SHA-256 hash; the raw token is returned once
+    # below (QR + response) and never persisted.
+    session.add(EnrollmentToken(token=_hash_enroll_token(token), expires_at=expires))
     await write_audit(
         session,
         event_type="token_minted",

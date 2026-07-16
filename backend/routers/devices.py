@@ -15,6 +15,14 @@ import attestation
 
 router = APIRouter()
 
+
+def _hash_enroll_token(raw: str) -> str:
+    # Audit fix 6: enrollment tokens are stored only as SHA-256 (same
+    # discipline as portal sessions) so a DB leak cannot mint devices.
+    import hashlib
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
 @router.post(
     "/api/v1/register",
     response_model=RegistrationResponse,
@@ -30,11 +38,19 @@ async def register_device(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="enrollment_token_required"
         )
 
-    token_stmt = select(EnrollmentToken).where(
-        EnrollmentToken.token == x_enrollment_token
+    # Hash-first lookup; fall back to the raw value so tokens minted before
+    # the hashing change keep working until they expire.
+    token_res = await session.execute(
+        select(EnrollmentToken).where(
+            EnrollmentToken.token == _hash_enroll_token(x_enrollment_token)
+        )
     )
-    token_res = await session.execute(token_stmt)
     db_token = token_res.scalar_one_or_none()
+    if db_token is None:
+        token_res = await session.execute(
+            select(EnrollmentToken).where(EnrollmentToken.token == x_enrollment_token)
+        )
+        db_token = token_res.scalar_one_or_none()
 
     if not db_token:
         raise HTTPException(
@@ -82,7 +98,9 @@ async def mint_enrollment_token(
         )
 
     expires = datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days)
-    new_token = EnrollmentToken(token=payload.token, expires_at=expires)
+    new_token = EnrollmentToken(
+        token=_hash_enroll_token(payload.token), expires_at=expires
+    )
     session.add(new_token)
 
     try:
