@@ -465,7 +465,7 @@ async def submit_lab_results(
         session,
         event_type="lab_results",
         actor_user_id=user.id,
-        batch_uuid=batch_uuid,
+        batch_uuid=str(batch.batch_uuid),
         payload={"provisional": batch.provisional},
     )
     await session.commit()
@@ -476,7 +476,7 @@ async def submit_lab_results(
         parsed = []
     return {
         "status": "ok",
-        "batch_uuid": batch_uuid,
+        "batch_uuid": str(batch.batch_uuid),
         "provisional": batch.provisional,
         "reasons": parsed,
     }
@@ -733,10 +733,11 @@ async def batch_audit(
     _user: PortalUser = Depends(require_role()),
     session: AsyncSession = Depends(get_session),
 ):
+    batch = await _load_batch(session, batch_uuid)
     rows = (
         await session.execute(
             select(AuditEvent)
-            .where(AuditEvent.batch_uuid == batch_uuid)
+            .where(AuditEvent.batch_uuid == str(batch.batch_uuid))
             .order_by(AuditEvent.created_at.asc())
         )
     ).scalars().all()
