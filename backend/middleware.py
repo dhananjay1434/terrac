@@ -37,11 +37,12 @@ async def _limit_body_size(request: Request, call_next):
 # It also makes every limit + the window genuinely runtime-tunable. Disabled by
 # default under test (conftest sets DMRV_RATELIMIT_ENABLED=0); test_rate_limit.py
 # re-enables it via monkeypatch.setenv.
-_RL_DEFAULT_CAPS = {"register": 5, "admin": 30, "media": 20, "default": 120}
+_RL_DEFAULT_CAPS = {"register": 5, "admin": 30, "media": 20, "portal_media": 500, "default": 120}
 _RL_CAP_ENV = {
     "register": "DMRV_RATELIMIT_REGISTER",
     "admin": "DMRV_RATELIMIT_ADMIN",
     "media": "DMRV_RATELIMIT_MEDIA",
+    "portal_media": "DMRV_RATELIMIT_PORTAL_MEDIA",
     "default": "DMRV_RATELIMIT_DEFAULT",
 }
 # {(bucket, key, window_index): count} — bounded by pruning when it grows large.
@@ -78,6 +79,8 @@ def _rl_bucket(path: str) -> str:
         return "register"
     # P2.1: portal auth/admin surfaces are brute-force targets — rate-limit them
     # under the stricter "admin" bucket (keyed by client IP).
+    if path.startswith("/api/v1/portal/media/"):
+        return "portal_media"
     if path.startswith("/api/v1/admin/") or path.startswith(
         "/api/v1/portal/"
     ) or path.endswith("/compliance"):
@@ -128,9 +131,13 @@ async def _rate_limit(request: Request, call_next):
     _rl_counters[ckey] = count
     if count > cap:
         retry = window_seconds - (now % window_seconds)
+        headers = {"Retry-After": str(max(1, retry))}
+        allowed_origin = os.environ.get("DMRV_ALLOWED_ORIGIN")
+        if allowed_origin:
+            headers["Access-Control-Allow-Origin"] = allowed_origin
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             content={"detail": "rate_limited"},
-            headers={"Retry-After": str(max(1, retry))},
+            headers=headers,
         )
     return await call_next(request)

@@ -25,7 +25,7 @@ from fastapi import (
 )
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import func, select
+from sqlalchemy import func, select, cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_session
@@ -300,6 +300,10 @@ async def batch_detail(
             "operation_id": m.operation_id,
             "filename": m.filename,
             "sha256_hash": m.sha256_hash,
+            "capture_type": m.capture_type,
+            "capture_type_verified": bool(m.capture_type_verified),
+            "exif_lat": m.exif_lat,
+            "exif_lon": m.exif_lon,
             "uploaded_at": m.uploaded_at.isoformat() if m.uploaded_at else None,
         }
         for m in media_rows
