@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import hmac
 import hmac_keys
 import json
 import logging
@@ -471,6 +473,19 @@ async def _recompute_batch_credit_impl(
         "gps_anchor_mismatch_km": GPS_ANCHOR_MISMATCH_KM,
         "exif_trust": "client_authored_weak",
     }
+    # Audit fix 5: the HMAC lca_signature covers only the LCAAudit dataclass;
+    # transport_events/integrity_signals are appended after that snapshot, so a
+    # DB tamper of those sections was undetectable. Bind the FULL audit JSON
+    # with its own HMAC under the active key (recorded key id makes it
+    # rotation-safe). Existing rows lack the field and verify as before.
+    _audit_body = json.dumps(audit, sort_keys=True)
+    _fk_id, _fk_secret = hmac_keys.active_key()
+    audit["full_audit_hmac"] = {
+        "key_id": _fk_id,
+        "hmac_sha256": hmac.new(
+            _fk_secret.encode(), _audit_body.encode(), hashlib.sha256
+        ).hexdigest(),
+    }
     batch.lca_audit_json = json.dumps(audit)
     # Phase 8-R: only a fully-corroborated, non-provisional batch carries an
     # issuance signature. A provisional audit must never look issuable downstream.
@@ -498,5 +513,24 @@ def verify_lca_signature(batch: Batch, lca) -> str:
         return "unsigned"
     payload = lca_sign_payload_bytes(lca, batch_uuid=str(batch.batch_uuid))
     return hmac_keys.verify(payload, batch.lca_signature, batch.lca_signature_key_id)
+
+
+def verify_full_audit_hmac(lca_audit_json: str) -> str:
+    """Audit fix 5: verify the whole-audit HMAC. Returns 'unsigned' (rows
+    predating the field), 'unverifiable' (key rotated out), 'valid' or
+    'invalid'. Never raises."""
+    try:
+        audit = json.loads(lca_audit_json or "null")
+    except (ValueError, TypeError):
+        return "invalid"
+    if not isinstance(audit, dict) or "full_audit_hmac" not in audit:
+        return "unsigned"
+    seal = audit.pop("full_audit_hmac")
+    body = json.dumps(audit, sort_keys=True)
+    secret = hmac_keys.key_for((seal or {}).get("key_id"))
+    if secret is None:
+        return "unverifiable"
+    expected = hmac.new(secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+    return "valid" if hmac.compare_digest(expected, (seal or {}).get("hmac_sha256", "")) else "invalid"
 
 
