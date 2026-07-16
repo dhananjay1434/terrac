@@ -119,3 +119,38 @@ def _assert_same_uuid(*, expected: str, **kwargs: str) -> None:
                 detail=f"batch_uuid mismatch: {name}={value} expected={expected}",
             )
 
+
+async def label_media_from_telemetry(
+    session: AsyncSession, batch_uuid: str, smoke_evidence: list | None
+) -> int:
+    """Stamp media_files.capture_type from the Ed25519-signed telemetry
+    smoke_evidence [{stage, sha256}] pairs (batch_uuid + sha256 match).
+    The signed telemetry is the trust root, so the label is marked verified —
+    it OVERWRITES any unverified client hint. Returns rows updated.
+    Idempotent; safe to call on every telemetry POST and media upload."""
+    from models import MediaFile
+    from sqlalchemy import select
+
+    updated = 0
+    for e in smoke_evidence or []:
+        if not isinstance(e, dict):
+            continue
+        stage, sha = e.get("stage"), e.get("sha256")
+        if not stage or not sha:
+            continue
+        rows = (
+            await session.execute(
+                select(MediaFile).where(
+                    MediaFile.batch_uuid == batch_uuid,
+                    MediaFile.sha256_hash == str(sha).lower(),
+                )
+            )
+        ).scalars().all()
+        for m in rows:
+            if not m.capture_type_verified:
+                m.capture_type = str(stage)[:64]
+                m.capture_type_verified = True
+                session.add(m)
+                updated += 1
+    return updated
+

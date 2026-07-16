@@ -20,7 +20,7 @@ from schemas import (
 )
 
 from security import verify_signature
-from services.evidence import _assert_batch_ownership, _upsert_one_to_one_evidence, _recompute_if_batch_exists, _assert_same_uuid
+from services.evidence import _assert_batch_ownership, _upsert_one_to_one_evidence, _recompute_if_batch_exists, _assert_same_uuid, label_media_from_telemetry
 
 router = APIRouter()
 
@@ -105,7 +105,7 @@ async def create_telemetry(
     try:
         await session.commit()
     except IntegrityError:
-        return await _upsert_one_to_one_evidence(
+        res = await _upsert_one_to_one_evidence(
             session,
             PyrolysisTelemetry,
             uuid_attr="telemetry_uuid",
@@ -113,7 +113,18 @@ async def create_telemetry(
             batch_uuid=payload.batch_uuid,
             payload_json=payload_json,
         )
+        n = await label_media_from_telemetry(
+            session, payload.batch_uuid, payload.smoke_evidence
+        )
+        if n:
+            await session.commit()
+        return res
     await _recompute_if_batch_exists(session, payload.batch_uuid)
+    n = await label_media_from_telemetry(
+        session, payload.batch_uuid, payload.smoke_evidence
+    )
+    if n:
+        await session.commit()
     return {"status": "success", "duplicate": False}
 @router.post("/api/v1/yield", status_code=status.HTTP_201_CREATED)
 async def create_yield(
