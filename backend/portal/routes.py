@@ -422,13 +422,19 @@ async def get_media(
 
 
 async def _load_batch(session: AsyncSession, batch_uuid: str) -> Batch:
-    try:
-        buid = str(_uuid.UUID(batch_uuid))
-    except (ValueError, AttributeError):
-        raise HTTPException(status_code=400, detail="invalid_batch_uuid")
-    batch = (
-        await session.execute(select(Batch).where(Batch.batch_uuid == buid))
-    ).scalar_one_or_none()
+    if len(batch_uuid) < 32:
+        # Short prefix lookup (e.g. 8 chars)
+        batch = (
+            await session.execute(select(Batch).where(cast(Batch.batch_uuid, String).like(f"{batch_uuid.lower()}%")))
+        ).scalar_one_or_none()
+    else:
+        try:
+            buid = str(_uuid.UUID(batch_uuid))
+        except (ValueError, AttributeError):
+            raise HTTPException(status_code=400, detail="invalid_batch_uuid")
+        batch = (
+            await session.execute(select(Batch).where(Batch.batch_uuid == buid))
+        ).scalar_one_or_none()
     if batch is None:
         raise HTTPException(status_code=404, detail="unknown_batch")
     return batch
