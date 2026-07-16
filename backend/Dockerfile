@@ -35,4 +35,8 @@ EXPOSE 8001
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
     CMD curl -fsS http://localhost:${PORT:-8001}/api/health || exit 1
 
-CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8001}"]
+# --proxy-headers: Render terminates TLS and injects X-Forwarded-For; without
+# this, request.client.host is the proxy IP and the per-IP rate limiter
+# collapses to one global bucket. --forwarded-allow-ips='*' is safe here
+# because the container is only reachable through Render's proxy.
+CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8001} --proxy-headers --forwarded-allow-ips='*'"]

@@ -95,7 +95,15 @@ async def _rate_limit(request: Request, call_next):
     cap = _rl_int(_RL_CAP_ENV[bucket], _RL_DEFAULT_CAPS[bucket])
     if bucket in ("register", "admin"):
         # brute-force surfaces: key by client IP so rotating device ids can't evade.
-        key = request.client.host if request.client else "ip-unknown"
+        # Behind a TLS-terminating proxy the socket peer is the proxy, so prefer
+        # the first X-Forwarded-For hop when present (uvicorn --proxy-headers
+        # already rewrites request.client; this is belt-and-braces for runs
+        # without that flag). First hop = client as seen by OUR proxy.
+        fwd = request.headers.get("x-forwarded-for")
+        if fwd:
+            key = fwd.split(",")[0].strip() or "ip-unknown"
+        else:
+            key = request.client.host if request.client else "ip-unknown"
     else:
         key = request.headers.get("X-Device-Id") or (
             request.client.host if request.client else "unknown"
