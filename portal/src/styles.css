@@ -170,7 +170,7 @@ body {
 }
 code, .mono {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 :focus-visible {
   outline: 2px solid var(--indigo-600);
@@ -178,8 +178,8 @@ code, .mono {
   border-radius: inherit;
 }
 .micro {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
   letter-spacing: 0.01em;
   color: var(--text-tertiary);
 }
@@ -212,16 +212,16 @@ code, .mono {
   display: grid;
   place-items: center;
   color: #fff;
-  font-weight: 800;
+  font-weight: var(--fw-bold);
 }
 .brand {
-  font-weight: 750;
-  font-size: 15.5px;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-16);
   letter-spacing: -0.02em;
 }
 .brand span {
   color: var(--text-secondary);
-  font-weight: 550;
+  font-weight: var(--fw-medium);
 }
 .top .spacer {
   margin-left: auto;
@@ -246,7 +246,7 @@ button.primary {
   transition: background var(--duration-fast) var(--ease-expressive);
   color: #fff;
   font: inherit;
-  font-weight: 650;
+  font-weight: var(--fw-semibold);
   cursor: pointer;
 }
 button.primary:hover:not(:disabled) {
@@ -257,7 +257,7 @@ input {
   border: var(--border-hair);
   border-radius: var(--r-md);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-13);
   background: #fff;
   color: var(--text-primary);
 }
@@ -266,7 +266,7 @@ select {
   border: var(--border-hair);
   border-radius: var(--r-md);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-13);
   background: #fff;
 }
 input:focus, select:focus {
@@ -275,7 +275,7 @@ input:focus, select:focus {
 }
 .err {
   color: var(--status-error-fg);
-  font-size: 13px;
+  font-size: var(--fs-13);
   margin-top: 10px;
 }
 /* login */
@@ -292,7 +292,7 @@ input:focus, select:focus {
   gap: 12px;
 }
 .login h1 {
-  font-size: 20px;
+  font-size: var(--fs-20);
   margin-bottom: 4px;
 }
 /* table */
@@ -316,11 +316,11 @@ td {
   text-align: left;
   padding: var(--space-3) var(--space-4);
   border-bottom: var(--border-hair);
-  font-size: 13.5px;
+  font-size: var(--fs-13);
 }
 th {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
   letter-spacing: 0.01em;
   text-transform: none;
   color: var(--text-tertiary);
@@ -347,20 +347,20 @@ tbody tr:hover {
   gap: 10px;
 }
 .credit .num {
-  font-size: 48px;
-  font-weight: 600;
+  font-size: var(--fs-48);
+  font-weight: var(--fw-semibold);
   letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 .credit .unit {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: var(--fs-18);
+  font-weight: var(--fw-bold);
   color: var(--text-secondary);
 }
 .credit-label {
   margin-top: 12px;
   color: var(--text-secondary);
-  font-size: 13.5px;
+  font-size: var(--fs-13);
 }
 .ring {
   position: relative;
@@ -389,13 +389,13 @@ tbody tr:hover {
   text-align: center;
 }
 .ring .center b {
-  font-size: 30px;
-  font-weight: 800;
+  font-size: var(--fs-32);
+  font-weight: var(--fw-bold);
 }
 .ring .center small {
   display: block;
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-bold);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-tertiary);
@@ -408,8 +408,8 @@ tbody tr:hover {
   margin-bottom: var(--space-5);
 }
 .tile .v {
-  font-size: 22px;
-  font-weight: 750;
+  font-size: var(--fs-24);
+  font-weight: var(--fw-bold);
   margin-top: 8px;
 }
 .crit-list {
@@ -424,14 +424,14 @@ tbody tr:hover {
   gap: 10px;
 }
 .crit-label {
-  font-size: 13.5px;
+  font-size: var(--fs-13);
 }
 .crit-status {
   margin-left: auto;
 }
 .cap {
   padding: 6px 8px;
-  font-size: 10.5px;
+  font-size: var(--fs-12);
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -439,9 +439,9 @@ tbody tr:hover {
 }
 a.back {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--fs-13);
   text-decoration: none;
-  font-weight: 650;
+  font-weight: var(--fw-semibold);
 }
 .seal {
   display: inline-block;
@@ -450,8 +450,8 @@ a.back {
   border-radius: var(--r-sm);
   background: var(--surface-brand-subtle);
   color: var(--indigo-600);
-  font-weight: 800;
-  font-size: 13px;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-13);
   letter-spacing: 0.06em;
 }
 button.primary:disabled {
@@ -473,8 +473,8 @@ button.primary:disabled {
   margin-bottom: 12px;
 }
 .evidence-group-head h3 {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
   color: var(--text-secondary);
   margin: 0;
   text-transform: none;
@@ -501,7 +501,7 @@ button.primary:disabled {
 }
 .forensic-meta {
   padding: 8px;
-  font-size: 11px;
+  font-size: var(--fs-12);
   line-height: 1.4;
   color: var(--text-primary);
 }
@@ -516,8 +516,8 @@ button.primary:disabled {
   display: inline-block;
   padding: 2px 6px;
   border-radius: var(--r-sm);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
   background: var(--border-subtle);
   color: var(--text-secondary);
 }
@@ -553,12 +553,12 @@ button.primary:disabled {
 }
 .modal-panel h2 {
   margin-top: 0;
-  font-size: 18px;
+  font-size: var(--fs-18);
   color: var(--text-primary);
 }
 .modal-panel p {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--fs-14);
   line-height: 1.5;
   margin-bottom: 16px;
 }
@@ -591,8 +591,8 @@ button.primary:disabled {
   border: 1px solid transparent;
   cursor: pointer;
   color: var(--text-tertiary);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-medium);
   padding: 6px 12px;
   border-radius: var(--r-md);
   transition: all var(--duration-fast) var(--ease-productive);
@@ -607,7 +607,7 @@ button.primary:disabled {
 }
 .num-col {
   text-align: right;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
 }
 .select-wrap {
   position: relative;
@@ -702,8 +702,8 @@ button.primary:disabled {
   border-radius: var(--r-md);
   padding: 6px 12px;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--fs-13);
+  font-weight: var(--fw-medium);
   transition: all var(--duration-fast) var(--ease-productive);
 }
 .neutral:hover:not(:disabled) {
