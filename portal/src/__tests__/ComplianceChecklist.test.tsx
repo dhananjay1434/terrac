@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import ComplianceChecklist from "../components/ComplianceChecklist";
+import ComplianceChecklist from "../components/ComplianceChecklist/ComplianceChecklist";
 import type { ChecklistItem } from "../api";
 
 const checklist: ChecklistItem[] = [

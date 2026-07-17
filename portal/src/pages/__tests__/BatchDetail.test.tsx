@@ -131,4 +131,28 @@ describe("BatchDetail page", () => {
     const { container } = renderPage();
     expect(container.querySelectorAll(".skeleton").length).toBeGreaterThan(0);
   });
+
+  it("renders the grouped checklist and evidence gallery from one fixture", async () => {
+    const d = detail();
+    d.media = [
+      {
+        operation_id: "op1",
+        filename: null,
+        sha256_hash: "f00dfeedface1234",
+        uploaded_at: "2026-07-01T10:00:00Z",
+        capture_type: "flame_curtain",
+        capture_type_verified: true,
+        exif_lat: null,
+        exif_lon: null,
+      },
+    ];
+    mockGet.mockResolvedValue(d);
+    renderPage();
+    expect(await screen.findByTestId("group-field")).toBeInTheDocument();
+    expect(screen.getByText("Flame curtain photos")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 3, name: /1\. Burn — flame curtain/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("f00dfeedface…")).toBeInTheDocument();
+  });
 });

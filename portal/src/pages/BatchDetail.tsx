@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   getBatch,
-  fetchMediaUrl,
   issueCredit,
   downloadExport,
   AuthError,
@@ -10,8 +9,9 @@ import {
   type MediaItem,
 } from "../api";
 import { getRole } from "../auth";
-import ComplianceChecklist from "../components/ComplianceChecklist";
+import ComplianceChecklist from "../components/ComplianceChecklist/ComplianceChecklist";
 import CreditRing from "../components/CreditRing";
+import EvidenceGallery from "../components/EvidenceGallery/EvidenceGallery";
 import VerificationChain from "../components/VerificationChain/VerificationChain";
 import MetricBlock from "../components/MetricBlock/MetricBlock";
 import SealedVerdict from "../components/SealedVerdict/SealedVerdict";
@@ -53,87 +53,6 @@ export function groupMedia(items: MediaItem[]): [string, MediaItem[]][] {
     return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
   });
   return keys.map((k) => [k, groups.get(k)!]);
-}
-
-function MediaThumb({ item }: { item: MediaItem }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    let live = true;
-    let objUrl: string | null = null;
-    fetchMediaUrl(item.operation_id)
-      .then((u) => {
-        objUrl = u;
-        if (live) setUrl(u);
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-      if (objUrl) URL.revokeObjectURL(objUrl);
-    };
-  }, [item.operation_id]);
-  return (
-    <div className="media-cell">
-      {url ? (
-        <img src={url} alt={item.filename ?? item.operation_id} />
-      ) : (
-        <div
-          style={{
-            height: 90,
-            display: "grid",
-            placeItems: "center",
-            background: "var(--surface-page)",
-          }}
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="2">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-            <line x1="1" y1="1" x2="23" y2="23"></line>
-          </svg>
-        </div>
-      )}
-      <div className="forensic-meta">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="mono">{item.sha256_hash.slice(0, 12)}…</span>
-          <button
-            aria-label="Copy SHA-256"
-            className="linkbtn"
-            onClick={() => {
-              navigator.clipboard.writeText(item.sha256_hash);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            }}
-          >
-            {copied ? "✓" : "📋"}
-          </button>
-        </div>
-        {item.uploaded_at && (
-          <div className="text-tertiary">
-            {item.uploaded_at.slice(0, 16).replace("T", " ")}
-          </div>
-        )}
-        <div>
-          {item.exif_lat !== null && item.exif_lon !== null ? (
-            <a
-              href={`https://www.openstreetmap.org/?mlat=${item.exif_lat}&mlon=${item.exif_lon}#map=17/${item.exif_lat}/${item.exif_lon}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {item.exif_lat.toFixed(5)}, {item.exif_lon.toFixed(5)}
-            </a>
-          ) : (
-            <span className="text-tertiary">no GPS</span>
-          )}
-        </div>
-        <div style={{ marginTop: 4 }}>
-          {item.capture_type_verified ? (
-            <span className="chip ok">✓ verified</span>
-          ) : item.capture_type ? (
-            <span className="chip warn">unverified</span>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function BatchDetail() {
@@ -352,28 +271,7 @@ export default function BatchDetail() {
 
       <ComplianceChecklist checklist={d.compliance.checklist} />
 
-      {d.media.length > 0 && (
-        <section className="card" style={{ marginTop: 14 }}>
-          <span className="micro">Evidence media</span>
-          <div style={{ marginTop: 12 }}>
-            {groupMedia(d.media).map(([stage, items]) => (
-              <div key={stage} className="evidence-group">
-                <div className="evidence-group-head">
-                  <h3>
-                    {stage === '__unclassified__' ? STEP_TITLES['other'] : STEP_TITLES[stage] ?? stage}
-                  </h3>
-                  <div className="chip">{items.length}</div>
-                </div>
-                <div className="media-grid">
-                  {items.map(m => (
-                    <MediaThumb key={m.sha256_hash} item={m} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      <EvidenceGallery media={d.media} />
 
       {confirmOpen && (
         <div className="modal-overlay" onClick={() => setConfirmOpen(false)}>
