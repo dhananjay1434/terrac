@@ -78,29 +78,43 @@ export default function Batches() {
           </tr>
         </thead>
         <tbody>
-          {rows.map((b) => (
-            <tr
-              key={b.batch_uuid}
-              onClick={() => nav(`/batches/${b.batch_uuid}`)}
-            >
-              <td className="tabular">{shortId(b.batch_uuid)}</td>
-              <td>{b.device_id ?? "—"}</td>
-              <td className="tabular">{fmtDate(b.received_at)}</td>
-              <td className="tabular">{b.net_credit_t_co2e.toFixed(3)}</td>
-              <td>
-                <span className={`badge ${b.provisional ? "prov" : "iss"}`}>
-                  {b.provisional ? "PROVISIONAL" : "ISSUABLE"}
-                </span>
-              </td>
-              <td className="tabular">{b.reason_count}</td>
-            </tr>
-          ))}
-          {rows.length === 0 && !loading && (
+          {loading && rows.length === 0 ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <tr key={i}>
+                <td colSpan={6}>
+                  <div className="skeleton" style={{ height: 14, margin: '8px 0' }}></div>
+                </td>
+              </tr>
+            ))
+          ) : rows.length === 0 ? (
             <tr>
-              <td colSpan={6} style={{ color: "var(--muted)" }}>
-                No batches.
+              <td colSpan={6} style={{ padding: '60px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
+                  No batches found
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Adjust the filters above, or wait for field devices to sync.
+                </div>
               </td>
             </tr>
+          ) : (
+            rows.map((b) => (
+              <tr
+                key={b.batch_uuid}
+                onClick={() => nav(`/batches/${b.batch_uuid}`)}
+              >
+                <td className="tabular">{shortId(b.batch_uuid)}</td>
+                <td>{b.device_id ?? "—"}</td>
+                <td className="tabular">{fmtDate(b.received_at)}</td>
+                <td className="tabular">{b.net_credit_t_co2e.toFixed(3)}</td>
+                <td>
+                  <span className={`badge ${b.provisional ? "prov" : "iss"}`}>
+                    {b.provisional ? "PROVISIONAL" : "ISSUABLE"}
+                  </span>
+                </td>
+                <td className="tabular">{b.reason_count}</td>
+              </tr>
+            ))
           )}
         </tbody>
       </table>

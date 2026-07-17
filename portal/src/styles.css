@@ -586,3 +586,20 @@ button.neutral:disabled {
   cursor: not-allowed;
 }
 
+
+/* --- Phase 3: Skeletons & Status --- */
+.skeleton {
+  background: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: .5; } 100% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important; }
+}
+.chip.err {
+  background: var(--status-error-bg);
+  color: var(--status-error-fg);
+}
+

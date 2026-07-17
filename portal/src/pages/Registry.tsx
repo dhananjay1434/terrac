@@ -24,8 +24,14 @@ function Form({
   onSubmit: (values: Record<string, string>) => Promise<void>;
 }) {
   const [v, setV] = useState<Record<string, string>>({});
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!msg) return;
+    const t = setTimeout(() => setMsg(null), 4000);
+    return () => clearTimeout(t);
+  }, [msg]);
   return (
     <form
       className="card"
@@ -36,10 +42,10 @@ function Form({
         setMsg(null);
         try {
           await onSubmit(v);
-          setMsg("Saved.");
+          setMsg({ text: "✓ Saved", ok: true });
           setV({});
         } catch {
-          setMsg("Save failed.");
+          setMsg({ text: "Save failed — check values", ok: false });
         } finally {
           setBusy(false);
         }
@@ -60,7 +66,11 @@ function Form({
           Save
         </button>
       </div>
-      {msg && <div className="micro" style={{ marginTop: 6 }}>{msg}</div>}
+      {msg && (
+        <div style={{ marginTop: 12 }}>
+          <div className={`chip ${msg.ok ? "ok" : "err"}`}>{msg.text}</div>
+        </div>
+      )}
     </form>
   );
 }

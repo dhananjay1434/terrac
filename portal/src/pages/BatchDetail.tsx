@@ -188,8 +188,28 @@ export default function BatchDetail() {
     }
   }
 
-  if (err) return <div className="wrap err">{err}</div>;
-  if (!d) return <div className="wrap">Loading…</div>;
+  if (err) {
+    return (
+      <div className="wrap err" style={{ textAlign: "center", paddingTop: 60 }}>
+        <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", marginBottom: 16 }}>Batch not found</div>
+        <Link to="/batches" style={{ color: "var(--indigo-600)", textDecoration: "none" }}>← All batches</Link>
+      </div>
+    );
+  }
+  if (!d) {
+    return (
+      <div className="wrap">
+        <div className="skeleton" style={{ height: 180, borderRadius: "var(--radius-lg)", marginBottom: 18 }}></div>
+        <div className="tiles" style={{ marginBottom: 14 }}>
+          <div className="skeleton" style={{ height: 72 }}></div>
+          <div className="skeleton" style={{ height: 72 }}></div>
+          <div className="skeleton" style={{ height: 72 }}></div>
+        </div>
+        <div className="skeleton" style={{ height: 200, marginBottom: 14 }}></div>
+        <div className="skeleton" style={{ height: 300 }}></div>
+      </div>
+    );
+  }
 
   const okCount = d.compliance.checklist.filter((c) => c.ok).length;
   const total = d.compliance.checklist.length;
