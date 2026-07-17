@@ -1,0 +1,27 @@
+.trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.trigger:hover {
+  color: var(--text-primary);
+}
+.content {
+  max-width: 240px;
+  background: var(--surface-card);
+  border: var(--border-hair);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-12);
+  color: var(--text-primary);
+  z-index: 30;
+}

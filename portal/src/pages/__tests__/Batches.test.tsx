@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import Batches from "../Batches";
 import { listBatches, getSummary, AuthError, type BatchRow } from "../../api";
 
@@ -45,7 +46,9 @@ const FIXTURE: BatchRow[] = [
 function renderPage(path = "/batches") {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <Batches />
+      <Tooltip.Provider>
+        <Batches />
+      </Tooltip.Provider>
     </MemoryRouter>,
   );
 }

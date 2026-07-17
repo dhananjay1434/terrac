@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import Registry from "../Registry";
 import { registryPost, listKilns } from "../../api";
 
@@ -20,7 +21,9 @@ const mockKilns = vi.mocked(listKilns);
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={["/registry"]}>
-      <Registry />
+      <Tooltip.Provider>
+        <Registry />
+      </Tooltip.Provider>
     </MemoryRouter>,
   );
 }

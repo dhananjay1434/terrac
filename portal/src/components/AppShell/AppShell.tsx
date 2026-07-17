@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import Breadcrumbs from "./Breadcrumbs";
@@ -47,32 +48,34 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   return (
-    <div className={styles.shell}>
-      <a href="#main-content" className={styles.skip}>
-        Skip to content
-      </a>
-      <EnvBanner />
-      <div className={styles.row}>
-        <div
-          className={styles.scrim}
-          data-open={drawerOpen}
-          onClick={() => setDrawerOpen(false)}
-          aria-hidden
-        />
-        <Sidebar
-          collapsed={collapsed}
-          onToggle={toggle}
-          drawerOpen={drawerOpen}
-          onNavigate={() => setDrawerOpen(false)}
-        />
-        <div className={styles.body}>
-          <Topbar collapsed={collapsed} onOpenDrawer={() => setDrawerOpen(true)} />
-          <Breadcrumbs />
-          <main id="main-content" tabIndex={-1} className={styles.main}>
-            {children}
-          </main>
+    <Tooltip.Provider delayDuration={200}>
+      <div className={styles.shell}>
+        <a href="#main-content" className={styles.skip}>
+          Skip to content
+        </a>
+        <EnvBanner />
+        <div className={styles.row}>
+          <div
+            className={styles.scrim}
+            data-open={drawerOpen}
+            onClick={() => setDrawerOpen(false)}
+            aria-hidden
+          />
+          <Sidebar
+            collapsed={collapsed}
+            onToggle={toggle}
+            drawerOpen={drawerOpen}
+            onNavigate={() => setDrawerOpen(false)}
+          />
+          <div className={styles.body}>
+            <Topbar collapsed={collapsed} onOpenDrawer={() => setDrawerOpen(true)} />
+            <Breadcrumbs />
+            <main id="main-content" tabIndex={-1} className={styles.main}>
+              {children}
+            </main>
+          </div>
         </div>
       </div>
-    </div>
+    </Tooltip.Provider>
   );
 }

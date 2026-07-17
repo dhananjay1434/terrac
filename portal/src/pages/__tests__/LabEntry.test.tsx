@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import LabEntry from "../LabEntry";
 import { vi } from "vitest";
 
@@ -12,9 +13,11 @@ vi.mock("../../api", async (importOriginal) => {
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={["/lab/abc-uuid"]}>
-      <Routes>
-        <Route path="/lab/:uuid" element={<LabEntry />} />
-      </Routes>
+      <Tooltip.Provider>
+        <Routes>
+          <Route path="/lab/:uuid" element={<LabEntry />} />
+        </Routes>
+      </Tooltip.Provider>
     </MemoryRouter>,
   );
 }

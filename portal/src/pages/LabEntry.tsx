@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { submitLabResults, uploadLabCertificate, AuthError } from "../api";
 import { validateLabForm, type LabForm } from "../lab";
 import { GROUP_LABEL } from "../compliance";
+import InfoTip from "../components/InfoTip/InfoTip";
 
 const EMPTY: LabForm = {
   lab_h_corg: "",
@@ -61,7 +62,10 @@ export default function LabEntry() {
       </h1>
       <div className="registry-grid">
         <form className="login" style={{ width: "100%", maxWidth: 420 }} onSubmit={submit}>
-          <label className="micro" htmlFor="lab_h_corg">H:Corg ratio (0.1–1.5)</label>
+          <label className="micro" htmlFor="lab_h_corg">
+            H:Corg ratio (0.1–1.5)
+            <InfoTip label="Molar hydrogen-to-organic-carbon ratio; a permanence indicator for biochar (target 0.1–1.5)." />
+          </label>
           <input
             id="lab_h_corg"
             className="input-lg"

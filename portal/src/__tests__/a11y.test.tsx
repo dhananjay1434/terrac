@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import { axe } from "jest-axe";
 import AppShell from "../components/AppShell/AppShell";
 import Login from "../pages/Login";
@@ -107,7 +108,11 @@ describe("a11y (axe, WCAG 2.x A/AA)", () => {
 
   it("Batches", async () => {
     const { container } = render(
-      <MemoryRouter><main><Batches /></main></MemoryRouter>,
+      <MemoryRouter>
+        <Tooltip.Provider>
+          <main><Batches /></main>
+        </Tooltip.Provider>
+      </MemoryRouter>,
     );
     await screen.findByText("dev-1");
     await expectNoViolations(container);
@@ -137,11 +142,13 @@ describe("a11y (axe, WCAG 2.x A/AA)", () => {
   it("LabEntry", async () => {
     const { container } = render(
       <MemoryRouter initialEntries={["/lab/abc"]}>
-        <main>
-          <Routes>
-            <Route path="/lab/:uuid" element={<LabEntry />} />
-          </Routes>
-        </main>
+        <Tooltip.Provider>
+          <main>
+            <Routes>
+              <Route path="/lab/:uuid" element={<LabEntry />} />
+            </Routes>
+          </main>
+        </Tooltip.Provider>
       </MemoryRouter>,
     );
     await expectNoViolations(container);
@@ -149,7 +156,11 @@ describe("a11y (axe, WCAG 2.x A/AA)", () => {
 
   it("Registry", async () => {
     const { container } = render(
-      <MemoryRouter><main><Registry /></main></MemoryRouter>,
+      <MemoryRouter>
+        <Tooltip.Provider>
+          <main><Registry /></main>
+        </Tooltip.Provider>
+      </MemoryRouter>,
     );
     await expectNoViolations(container);
   }, 20000);

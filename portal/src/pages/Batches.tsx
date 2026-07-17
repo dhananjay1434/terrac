@@ -9,6 +9,7 @@ import FilterBar, { type FilterPatch } from "../components/FilterBar/FilterBar";
 import StatusDot from "../components/StatusDot/StatusDot";
 import EmptyState from "../components/EmptyState/EmptyState";
 import StatTile from "../components/StatTile/StatTile";
+import InfoTip from "../components/InfoTip/InfoTip";
 
 function shortId(uuid: string) {
   return uuid.slice(0, 8);
@@ -177,7 +178,12 @@ export default function Batches() {
     },
     {
       key: "status",
-      header: "Status",
+      header: (
+        <>
+          Status
+          <InfoTip label="Issuable = all compliance gates met and ready to issue. Provisional = one or more gates unmet." />
+        </>
+      ),
       render: (b) => (
         <StatusDot
           variant={b.provisional ? "warning" : "success"}

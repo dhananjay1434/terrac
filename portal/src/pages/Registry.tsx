@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import * as Tabs from "@radix-ui/react-tabs";
 import {
@@ -10,6 +10,7 @@ import {
 } from "../api";
 import { kilnQrPayload } from "../qr";
 import { useNavigate } from "react-router-dom";
+import InfoTip from "../components/InfoTip/InfoTip";
 
 // A tiny generic form: field defs -> values -> POST. Keeps this admin page
 // compact without a form library.
@@ -20,7 +21,7 @@ function Form({
   fields,
   onSubmit,
 }: {
-  title: string;
+  title: ReactNode;
   fields: Field[];
   onSubmit: (values: Record<string, string>) => Promise<void>;
 }) {
@@ -152,7 +153,12 @@ export default function Registry() {
 
         <Tabs.Content value="kilns">
           <Form
-            title="Register kiln (C8)"
+            title={
+              <>
+                Register kiln (C8)
+                <InfoTip label="C8 = kiln & equipment registration criterion." />
+              </>
+            }
             fields={[
               { key: "kiln_id", label: "kiln id", required: true },
               { key: "kiln_type", label: "type (open/closed)" },
@@ -281,7 +287,12 @@ export default function Registry() {
 
         <Tabs.Content value="standards">
           <Form
-            title="Annual verification (C9)"
+            title={
+              <>
+                Annual verification (C9)
+                <InfoTip label="C9 = annual project verification criterion." />
+              </>
+            }
             fields={[
               { key: "project_id", label: "project id" },
               { key: "year", label: "year", type: "number" },
