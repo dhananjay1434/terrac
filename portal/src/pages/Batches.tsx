@@ -2,12 +2,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import * as Tabs from "@radix-ui/react-tabs";
 import { Copy, Check, ChevronRight } from "lucide-react";
-import { listBatches, AuthError, type BatchRow } from "../api";
+import { listBatches, getSummary, AuthError, type BatchRow } from "../api";
 import { fmtCredit } from "../format";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import FilterBar, { type FilterPatch } from "../components/FilterBar/FilterBar";
 import StatusDot from "../components/StatusDot/StatusDot";
 import EmptyState from "../components/EmptyState/EmptyState";
+import StatTile from "../components/StatTile/StatTile";
 
 function shortId(uuid: string) {
   return uuid.slice(0, 8);
@@ -75,6 +76,9 @@ export default function Batches() {
   const [search, setSearch] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState<Awaited<
+    ReturnType<typeof getSummary>
+  > | null>(null);
 
   const load = useCallback(
     async (reset: boolean) => {
@@ -109,6 +113,15 @@ export default function Batches() {
 
   useEffect(() => {
     document.title = "Batches · TerraCipher";
+  }, []);
+
+  // Fire-and-forget: the summary band is a supplementary signal, not the
+  // page's primary data source, so a failure here must never block the
+  // table or trigger a redirect — load() already owns AuthError handling.
+  useEffect(() => {
+    getSummary()
+      .then(setSummary)
+      .catch(() => {});
   }, []);
 
   function switchView(v: ViewKey) {
@@ -200,6 +213,24 @@ export default function Batches() {
     <div className="wrap">
       <h1 style={{ fontSize: 20, marginBottom: 16 }}>Batches</h1>
 
+      {summary && (
+        <div className="stat-band">
+          <StatTile label="Issued" value={String(summary.by_status["ISSUED"] ?? 0)} />
+          <StatTile
+            label="Received / in review"
+            value={String(summary.by_status["RECEIVED"] ?? 0)}
+          />
+          <StatTile label="Provisional" value={String(summary.provisional)} />
+          <StatTile
+            label="Credit"
+            value={fmtCredit(
+              rows.reduce((sum, b) => sum + b.net_credit_t_co2e, 0),
+            )}
+            hint="loaded rows"
+          />
+        </div>
+      )}
+
       <Tabs.Root
         value={view ?? NO_VIEW}
         onValueChange={(v) => switchView(v as ViewKey)}
@@ -287,7 +318,8 @@ export default function Batches() {
         }}
       >
         <span className="micro">
-          Showing {displayed.length} row{displayed.length === 1 ? "" : "s"}
+          Showing {displayed.length}{" "}
+          {cursor ? "loaded" : "row" + (displayed.length === 1 ? "" : "s")}
         </span>
         {cursor && (
           <button

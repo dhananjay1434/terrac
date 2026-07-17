@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Batches from "../Batches";
-import { listBatches, AuthError, type BatchRow } from "../../api";
+import { listBatches, getSummary, AuthError, type BatchRow } from "../../api";
 
 const mockNav = vi.fn();
 vi.mock("react-router-dom", async (importOriginal) => {
@@ -11,10 +11,11 @@ vi.mock("react-router-dom", async (importOriginal) => {
 });
 vi.mock("../../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api")>();
-  return { ...actual, listBatches: vi.fn() };
+  return { ...actual, listBatches: vi.fn(), getSummary: vi.fn() };
 });
 
 const mockList = vi.mocked(listBatches);
+const mockSummary = vi.mocked(getSummary);
 
 const FIXTURE: BatchRow[] = [
   {
@@ -53,6 +54,11 @@ describe("Batches page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockList.mockResolvedValue({ batches: FIXTURE, next_cursor: null });
+    mockSummary.mockResolvedValue({
+      by_status: {},
+      provisional: 0,
+      reasons_histogram: {},
+    });
   });
 
   it("renders skeleton rows on initial load", () => {
@@ -180,5 +186,24 @@ describe("Batches page", () => {
       screen.getByText(/Load more rows, or refine your search/),
     ).toBeInTheDocument();
     expect(screen.queryByText("No batches found")).not.toBeInTheDocument();
+  });
+
+  it("shows the summary stat-band once getSummary resolves", async () => {
+    mockSummary.mockResolvedValue({
+      by_status: { ISSUED: 3, RECEIVED: 7 },
+      provisional: 2,
+      reasons_histogram: {},
+    });
+    renderPage();
+    await screen.findByText("dev-1");
+    expect(await screen.findByText("3")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+  });
+
+  it("getSummary rejecting does not crash the page or redirect", async () => {
+    mockSummary.mockRejectedValue(new Error("summary down"));
+    renderPage();
+    await screen.findByText("dev-1");
+    expect(mockNav).not.toHaveBeenCalled();
   });
 });

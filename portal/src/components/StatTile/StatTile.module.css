@@ -1,0 +1,11 @@
+.value {
+  font-size: var(--fs-24);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  margin-top: var(--space-1);
+}
+.hint {
+  font-size: var(--fs-12);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}

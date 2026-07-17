@@ -678,3 +678,15 @@ th {
 .text-primary { color: var(--text-primary); }
 .link-indigo { color: var(--indigo-600); text-decoration: none; }
 
+.stat-band {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+@media (max-width: 720px) {
+  .stat-band {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
