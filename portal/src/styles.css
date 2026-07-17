@@ -761,10 +761,46 @@ button.neutral:disabled {
   justify-content: space-between;
   gap: 16px;
 }
+/* Print: BatchDetail becomes a clean A4 evidence pack; kiln cards stay 8cm.
+   Status is never color-only in print — StatusDot/verdict labels carry text. */
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
 @media print {
-  .top, .filters, button, .linkbtn { display: none !important; }
-  body { background: #fff; }
-  .media-cell { break-inside: avoid; width: 8cm; }
+  .top,
+  .filters,
+  button,
+  .linkbtn,
+  input,
+  select,
+  header,
+  aside[aria-label="Primary"],
+  [role="tablist"] {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  .wrap {
+    max-width: none;
+    padding: 0;
+  }
+  .card,
+  .hero,
+  table {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+  .media-cell {
+    break-inside: avoid;
+    width: 8cm;
+  }
+  code,
+  .mono,
+  .tabular {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
 }
 
 

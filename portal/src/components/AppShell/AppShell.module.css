@@ -3,6 +3,22 @@
   flex-direction: column;
   min-height: 100%;
 }
+.skip {
+  position: absolute;
+  left: -9999px;
+  z-index: 100;
+  padding: 8px 14px;
+  background: var(--surface-card);
+  color: var(--text-primary);
+  border: var(--border-hair);
+  border-radius: var(--r-md);
+  font-size: var(--fs-13);
+  text-decoration: none;
+}
+.skip:focus {
+  left: 12px;
+  top: 12px;
+}
 .row {
   display: flex;
   flex: 1;

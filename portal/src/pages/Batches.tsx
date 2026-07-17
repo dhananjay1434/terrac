@@ -245,6 +245,11 @@ export default function Batches() {
             </Tabs.Trigger>
           ))}
         </Tabs.List>
+        {/* Panels must exist for the triggers' aria-controls; the actual
+            table lives below and is shared by every view. */}
+        {(Object.keys(VIEWS) as ViewKey[]).map((k) => (
+          <Tabs.Content key={k} value={k} />
+        ))}
       </Tabs.Root>
 
       <FilterBar

@@ -86,6 +86,20 @@ describe("AppShell", () => {
     expect(screen.getByText("Sandbox environment")).toBeInTheDocument();
   });
 
+  it("shell markup snapshot is stable in light and dark themes", () => {
+    const { container } = renderShell();
+    document.documentElement.setAttribute("data-theme", "light");
+    expect({
+      theme: document.documentElement.getAttribute("data-theme"),
+      html: container.innerHTML,
+    }).toMatchSnapshot("appshell-light");
+    document.documentElement.setAttribute("data-theme", "dark");
+    expect({
+      theme: document.documentElement.getAttribute("data-theme"),
+      html: container.innerHTML,
+    }).toMatchSnapshot("appshell-dark");
+  });
+
   it("login route renders without the shell", () => {
     render(
       <MemoryRouter initialEntries={["/login"]}>

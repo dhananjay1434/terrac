@@ -38,13 +38,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className={styles.shell}>
+      <a href="#main-content" className={styles.skip}>
+        Skip to content
+      </a>
       <EnvBanner />
       <div className={styles.row}>
         <Sidebar collapsed={collapsed} onToggle={toggle} />
         <div className={styles.body}>
           <Topbar collapsed={collapsed} onCmdK={() => {}} />
           <Breadcrumbs />
-          <main className={styles.main}>{children}</main>
+          <main id="main-content" className={styles.main}>
+            {children}
+          </main>
         </div>
       </div>
     </div>
