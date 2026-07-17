@@ -189,21 +189,6 @@ code, .mono {
 .amber-tag {
   color: var(--status-warning-fg);
 }
-.top {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--surface-card);
-  border-bottom: var(--border-hair);
-}
-.top-in {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: var(--space-4) 24px;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
 .mark {
   width: 34px;
   height: 34px;
@@ -213,18 +198,6 @@ code, .mono {
   place-items: center;
   color: #fff;
   font-weight: var(--fw-bold);
-}
-.brand {
-  font-weight: var(--fw-bold);
-  font-size: var(--fs-16);
-  letter-spacing: -0.02em;
-}
-.brand span {
-  color: var(--text-secondary);
-  font-weight: var(--fw-medium);
-}
-.top .spacer {
-  margin-left: auto;
 }
 .wrap {
   max-width: 1040px;
@@ -341,65 +314,10 @@ tbody tr:hover {
   padding: var(--space-6);
   margin-bottom: var(--space-5);
 }
-.credit {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-.credit .num {
-  font-size: var(--fs-48);
-  font-weight: var(--fw-semibold);
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-}
-.credit .unit {
-  font-size: var(--fs-18);
-  font-weight: var(--fw-bold);
-  color: var(--text-secondary);
-}
 .credit-label {
   margin-top: 12px;
   color: var(--text-secondary);
   font-size: var(--fs-13);
-}
-.ring {
-  position: relative;
-  width: 150px;
-  height: 150px;
-}
-.ring svg {
-  transform: rotate(-90deg);
-}
-.ring .track {
-  stroke: var(--border-subtle);
-  stroke-width: 12;
-  fill: none;
-}
-.ring .fill {
-  stroke: var(--status-success-fg);
-  stroke-width: 12;
-  fill: none;
-  stroke-linecap: round;
-}
-.ring .center {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  text-align: center;
-}
-.ring .center b {
-  font-size: var(--fs-32);
-  font-weight: var(--fw-bold);
-}
-.ring .center small {
-  display: block;
-  font-size: var(--fs-12);
-  font-weight: var(--fw-bold);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin-top: 2px;
 }
 .tiles {
   display: grid;
