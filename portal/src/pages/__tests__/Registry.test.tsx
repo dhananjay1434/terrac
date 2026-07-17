@@ -72,4 +72,22 @@ describe("Registry page", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Standards" })).toBeInTheDocument();
   });
+
+  it("binds a real <label> to the kiln id input, not just a placeholder", () => {
+    renderPage();
+    const kilnForm = screen.getByText("Register kiln (C8)").closest("form")!;
+    const input = within(kilnForm).getByLabelText("kiln id");
+    const label = kilnForm.querySelector(`label[for="${input.id}"]`);
+    expect(label).not.toBeNull();
+    expect(label?.textContent).toBe("kiln id");
+  });
+
+  it("renders date fields with a native date input type", () => {
+    renderPage();
+    const supervisorForm = screen
+      .getByText("Supervisor visit")
+      .closest("form")!;
+    const dateInput = within(supervisorForm).getByLabelText("visit date");
+    expect(dateInput).toHaveAttribute("type", "date");
+  });
 });

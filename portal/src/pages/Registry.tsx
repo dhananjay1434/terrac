@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import * as Tabs from "@radix-ui/react-tabs";
 import {
@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 
 // A tiny generic form: field defs -> values -> POST. Keeps this admin page
 // compact without a form library.
-type Field = { key: string; label: string; type?: string };
+type Field = { key: string; label: string; type?: string; required?: boolean };
 
 function Form({
   title,
@@ -27,6 +27,7 @@ function Form({
   const [v, setV] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const scope = useId();
 
   useEffect(() => {
     if (!msg) return;
@@ -39,6 +40,13 @@ function Form({
       style={{ marginBottom: 14 }}
       onSubmit={async (e) => {
         e.preventDefault();
+        const missing = fields.some(
+          (f) => f.required && !(v[f.key] ?? "").trim(),
+        );
+        if (missing) {
+          setMsg({ text: "Fill required fields", ok: false });
+          return;
+        }
         setBusy(true);
         setMsg(null);
         try {
@@ -54,16 +62,25 @@ function Form({
     >
       <span className="micro">{title}</span>
       <div className="filters" style={{ marginTop: 10 }}>
-        {fields.map((f) => (
-          <input
-            key={f.key}
-            placeholder={f.label}
-            aria-label={f.label}
-            type={f.type ?? "text"}
-            value={v[f.key] ?? ""}
-            onChange={(e) => setV((s) => ({ ...s, [f.key]: e.target.value }))}
-          />
-        ))}
+        {fields.map((f) => {
+          const id = `${scope}-${f.key}`;
+          return (
+            <div key={f.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label className="micro" htmlFor={id}>
+                {f.label}
+              </label>
+              <input
+                id={id}
+                aria-label={f.label}
+                type={f.type ?? "text"}
+                value={v[f.key] ?? ""}
+                onChange={(e) =>
+                  setV((s) => ({ ...s, [f.key]: e.target.value }))
+                }
+              />
+            </div>
+          );
+        })}
         <button className="primary" type="submit" disabled={busy}>
           Save
         </button>
@@ -137,11 +154,11 @@ export default function Registry() {
           <Form
             title="Register kiln (C8)"
             fields={[
-              { key: "kiln_id", label: "kiln id" },
+              { key: "kiln_id", label: "kiln id", required: true },
               { key: "kiln_type", label: "type (open/closed)" },
               { key: "material", label: "material" },
-              { key: "weight_kg", label: "weight kg" },
-              { key: "capacity_l", label: "capacity litres" },
+              { key: "weight_kg", label: "weight kg", type: "number" },
+              { key: "capacity_l", label: "capacity litres", type: "number" },
             ]}
             onSubmit={submitKiln}
           />
@@ -171,10 +188,10 @@ export default function Registry() {
 
           <div className="registry-grid">
             <Form
-              title="Supervisor visit (idempotent on kiln+date)"
+              title="Supervisor visit"
               fields={[
                 { key: "kiln_id", label: "kiln id" },
-                { key: "visited_at", label: "visit date" },
+                { key: "visited_at", label: "visit date", type: "date" },
                 { key: "notes", label: "notes" },
               ]}
               onSubmit={(val) =>
@@ -190,8 +207,8 @@ export default function Registry() {
               title="Scale calibration (C8)"
               fields={[
                 { key: "scale_id", label: "scale id" },
-                { key: "calibrated_at", label: "calibrated at (ISO)" },
-                { key: "valid_until", label: "valid until (ISO)" },
+                { key: "calibrated_at", label: "calibrated at", type: "date" },
+                { key: "valid_until", label: "valid until", type: "date" },
               ]}
               onSubmit={(val) =>
                 registryPost("scale-calibration", {
@@ -208,10 +225,10 @@ export default function Registry() {
         <Tabs.Content value="operators">
           <div className="registry-grid">
             <Form
-              title="Operator training (idempotent on operator+date)"
+              title="Operator training"
               fields={[
                 { key: "operator_id", label: "operator id" },
-                { key: "completed_at", label: "completed date" },
+                { key: "completed_at", label: "completed date", type: "date" },
                 { key: "training_type", label: "training type" },
               ]}
               onSubmit={(val) =>
@@ -264,11 +281,11 @@ export default function Registry() {
 
         <Tabs.Content value="standards">
           <Form
-            title="Annual verification (C9, keyed by project+year)"
+            title="Annual verification (C9)"
             fields={[
               { key: "project_id", label: "project id" },
-              { key: "year", label: "year" },
-              { key: "methane_rate_g_per_kg", label: "methane g/kg" },
+              { key: "year", label: "year", type: "number" },
+              { key: "methane_rate_g_per_kg", label: "methane g/kg", type: "number" },
             ]}
             onSubmit={(val) =>
               registryPost("annual-verification", {
