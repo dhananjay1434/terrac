@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import * as Tabs from "@radix-ui/react-tabs";
 import { Copy, Check, ChevronRight } from "lucide-react";
 import { listBatches, AuthError, type BatchRow } from "../api";
-import { getRole } from "../auth";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import FilterBar, { type FilterPatch } from "../components/FilterBar/FilterBar";
 import StatusDot from "../components/StatusDot/StatusDot";
@@ -73,7 +72,6 @@ export default function Batches() {
   // contradict the selects, because it IS the selects' current combo.
   const view = viewFromFilters(status, provisional);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -129,15 +127,6 @@ export default function Batches() {
     }
   }
 
-  function toggleSelect(id: string) {
-    setSelected((s) => {
-      const next = new Set(s);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   const q = search.trim().toLowerCase();
   const displayed = rows
     .filter(
@@ -149,20 +138,6 @@ export default function Batches() {
     .filter((b) => view !== "blocking" || b.reason_count > 0);
 
   const columns: ColumnDef<BatchRow>[] = [
-    {
-      key: "select",
-      header: "",
-      width: "36px",
-      render: (b) => (
-        <input
-          type="checkbox"
-          aria-label={`Select batch ${shortId(b.batch_uuid)}`}
-          checked={selected.has(b.batch_uuid)}
-          onClick={(e) => e.stopPropagation()}
-          onChange={() => toggleSelect(b.batch_uuid)}
-        />
-      ),
-    },
     {
       key: "batch",
       header: "Batch",
@@ -222,30 +197,7 @@ export default function Batches() {
 
   return (
     <div className="wrap">
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 16,
-        }}
-      >
-        <h1 style={{ fontSize: 20 }}>Batches</h1>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="neutral" disabled title="Export coming soon">
-            Export CSV
-          </button>
-          {getRole() === "admin" && (
-            <button
-              className="neutral"
-              disabled
-              title="Batches sync from field devices"
-            >
-              New batch
-            </button>
-          )}
-        </div>
-      </div>
+      <h1 style={{ fontSize: 20, marginBottom: 16 }}>Batches</h1>
 
       <Tabs.Root
         value={view ?? NO_VIEW}
@@ -296,28 +248,6 @@ export default function Batches() {
           </span>
           <button className="neutral" type="button" onClick={() => load(true)}>
             Retry
-          </button>
-        </div>
-      )}
-
-      {selected.size > 0 && (
-        <div
-          className="card"
-          style={{
-            padding: 10,
-            marginBottom: 12,
-            display: "flex",
-            gap: 12,
-            alignItems: "center",
-          }}
-        >
-          <span className="micro">{selected.size} selected</span>
-          <button
-            className="neutral"
-            disabled
-            title="Bulk actions arrive in a later phase"
-          >
-            Export selected
           </button>
         </div>
       )}

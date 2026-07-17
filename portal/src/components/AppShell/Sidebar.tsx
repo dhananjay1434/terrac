@@ -3,8 +3,6 @@ import {
   Layers,
   FlaskConical,
   Archive,
-  Settings,
-  HelpCircle,
   PanelLeft,
   PanelLeftClose,
 } from "lucide-react";
@@ -65,14 +63,6 @@ export default function Sidebar({
         })}
       </nav>
       <div className={styles.railFooter}>
-        <button className={styles.navItem} type="button" disabled title="Settings (coming soon)">
-          <Settings size={16} aria-hidden />
-          {!collapsed && <span>Settings</span>}
-        </button>
-        <button className={styles.navItem} type="button" title="Help">
-          <HelpCircle size={16} aria-hidden />
-          {!collapsed && <span>Help</span>}
-        </button>
         <button
           className={styles.navItem}
           type="button"

@@ -181,9 +181,9 @@ describe("BatchDetail page", () => {
     });
   });
 
-  it("shows the honest activity empty state", async () => {
+  it("does not mount the permanently-empty activity timeline", async () => {
     renderPage();
     await screen.findByText("ISSUABLE");
-    expect(screen.getByTestId("activity-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("activity-empty")).not.toBeInTheDocument();
   });
 });

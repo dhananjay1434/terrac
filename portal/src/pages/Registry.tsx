@@ -11,7 +11,6 @@ import {
 } from "../api";
 import { kilnQrPayload } from "../qr";
 import { useNavigate } from "react-router-dom";
-import EmptyState from "../components/EmptyState/EmptyState";
 
 // A tiny generic form: field defs -> values -> POST. Keeps this admin page
 // compact without a form library.
@@ -412,29 +411,21 @@ export default function Registry() {
         </Tabs.Content>
 
         <Tabs.Content value="standards">
-          <div className="registry-grid">
-            <Form
-              title="Annual verification (C9, keyed by project+year)"
-              fields={[
-                { key: "project_id", label: "project id" },
-                { key: "year", label: "year" },
-                { key: "methane_rate_g_per_kg", label: "methane g/kg" },
-              ]}
-              onSubmit={(val) =>
-                registryPost("annual-verification", {
-                  project_id: val.project_id,
-                  year: num(val.year) ?? 2026,
-                  methane_rate_g_per_kg: num(val.methane_rate_g_per_kg),
-                }).then(() => undefined)
-              }
-            />
-            <div className="card">
-              <EmptyState
-                title="Standards library"
-                description="Coming soon — methodology documents will be browsable here. No new API exists for this yet."
-              />
-            </div>
-          </div>
+          <Form
+            title="Annual verification (C9, keyed by project+year)"
+            fields={[
+              { key: "project_id", label: "project id" },
+              { key: "year", label: "year" },
+              { key: "methane_rate_g_per_kg", label: "methane g/kg" },
+            ]}
+            onSubmit={(val) =>
+              registryPost("annual-verification", {
+                project_id: val.project_id,
+                year: num(val.year) ?? 2026,
+                methane_rate_g_per_kg: num(val.methane_rate_g_per_kg),
+              }).then(() => undefined)
+            }
+          />
         </Tabs.Content>
       </Tabs.Root>
     </div>

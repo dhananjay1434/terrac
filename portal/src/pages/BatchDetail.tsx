@@ -13,7 +13,6 @@ import ComplianceChecklist from "../components/ComplianceChecklist/ComplianceChe
 import CreditRing from "../components/CreditRing";
 import EvidenceGallery from "../components/EvidenceGallery/EvidenceGallery";
 import ConfirmModal from "../components/ConfirmModal/ConfirmModal";
-import ActivityTimeline from "../components/ActivityTimeline/ActivityTimeline";
 import VerificationChain from "../components/VerificationChain/VerificationChain";
 import MetricBlock from "../components/MetricBlock/MetricBlock";
 import SealedVerdict from "../components/SealedVerdict/SealedVerdict";
@@ -262,8 +261,6 @@ export default function BatchDetail() {
       <ComplianceChecklist checklist={d.compliance.checklist} />
 
       <EvidenceGallery media={d.media} />
-
-      <ActivityTimeline events={[]} />
 
       <ConfirmModal
         open={confirmOpen}
