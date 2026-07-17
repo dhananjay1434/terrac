@@ -98,12 +98,15 @@ export default function Registry() {
   }
   useEffect(() => {
     refreshKilns();
+    document.title = "Registry · TerraCipher";
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div className="wrap">
       <h1 style={{ fontSize: 20, marginBottom: 14 }}>Registry</h1>
+      <div className="registry-grid">
+        <div>
 
       <Form
         title="Register kiln (C8)"
@@ -167,13 +170,28 @@ export default function Registry() {
           </button>
         </div>
         {token && (
-          <div style={{ marginTop: 12, display: "flex", gap: 16, alignItems: "center" }}>
-            <QRCodeSVG value={token.qr_payload} size={130} />
-            <code style={{ fontSize: 11, wordBreak: "break-all" }}>{token.token}</code>
+          <div style={{ marginTop: 12 }}>
+            <div className="token-well">
+              <code style={{ fontSize: 12, wordBreak: "break-all" }}>{token.token}</code>
+              <button
+                className="linkbtn"
+                onClick={() => navigator.clipboard.writeText(token.token)}
+              >
+                Copy
+              </button>
+            </div>
+            <div className="micro" style={{ marginTop: 8, color: "var(--text-secondary)" }}>
+              Shown once — store it now.
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <QRCodeSVG value={token.qr_payload} size={130} />
+            </div>
           </div>
         )}
       </section>
+      </div>
 
+      <div>
       <Form
         title="Operator training (idempotent on operator+date)"
         fields={[
@@ -240,6 +258,8 @@ export default function Registry() {
           }).then(() => undefined)
         }
       />
+      </div>
+      </div>
     </div>
   );
 }

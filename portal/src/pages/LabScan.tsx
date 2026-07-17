@@ -75,6 +75,10 @@ export default function LabScan() {
     };
   }, [nav]);
 
+  useEffect(() => {
+    document.title = "Lab scan · TerraCipher";
+  }, []);
+
   return (
     <div className="wrap">
       <h1 style={{ fontSize: 20, marginBottom: 12 }}>Scan batch card</h1>
@@ -82,7 +86,7 @@ export default function LabScan() {
       <div className="card" style={{ marginTop: 12, overflow: "hidden" }}>
         <video
           ref={videoRef}
-          style={{ width: "100%", borderRadius: 10, background: "#000" }}
+          style={{ width: "100%", borderRadius: 10, background: "var(--basalt-950)" }}
           muted
           playsInline
         />

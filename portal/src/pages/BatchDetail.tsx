@@ -150,7 +150,14 @@ export default function BatchDetail() {
         else setErr("Batch not found.");
       });
   }
-  useEffect(reload, [uuid, nav]);
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uuid]);
+
+  useEffect(() => {
+    if (d) document.title = `Batch ${uuid.slice(0, 8)} · TerraCipher`;
+  }, [d, uuid]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate, useLocation } from "react-router-dom";
 import { clearSession, isAuthed } from "./auth";
 import { logout } from "./api";
 import Login from "./pages/Login";
@@ -15,6 +15,7 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 
 function TopBar() {
   const nav = useNavigate();
+  const loc = useLocation();
   async function signOut() {
     await logout();
     clearSession();
@@ -25,13 +26,13 @@ function TopBar() {
       <div className="top-in">
         <div className="mark">TC</div>
         <div className="brand">
-          TerraCipher <span>· Verifier Portal</span>
+          TerraCipher <span>| Verifier Portal</span>
         </div>
         <span className="spacer" />
-        <button className="linkbtn" onClick={() => nav("/lab/scan")}>
+        <button className={`linkbtn ${loc.pathname.startsWith("/lab") ? "active" : ""}`} onClick={() => nav("/lab/scan")}>
           Lab scan
         </button>
-        <button className="linkbtn" onClick={() => nav("/registry")}>
+        <button className={`linkbtn ${loc.pathname === "/registry" ? "active" : ""}`} onClick={() => nav("/registry")}>
           Registry
         </button>
         <button className="linkbtn" onClick={signOut}>

@@ -603,3 +603,101 @@ button.neutral:disabled {
   color: var(--status-error-fg);
 }
 
+
+/* --- Phase 4 additions --- */
+.linkbtn {
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-fast) var(--ease-productive);
+}
+.linkbtn:hover {
+  background: var(--surface-page);
+  color: var(--text-primary);
+}
+.linkbtn.active {
+  box-shadow: inset 0 -2px 0 var(--indigo-600);
+  color: var(--text-primary);
+}
+.num-col {
+  text-align: right;
+  font-weight: 500;
+}
+.select-wrap {
+  position: relative;
+  display: inline-block;
+}
+.select-wrap select {
+  appearance: none;
+  padding-right: 28px;
+}
+.select-wrap::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236c7086' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
+}
+.chip.warn {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
+}
+.input-lg {
+  height: 44px;
+}
+.registry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .registry-grid { grid-template-columns: 1fr; }
+}
+.token-well {
+  font-family: var(--font-mono);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+@media print {
+  .top, .filters, button, .linkbtn { display: none !important; }
+  body { background: #fff; }
+  .media-cell { break-inside: avoid; width: 8cm; }
+}
+
+
+.neutral {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--duration-fast) var(--ease-productive);
+}
+.neutral:hover:not(:disabled) {
+  background: var(--surface-page);
+}
+.neutral:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

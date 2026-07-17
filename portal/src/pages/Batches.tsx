@@ -46,22 +46,30 @@ export default function Batches() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, provisional]);
 
+  useEffect(() => {
+    document.title = "Batches · TerraCipher";
+  }, []);
+
   return (
     <div className="wrap">
       <div className="filters">
-        <select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All statuses</option>
-          <option value="RECEIVED">RECEIVED</option>
-          <option value="ISSUED">ISSUED</option>
-        </select>
-        <select
-          value={provisional}
-          onChange={(e) => setProvisional(e.target.value)}
-        >
-          <option value="">Provisional &amp; issuable</option>
-          <option value="true">Provisional only</option>
-          <option value="false">Issuable only</option>
-        </select>
+        <span className="select-wrap">
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">All statuses</option>
+            <option value="RECEIVED">RECEIVED</option>
+            <option value="ISSUED">ISSUED</option>
+          </select>
+        </span>
+        <span className="select-wrap">
+          <select
+            value={provisional}
+            onChange={(e) => setProvisional(e.target.value)}
+          >
+            <option value="">Provisional &amp; issuable</option>
+            <option value="true">Provisional only</option>
+            <option value="false">Issuable only</option>
+          </select>
+        </span>
       </div>
 
       {err && <div className="err">{err}</div>}
@@ -72,7 +80,7 @@ export default function Batches() {
             <th>Batch</th>
             <th>Device</th>
             <th>Received</th>
-            <th>Credit (tCO₂e)</th>
+            <th className="num-col">Credit (tCO₂e)</th>
             <th>Status</th>
             <th>Flags</th>
           </tr>
@@ -106,13 +114,19 @@ export default function Batches() {
                 <td className="tabular">{shortId(b.batch_uuid)}</td>
                 <td>{b.device_id ?? "—"}</td>
                 <td className="tabular">{fmtDate(b.received_at)}</td>
-                <td className="tabular">{b.net_credit_t_co2e.toFixed(3)}</td>
+                <td className="tabular num-col">{b.net_credit_t_co2e.toFixed(3)}</td>
                 <td>
                   <span className={`badge ${b.provisional ? "prov" : "iss"}`}>
                     {b.provisional ? "PROVISIONAL" : "ISSUABLE"}
                   </span>
                 </td>
-                <td className="tabular">{b.reason_count}</td>
+                <td>
+                  {b.reason_count > 0 ? (
+                    <span className="chip warn">{b.reason_count} reason{b.reason_count === 1 ? "" : "s"}</span>
+                  ) : (
+                    <span style={{ color: "var(--text-tertiary)" }}>—</span>
+                  )}
+                </td>
               </tr>
             ))
           )}

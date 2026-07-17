@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { submitLabResults, uploadLabCertificate, AuthError } from "../api";
 import { validateLabForm, type LabForm } from "../lab";
@@ -17,6 +17,10 @@ export default function LabEntry() {
   const [cert, setCert] = useState<File | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    document.title = "Lab results · TerraCipher";
+  }, []);
 
   function set(k: keyof LabForm, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -51,30 +55,35 @@ export default function LabEntry() {
       <form className="login" style={{ width: 420 }} onSubmit={submit}>
         <label className="micro">H:Corg ratio (0.1–1.5)</label>
         <input
+          className="input-lg"
           inputMode="decimal"
           value={form.lab_h_corg}
           onChange={(e) => set("lab_h_corg", e.target.value)}
         />
         <label className="micro">Organic carbon fraction (0–1]</label>
         <input
+          className="input-lg"
           inputMode="decimal"
           value={form.organic_carbon_pct}
           onChange={(e) => set("organic_carbon_pct", e.target.value)}
         />
         <label className="micro">Biochar moisture samples (≥3, comma sep.)</label>
         <input
+          className="input-lg"
           value={form.biochar_moisture_samples}
           onChange={(e) => set("biochar_moisture_samples", e.target.value)}
           placeholder="8, 9, 10"
         />
         <label className="micro">Dry bulk density (kg/m³)</label>
         <input
+          className="input-lg"
           inputMode="decimal"
           value={form.dry_bulk_density}
           onChange={(e) => set("dry_bulk_density", e.target.value)}
         />
         <label className="micro">Certificate PDF (optional)</label>
         <input
+          className="input-lg"
           type="file"
           accept="application/pdf"
           onChange={(e) => setCert(e.target.files?.[0] ?? null)}
@@ -84,7 +93,7 @@ export default function LabEntry() {
         </button>
         {errors.map((er) => (
           <div className="err" key={er}>
-            {er}
+            ⚠ {er}
           </div>
         ))}
       </form>
