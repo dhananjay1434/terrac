@@ -102,3 +102,11 @@ describe("groupMedia", () => {
     expect(grouped[2][1][0].operation_id).toBe("op3");
   });
 });
+import { STEP_TITLES } from "../pages/BatchDetail";
+
+describe("STEP_TITLES", () => {
+  it("has correct titles for keys", () => {
+    expect(STEP_TITLES["0"]).toBe("Smoke opacity — 0%");
+    expect(STEP_TITLES["flame_curtain"]).toBe("Burn — flame curtain");
+  });
+});

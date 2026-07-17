@@ -25,13 +25,12 @@ export const STEP_TITLES: Record<string, string> = {
   quenching: "Burn — quenching",
   flame_height: "Burn — flame height",
   smoke_0: "Smoke opacity — 0%", "0": "Smoke opacity — 0%",
-  smoke_20: "Smoke opacity — 20%", "20": "Smoke opacity — 20%",
-  smoke_40: "Smoke opacity — 40%", "40": "Smoke opacity — 40%",
-  smoke_60: "Smoke opacity — 60%", "60": "Smoke opacity — 60%",
-  smoke_80: "Smoke opacity — 80%", "80": "Smoke opacity — 80%",
+  smoke_50: "Smoke opacity — 50%", "50": "Smoke opacity — 50%",
+  smoke_90: "Smoke opacity — 90%", "90": "Smoke opacity — 90%",
   smoke_100: "Smoke opacity — 100%", "100": "Smoke opacity — 100%",
   post_burn_mass: "Post-burn mass",
   packaging: "Packaging",
+  lab_certificate: "Lab certificate",
   other: "Other / Uncategorized"
 };
 

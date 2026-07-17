@@ -11,6 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
     "jsqr": "1.4.0",
     "qrcode.react": "4.1.0",
     "react": "18.3.1",
