@@ -14,12 +14,6 @@ export default function CreditRing({
   return (
     <div className="ring" role="img" aria-label={`${Math.round(pct * 100)}% of criteria met`}>
       <svg width="150" height="150" viewBox="0 0 150 150">
-        <defs>
-          <linearGradient id="ringgrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#12b981" />
-            <stop offset="1" stopColor="#0ea5e9" />
-          </linearGradient>
-        </defs>
         <circle className="track" cx="75" cy="75" r={r} />
         <circle
           className="fill"

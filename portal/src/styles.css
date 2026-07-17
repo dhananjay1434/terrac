@@ -1,19 +1,64 @@
 :root {
-  --bg: #eef1f6;
-  --card: #ffffff;
-  --ink: #0b1220;
-  --muted: #64707f;
-  --faint: #96a0ad;
-  --line: #e6e9ef;
-  --emerald: #0f9d63;
-  --emerald-d: #0a7a4c;
-  --emerald-bg: rgba(15, 157, 99, 0.1);
-  --amber: #b4620a;
-  --amber-bg: rgba(217, 119, 6, 0.12);
-  --red: #c62828;
-  --indigo: #4f46e5;
-  --shadow: 0 1px 2px rgba(11, 18, 32, 0.04), 0 8px 24px rgba(11, 18, 32, 0.06);
-  --shadow-lg: 0 2px 4px rgba(11, 18, 32, 0.05), 0 24px 60px rgba(11, 18, 32, 0.1);
+  /* ── primitives: Basalt neutral scale ─────────────────────────── */
+  --basalt-50:  #f4f5f6;
+  --basalt-100: #e5e7eb;
+  --basalt-300: #d1d5db;
+  --basalt-500: #6a6e7d;   /* 5.07:1 on white — AA pass */
+  --basalt-700: #4a4e5a;   /* 8.31:1 */
+  --basalt-950: #0f1115;   /* 18.9:1 */
+  /* ── primitives: brand + semantic hues ────────────────────────── */
+  --indigo-600: #3b32b3;   /* THE brand accent. 9.16:1 */
+  --indigo-50:  #f5f4ff;
+  --green-700:  #0b663e;   /* semantic "verified/issuable" ONLY. 7.04:1 */
+  --green-50:   #f0faf5;
+  --amber-700:  #9e4200;   /* "provisional/missing". 6.50:1 */
+  --amber-50:   #fef6ee;
+  --red-700:    #b91c1c;   /* errors. 6.47:1 */
+  --red-50:     #fef2f2;
+  /* ── semantic layer ───────────────────────────────────────────── */
+  --surface-page: var(--basalt-50);
+  --surface-card: #ffffff;
+  --surface-brand-subtle: var(--indigo-50);
+  --border-subtle: var(--basalt-100);
+  --border-strong: var(--basalt-300);
+  --text-primary: var(--basalt-950);
+  --text-secondary: var(--basalt-700);
+  --text-tertiary: var(--basalt-500);
+  --status-success-fg: var(--green-700);
+  --status-success-bg: var(--green-50);
+  --status-warning-fg: var(--amber-700);
+  --status-warning-bg: var(--amber-50);
+  --status-error-fg: var(--red-700);
+  --status-error-bg: var(--red-50);
+  --action-primary-bg: var(--basalt-950);
+  --action-primary-hover: var(--basalt-700);
+  /* ── shape / elevation / motion ───────────────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --shadow-sm: 0 1px 2px rgba(15, 17, 21, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(15, 17, 21, 0.1),
+               0 2px 4px -1px rgba(15, 17, 21, 0.06);
+  --duration-fast: 150ms;
+  --duration-standard: 250ms;
+  --ease-productive: cubic-bezier(0.2, 0, 0, 1);
+  --ease-expressive: cubic-bezier(0.4, 0, 0.2, 1);
+  /* ── legacy aliases (DELETE in the final phase, keep until then) ─ */
+  --bg: var(--surface-page);
+  --card: var(--surface-card);
+  --ink: var(--text-primary);
+  --muted: var(--text-secondary);
+  --faint: var(--text-tertiary);
+  --line: var(--border-subtle);
+  --emerald: var(--status-success-fg);
+  --emerald-d: var(--status-success-fg);
+  --emerald-bg: var(--status-success-bg);
+  --amber: var(--status-warning-fg);
+  --amber-bg: var(--status-warning-bg);
+  --red: var(--status-error-fg);
+  --indigo: var(--indigo-600);
+  --shadow: var(--shadow-sm);
+  --shadow-lg: var(--shadow-md);
 }
 * {
   box-sizing: border-box;
@@ -25,24 +70,25 @@ body,
   height: 100%;
 }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-    Arial, sans-serif;
+  font-family: "Inter Variable", -apple-system, "Segoe UI", sans-serif;
   color: var(--ink);
   background: var(--bg);
-  background-image: radial-gradient(
-      1200px 500px at 15% -10%,
-      rgba(15, 157, 99, 0.1),
-      transparent 60%
-    ),
-    radial-gradient(1100px 500px at 100% -20%, rgba(79, 70, 229, 0.1), transparent 55%);
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.01em;
 }
+code, .mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+}
+:focus-visible {
+  outline: 2px solid var(--indigo-600);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
 .micro {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   color: var(--faint);
 }
 .tabular {
@@ -55,8 +101,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: saturate(1.4) blur(14px);
+  background: var(--surface-card);
   border-bottom: 1px solid var(--line);
 }
 .top-in {
@@ -71,7 +116,7 @@ body {
   width: 34px;
   height: 34px;
   border-radius: 9px;
-  background: linear-gradient(135deg, #12b981, #0ea5e9);
+  background: var(--indigo-600);
   display: grid;
   place-items: center;
   color: #fff;
@@ -106,24 +151,28 @@ body {
 .card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
   padding: 18px;
 }
 button.primary {
   padding: 10px 18px;
   border: 0;
-  border-radius: 9px;
-  background: var(--ink);
+  border-radius: var(--radius-md);
+  background: var(--action-primary-bg);
+  transition: background var(--duration-fast) var(--ease-expressive);
   color: #fff;
   font: inherit;
   font-weight: 650;
   cursor: pointer;
 }
+button.primary:hover:not(:disabled) {
+  background: var(--action-primary-hover);
+}
 input {
   padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   font: inherit;
   font-size: 13px;
   background: #fff;
@@ -131,11 +180,15 @@ input {
 }
 select {
   padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   font: inherit;
   font-size: 13px;
   background: #fff;
+}
+input:focus, select:focus {
+  border-color: var(--border-strong);
+  outline: none;
 }
 .err {
   color: var(--red);
@@ -171,7 +224,7 @@ table {
   border-collapse: collapse;
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow);
 }
@@ -183,23 +236,25 @@ td {
   font-size: 13.5px;
 }
 th {
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--faint);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--text-tertiary);
 }
 tbody tr {
   cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-expressive);
 }
 tbody tr:hover {
-  background: #f7f9fc;
+  background: var(--surface-page);
 }
 .badge {
   display: inline-block;
   padding: 3px 9px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
 }
 .badge.prov {
   background: var(--amber-bg);
@@ -213,8 +268,8 @@ tbody tr:hover {
 .hero {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 20px;
-  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   padding: 30px;
   display: grid;
   grid-template-columns: 1fr auto;
@@ -246,14 +301,10 @@ tbody tr:hover {
   gap: 10px;
 }
 .credit .num {
-  font-size: 60px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 0.9;
-  background: linear-gradient(135deg, #0b1220, #0a7a4c);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-size: 48px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 .credit .unit {
   font-size: 18px;
@@ -279,7 +330,7 @@ tbody tr:hover {
   fill: none;
 }
 .ring .fill {
-  stroke: url(#ringgrad);
+  stroke: var(--status-success-fg);
   stroke-width: 12;
   fill: none;
   stroke-linecap: round;
@@ -383,9 +434,9 @@ a.back {
   display: inline-block;
   margin-top: 16px;
   padding: 8px 16px;
-  border-radius: 999px;
-  background: rgba(46, 58, 140, 0.1);
-  color: var(--indigo);
+  border-radius: var(--radius-sm);
+  background: var(--surface-brand-subtle);
+  color: var(--indigo-600);
   font-weight: 800;
   font-size: 13px;
   letter-spacing: 0.06em;
