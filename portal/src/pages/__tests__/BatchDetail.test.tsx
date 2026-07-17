@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import BatchDetail from "../BatchDetail";
-import { getBatch, type BatchDetail as Detail } from "../../api";
+import { getBatch, issueCredit, type BatchDetail as Detail } from "../../api";
 import { getRole } from "../../auth";
 
 vi.mock("../../api", async (importOriginal) => {
@@ -154,5 +154,36 @@ describe("BatchDetail page", () => {
       screen.getByRole("heading", { level: 3, name: /1\. Burn — flame curtain/ }),
     ).toBeInTheDocument();
     expect(screen.getByText("f00dfeedface…")).toBeInTheDocument();
+  });
+
+  it("issue modal requires the dynamic token, calls issueCredit, then refetches", async () => {
+    const { waitFor } = await import("@testing-library/react");
+    mockRole.mockReturnValue("admin");
+    const mockIssue = vi.mocked(issueCredit);
+    mockIssue.mockResolvedValue({ status: "ISSUED", net_credit_t_co2e: 1.234 });
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Issue credit" }));
+
+    // Dynamic token includes the partial batch uuid.
+    expect(screen.getByText(`ISSUE-${UUID.slice(0, 6)}`)).toBeInTheDocument();
+    const confirmBtn = screen.getByRole("button", { name: "Issue permanently" });
+    expect(confirmBtn).toBeDisabled();
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: `ISSUE-${UUID.slice(0, 6)}` },
+    });
+    expect(confirmBtn).toBeEnabled();
+    const callsBefore = mockGet.mock.calls.length;
+    fireEvent.click(confirmBtn);
+    await waitFor(() => {
+      expect(mockIssue).toHaveBeenCalledWith(UUID);
+      expect(mockGet.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+  });
+
+  it("shows the honest activity empty state", async () => {
+    renderPage();
+    await screen.findByText("ISSUABLE");
+    expect(screen.getByTestId("activity-empty")).toBeInTheDocument();
   });
 });

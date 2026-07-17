@@ -12,6 +12,8 @@ import { getRole } from "../auth";
 import ComplianceChecklist from "../components/ComplianceChecklist/ComplianceChecklist";
 import CreditRing from "../components/CreditRing";
 import EvidenceGallery from "../components/EvidenceGallery/EvidenceGallery";
+import ConfirmModal from "../components/ConfirmModal/ConfirmModal";
+import ActivityTimeline from "../components/ActivityTimeline/ActivityTimeline";
 import VerificationChain from "../components/VerificationChain/VerificationChain";
 import MetricBlock from "../components/MetricBlock/MetricBlock";
 import SealedVerdict from "../components/SealedVerdict/SealedVerdict";
@@ -64,7 +66,6 @@ export default function BatchDetail() {
   const [exporting, setExporting] = useState<"csi" | "rainbow" | null>(null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
 
   function reload() {
     getBatch(uuid)
@@ -83,16 +84,8 @@ export default function BatchDetail() {
     if (d) document.title = `Batch ${uuid.slice(0, 8)} · TerraCipher`;
   }, [d, uuid]);
 
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setConfirmOpen(false);
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, []);
-
   async function issue() {
-    if (!d || confirmText !== "ISSUE") return;
+    if (!d) return;
     setIssuing(true);
     try {
       await issueCredit(uuid);
@@ -203,10 +196,7 @@ export default function BatchDetail() {
                 className="primary"
                 style={{ marginTop: 16 }}
                 disabled={!d.compliance.issuable || issuing}
-                onClick={() => {
-                  setConfirmText("");
-                  setConfirmOpen(true);
-                }}
+                onClick={() => setConfirmOpen(true)}
               >
                 {issuing
                   ? "Issuing…"
@@ -273,20 +263,28 @@ export default function BatchDetail() {
 
       <EvidenceGallery media={d.media} />
 
-      {confirmOpen && (
-        <div className="modal-overlay" onClick={() => setConfirmOpen(false)}>
-          <div className="modal-panel" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <h2>Issue credit — permanent</h2>
-            <p>You are about to permanently issue {d.batch.net_credit_t_co2e.toFixed(2)} tCO₂e to batch {d.batch.batch_uuid.slice(0, 8)}. This writes to the permanent ledger and cannot be undone.</p>
-            <label className="micro">Type ISSUE to confirm</label>
-            <input value={confirmText} onChange={e => setConfirmText(e.target.value)} style={{ width: '100%', marginTop: 4, marginBottom: 16 }} />
-            <div className="modal-actions">
-              <button className="neutral" onClick={() => setConfirmOpen(false)}>Cancel</button>
-              <button className="primary" disabled={confirmText !== "ISSUE" || issuing} onClick={issue}>Issue permanently</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ActivityTimeline events={[]} />
+
+      <ConfirmModal
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Issue credit — permanent"
+        previewRows={[
+          { label: "Batch ID", value: d.batch.batch_uuid.slice(0, 8), mono: true },
+          { label: "Kiln / Device", value: d.batch.device_id ?? "—" },
+          {
+            label: "Credits",
+            value: `${d.batch.net_credit_t_co2e.toFixed(2)} tCO₂e`,
+            mono: true,
+          },
+          { label: "Methodology", value: "—" },
+        ]}
+        warning="This is irreversible. The credit is recorded permanently in the registry and cannot be undone."
+        confirmToken={`ISSUE-${d.batch.batch_uuid.slice(0, 6)}`}
+        confirmLabel="Issue permanently"
+        danger
+        onConfirm={issue}
+      />
     </div>
   );
 }
