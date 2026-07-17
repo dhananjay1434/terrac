@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Registry from "../Registry";
 import { registryPost, listKilns } from "../../api";
@@ -32,31 +32,27 @@ describe("Registry page", () => {
     mockKilns.mockResolvedValue({ kilns: [] });
   });
 
-  it("kiln stepper advances and submits the exact legacy payload shape", async () => {
+  it("registers a kiln via a single inline form and submits the exact legacy payload shape", async () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Register new kiln" }));
 
-    // Step 1 — Identity
-    fireEvent.change(await screen.findByLabelText("Kiln id"), {
-      target: { value: "kiln-9" },
-    });
-    fireEvent.change(screen.getByLabelText("Type (open/closed)"), {
-      target: { value: "open" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-
-    // Step 2 — Build
-    fireEvent.change(await screen.findByLabelText("Material"), {
+    const kilnForm = screen
+      .getByText("Register kiln (C8)")
+      .closest("form")!;
+    fireEvent.change(
+      within(kilnForm).getByLabelText("kiln id"),
+      { target: { value: "kiln-9" } },
+    );
+    fireEvent.change(
+      within(kilnForm).getByLabelText("type (open/closed)"),
+      { target: { value: "open" } },
+    );
+    fireEvent.change(within(kilnForm).getByLabelText("material"), {
       target: { value: "steel" },
     });
-    fireEvent.change(screen.getByLabelText("Weight (kg)"), {
+    fireEvent.change(within(kilnForm).getByLabelText("weight kg"), {
       target: { value: "12" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-
-    // Step 3 — Review shows the values, then submit
-    expect(await screen.findByText("kiln-9")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Register kiln" }));
+    fireEvent.click(within(kilnForm).getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(mockPost).toHaveBeenCalledWith("kilns", {

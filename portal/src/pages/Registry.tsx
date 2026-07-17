@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import * as Tabs from "@radix-ui/react-tabs";
-import * as Dialog from "@radix-ui/react-dialog";
 import {
   registryPost,
   listKilns,
@@ -84,161 +83,6 @@ function num(s: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-const KILN_STEPS = ["Identity", "Build", "Review"] as const;
-
-/**
- * Register-kiln stepper (Radix Dialog). Steps cover exactly the fields the
- * existing kilns endpoint accepts — the final submit sends the same payload
- * shape the old inline form sent, via the same registryPost("kilns", …).
- */
-function KilnStepper({
-  onSubmitKiln,
-}: {
-  onSubmitKiln(values: Record<string, string>): Promise<void>;
-}) {
-  const [open, setOpen] = useState(false);
-  const [step, setStep] = useState(0);
-  const [v, setV] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  function set(k: string, val: string) {
-    setV((s) => ({ ...s, [k]: val }));
-  }
-  function reset() {
-    setStep(0);
-    setV({});
-    setErr(null);
-  }
-  async function finish() {
-    setBusy(true);
-    setErr(null);
-    try {
-      await onSubmitKiln(v);
-      setOpen(false);
-      reset();
-    } catch {
-      setErr("Save failed — check values");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Dialog.Root
-      open={open}
-      onOpenChange={(o) => {
-        if (busy) return;
-        setOpen(o);
-        if (!o) reset();
-      }}
-    >
-      <Dialog.Trigger asChild>
-        <button className="primary" type="button">
-          Register new kiln
-        </button>
-      </Dialog.Trigger>
-      <Dialog.Portal>
-        <Dialog.Overlay className="modal-overlay" />
-        <Dialog.Content className="modal-panel" aria-describedby={undefined}>
-          <Dialog.Title>Register kiln (C8) — {KILN_STEPS[step]}</Dialog.Title>
-          <div className="micro" style={{ margin: "6px 0 12px" }}>
-            Step {step + 1} of {KILN_STEPS.length}
-          </div>
-          {step === 0 && (
-            <div className="login" style={{ width: "100%" }}>
-              <label className="micro" htmlFor="kiln_id">Kiln id</label>
-              <input
-                id="kiln_id"
-                value={v.kiln_id ?? ""}
-                onChange={(e) => set("kiln_id", e.target.value)}
-              />
-              <label className="micro" htmlFor="kiln_type">Type (open/closed)</label>
-              <input
-                id="kiln_type"
-                value={v.kiln_type ?? ""}
-                onChange={(e) => set("kiln_type", e.target.value)}
-              />
-            </div>
-          )}
-          {step === 1 && (
-            <div className="login" style={{ width: "100%" }}>
-              <label className="micro" htmlFor="material">Material</label>
-              <input
-                id="material"
-                value={v.material ?? ""}
-                onChange={(e) => set("material", e.target.value)}
-              />
-              <label className="micro" htmlFor="weight_kg">Weight (kg)</label>
-              <input
-                id="weight_kg"
-                inputMode="decimal"
-                value={v.weight_kg ?? ""}
-                onChange={(e) => set("weight_kg", e.target.value)}
-              />
-              <label className="micro" htmlFor="capacity_l">Capacity (litres)</label>
-              <input
-                id="capacity_l"
-                inputMode="decimal"
-                value={v.capacity_l ?? ""}
-                onChange={(e) => set("capacity_l", e.target.value)}
-              />
-            </div>
-          )}
-          {step === 2 && (
-            <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-              {[
-                ["Kiln id", v.kiln_id],
-                ["Type", v.kiln_type],
-                ["Material", v.material],
-                ["Weight (kg)", v.weight_kg],
-                ["Capacity (l)", v.capacity_l],
-              ].map(([k, val]) => (
-                <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <dt className="micro">{k}</dt>
-                  <dd style={{ margin: 0, fontSize: 13 }}>{val || "—"}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          {err && <div className="err">{err}</div>}
-          <div className="modal-actions" style={{ marginTop: 16 }}>
-            {step > 0 && (
-              <button className="neutral" type="button" disabled={busy} onClick={() => setStep((s) => s - 1)}>
-                Back
-              </button>
-            )}
-            <Dialog.Close asChild>
-              <button className="neutral" type="button" disabled={busy}>
-                Cancel
-              </button>
-            </Dialog.Close>
-            {step < KILN_STEPS.length - 1 ? (
-              <button
-                className="primary"
-                type="button"
-                disabled={!(v.kiln_id ?? "").trim()}
-                onClick={() => setStep((s) => s + 1)}
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                className="primary"
-                type="button"
-                disabled={busy || !(v.kiln_id ?? "").trim()}
-                onClick={finish}
-              >
-                {busy ? "Saving…" : "Register kiln"}
-              </button>
-            )}
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
-  );
-}
-
 export default function Registry() {
   const nav = useNavigate();
   const [tab, setTab] = useState("kilns");
@@ -290,9 +134,17 @@ export default function Registry() {
         </Tabs.List>
 
         <Tabs.Content value="kilns">
-          <div style={{ marginBottom: 14 }}>
-            <KilnStepper onSubmitKiln={submitKiln} />
-          </div>
+          <Form
+            title="Register kiln (C8)"
+            fields={[
+              { key: "kiln_id", label: "kiln id" },
+              { key: "kiln_type", label: "type (open/closed)" },
+              { key: "material", label: "material" },
+              { key: "weight_kg", label: "weight kg" },
+              { key: "capacity_l", label: "capacity litres" },
+            ]}
+            onSubmit={submitKiln}
+          />
 
           {kilns.length > 0 && (
             <section className="card" style={{ marginBottom: 14 }}>
