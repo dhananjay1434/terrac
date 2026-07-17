@@ -25,6 +25,17 @@ const VIEWS = {
   issued: { label: "Issued", status: "ISSUED", provisional: "" },
 } as const;
 type ViewKey = keyof typeof VIEWS;
+const NO_VIEW = "custom";
+
+// The active tab must always reflect actual filter state — never the URL —
+// so a tab can never be highlighted while the selects disagree with it.
+function viewFromFilters(status: string, provisional: string): ViewKey | null {
+  return (
+    (Object.keys(VIEWS) as ViewKey[]).find(
+      (k) => VIEWS[k].status === status && VIEWS[k].provisional === provisional,
+    ) ?? null
+  );
+}
 
 function CopyId({ uuid }: { uuid: string }) {
   const [copied, setCopied] = useState(false);
@@ -48,15 +59,19 @@ function CopyId({ uuid }: { uuid: string }) {
 export default function Batches() {
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const rawView = searchParams.get("view") ?? "all";
-  const view: ViewKey = rawView in VIEWS ? (rawView as ViewKey) : "all";
+  const initialRawView = searchParams.get("view") ?? "all";
+  const initialView: ViewKey =
+    initialRawView in VIEWS ? (initialRawView as ViewKey) : "all";
 
   const [rows, setRows] = useState<BatchRow[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [status, setStatus] = useState<string>(() => VIEWS[view].status);
+  const [status, setStatus] = useState<string>(() => VIEWS[initialView].status);
   const [provisional, setProvisional] = useState<string>(
-    () => VIEWS[view].provisional,
+    () => VIEWS[initialView].provisional,
   );
+  // Derived, never read back from the URL: the tab highlight can never
+  // contradict the selects, because it IS the selects' current combo.
+  const view = viewFromFilters(status, provisional);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [err, setErr] = useState<string | null>(null);
@@ -84,9 +99,12 @@ export default function Batches() {
     [status, provisional, cursor, nav],
   );
 
-  // Reload from scratch whenever a filter changes.
+  // Reload from scratch whenever a filter changes. The URL mirrors the
+  // resolved view (or drops the param for "all"/no match) — it is written
+  // FROM state, never read back into it, so it can't drift out of sync.
   useEffect(() => {
     load(true);
+    setSearchParams(view && view !== "all" ? { view } : {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, provisional]);
 
@@ -95,7 +113,6 @@ export default function Batches() {
   }, []);
 
   function switchView(v: ViewKey) {
-    setSearchParams(v === "all" ? {} : { view: v });
     setStatus(VIEWS[v].status);
     setProvisional(VIEWS[v].provisional);
     setSearch("");
@@ -107,8 +124,8 @@ export default function Batches() {
     else if (p.kind === "provisional") setProvisional(p.value);
     else {
       setSearch("");
-      setStatus(VIEWS[view].status);
-      setProvisional(VIEWS[view].provisional);
+      setStatus(VIEWS.all.status);
+      setProvisional(VIEWS.all.provisional);
     }
   }
 
@@ -230,7 +247,10 @@ export default function Batches() {
         </div>
       </div>
 
-      <Tabs.Root value={view} onValueChange={(v) => switchView(v as ViewKey)}>
+      <Tabs.Root
+        value={view ?? NO_VIEW}
+        onValueChange={(v) => switchView(v as ViewKey)}
+      >
         <Tabs.List
           aria-label="Saved views"
           style={{ display: "flex", gap: 4, marginBottom: 12 }}
@@ -246,10 +266,13 @@ export default function Batches() {
           ))}
         </Tabs.List>
         {/* Panels must exist for the triggers' aria-controls; the actual
-            table lives below and is shared by every view. */}
+            table lives below and is shared by every view. A hidden extra
+            panel backs NO_VIEW so Tabs.Root never renders zero active tabs
+            when the selects diverge from every saved combo. */}
         {(Object.keys(VIEWS) as ViewKey[]).map((k) => (
           <Tabs.Content key={k} value={k} />
         ))}
+        <Tabs.Content value={NO_VIEW} />
       </Tabs.Root>
 
       <FilterBar

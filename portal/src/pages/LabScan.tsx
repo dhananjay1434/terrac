@@ -4,6 +4,20 @@ import jsQR from "jsqr";
 import { parseBatchQr } from "../lab";
 
 const RECENT_KEY = "tc_recent_scans";
+const BARE_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Manual entry must accept exactly what the camera path accepts (the
+// dmrv-batch:v1:<uuid> QR payload) plus a bare pasted UUID — never a raw
+// unvalidated string. Returns null when the input isn't a real batch code,
+// so the caller can reject it instead of navigating to a broken page.
+function resolveManual(raw: string): string | null {
+  const s = raw.trim();
+  if (!s) return null;
+  const fromQr = parseBatchQr(s);
+  if (fromQr) return fromQr;
+  return BARE_UUID_RE.test(s) ? s.toLowerCase() : null;
+}
 
 function readRecent(): string[] {
   try {
@@ -31,6 +45,7 @@ export default function LabScan() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [err, setErr] = useState<string | null>(null);
   const [manual, setManual] = useState("");
+  const [manualErr, setManualErr] = useState<string | null>(null);
   const [recent] = useState<string[]>(() => readRecent());
 
   useEffect(() => {
@@ -134,13 +149,19 @@ export default function LabScan() {
           placeholder="or paste batch UUID"
           aria-label="Batch UUID"
           value={manual}
-          onChange={(e) => setManual(e.target.value)}
+          onChange={(e) => {
+            setManual(e.target.value);
+            setManualErr(null);
+          }}
         />
         <button
           className="primary"
           onClick={() => {
-            const id = manual.trim();
-            if (!id) return;
+            const id = resolveManual(manual);
+            if (!id) {
+              setManualErr("Not a valid batch code.");
+              return;
+            }
             pushRecent(id);
             nav(`/lab/${id}`);
           }}
@@ -148,6 +169,7 @@ export default function LabScan() {
           Open
         </button>
       </div>
+      {manualErr && <div className="err">{manualErr}</div>}
       {recent.length > 0 && (
         <section className="card" style={{ marginTop: 16 }}>
           <span className="micro">Recently scanned</span>

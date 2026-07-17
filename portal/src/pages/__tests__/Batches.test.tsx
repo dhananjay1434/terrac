@@ -131,4 +131,34 @@ describe("Batches page", () => {
       expect(mockNav).toHaveBeenCalledWith("/login");
     });
   });
+
+  it("never highlights a tab that contradicts the active select", async () => {
+    renderPage();
+    await screen.findByText("dev-1");
+
+    // Select the "Issued" tab (sets status=ISSUED via the tab).
+    const issuedTab = screen.getByRole("tab", { name: "Issued" });
+    fireEvent.mouseDown(issuedTab, { button: 0 });
+    fireEvent.click(issuedTab);
+    await waitFor(() => {
+      expect(mockList).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "ISSUED" }),
+      );
+    });
+    expect(issuedTab.getAttribute("aria-selected")).toBe("true");
+
+    // Now diverge via the eligibility select — ISSUED + provisional=true
+    // matches no saved view combo, so no tab should read as selected.
+    fireEvent.change(screen.getByLabelText("Filter by eligibility"), {
+      target: { value: "true" },
+    });
+    await waitFor(() => {
+      expect(mockList).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "ISSUED", provisional: "true" }),
+      );
+    });
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab.getAttribute("aria-selected")).toBe("false");
+    }
+  });
 });

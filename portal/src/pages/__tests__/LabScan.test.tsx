@@ -36,15 +36,43 @@ describe("LabScan page", () => {
     ).toBeInTheDocument();
   });
 
-  it("manual entry navigates and records the scan", () => {
+  it("manual entry navigates and records the scan for a valid uuid", () => {
     renderPage();
     fireEvent.change(screen.getByLabelText("Batch UUID"), {
-      target: { value: "  bbbb-uuid  " },
+      target: { value: "  BBBB1111-2222-3333-4444-555566667777  " },
     });
     fireEvent.click(screen.getByRole("button", { name: "Open" }));
-    expect(mockNav).toHaveBeenCalledWith("/lab/bbbb-uuid");
+    expect(mockNav).toHaveBeenCalledWith(
+      "/lab/bbbb1111-2222-3333-4444-555566667777",
+    );
     expect(
       JSON.parse(localStorage.getItem("tc_recent_scans") ?? "[]"),
-    ).toContain("bbbb-uuid");
+    ).toContain("bbbb1111-2222-3333-4444-555566667777");
+  });
+
+  it("also accepts the dmrv-batch:v1: QR payload form typed manually", () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText("Batch UUID"), {
+      target: {
+        value: "dmrv-batch:v1:cccc1111-2222-3333-4444-555566667777",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    expect(mockNav).toHaveBeenCalledWith(
+      "/lab/cccc1111-2222-3333-4444-555566667777",
+    );
+  });
+
+  it("rejects garbage input — no navigation, no recent-scan write, shows an error", () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText("Batch UUID"), {
+      target: { value: "not-a-real-code" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    expect(mockNav).not.toHaveBeenCalled();
+    expect(
+      JSON.parse(localStorage.getItem("tc_recent_scans") ?? "[]"),
+    ).toEqual([]);
+    expect(screen.getByText("Not a valid batch code.")).toBeInTheDocument();
   });
 });
