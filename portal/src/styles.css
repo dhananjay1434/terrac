@@ -33,9 +33,6 @@
   --action-primary-bg: var(--basalt-950);
   --action-primary-hover: var(--basalt-700);
   /* ── shape / elevation / motion ───────────────────────────────── */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
   --shadow-sm: 0 1px 2px rgba(15, 17, 21, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(15, 17, 21, 0.1),
                0 2px 4px -1px rgba(15, 17, 21, 0.06);
@@ -107,6 +104,15 @@
   --topbar-h: 56px;
   --content-max: 1280px;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* spacing (8-pt grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
 }
 
 /* === Phase 1 dark mode — semantic remap only, primitives untouched === */
@@ -188,20 +194,20 @@ code, .mono {
   top: 0;
   z-index: 10;
   background: var(--surface-card);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--border-hair);
 }
 .top-in {
   max-width: 1040px;
   margin: 0 auto;
-  padding: 14px 24px;
+  padding: var(--space-4) 24px;
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: var(--space-3);
 }
 .mark {
   width: 34px;
   height: 34px;
-  border-radius: 9px;
+  border-radius: var(--r-md);
   background: var(--indigo-600);
   display: grid;
   place-items: center;
@@ -223,19 +229,19 @@ code, .mono {
 .wrap {
   max-width: 1040px;
   margin: 0 auto;
-  padding: 30px 24px 60px;
+  padding: var(--space-6) 24px 60px;
 }
 .card {
   background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border: var(--border-hair);
+  border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
-  padding: 18px;
+  padding: var(--space-5);
 }
 button.primary {
   padding: 10px 18px;
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--r-md);
   background: var(--action-primary-bg);
   transition: background var(--duration-fast) var(--ease-expressive);
   color: #fff;
@@ -248,8 +254,8 @@ button.primary:hover:not(:disabled) {
 }
 input {
   padding: 10px 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border: var(--border-hair);
+  border-radius: var(--r-md);
   font: inherit;
   font-size: 13px;
   background: #fff;
@@ -257,8 +263,8 @@ input {
 }
 select {
   padding: 9px 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border: var(--border-hair);
+  border-radius: var(--r-md);
   font: inherit;
   font-size: 13px;
   background: #fff;
@@ -300,16 +306,16 @@ table {
   width: 100%;
   border-collapse: collapse;
   background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border: var(--border-hair);
+  border-radius: var(--r-lg);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
 th,
 td {
   text-align: left;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-hair);
   font-size: 13.5px;
 }
 th {
@@ -329,11 +335,11 @@ tbody tr:hover {
 /* hero */
 .hero {
   background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border: var(--border-hair);
+  border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
-  padding: 30px;
-  margin-bottom: 18px;
+  padding: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 .credit {
   display: flex;
@@ -398,8 +404,8 @@ tbody tr:hover {
 .tiles {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 22px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
 }
 .tile .v {
   font-size: 22px;
@@ -441,7 +447,7 @@ a.back {
   display: inline-block;
   margin-top: 16px;
   padding: 8px 16px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
   background: var(--surface-brand-subtle);
   color: var(--indigo-600);
   font-weight: 800;
@@ -456,7 +462,7 @@ button.primary:disabled {
 /* --- Phase 2: Batch Detail --- */
 .evidence-group {
   background: var(--surface-page);
-  border-radius: var(--radius-md);
+  border-radius: var(--r-md);
   padding: 12px;
   margin-bottom: 12px;
 }
@@ -480,10 +486,10 @@ button.primary:disabled {
 }
 .media-cell {
   background: var(--surface-card);
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-subtle);
+  border: var(--border-hair);
   display: flex;
   flex-direction: column;
 }
@@ -509,7 +515,7 @@ button.primary:disabled {
 .chip {
   display: inline-block;
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
   font-size: 11px;
   font-weight: 500;
   background: var(--border-subtle);
@@ -536,7 +542,7 @@ button.primary:disabled {
   background: var(--surface-card);
   width: 100%;
   max-width: 420px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--r-lg);
   box-shadow: var(--shadow-md);
   padding: 24px;
   animation: modalIn var(--duration-standard) var(--ease-productive);
@@ -566,7 +572,7 @@ button.primary:disabled {
 /* --- Phase 3: Skeletons & Status --- */
 .skeleton {
   background: var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
   animation: pulse 1.5s ease-in-out infinite;
 }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: .5; } 100% { opacity: 1; } }
@@ -588,7 +594,7 @@ button.primary:disabled {
   font-size: 13px;
   font-weight: 500;
   padding: 6px 12px;
-  border-radius: var(--radius-md);
+  border-radius: var(--r-md);
   transition: all var(--duration-fast) var(--ease-productive);
 }
 .linkbtn:hover {
@@ -639,7 +645,7 @@ button.primary:disabled {
 .token-well {
   font-family: var(--font-mono);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--r-md);
   padding: 10px;
   display: flex;
   align-items: center;
@@ -691,9 +697,9 @@ button.primary:disabled {
 
 .neutral {
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: var(--border-hair);
   color: var(--text-primary);
-  border-radius: var(--radius-md);
+  border-radius: var(--r-md);
   padding: 6px 12px;
   cursor: pointer;
   font-size: 13px;
