@@ -1,0 +1,19 @@
+.wrap {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 48px 20px;
+  text-align: center;
+}
+.icon {
+  color: var(--text-tertiary);
+}
+.title {
+  font-size: var(--fs-18);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.desc {
+  font-size: var(--fs-13);
+  color: var(--text-secondary);
+}

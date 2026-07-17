@@ -1,0 +1,10 @@
+.bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.search {
+  min-width: 220px;
+}

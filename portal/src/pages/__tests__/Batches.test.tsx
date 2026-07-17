@@ -1,0 +1,134 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import Batches from "../Batches";
+import { listBatches, AuthError, type BatchRow } from "../../api";
+
+const mockNav = vi.fn();
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router-dom")>();
+  return { ...actual, useNavigate: () => mockNav };
+});
+vi.mock("../../api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../api")>();
+  return { ...actual, listBatches: vi.fn() };
+});
+
+const mockList = vi.mocked(listBatches);
+
+const FIXTURE: BatchRow[] = [
+  {
+    batch_uuid: "aaaa1111-2222-3333-4444-555566667777",
+    device_id: "dev-1",
+    project_id: "p1",
+    status: "RECEIVED",
+    provisional: false,
+    reason_count: 0,
+    net_credit_t_co2e: 1.234,
+    wet_yield_kg: 100,
+    received_at: "2026-07-01T10:00:00Z",
+  },
+  {
+    batch_uuid: "bbbb1111-2222-3333-4444-555566667777",
+    device_id: "dev-2",
+    project_id: "p1",
+    status: "RECEIVED",
+    provisional: true,
+    reason_count: 2,
+    net_credit_t_co2e: 0.5,
+    wet_yield_kg: 40,
+    received_at: "2026-07-02T10:00:00Z",
+  },
+];
+
+function renderPage(path = "/batches") {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Batches />
+    </MemoryRouter>,
+  );
+}
+
+describe("Batches page", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockList.mockResolvedValue({ batches: FIXTURE, next_cursor: null });
+  });
+
+  it("renders skeleton rows on initial load", () => {
+    mockList.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(screen.getAllByTestId("skeleton-row").length).toBeGreaterThan(0);
+  });
+
+  it("renders the empty state when the API returns nothing", async () => {
+    mockList.mockResolvedValue({ batches: [], next_cursor: null });
+    renderPage();
+    expect(await screen.findByText("No batches found")).toBeInTheDocument();
+  });
+
+  it("renders StatusDot variants from row eligibility", async () => {
+    const { container } = renderPage();
+    await screen.findByText("dev-1");
+    expect(container.querySelector('[data-variant="success"]')).not.toBeNull();
+    expect(container.querySelector('[data-variant="warning"]')).not.toBeNull();
+  });
+
+  it("navigates to the batch on row click", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByText("dev-1"));
+    expect(mockNav).toHaveBeenCalledWith(
+      "/batches/aaaa1111-2222-3333-4444-555566667777",
+    );
+  });
+
+  it("changing a filter triggers a new listBatches call with correct args", async () => {
+    renderPage();
+    await screen.findByText("dev-1");
+    fireEvent.change(screen.getByLabelText("Filter by status"), {
+      target: { value: "ISSUED" },
+    });
+    await waitFor(() => {
+      expect(mockList).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "ISSUED", limit: "50" }),
+      );
+    });
+  });
+
+  it("copy button copies the full batch uuid", async () => {
+    const writeText = vi.fn();
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderPage();
+    await screen.findByText("dev-1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Copy batch id" })[0]);
+    expect(writeText).toHaveBeenCalledWith(
+      "aaaa1111-2222-3333-4444-555566667777",
+    );
+    expect(mockNav).not.toHaveBeenCalledWith(
+      "/batches/aaaa1111-2222-3333-4444-555566667777",
+    );
+  });
+
+  it("blocking issues view filters to rows with blockers", async () => {
+    renderPage();
+    await screen.findByText("dev-1");
+    const tab = screen.getByRole("tab", { name: "Blocking issues" });
+    fireEvent.mouseDown(tab, { button: 0 });
+    fireEvent.click(tab);
+    await waitFor(() => {
+      expect(mockList).toHaveBeenLastCalledWith(
+        expect.objectContaining({ provisional: "true" }),
+      );
+    });
+    await screen.findByText("dev-2");
+    expect(screen.queryByText("dev-1")).not.toBeInTheDocument();
+  });
+
+  it("redirects to /login on AuthError", async () => {
+    mockList.mockRejectedValue(new AuthError("unauthenticated"));
+    renderPage();
+    await waitFor(() => {
+      expect(mockNav).toHaveBeenCalledWith("/login");
+    });
+  });
+});

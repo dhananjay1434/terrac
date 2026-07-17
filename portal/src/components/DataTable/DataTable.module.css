@@ -1,0 +1,14 @@
+.stickyHead th {
+  position: sticky;
+  top: var(--topbar-h);
+  background: var(--surface-card);
+  z-index: 5;
+}
+.right {
+  text-align: right;
+}
+.inert,
+.inert:hover {
+  cursor: default;
+  background: transparent;
+}
