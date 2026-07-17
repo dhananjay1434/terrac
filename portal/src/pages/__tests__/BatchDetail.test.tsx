@@ -77,7 +77,7 @@ describe("BatchDetail page", () => {
 
   it("renders the credit MetricBlock with the correct value", async () => {
     renderPage();
-    expect(await screen.findByText("1.23")).toBeInTheDocument();
+    expect(await screen.findByText("1.234")).toBeInTheDocument();
     expect(screen.getByText("tCO₂e")).toBeInTheDocument();
   });
 

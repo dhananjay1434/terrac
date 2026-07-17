@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import clsx from "clsx";
+import CopyButton from "../CopyButton/CopyButton";
 import styles from "./ConfirmModal.module.css";
 
 export interface PreviewRow {
@@ -70,7 +71,10 @@ export default function ConfirmModal({
           </dl>
           {warning && <div className={styles.warning}>{warning}</div>}
           <label className="micro" htmlFor="confirm-token">
-            Type <span className="mono">{confirmToken}</span> to confirm
+            Type{" "}
+            <span className="mono">{confirmToken}</span>{" "}
+            <CopyButton value={confirmToken} label="Copy confirmation token" />
+            {" "}to confirm
           </label>
           <input
             id="confirm-token"
@@ -79,8 +83,22 @@ export default function ConfirmModal({
             disabled={busy}
             autoComplete="off"
             spellCheck={false}
+            aria-invalid={text.length > 0 && text.trim() !== confirmToken}
+            aria-describedby={
+              text.length > 0 ? "confirm-token-feedback" : undefined
+            }
             onChange={(e) => setText(e.target.value)}
           />
+          <div id="confirm-token-feedback" className={styles.feedback}>
+            {text.length > 0 &&
+              (text.trim() === confirmToken ? (
+                <span className={styles.match}>✓ Matches</span>
+              ) : (
+                <span className={styles.mismatch}>
+                  Doesn't match — type it exactly
+                </span>
+              ))}
+          </div>
           <div className={styles.actions}>
             <Dialog.Close asChild>
               <button className="neutral" type="button" disabled={busy}>
@@ -90,7 +108,7 @@ export default function ConfirmModal({
             <button
               type="button"
               className={clsx(styles.confirm, danger && styles.danger)}
-              disabled={text !== confirmToken || busy}
+              disabled={text.trim() !== confirmToken || busy}
               onClick={confirm}
             >
               {busy ? "Working…" : confirmLabel}

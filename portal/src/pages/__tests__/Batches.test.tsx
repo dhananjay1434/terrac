@@ -161,4 +161,24 @@ describe("Batches page", () => {
       expect(tab.getAttribute("aria-selected")).toBe("false");
     }
   });
+
+  it("empty-while-filtered copy differs from empty-global, and warns when more pages exist", async () => {
+    mockList.mockResolvedValue({
+      batches: FIXTURE,
+      next_cursor: "some-cursor",
+    });
+    renderPage();
+    await screen.findByText("dev-1");
+
+    fireEvent.change(
+      screen.getByLabelText("Filter loaded rows by batch or device"),
+      { target: { value: "no-such-device" } },
+    );
+
+    expect(await screen.findByText("No matches in the loaded rows")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Load more rows, or refine your search/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No batches found")).not.toBeInTheDocument();
+  });
 });

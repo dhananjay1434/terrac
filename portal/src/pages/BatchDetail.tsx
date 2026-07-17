@@ -19,6 +19,7 @@ import SealedVerdict from "../components/SealedVerdict/SealedVerdict";
 import CopyButton from "../components/CopyButton/CopyButton";
 import ProvenanceTile from "../components/ProvenanceTile/ProvenanceTile";
 import LcaBreakdown from "../components/LcaBreakdown/LcaBreakdown";
+import { fmtCredit } from "../format";
 
 export const STEP_ORDER = [
   "batch_photo", "flame_curtain", "quenching", "flame_height",
@@ -177,7 +178,7 @@ export default function BatchDetail() {
           />
           <div style={{ marginTop: 16 }}>
             <MetricBlock
-              value={d.batch.net_credit_t_co2e.toFixed(2)}
+              value={fmtCredit(d.batch.net_credit_t_co2e)}
               unit="tCO₂e"
               caption="net credit"
             />
@@ -271,7 +272,7 @@ export default function BatchDetail() {
           { label: "Kiln / Device", value: d.batch.device_id ?? "—" },
           {
             label: "Credits",
-            value: `${d.batch.net_credit_t_co2e.toFixed(2)} tCO₂e`,
+            value: `${fmtCredit(d.batch.net_credit_t_co2e)} tCO₂e`,
             mono: true,
           },
           { label: "Methodology", value: "—" },

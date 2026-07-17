@@ -1,3 +1,4 @@
+import { fmtCredit } from "../../format";
 import styles from "./LcaBreakdown.module.css";
 
 /**
@@ -23,7 +24,7 @@ export default function LcaBreakdown({
         <li className={styles.row}>
           <span className={styles.key}>Net credit</span>
           <span className={`${styles.val} tabular`}>
-            {netCreditTCo2e.toFixed(3)} tCO₂e
+            {fmtCredit(netCreditTCo2e)} tCO₂e
           </span>
         </li>
       </ul>

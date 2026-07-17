@@ -29,8 +29,8 @@ export default function FilterBar({
     <div className={styles.bar}>
       <input
         className={styles.search}
-        aria-label="Search batches"
-        placeholder="Search batch or device…"
+        aria-label="Filter loaded rows by batch or device"
+        placeholder="Filter loaded rows…"
         value={value.search}
         onChange={(e) => onChange({ kind: "search", value: e.target.value })}
       />

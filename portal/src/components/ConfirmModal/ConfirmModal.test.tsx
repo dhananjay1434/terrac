@@ -61,4 +61,38 @@ describe("ConfirmModal", () => {
       expect(screen.getByRole("textbox")).toBeEnabled(),
     );
   });
+
+  it("shows a mismatch hint for a wrong token and a match hint for the right one", () => {
+    renderModal();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "ISSUE-wron" },
+    });
+    expect(screen.getByText("Doesn't match — type it exactly")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "ISSUE-abc123" },
+    });
+    expect(screen.getByText("✓ Matches")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Doesn't match — type it exactly"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("trims surrounding whitespace before comparing the token", () => {
+    renderModal();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "  ISSUE-abc123  " },
+    });
+    expect(screen.getByRole("button", { name: "Issue permanently" })).toBeEnabled();
+    expect(screen.getByText("✓ Matches")).toBeInTheDocument();
+  });
+
+  it("offers a copy button for the confirmation token", () => {
+    const writeText = vi.fn();
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderModal();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Copy confirmation token" }),
+    );
+    expect(writeText).toHaveBeenCalledWith("ISSUE-abc123");
+  });
 });

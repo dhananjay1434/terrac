@@ -8,7 +8,7 @@ describe("FilterBar", () => {
   it("emits a search patch", () => {
     const onChange = vi.fn<(p: FilterPatch) => void>();
     render(<FilterBar value={value} onChange={onChange} />);
-    fireEvent.change(screen.getByLabelText("Search batches"), {
+    fireEvent.change(screen.getByLabelText("Filter loaded rows by batch or device"), {
       target: { value: "dev-1" },
     });
     expect(onChange).toHaveBeenCalledWith({ kind: "search", value: "dev-1" });

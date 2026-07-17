@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import * as Tabs from "@radix-ui/react-tabs";
 import { Copy, Check, ChevronRight } from "lucide-react";
 import { listBatches, AuthError, type BatchRow } from "../api";
+import { fmtCredit } from "../format";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import FilterBar, { type FilterPatch } from "../components/FilterBar/FilterBar";
 import StatusDot from "../components/StatusDot/StatusDot";
@@ -159,7 +160,7 @@ export default function Batches() {
       header: "Credit (tCO₂e)",
       align: "right",
       mono: true,
-      render: (b) => b.net_credit_t_co2e.toFixed(3),
+      render: (b) => fmtCredit(b.net_credit_t_co2e),
     },
     {
       key: "status",
@@ -259,10 +260,21 @@ export default function Batches() {
         onRowClick={(b) => nav(`/batches/${b.batch_uuid}`)}
         loading={loading}
         empty={
-          <EmptyState
-            title="No batches found"
-            description="Adjust the filters above, or wait for field devices to sync."
-          />
+          q && rows.length > 0 ? (
+            <EmptyState
+              title="No matches in the loaded rows"
+              description={
+                cursor
+                  ? "This filters only what's loaded so far. Load more rows, or refine your search."
+                  : "No loaded batch or device matches. Try a different search."
+              }
+            />
+          ) : (
+            <EmptyState
+              title="No batches found"
+              description="Adjust the filters above, or wait for field devices to sync."
+            />
+          )
         }
       />
 
