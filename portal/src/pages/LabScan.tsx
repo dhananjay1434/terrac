@@ -3,6 +3,26 @@ import { useNavigate } from "react-router-dom";
 import jsQR from "jsqr";
 import { parseBatchQr } from "../lab";
 
+const RECENT_KEY = "tc_recent_scans";
+
+function readRecent(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushRecent(uuid: string) {
+  try {
+    const next = [uuid, ...readRecent().filter((u) => u !== uuid)].slice(0, 5);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
+}
+
 // Scan the composite-sample card QR (dmrv-batch:v1:<uuid>) with the native
 // BarcodeDetector when present, else a jsQR fallback over camera frames — both
 // fully local, no CDN. A manual UUID entry is offered when the camera is denied.
@@ -11,6 +31,7 @@ export default function LabScan() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [err, setErr] = useState<string | null>(null);
   const [manual, setManual] = useState("");
+  const [recent] = useState<string[]>(() => readRecent());
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -26,6 +47,7 @@ export default function LabScan() {
       const uuid = parseBatchQr(text);
       if (uuid) {
         stopped = true;
+        pushRecent(uuid);
         nav(`/lab/${uuid}`);
       }
     }
@@ -83,28 +105,67 @@ export default function LabScan() {
     <div className="wrap">
       <h1 style={{ fontSize: 20, marginBottom: 12 }}>Scan batch card</h1>
       <span className="micro">Point at the QR on the composite-sample card</span>
-      <div className="card" style={{ marginTop: 12, overflow: "hidden" }}>
+      <div className="card" style={{ marginTop: 12, overflow: "hidden", position: "relative" }}>
         <video
           ref={videoRef}
           style={{ width: "100%", borderRadius: 10, background: "var(--basalt-950)" }}
           muted
           playsInline
         />
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "52%",
+            aspectRatio: "1 / 1",
+            maxHeight: "70%",
+            border: "2px solid var(--ember-500)",
+            borderRadius: "var(--r-xl)",
+            pointerEvents: "none",
+          }}
+        />
       </div>
       {err && <div className="err">{err}</div>}
       <div className="filters" style={{ marginTop: 16 }}>
         <input
           placeholder="or paste batch UUID"
+          aria-label="Batch UUID"
           value={manual}
           onChange={(e) => setManual(e.target.value)}
         />
         <button
           className="primary"
-          onClick={() => manual.trim() && nav(`/lab/${manual.trim()}`)}
+          onClick={() => {
+            const id = manual.trim();
+            if (!id) return;
+            pushRecent(id);
+            nav(`/lab/${id}`);
+          }}
         >
           Open
         </button>
       </div>
+      {recent.length > 0 && (
+        <section className="card" style={{ marginTop: 16 }}>
+          <span className="micro">Recently scanned</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+            {recent.map((u) => (
+              <button
+                key={u}
+                type="button"
+                className="neutral mono"
+                aria-label={`Open batch ${u}`}
+                onClick={() => nav(`/lab/${u}`)}
+              >
+                {u.slice(0, 8)}…
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
