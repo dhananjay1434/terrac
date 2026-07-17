@@ -109,4 +109,12 @@ describe("STEP_TITLES", () => {
     expect(STEP_TITLES["0"]).toBe("Smoke opacity — 0%");
     expect(STEP_TITLES["flame_curtain"]).toBe("Burn — flame curtain");
   });
+  it("covers every real smoke stage and the lab certificate", () => {
+    expect(STEP_TITLES["50"]).toBe("Smoke opacity — 50%");
+    expect(STEP_TITLES["90"]).toBe("Smoke opacity — 90%");
+    expect(STEP_TITLES["100"]).toBe("Smoke opacity — 100%");
+    expect(STEP_TITLES["smoke_50"]).toBe("Smoke opacity — 50%");
+    expect(STEP_TITLES["smoke_90"]).toBe("Smoke opacity — 90%");
+    expect(STEP_TITLES["lab_certificate"]).toBe("Lab certificate");
+  });
 });

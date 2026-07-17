@@ -13,7 +13,7 @@ import { getRole } from "../auth";
 import ComplianceChecklist from "../components/ComplianceChecklist";
 import CreditRing from "../components/CreditRing";
 
-const STEP_ORDER = [
+export const STEP_ORDER = [
   "batch_photo", "flame_curtain", "quenching", "flame_height",
   "smoke_0", "0", "smoke_50", "50", "smoke_90", "90", "smoke_100", "100",
   "lab_certificate",
