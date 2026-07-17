@@ -122,7 +122,7 @@ export default function BatchDetail() {
   if (!d) {
     return (
       <div className="wrap">
-        <div className="skeleton" style={{ height: 180, borderRadius: "var(--radius-lg)", marginBottom: 18 }}></div>
+        <div className="skeleton" style={{ height: 180, borderRadius: "var(--r-lg)", marginBottom: 18 }}></div>
         <div className="tiles" style={{ marginBottom: 14 }}>
           <div className="skeleton" style={{ height: 72 }}></div>
           <div className="skeleton" style={{ height: 72 }}></div>
@@ -172,16 +172,10 @@ export default function BatchDetail() {
       <div className="hero">
         <div>
           <SealedVerdict
+            size="lg"
             verdict={d.compliance.issuable ? "ISSUABLE" : "PROVISIONAL"}
             reasonCount={d.compliance.reasons.length}
           />
-          <div style={{ marginTop: 16 }}>
-            <MetricBlock
-              value={fmtCredit(d.batch.net_credit_t_co2e)}
-              unit="tCO₂e"
-              caption="net credit"
-            />
-          </div>
           <div className="credit-label">
             Batch <span className="mono">{d.batch.batch_uuid.slice(0, 8)}</span>{" "}
             <CopyButton value={d.batch.batch_uuid} label="Copy batch id" /> ·
@@ -226,6 +220,29 @@ export default function BatchDetail() {
               </button>
             </div>
           )}
+        </div>
+        <div className="hero-figure">
+          <MetricBlock
+            value={fmtCredit(d.batch.net_credit_t_co2e)}
+            unit="tCO₂e"
+            caption="net credit"
+          />
+          <dl className="hero-facts">
+            <div className="hero-fact">
+              <dt className="micro">Wet yield</dt>
+              <dd className="tabular">{d.batch.wet_yield_kg} kg</dd>
+            </div>
+            <div className="hero-fact">
+              <dt className="micro">Project</dt>
+              <dd>{d.batch.project_id ?? "—"}</dd>
+            </div>
+            <div className="hero-fact">
+              <dt className="micro">Received</dt>
+              <dd className="tabular">
+                {d.batch.received_at?.slice(0, 10) ?? "—"}
+              </dd>
+            </div>
+          </dl>
         </div>
       </div>
 

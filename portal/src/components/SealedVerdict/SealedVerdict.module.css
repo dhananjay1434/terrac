@@ -9,6 +9,11 @@
   font-weight: var(--fw-bold);
   letter-spacing: 0.04em;
 }
+.stamp[data-size="lg"] {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-24);
+  gap: var(--space-2);
+}
 .stamp[data-verdict="ISSUABLE"] {
   color: var(--status-success);
   border-color: var(--status-success);

@@ -14,4 +14,13 @@ describe("SealedVerdict", () => {
     expect(screen.getByText("PROVISIONAL")).toBeInTheDocument();
     expect(screen.getByText("2 blockers")).toBeInTheDocument();
   });
+
+  it("defaults to size md, and can be rendered lg", () => {
+    const { rerender, getByText } = render(
+      <SealedVerdict verdict="ISSUABLE" />,
+    );
+    expect(getByText("ISSUABLE").getAttribute("data-size")).toBe("md");
+    rerender(<SealedVerdict verdict="ISSUABLE" size="lg" />);
+    expect(getByText("ISSUABLE").getAttribute("data-size")).toBe("lg");
+  });
 });

@@ -81,9 +81,21 @@ describe("BatchDetail page", () => {
     expect(screen.getByText("tCO₂e")).toBeInTheDocument();
   });
 
-  it("shows ISSUABLE verdict when compliance.issuable", async () => {
+  it("shows ISSUABLE verdict when compliance.issuable, rendered large in the hero", async () => {
     renderPage();
-    expect(await screen.findByText("ISSUABLE")).toBeInTheDocument();
+    const verdict = await screen.findByText("ISSUABLE");
+    expect(verdict.closest('[data-size="lg"]')).not.toBeNull();
+  });
+
+  it("shows key facts (wet yield, project, received) in the hero figure panel", async () => {
+    renderPage();
+    await screen.findByText("ISSUABLE");
+    // These values also appear elsewhere on the page (Production tile,
+    // ProvenanceTile, VerificationChain's "Received" sublabel) — the hero
+    // figure panel adds another rendering, so assert at least one exists.
+    expect(screen.getAllByText("100 kg").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("p1").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("2026-07-01").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows PROVISIONAL with blocker count when not issuable", async () => {

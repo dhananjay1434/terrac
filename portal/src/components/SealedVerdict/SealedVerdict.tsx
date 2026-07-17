@@ -9,12 +9,18 @@ export type Verdict = "ISSUABLE" | "PROVISIONAL" | "BLOCKED";
 export default function SealedVerdict({
   verdict,
   reasonCount,
+  size = "md",
 }: {
   verdict: Verdict;
   reasonCount?: number;
+  size?: "md" | "lg";
 }) {
   return (
-    <span className={styles.stamp} data-verdict={verdict}>
+    <span
+      className={styles.stamp}
+      data-verdict={verdict}
+      data-size={size}
+    >
       {verdict}
       {verdict !== "ISSUABLE" && reasonCount ? (
         <span className={styles.count}>
