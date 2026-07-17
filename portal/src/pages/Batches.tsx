@@ -97,10 +97,10 @@ export default function Batches() {
           ) : rows.length === 0 ? (
             <tr>
               <td colSpan={6} style={{ padding: '60px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
+                <div className="text-primary" style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>
                   No batches found
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                <div className="text-secondary" style={{ fontSize: 13 }}>
                   Adjust the filters above, or wait for field devices to sync.
                 </div>
               </td>
@@ -124,7 +124,7 @@ export default function Batches() {
                   {b.reason_count > 0 ? (
                     <span className="chip warn">{b.reason_count} reason{b.reason_count === 1 ? "" : "s"}</span>
                   ) : (
-                    <span style={{ color: "var(--text-tertiary)" }}>—</span>
+                    <span className="text-tertiary">—</span>
                   )}
                 </td>
               </tr>

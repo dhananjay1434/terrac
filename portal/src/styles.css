@@ -43,22 +43,6 @@
   --duration-standard: 250ms;
   --ease-productive: cubic-bezier(0.2, 0, 0, 1);
   --ease-expressive: cubic-bezier(0.4, 0, 0.2, 1);
-  /* ── legacy aliases (DELETE in the final phase, keep until then) ─ */
-  --bg: var(--surface-page);
-  --card: var(--surface-card);
-  --ink: var(--text-primary);
-  --muted: var(--text-secondary);
-  --faint: var(--text-tertiary);
-  --line: var(--border-subtle);
-  --emerald: var(--status-success-fg);
-  --emerald-d: var(--status-success-fg);
-  --emerald-bg: var(--status-success-bg);
-  --amber: var(--status-warning-fg);
-  --amber-bg: var(--status-warning-bg);
-  --red: var(--status-error-fg);
-  --indigo: var(--indigo-600);
-  --shadow: var(--shadow-sm);
-  --shadow-lg: var(--shadow-md);
 }
 * {
   box-sizing: border-box;
@@ -71,8 +55,8 @@ body,
 }
 body {
   font-family: "Inter Variable", -apple-system, "Segoe UI", sans-serif;
-  color: var(--ink);
-  background: var(--bg);
+  color: var(--text-primary);
+  background: var(--surface-page);
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.01em;
 }
@@ -89,20 +73,20 @@ code, .mono {
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: var(--faint);
+  color: var(--text-tertiary);
 }
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 .amber-tag {
-  color: var(--amber);
+  color: var(--status-warning-fg);
 }
 .top {
   position: sticky;
   top: 0;
   z-index: 10;
   background: var(--surface-card);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .top-in {
   max-width: 1040px;
@@ -128,7 +112,7 @@ code, .mono {
   letter-spacing: -0.02em;
 }
 .brand span {
-  color: var(--muted);
+  color: var(--text-secondary);
   font-weight: 550;
 }
 .top .spacer {
@@ -137,7 +121,7 @@ code, .mono {
 .linkbtn {
   border: 0;
   background: none;
-  color: var(--muted);
+  color: var(--text-secondary);
   font: inherit;
   font-size: 13px;
   font-weight: 650;
@@ -149,10 +133,10 @@ code, .mono {
   padding: 30px 24px 60px;
 }
 .card {
-  background: var(--card);
-  border: 1px solid var(--line);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
   padding: 18px;
 }
 button.primary {
@@ -176,7 +160,7 @@ input {
   font: inherit;
   font-size: 13px;
   background: #fff;
-  color: var(--ink);
+  color: var(--text-primary);
 }
 select {
   padding: 9px 12px;
@@ -191,7 +175,7 @@ input:focus, select:focus {
   outline: none;
 }
 .err {
-  color: var(--red);
+  color: var(--status-error-fg);
   font-size: 13px;
   margin-top: 10px;
 }
@@ -222,17 +206,17 @@ input:focus, select:focus {
 table {
   width: 100%;
   border-collapse: collapse;
-  background: var(--card);
-  border: 1px solid var(--line);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
 }
 th,
 td {
   text-align: left;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border-subtle);
   font-size: 13.5px;
 }
 th {
@@ -257,17 +241,17 @@ tbody tr:hover {
   font-weight: 500;
 }
 .badge.prov {
-  background: var(--amber-bg);
-  color: var(--amber);
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
 }
 .badge.iss {
-  background: var(--emerald-bg);
-  color: var(--emerald-d);
+  background: var(--status-success-bg);
+  color: var(--status-success-fg);
 }
 /* hero */
 .hero {
-  background: var(--card);
-  border: 1px solid var(--line);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 30px;
@@ -288,12 +272,12 @@ tbody tr:hover {
   margin-bottom: 20px;
 }
 .verdict.prov {
-  background: var(--amber-bg);
-  color: var(--amber);
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
 }
 .verdict.iss {
-  background: var(--emerald-bg);
-  color: var(--emerald-d);
+  background: var(--status-success-bg);
+  color: var(--status-success-fg);
 }
 .credit {
   display: flex;
@@ -309,11 +293,11 @@ tbody tr:hover {
 .credit .unit {
   font-size: 18px;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--text-secondary);
 }
 .credit-label {
   margin-top: 12px;
-  color: var(--muted);
+  color: var(--text-secondary);
   font-size: 13.5px;
 }
 .ring {
@@ -325,7 +309,7 @@ tbody tr:hover {
   transform: rotate(-90deg);
 }
 .ring .track {
-  stroke: var(--line);
+  stroke: var(--border-subtle);
   stroke-width: 12;
   fill: none;
 }
@@ -352,7 +336,7 @@ tbody tr:hover {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--text-tertiary);
   margin-top: 2px;
 }
 .tiles {
@@ -405,7 +389,7 @@ tbody tr:hover {
   margin-top: 12px;
 }
 .media-cell {
-  border: 1px solid var(--line);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
   overflow: hidden;
   background: #fff;
@@ -419,13 +403,13 @@ tbody tr:hover {
 .media-cell .cap {
   padding: 6px 8px;
   font-size: 10.5px;
-  color: var(--muted);
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 a.back {
-  color: var(--muted);
+  color: var(--text-secondary);
   font-size: 13px;
   text-decoration: none;
   font-weight: 650;
@@ -700,4 +684,11 @@ button.neutral:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+
+/* --- Phase 5 Utilities --- */
+.text-tertiary { color: var(--text-tertiary); }
+.text-secondary { color: var(--text-secondary); }
+.text-primary { color: var(--text-primary); }
+.link-indigo { color: var(--indigo-600); text-decoration: none; }
 

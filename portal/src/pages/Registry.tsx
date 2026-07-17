@@ -180,7 +180,7 @@ export default function Registry() {
                 Copy
               </button>
             </div>
-            <div className="micro" style={{ marginTop: 8, color: "var(--text-secondary)" }}>
+            <div className="micro text-secondary" style={{ marginTop: 8 }}>
               Shown once — store it now.
             </div>
             <div style={{ marginTop: 16 }}>

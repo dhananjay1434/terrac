@@ -102,7 +102,7 @@ function MediaThumb({ item }: { item: MediaItem }) {
           </button>
         </div>
         {item.uploaded_at && (
-          <div style={{ color: "var(--text-tertiary)" }}>
+          <div className="text-tertiary">
             {item.uploaded_at.slice(0, 16).replace("T", " ")}
           </div>
         )}
@@ -116,7 +116,7 @@ function MediaThumb({ item }: { item: MediaItem }) {
               {item.exif_lat.toFixed(5)}, {item.exif_lon.toFixed(5)}
             </a>
           ) : (
-            <span style={{ color: "var(--text-tertiary)" }}>no GPS</span>
+            <span className="text-tertiary">no GPS</span>
           )}
         </div>
         <div style={{ marginTop: 4 }}>
@@ -198,8 +198,8 @@ export default function BatchDetail() {
   if (err) {
     return (
       <div className="wrap err" style={{ textAlign: "center", paddingTop: 60 }}>
-        <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", marginBottom: 16 }}>Batch not found</div>
-        <Link to="/batches" style={{ color: "var(--indigo-600)", textDecoration: "none" }}>← All batches</Link>
+        <div className="text-primary" style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Batch not found</div>
+        <Link to="/batches" className="link-indigo">← All batches</Link>
       </div>
     );
   }

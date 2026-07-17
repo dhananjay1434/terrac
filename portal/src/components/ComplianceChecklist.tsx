@@ -2,9 +2,9 @@ import type { ChecklistItem } from "../api";
 import { groupChecklist, statusOf } from "../compliance";
 
 const DOT: Record<string, string> = {
-  ok: "var(--emerald)",
-  blocking: "var(--amber)",
-  inert: "var(--faint)",
+  ok: "var(--status-success-fg)",
+  blocking: "var(--status-warning-fg)",
+  inert: "var(--text-tertiary)",
 };
 
 const STATUS_TEXT: Record<string, string> = {
