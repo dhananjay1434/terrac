@@ -1,0 +1,28 @@
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.valueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.value {
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.02em;
+  line-height: var(--lh-tight);
+  color: var(--text-primary);
+}
+.block[data-size="lg"] .value { font-size: var(--fs-48); }
+.block[data-size="md"] .value { font-size: var(--fs-32); }
+.block[data-size="sm"] .value { font-size: var(--fs-24); }
+.unit {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.caption {
+  font-size: var(--fs-12);
+  color: var(--text-tertiary);
+}

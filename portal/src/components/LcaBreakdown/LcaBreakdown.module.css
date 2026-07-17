@@ -1,0 +1,28 @@
+.list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.key {
+  font-size: var(--fs-12);
+  color: var(--text-tertiary);
+}
+.val {
+  font-size: var(--fs-13);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+}
+.note {
+  margin-top: 10px;
+  font-size: var(--fs-12);
+  color: var(--text-tertiary);
+}

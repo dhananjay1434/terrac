@@ -12,6 +12,12 @@ import {
 import { getRole } from "../auth";
 import ComplianceChecklist from "../components/ComplianceChecklist";
 import CreditRing from "../components/CreditRing";
+import VerificationChain from "../components/VerificationChain/VerificationChain";
+import MetricBlock from "../components/MetricBlock/MetricBlock";
+import SealedVerdict from "../components/SealedVerdict/SealedVerdict";
+import CopyButton from "../components/CopyButton/CopyButton";
+import ProvenanceTile from "../components/ProvenanceTile/ProvenanceTile";
+import LcaBreakdown from "../components/LcaBreakdown/LcaBreakdown";
 
 export const STEP_ORDER = [
   "batch_photo", "flame_curtain", "quenching", "flame_height",
@@ -219,30 +225,58 @@ export default function BatchDetail() {
 
   const okCount = d.compliance.checklist.filter((c) => c.ok).length;
   const total = d.compliance.checklist.length;
+  const issued = d.batch.status === "ISSUED";
+  const chainNodes = [
+    {
+      label: "Received",
+      sublabel: d.batch.received_at
+        ? d.batch.received_at.slice(0, 10)
+        : undefined,
+      state: d.batch.received_at ? ("done" as const) : ("pending" as const),
+    },
+    {
+      label: "Evidence",
+      sublabel: `${d.media.length} item${d.media.length === 1 ? "" : "s"}`,
+      state: d.media.length > 0 ? ("done" as const) : ("pending" as const),
+    },
+    {
+      label: "Compliance",
+      sublabel: `${okCount}/${total} criteria`,
+      state: d.compliance.issuable ? ("done" as const) : ("current" as const),
+    },
+    {
+      label: "Issued",
+      state: issued ? ("done" as const) : ("pending" as const),
+    },
+  ];
 
   return (
     <div className="wrap">
       <Link className="back" to="/batches">
         ← All batches
       </Link>
-      <div className="hero" style={{ marginTop: 12 }}>
+      <div style={{ marginTop: 12 }}>
+        <VerificationChain nodes={chainNodes} />
+      </div>
+      <div className="hero">
         <div>
-          <span
-            className={`verdict ${d.compliance.issuable ? "iss" : "prov"}`}
-          >
-            {d.compliance.issuable ? "ISSUABLE" : "PROVISIONAL"}
-          </span>
-          <div className="credit">
-            <span className="num tabular">
-              {d.batch.net_credit_t_co2e.toFixed(2)}
-            </span>
-            <span className="unit">tCO₂e</span>
+          <SealedVerdict
+            verdict={d.compliance.issuable ? "ISSUABLE" : "PROVISIONAL"}
+            reasonCount={d.compliance.reasons.length}
+          />
+          <div style={{ marginTop: 16 }}>
+            <MetricBlock
+              value={d.batch.net_credit_t_co2e.toFixed(2)}
+              unit="tCO₂e"
+              caption="net credit"
+            />
           </div>
           <div className="credit-label">
-            Batch {d.batch.batch_uuid.slice(0, 8)} · device{" "}
-            {d.batch.device_id ?? "—"}
+            Batch <span className="mono">{d.batch.batch_uuid.slice(0, 8)}</span>{" "}
+            <CopyButton value={d.batch.batch_uuid} label="Copy batch id" /> ·
+            device {d.batch.device_id ?? "—"}
           </div>
-          {d.batch.status === "ISSUED" ? (
+          {issued ? (
             <div className="seal">✓ CREDIT ISSUED</div>
           ) : (
             getRole() === "admin" && (
@@ -289,12 +323,31 @@ export default function BatchDetail() {
       </div>
 
       <div className="tiles">
-        {Object.entries(d.evidence_counts).map(([k, v]) => (
-          <div className="card tile" key={k}>
-            <span className="micro">{k.replace(/_/g, " ")}</span>
-            <div className="v tabular">{v}</div>
+        <div className="card tile">
+          <span className="micro">Production</span>
+          <div className="v tabular">{d.batch.wet_yield_kg} kg</div>
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+            {Object.entries(d.evidence_counts).map(([k, v]) => (
+              <div
+                key={k}
+                style={{ display: "flex", justifyContent: "space-between" }}
+              >
+                <span className="micro">{k.replace(/_/g, " ")}</span>
+                <span className="tabular text-secondary">{v}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+        <LcaBreakdown
+          wetYieldKg={d.batch.wet_yield_kg}
+          netCreditTCo2e={d.batch.net_credit_t_co2e}
+        />
+        <ProvenanceTile
+          batchUuid={d.batch.batch_uuid}
+          deviceId={d.batch.device_id}
+          projectId={d.batch.project_id}
+          receivedAt={d.batch.received_at}
+        />
       </div>
 
       <ComplianceChecklist checklist={d.compliance.checklist} />
