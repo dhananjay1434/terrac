@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import Breadcrumbs from "./Breadcrumbs";
@@ -14,9 +15,11 @@ const COLLAPSE_KEY = "tc_rail_collapsed";
  * Purely presentational — routing, auth, and data flow are untouched.
  */
 export default function AppShell({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSE_KEY) === "true",
   );
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const toggle = useCallback(() => {
     setCollapsed((c) => {
@@ -31,10 +34,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
         e.preventDefault();
         toggle();
       }
+      if (e.key === "Escape") setDrawerOpen(false);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [toggle]);
+
+  // Close the mobile drawer whenever the route changes, so navigating from
+  // it doesn't leave it open over the new page.
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
 
   return (
     <div className={styles.shell}>
@@ -43,11 +53,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </a>
       <EnvBanner />
       <div className={styles.row}>
-        <Sidebar collapsed={collapsed} onToggle={toggle} />
+        <div
+          className={styles.scrim}
+          data-open={drawerOpen}
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden
+        />
+        <Sidebar
+          collapsed={collapsed}
+          onToggle={toggle}
+          drawerOpen={drawerOpen}
+          onNavigate={() => setDrawerOpen(false)}
+        />
         <div className={styles.body}>
-          <Topbar collapsed={collapsed} onCmdK={() => {}} />
+          <Topbar collapsed={collapsed} onOpenDrawer={() => setDrawerOpen(true)} />
           <Breadcrumbs />
-          <main id="main-content" className={styles.main}>
+          <main id="main-content" tabIndex={-1} className={styles.main}>
             {children}
           </main>
         </div>

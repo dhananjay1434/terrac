@@ -25,13 +25,22 @@ const NAV = [
 export default function Sidebar({
   collapsed,
   onToggle,
+  drawerOpen = false,
+  onNavigate,
 }: {
   collapsed: boolean;
   onToggle(): void;
+  drawerOpen?: boolean;
+  onNavigate?(): void;
 }) {
   const { pathname } = useLocation();
   return (
-    <aside className={styles.rail} data-collapsed={collapsed} aria-label="Primary">
+    <aside
+      className={styles.rail}
+      data-collapsed={collapsed}
+      data-drawer-open={drawerOpen}
+      aria-label="Primary"
+    >
       <div className={styles.lockup}>
         <div className={styles.mark}>TC</div>
         {!collapsed && <span className={styles.wordmark}>TerraCipher</span>}
@@ -45,7 +54,9 @@ export default function Sidebar({
               to={to}
               className={clsx(styles.navItem, active && styles.navItemActive)}
               aria-current={active ? "page" : undefined}
+              aria-label={label}
               title={collapsed ? label : undefined}
+              onClick={onNavigate}
             >
               <Icon size={16} aria-hidden />
               {!collapsed && <span>{label}</span>}

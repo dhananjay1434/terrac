@@ -52,6 +52,36 @@
 .rail[data-collapsed="true"] {
   width: var(--rail-w-collapsed);
 }
+.scrim {
+  display: none;
+}
+@media (max-width: 768px) {
+  /* Below 768px the rail becomes an off-canvas drawer: fixed, off-screen by
+     default, slides in over a scrim. Collapse state (desktop-only) is
+     irrelevant here — the drawer is always full nav-width when open. */
+  .rail {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(var(--rail-w), 84vw);
+    height: 100vh;
+    transform: translateX(-100%);
+    z-index: 60;
+    transition: transform var(--dur-panel) var(--ease-out);
+  }
+  .rail[data-collapsed="true"] {
+    width: min(var(--rail-w), 84vw);
+  }
+  .rail[data-drawer-open="true"] {
+    transform: translateX(0);
+  }
+  .scrim[data-open="true"] {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 17, 21, 0.4);
+    z-index: 55;
+  }
+}
 .lockup {
   display: flex;
   align-items: center;
@@ -151,31 +181,38 @@
   font-weight: var(--fw-semibold);
   font-size: var(--fs-14);
   color: var(--text-primary);
+  margin-right: auto;
 }
-.search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 auto;
-  padding: 6px 12px;
-  min-width: 220px;
-  border: var(--border-hair);
-  border-radius: var(--r-md);
-  background: var(--surface-page);
-  color: var(--text-tertiary);
-  font: inherit;
-  font-size: var(--fs-13);
+/* On desktop the rail already shows the wordmark when expanded, so the
+   topbar copy would be a redundant duplicate — hide it there. On mobile
+   there is no visible rail wordmark (drawer is closed by default), so the
+   topbar copy is the only brand mark and must always show. */
+.topbarWordmark[data-desktop-only="true"] {
+  display: none;
+}
+@media (max-width: 768px) {
+  .topbarWordmark[data-desktop-only="true"] {
+    display: inline;
+  }
+}
+.hamburger {
+  display: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color var(--dur-micro) var(--ease-out);
+  padding: 6px;
+  border-radius: var(--r-md);
 }
-.search:hover {
-  border-color: var(--border-strong);
+.hamburger:hover {
+  background: var(--surface-page);
+  color: var(--text-primary);
 }
-.search kbd {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: var(--fs-12);
-  color: var(--text-tertiary);
+@media (max-width: 768px) {
+  .hamburger {
+    display: grid;
+    place-items: center;
+  }
 }
 .topbarRight {
   display: flex;
@@ -198,13 +235,7 @@
   background: var(--surface-page);
   color: var(--text-primary);
 }
-.avatarWrap {
-  position: relative;
-}
 .menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
   min-width: 160px;
   background: var(--surface-card);
   border: var(--border-hair);
@@ -225,9 +256,15 @@
   font: inherit;
   font-size: var(--fs-13);
   cursor: pointer;
+  outline: none;
 }
-.menuItem:hover {
+.menuItem:hover,
+.menuItem[data-highlighted] {
   background: var(--surface-page);
+}
+.menuItem[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ── breadcrumbs + main ─────────────────────────────────────────── */

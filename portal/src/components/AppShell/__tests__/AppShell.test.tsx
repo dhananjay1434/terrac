@@ -42,10 +42,15 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: /registry/i })).toBeInTheDocument();
   });
 
+  function openAccountMenu() {
+    const trigger = screen.getByRole("button", { name: "Account menu" });
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerId: 1 });
+  }
+
   it("sign out calls logout and clearSession", async () => {
     renderShell();
-    fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
+    openAccountMenu();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
     await waitFor(() => {
       expect(logout).toHaveBeenCalledOnce();
       expect(clearSession).toHaveBeenCalledOnce();
@@ -61,11 +66,12 @@ describe("AppShell", () => {
     expect(localStorage.getItem("tc_rail_collapsed")).toBe("true");
   });
 
-  it("theme toggle flips data-theme on documentElement", () => {
+  it("theme toggle flips data-theme on documentElement and its label reflects the current state", () => {
     renderShell();
-    const toggle = screen.getByRole("button", { name: "Toggle theme" });
+    let toggle = screen.getByRole("button", { name: "Switch to dark theme" });
     fireEvent.click(toggle);
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+    toggle = screen.getByRole("button", { name: "Switch to light theme" });
     fireEvent.click(toggle);
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   });
@@ -98,6 +104,35 @@ describe("AppShell", () => {
       theme: document.documentElement.getAttribute("data-theme"),
       html: container.innerHTML,
     }).toMatchSnapshot("appshell-dark");
+  });
+
+  it("account menu closes on Escape without navigating away", async () => {
+    renderShell();
+    openAccountMenu();
+    expect(await screen.findByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("menuitem", { name: "Sign out" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("hamburger opens the mobile drawer, and navigating closes it", () => {
+    const { container } = renderShell();
+    const rail = container.querySelector("aside[data-collapsed]")!;
+    expect(rail.getAttribute("data-drawer-open")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(rail.getAttribute("data-drawer-open")).toBe("true");
+    fireEvent.click(screen.getByRole("link", { name: "Registry" }));
+    expect(rail.getAttribute("data-drawer-open")).toBe("false");
+  });
+
+  it("clicking the scrim closes the drawer", () => {
+    const { container } = renderShell();
+    const rail = container.querySelector("aside[data-collapsed]")!;
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(rail.getAttribute("data-drawer-open")).toBe("true");
+    fireEvent.click(container.querySelector('[aria-hidden="true"]')!);
+    expect(rail.getAttribute("data-drawer-open")).toBe("false");
   });
 
   it("login route renders without the shell", () => {
