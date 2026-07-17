@@ -19,6 +19,22 @@ const STEP_ORDER = [
   "lab_certificate",
 ];
 
+export const STEP_TITLES: Record<string, string> = {
+  batch_photo: "Batch photo",
+  flame_curtain: "Burn — flame curtain",
+  quenching: "Burn — quenching",
+  flame_height: "Burn — flame height",
+  smoke_0: "Smoke opacity — 0%", "0": "Smoke opacity — 0%",
+  smoke_20: "Smoke opacity — 20%", "20": "Smoke opacity — 20%",
+  smoke_40: "Smoke opacity — 40%", "40": "Smoke opacity — 40%",
+  smoke_60: "Smoke opacity — 60%", "60": "Smoke opacity — 60%",
+  smoke_80: "Smoke opacity — 80%", "80": "Smoke opacity — 80%",
+  smoke_100: "Smoke opacity — 100%", "100": "Smoke opacity — 100%",
+  post_burn_mass: "Post-burn mass",
+  packaging: "Packaging",
+  other: "Other / Uncategorized"
+};
+
 export function groupMedia(items: MediaItem[]): [string, MediaItem[]][] {
   const groups = new Map<string, MediaItem[]>();
   for (const m of items) {
@@ -36,7 +52,7 @@ export function groupMedia(items: MediaItem[]): [string, MediaItem[]][] {
 
 function MediaThumb({ item }: { item: MediaItem }) {
   const [url, setUrl] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [copied, setCopied] = useState(false);
   useEffect(() => {
     let live = true;
     let objUrl: string | null = null;
@@ -45,7 +61,7 @@ function MediaThumb({ item }: { item: MediaItem }) {
         objUrl = u;
         if (live) setUrl(u);
       })
-      .catch(() => live && setFailed(true));
+      .catch(() => {});
     return () => {
       live = false;
       if (objUrl) URL.revokeObjectURL(objUrl);
@@ -61,14 +77,56 @@ function MediaThumb({ item }: { item: MediaItem }) {
             height: 90,
             display: "grid",
             placeItems: "center",
-            color: "var(--faint)",
-            fontSize: 11,
+            background: "var(--surface-page)",
           }}
         >
-          {failed ? "unavailable" : "loading…"}
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </svg>
         </div>
       )}
-      <div className="cap tabular">{item.sha256_hash.slice(0, 12)}…</div>
+      <div className="forensic-meta">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span className="mono">{item.sha256_hash.slice(0, 12)}…</span>
+          <button
+            aria-label="Copy SHA-256"
+            className="linkbtn"
+            onClick={() => {
+              navigator.clipboard.writeText(item.sha256_hash);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+          >
+            {copied ? "✓" : "📋"}
+          </button>
+        </div>
+        {item.uploaded_at && (
+          <div style={{ color: "var(--text-tertiary)" }}>
+            {item.uploaded_at.slice(0, 16).replace("T", " ")}
+          </div>
+        )}
+        <div>
+          {item.exif_lat !== null && item.exif_lon !== null ? (
+            <a
+              href={`https://www.openstreetmap.org/?mlat=${item.exif_lat}&mlon=${item.exif_lon}#map=17/${item.exif_lat}/${item.exif_lon}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {item.exif_lat.toFixed(5)}, {item.exif_lon.toFixed(5)}
+            </a>
+          ) : (
+            <span style={{ color: "var(--text-tertiary)" }}>no GPS</span>
+          )}
+        </div>
+        <div style={{ marginTop: 4 }}>
+          {item.capture_type_verified ? (
+            <span className="chip ok">✓ verified</span>
+          ) : item.capture_type ? (
+            <span className="chip warn">unverified</span>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -81,6 +139,9 @@ export default function BatchDetail() {
   const [issuing, setIssuing] = useState(false);
   const [exporting, setExporting] = useState<"csi" | "rainbow" | null>(null);
 
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+
   function reload() {
     getBatch(uuid)
       .then(setD)
@@ -91,18 +152,20 @@ export default function BatchDetail() {
   }
   useEffect(reload, [uuid, nav]);
 
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmOpen(false);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
+
   async function issue() {
-    if (!d) return;
-    if (
-      !window.confirm(
-        `Issue ${d.batch.net_credit_t_co2e.toFixed(2)} tCO₂e for batch ` +
-          `${d.batch.batch_uuid.slice(0, 8)}? This is recorded permanently.`,
-      )
-    )
-      return;
+    if (!d || confirmText !== "ISSUE") return;
     setIssuing(true);
     try {
       await issueCredit(uuid);
+      setConfirmOpen(false);
       reload();
     } catch (e) {
       if (e instanceof AuthError) nav("/login");
@@ -161,7 +224,10 @@ export default function BatchDetail() {
                 className="primary"
                 style={{ marginTop: 16 }}
                 disabled={!d.compliance.issuable || issuing}
-                onClick={issue}
+                onClick={() => {
+                  setConfirmText("");
+                  setConfirmOpen(true);
+                }}
               >
                 {issuing
                   ? "Issuing…"
@@ -210,14 +276,16 @@ export default function BatchDetail() {
       {d.media.length > 0 && (
         <section className="card" style={{ marginTop: 14 }}>
           <span className="micro">Evidence media</span>
-          {/* MEDIA GALLERY REPLACEMENT START */}
-          <div className="space-y-6" style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 12 }}>
             {groupMedia(d.media).map(([stage, items]) => (
-              <div key={stage} className="border rounded-md p-4 bg-gray-50" style={{ border: '1px solid #ddd', padding: 12, marginBottom: 12, borderRadius: 6 }}>
-                <h3 className="font-semibold text-lg mb-4 capitalize" style={{ textTransform: 'capitalize', marginBottom: 8, fontSize: 14, color: stage === '__unclassified__' ? '#888' : 'inherit' }}>
-                  {stage === '__unclassified__' ? 'Other / Uncategorized' : stage.replace('_', ' ')}
-                </h3>
-                <div className="media-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 12 }}>
+              <div key={stage} className="evidence-group">
+                <div className="evidence-group-head">
+                  <h3>
+                    {stage === '__unclassified__' ? STEP_TITLES['other'] : STEP_TITLES[stage] ?? stage}
+                  </h3>
+                  <div className="chip">{items.length}</div>
+                </div>
+                <div className="media-grid">
                   {items.map(m => (
                     <MediaThumb key={m.sha256_hash} item={m} />
                   ))}
@@ -226,6 +294,21 @@ export default function BatchDetail() {
             ))}
           </div>
         </section>
+      )}
+
+      {confirmOpen && (
+        <div className="modal-overlay" onClick={() => setConfirmOpen(false)}>
+          <div className="modal-panel" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <h2>Issue credit — permanent</h2>
+            <p>You are about to permanently issue {d.batch.net_credit_t_co2e.toFixed(2)} tCO₂e to batch {d.batch.batch_uuid.slice(0, 8)}. This writes to the permanent ledger and cannot be undone.</p>
+            <label className="micro">Type ISSUE to confirm</label>
+            <input value={confirmText} onChange={e => setConfirmText(e.target.value)} style={{ width: '100%', marginTop: 4, marginBottom: 16 }} />
+            <div className="modal-actions">
+              <button className="neutral" onClick={() => setConfirmOpen(false)}>Cancel</button>
+              <button className="primary" disabled={confirmText !== "ISSUE" || issuing} onClick={issue}>Issue permanently</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

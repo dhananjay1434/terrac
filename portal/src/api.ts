@@ -49,6 +49,8 @@ export interface MediaItem {
   uploaded_at: string | null;
   capture_type: string | null;
   capture_type_verified: boolean;
+  exif_lat: number | null;
+  exif_lon: number | null;
 }
 
 export interface BatchDetail {

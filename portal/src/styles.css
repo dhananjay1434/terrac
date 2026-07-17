@@ -445,3 +445,144 @@ button.primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* --- Phase 2: Batch Detail --- */
+.evidence-group {
+  background: var(--surface-page);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.evidence-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.evidence-group-head h3 {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 0;
+  text-transform: none;
+}
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.media-cell {
+  background: var(--surface-card);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+}
+.media-img img {
+  display: block;
+  width: 100%;
+  height: 90px;
+  object-fit: cover;
+}
+.forensic-meta {
+  padding: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+.forensic-meta a {
+  color: var(--indigo-600);
+  text-decoration: none;
+}
+.forensic-meta a:hover {
+  text-decoration: underline;
+}
+.chip {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--border-subtle);
+  color: var(--text-secondary);
+}
+.chip.ok {
+  background: var(--status-success-bg);
+  color: var(--status-success-fg);
+}
+.chip.warn {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
+}
+
+.linkbtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  padding: 2px;
+}
+.linkbtn:hover {
+  color: var(--text-primary);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 17, 21, 0.4);
+  z-index: 100;
+  display: grid;
+  place-items: center;
+}
+.modal-panel {
+  background: var(--surface-card);
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 24px;
+  animation: modalIn var(--duration-standard) var(--ease-productive);
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.modal-panel h2 {
+  margin-top: 0;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+.modal-panel p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+button.neutral {
+  padding: 10px 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-expressive);
+}
+button.neutral:hover:not(:disabled) {
+  background: var(--surface-page);
+}
+button.neutral:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
