@@ -357,10 +357,6 @@ tbody tr:hover {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 30px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 28px;
-  align-items: center;
   margin-bottom: 18px;
 }
 .verdict {

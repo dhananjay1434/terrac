@@ -10,4 +10,12 @@ describe("CopyButton", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy hash" }));
     expect(writeText).toHaveBeenCalledWith("deadbeef");
   });
+
+  it("announces success via an aria-live region for screen-reader users", () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn() } });
+    render(<CopyButton value="deadbeef" label="Copy hash" />);
+    expect(screen.getByRole("status")).toHaveTextContent("");
+    fireEvent.click(screen.getByRole("button", { name: "Copy hash" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Copied");
+  });
 });

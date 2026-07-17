@@ -11,22 +11,10 @@ const EMPTY: LabForm = {
   dry_bulk_density: "",
 };
 
-// UI feedback only — the actual upload still goes through uploadLabCertificate.
-function readBytes(f: File): Promise<ArrayBuffer> {
-  if (typeof f.arrayBuffer === "function") return f.arrayBuffer();
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result as ArrayBuffer);
-    r.onerror = () => reject(r.error);
-    r.readAsArrayBuffer(f);
-  });
-}
-
-async function hashFile(f: File): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await readBytes(f));
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function LabEntry() {
@@ -34,7 +22,6 @@ export default function LabEntry() {
   const nav = useNavigate();
   const [form, setForm] = useState<LabForm>(EMPTY);
   const [cert, setCert] = useState<File | null>(null);
-  const [certHash, setCertHash] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -44,18 +31,6 @@ export default function LabEntry() {
 
   function set(k: keyof LabForm, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
-  }
-
-  async function onCertChange(file: File | null) {
-    setCert(file);
-    setCertHash(null);
-    if (file) {
-      try {
-        setCertHash(await hashFile(file));
-      } catch {
-        setCertHash(null);
-      }
-    }
   }
 
   async function submit(e: React.FormEvent) {
@@ -124,7 +99,7 @@ export default function LabEntry() {
             className="input-lg"
             type="file"
             accept="application/pdf"
-            onChange={(e) => onCertChange(e.target.files?.[0] ?? null)}
+            onChange={(e) => setCert(e.target.files?.[0] ?? null)}
           />
           <button className="primary" type="submit" disabled={busy}>
             {busy ? "Submitting…" : "Submit results"}
@@ -138,7 +113,7 @@ export default function LabEntry() {
         <aside className="card">
           <span className="micro">{GROUP_LABEL.lab}</span>
           <div style={{ marginTop: 10, fontSize: 13, fontWeight: 600 }}>
-            Rules that will be checked when you submit
+            Rules checked on submit
           </div>
           <ul
             style={{
@@ -154,15 +129,10 @@ export default function LabEntry() {
             <li>Dry bulk density in kg/m³</li>
           </ul>
           {cert && (
-            <div style={{ marginTop: 14 }}>
-              <span className="micro">Certificate SHA-256 (computed locally)</span>
-              <div
-                className="mono"
-                data-testid="cert-hash"
-                style={{ wordBreak: "break-all", marginTop: 4 }}
-              >
-                {certHash ?? "computing…"}
-              </div>
+            <div style={{ marginTop: 14 }} data-testid="cert-attached">
+              <span className="chip ok">
+                ✓ {cert.name} attached ({fmtBytes(cert.size)})
+              </span>
             </div>
           )}
         </aside>

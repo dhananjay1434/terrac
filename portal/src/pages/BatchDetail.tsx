@@ -10,7 +10,6 @@ import {
 } from "../api";
 import { getRole } from "../auth";
 import ComplianceChecklist from "../components/ComplianceChecklist/ComplianceChecklist";
-import CreditRing from "../components/CreditRing";
 import EvidenceGallery from "../components/EvidenceGallery/EvidenceGallery";
 import ConfirmModal from "../components/ConfirmModal/ConfirmModal";
 import VerificationChain from "../components/VerificationChain/VerificationChain";
@@ -228,24 +227,12 @@ export default function BatchDetail() {
             </div>
           )}
         </div>
-        <CreditRing okCount={okCount} total={total} />
       </div>
 
       <div className="tiles">
         <div className="card tile">
           <span className="micro">Production</span>
           <div className="v tabular">{d.batch.wet_yield_kg} kg</div>
-          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-            {Object.entries(d.evidence_counts).map(([k, v]) => (
-              <div
-                key={k}
-                style={{ display: "flex", justifyContent: "space-between" }}
-              >
-                <span className="micro">{k.replace(/_/g, " ")}</span>
-                <span className="tabular text-secondary">{v}</span>
-              </div>
-            ))}
-          </div>
         </div>
         <LcaBreakdown
           wetYieldKg={d.batch.wet_yield_kg}

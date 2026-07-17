@@ -57,4 +57,39 @@ describe("DataTable", () => {
     fireEvent.keyDown(first, { key: "Enter" });
     expect(onRowClick).toHaveBeenCalledWith(rows[0]);
   });
+
+  it("uses roving tabindex — only the active row is a tab stop", () => {
+    render(
+      <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} onRowClick={() => {}} />,
+    );
+    const first = screen.getByText("alpha").closest("tr")!;
+    const second = screen.getByText("beta").closest("tr")!;
+    expect(first.getAttribute("tabindex")).toBe("0");
+    expect(second.getAttribute("tabindex")).toBe("-1");
+    fireEvent.keyDown(first, { key: "ArrowDown" });
+    expect(first.getAttribute("tabindex")).toBe("-1");
+    expect(second.getAttribute("tabindex")).toBe("0");
+  });
+
+  it("Home/End jump to the first/last row", () => {
+    render(
+      <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} onRowClick={() => {}} />,
+    );
+    const first = screen.getByText("alpha").closest("tr")!;
+    const second = screen.getByText("beta").closest("tr")!;
+    first.focus();
+    fireEvent.keyDown(first, { key: "End" });
+    expect(document.activeElement).toBe(second);
+    fireEvent.keyDown(second, { key: "Home" });
+    expect(document.activeElement).toBe(first);
+  });
+
+  it("sets aria-busy while loading", () => {
+    const { rerender, container } = render(
+      <DataTable columns={columns} rows={[]} rowKey={(r: Row) => r.id} loading />,
+    );
+    expect(container.querySelector("table")?.getAttribute("aria-busy")).toBe("true");
+    rerender(<DataTable columns={columns} rows={rows} rowKey={(r) => r.id} />);
+    expect(container.querySelector("table")?.getAttribute("aria-busy")).toBe("false");
+  });
 });
