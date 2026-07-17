@@ -1,55 +1,20 @@
-import { Navigate, Route, Routes, useNavigate, useLocation } from "react-router-dom";
-import { clearSession, isAuthed } from "./auth";
-import { logout } from "./api";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { isAuthed } from "./auth";
 import Login from "./pages/Login";
 import Batches from "./pages/Batches";
 import BatchDetail from "./pages/BatchDetail";
 import LabScan from "./pages/LabScan";
 import LabEntry from "./pages/LabEntry";
 import Registry from "./pages/Registry";
+import AppShell from "./components/AppShell/AppShell";
 import type { JSX } from "react";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   return isAuthed() ? children : <Navigate to="/login" replace />;
 }
 
-function TopBar() {
-  const nav = useNavigate();
-  const loc = useLocation();
-  async function signOut() {
-    await logout();
-    clearSession();
-    nav("/login");
-  }
-  return (
-    <div className="top">
-      <div className="top-in">
-        <div className="mark">TC</div>
-        <div className="brand">
-          TerraCipher <span>| Verifier Portal</span>
-        </div>
-        <span className="spacer" />
-        <button className={`linkbtn ${loc.pathname.startsWith("/lab") ? "active" : ""}`} onClick={() => nav("/lab/scan")}>
-          Lab scan
-        </button>
-        <button className={`linkbtn ${loc.pathname === "/registry" ? "active" : ""}`} onClick={() => nav("/registry")}>
-          Registry
-        </button>
-        <button className="linkbtn" onClick={signOut}>
-          Sign out
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function Shell({ children }: { children: JSX.Element }) {
-  return (
-    <>
-      <TopBar />
-      {children}
-    </>
-  );
+  return <AppShell>{children}</AppShell>;
 }
 
 export default function App() {

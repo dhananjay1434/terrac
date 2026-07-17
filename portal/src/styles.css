@@ -43,6 +43,108 @@
   --duration-standard: 250ms;
   --ease-productive: cubic-bezier(0.2, 0, 0, 1);
   --ease-expressive: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* === Phase 1 tokens === */
+  /* basalt extensions — the six existing steps above are UNCHANGED */
+  --basalt-0:   #ffffff;
+  --basalt-200: #dbdee3;
+  --basalt-400: #9ca1ad;
+  --basalt-600: #585c68;
+  --basalt-800: #2e3138;
+  --basalt-900: #1b1d22;
+  /* ember scale (brand-warm accent for banners/reticles) */
+  --ember-50:  #fff7ed;
+  --ember-100: #ffedd5;
+  --ember-300: #fdba74;
+  --ember-500: #f97316;
+  --ember-600: #ea580c;
+  --ember-700: #c2410c;
+  /* verde scale (aligned to existing semantic greens) */
+  --verde-50:  #f0faf5;
+  --verde-500: #16a34a;
+  --verde-700: #0b663e;
+  /* semantic status aliases (single-value; -fg/-bg pairs above still canonical) */
+  --status-success: var(--green-700);
+  --status-warning: var(--amber-700);
+  --status-error: var(--red-700);
+  --status-inert: var(--basalt-500);
+  /* radius / shadow / border */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 12px;
+  --shadow-modal: 0 10px 15px -3px rgba(15, 17, 21, 0.1),
+                  0 4px 6px -4px rgba(15, 17, 21, 0.1);
+  --border-hair: 1px solid var(--border-subtle);
+  /* type scale */
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-32: 32px;
+  --fs-48: 48px;
+  --fs-64: 64px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --lh-tight: 1.2;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.7;
+  /* motion */
+  --dur-micro: 120ms;
+  --dur-trans: 200ms;
+  --dur-panel: 320ms;
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  /* layout */
+  --rail-w: 240px;
+  --rail-w-collapsed: 64px;
+  --topbar-h: 56px;
+  --content-max: 1280px;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* === Phase 1 dark mode — semantic remap only, primitives untouched === */
+[data-theme="dark"] {
+  --surface-page: var(--basalt-950);
+  --surface-card: var(--basalt-900);
+  --surface-brand-subtle: #221e4d;
+  --border-subtle: var(--basalt-800);
+  --border-strong: var(--basalt-600);
+  --text-primary: var(--basalt-50);
+  --text-secondary: var(--basalt-300);
+  --text-tertiary: var(--basalt-400);
+  --status-success-fg: #4ade80;
+  --status-success-bg: #0b3a26;
+  --status-warning-fg: #fdba74;
+  --status-warning-bg: #431a03;
+  --status-error-fg: #fca5a5;
+  --status-error-bg: #450a0a;
+  --action-primary-bg: var(--basalt-50);
+  --action-primary-hover: var(--basalt-300);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5),
+               0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 10px 15px -3px rgba(0, 0, 0, 0.6),
+                  0 4px 6px -4px rgba(0, 0, 0, 0.5);
+}
+/* inputs/selects/media-cells hardcode #fff backgrounds — remap them in dark */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] .media-cell {
+  background: var(--basalt-900);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .mark {
+  color: var(--basalt-0);
+}
+[data-theme="dark"] button.primary {
+  color: var(--basalt-950);
 }
 * {
   box-sizing: border-box;
@@ -685,6 +787,12 @@ button.neutral:disabled {
   cursor: not-allowed;
 }
 
+
+/* numeric authority: all table numerals align (Phase 1 of the shell plan) */
+td,
+th {
+  font-variant-numeric: tabular-nums;
+}
 
 /* --- Phase 5 Utilities --- */
 .text-tertiary { color: var(--text-tertiary); }
