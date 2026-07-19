@@ -1,18 +1,35 @@
+.wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
 .stamp {
+  --notch: 6px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
-  border-radius: var(--r-sm);
-  border: 1.5px solid;
+  padding: 6px 14px;
   font-size: var(--fs-13);
   font-weight: var(--fw-bold);
   letter-spacing: 0.04em;
+  border: 1.5px solid;
+  clip-path: polygon(
+    var(--notch) 0%, calc(100% - var(--notch)) 0%, 100% var(--notch),
+    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
+    var(--notch) 100%, 0% calc(100% - var(--notch)), 0% var(--notch)
+  );
 }
 .stamp[data-size="lg"] {
-  padding: var(--space-3) var(--space-4);
+  --notch: 9px;
+  padding: var(--space-3) var(--space-5);
   font-size: var(--fs-24);
   gap: var(--space-2);
+}
+.icon {
+  width: 1em;
+  height: 1em;
+  flex: none;
 }
 .stamp[data-verdict="ISSUABLE"] {
   color: var(--status-success);
@@ -29,8 +46,12 @@
   border-color: var(--status-error);
   background: var(--status-error-bg);
 }
-.count {
+.caption {
+  font-size: var(--fs-13);
+  color: var(--text-secondary);
   font-weight: var(--fw-medium);
-  font-size: var(--fs-12);
-  letter-spacing: 0;
+}
+.count {
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
 }

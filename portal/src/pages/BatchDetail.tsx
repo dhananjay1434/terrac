@@ -170,7 +170,7 @@ export default function BatchDetail() {
         <VerificationChain nodes={chainNodes} />
       </div>
       <div className="hero">
-        <div>
+        <div className="hero-verdict">
           <SealedVerdict
             size="lg"
             verdict={d.compliance.issuable ? "ISSUABLE" : "PROVISIONAL"}

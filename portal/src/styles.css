@@ -328,24 +328,32 @@ tbody tr:hover {
   background: var(--surface-card);
   border: var(--border-hair);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
   padding: var(--space-6);
   margin-bottom: var(--space-5);
   display: grid;
   grid-template-columns: 1.2fr 1fr;
   gap: var(--space-6);
-  align-items: start;
+  align-items: stretch;
 }
 @media (max-width: 900px) {
   .hero {
     grid-template-columns: 1fr;
   }
 }
+.hero-verdict {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 .hero-figure {
   border: var(--border-hair);
   border-radius: var(--r-lg);
   padding: var(--space-5);
-  background: var(--surface-page);
+  background: var(--surface-sunken);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .hero-facts {
   margin: var(--space-5) 0 0;
