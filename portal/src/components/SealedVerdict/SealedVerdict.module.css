@@ -6,6 +6,9 @@
 }
 .stamp {
   --notch: 6px;
+  --seal-border: 1.5px;
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -13,7 +16,17 @@
   font-size: var(--fs-13);
   font-weight: var(--fw-bold);
   letter-spacing: 0.04em;
-  border: 1.5px solid;
+  clip-path: polygon(
+    var(--notch) 0%, calc(100% - var(--notch)) 0%, 100% var(--notch),
+    100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
+    var(--notch) 100%, 0% calc(100% - var(--notch)), 0% var(--notch)
+  );
+}
+.stamp::before {
+  content: "";
+  position: absolute;
+  inset: var(--seal-border);
+  z-index: -1;
   clip-path: polygon(
     var(--notch) 0%, calc(100% - var(--notch)) 0%, 100% var(--notch),
     100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%,
@@ -22,6 +35,7 @@
 }
 .stamp[data-size="lg"] {
   --notch: 9px;
+  --seal-border: 2px;
   padding: var(--space-3) var(--space-5);
   font-size: var(--fs-24);
   gap: var(--space-2);
@@ -31,21 +45,12 @@
   height: 1em;
   flex: none;
 }
-.stamp[data-verdict="ISSUABLE"] {
-  color: var(--status-success);
-  border-color: var(--status-success);
-  background: var(--status-success-bg);
-}
-.stamp[data-verdict="PROVISIONAL"] {
-  color: var(--status-warning);
-  border-color: var(--status-warning);
-  background: var(--status-warning-bg);
-}
-.stamp[data-verdict="BLOCKED"] {
-  color: var(--status-error);
-  border-color: var(--status-error);
-  background: var(--status-error-bg);
-}
+.stamp[data-verdict="ISSUABLE"] { color: var(--status-success); background: var(--status-success); }
+.stamp[data-verdict="ISSUABLE"]::before { background: var(--status-success-bg); }
+.stamp[data-verdict="PROVISIONAL"] { color: var(--status-warning); background: var(--status-warning); }
+.stamp[data-verdict="PROVISIONAL"]::before { background: var(--status-warning-bg); }
+.stamp[data-verdict="BLOCKED"] { color: var(--status-error); background: var(--status-error); }
+.stamp[data-verdict="BLOCKED"]::before { background: var(--status-error-bg); }
 .caption {
   font-size: var(--fs-13);
   color: var(--text-secondary);
@@ -54,4 +59,5 @@
 .count {
   font-weight: var(--fw-semibold);
   color: var(--text-primary);
+  margin-left: 8px;
 }

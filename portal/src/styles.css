@@ -161,6 +161,10 @@
 [data-theme="dark"] button.primary {
   color: var(--basalt-0);
 }
+[data-theme="dark"] button.primary:disabled {
+  background: var(--basalt-800);
+  color: var(--basalt-400);
+}
 /* indigo used as TEXT/link (not a large fill) needs the lighter dark-mode tint
    to keep ≥4.5:1 on the dark card surface — --indigo-600 itself is only ~3.5:1
    on --basalt-900, fine for large fills/icons, not for body text or links. */
@@ -354,6 +358,7 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-start;
 }
 .hero-figure {
   border: var(--border-hair);
@@ -447,8 +452,11 @@ a.back {
   letter-spacing: 0.06em;
 }
 button.primary:disabled {
-  opacity: 0.5;
+  background: var(--surface-sunken);
+  color: var(--text-tertiary);
+  opacity: 1;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* --- Phase 2: Batch Detail --- */
