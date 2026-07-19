@@ -137,8 +137,8 @@ export default function LabScan() {
             width: "52%",
             aspectRatio: "1 / 1",
             maxHeight: "70%",
-            border: "2px solid var(--ember-500)",
-            borderRadius: "var(--r-xl)",
+            border: "2px solid rgba(255, 255, 255, 0.9)",
+            borderRadius: "var(--r-lg)",
             pointerEvents: "none",
           }}
         />

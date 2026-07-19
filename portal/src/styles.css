@@ -214,9 +214,7 @@ code, .mono {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
-.field-label {
-  text-transform: capitalize;
-}
+
 .amber-tag {
   color: var(--status-warning-fg);
 }

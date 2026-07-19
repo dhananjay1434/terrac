@@ -67,7 +67,7 @@ function Form({
           const id = `${scope}-${f.key}`;
           return (
             <div key={f.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <label className="micro field-label" htmlFor={id}>
+              <label className="micro" htmlFor={id}>
                 {f.label}
               </label>
               <input
@@ -82,7 +82,7 @@ function Form({
             </div>
           );
         })}
-        <button className="primary" type="submit" disabled={busy}>
+        <button className="primary" type="submit" disabled={busy} style={{ alignSelf: "flex-end" }}>
           Save
         </button>
       </div>
@@ -160,11 +160,11 @@ export default function Registry() {
               </>
             }
             fields={[
-              { key: "kiln_id", label: "kiln id", required: true },
-              { key: "kiln_type", label: "type (open/closed)" },
-              { key: "material", label: "material" },
-              { key: "weight_kg", label: "weight kg", type: "number" },
-              { key: "capacity_l", label: "capacity litres", type: "number" },
+              { key: "kiln_id", label: "Kiln ID", required: true },
+              { key: "kiln_type", label: "Type (open/closed)" },
+              { key: "material", label: "Material" },
+              { key: "weight_kg", label: "Weight (kg)", type: "number" },
+              { key: "capacity_l", label: "Capacity (litres)", type: "number" },
             ]}
             onSubmit={submitKiln}
           />
@@ -196,9 +196,9 @@ export default function Registry() {
             <Form
               title="Supervisor visit"
               fields={[
-                { key: "kiln_id", label: "kiln id" },
-                { key: "visited_at", label: "visit date", type: "date" },
-                { key: "notes", label: "notes" },
+                { key: "kiln_id", label: "Kiln ID" },
+                { key: "visited_at", label: "Visit date", type: "date" },
+                { key: "notes", label: "Notes" },
               ]}
               onSubmit={(val) =>
                 registryPost("supervisor-visit", {
@@ -212,9 +212,9 @@ export default function Registry() {
             <Form
               title="Scale calibration (C8)"
               fields={[
-                { key: "scale_id", label: "scale id" },
-                { key: "calibrated_at", label: "calibrated at", type: "date" },
-                { key: "valid_until", label: "valid until", type: "date" },
+                { key: "scale_id", label: "Scale ID" },
+                { key: "calibrated_at", label: "Calibrated at", type: "date" },
+                { key: "valid_until", label: "Valid until", type: "date" },
               ]}
               onSubmit={(val) =>
                 registryPost("scale-calibration", {
@@ -233,9 +233,9 @@ export default function Registry() {
             <Form
               title="Operator training"
               fields={[
-                { key: "operator_id", label: "operator id" },
-                { key: "completed_at", label: "completed date", type: "date" },
-                { key: "training_type", label: "training type" },
+                { key: "operator_id", label: "Operator ID" },
+                { key: "completed_at", label: "Completed date", type: "date" },
+                { key: "training_type", label: "Training type" },
               ]}
               onSubmit={(val) =>
                 registryPost("operator-training", {
@@ -294,9 +294,9 @@ export default function Registry() {
               </>
             }
             fields={[
-              { key: "project_id", label: "project id" },
-              { key: "year", label: "year", type: "number" },
-              { key: "methane_rate_g_per_kg", label: "methane g/kg", type: "number" },
+              { key: "project_id", label: "Project ID" },
+              { key: "year", label: "Year", type: "number" },
+              { key: "methane_rate_g_per_kg", label: "Methane (g/kg)", type: "number" },
             ]}
             onSubmit={(val) =>
               registryPost("annual-verification", {

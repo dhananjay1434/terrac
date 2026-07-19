@@ -42,17 +42,17 @@ describe("Registry page", () => {
       .getByText("Register kiln (C8)")
       .closest("form")!;
     fireEvent.change(
-      within(kilnForm).getByLabelText("kiln id"),
+      within(kilnForm).getByLabelText("Kiln ID"),
       { target: { value: "kiln-9" } },
     );
     fireEvent.change(
-      within(kilnForm).getByLabelText("type (open/closed)"),
+      within(kilnForm).getByLabelText("Type (open/closed)"),
       { target: { value: "open" } },
     );
-    fireEvent.change(within(kilnForm).getByLabelText("material"), {
+    fireEvent.change(within(kilnForm).getByLabelText("Material"), {
       target: { value: "steel" },
     });
-    fireEvent.change(within(kilnForm).getByLabelText("weight kg"), {
+    fireEvent.change(within(kilnForm).getByLabelText("Weight (kg)"), {
       target: { value: "12" },
     });
     fireEvent.click(within(kilnForm).getByRole("button", { name: "Save" }));
@@ -79,10 +79,10 @@ describe("Registry page", () => {
   it("binds a real <label> to the kiln id input, not just a placeholder", () => {
     renderPage();
     const kilnForm = screen.getByText("Register kiln (C8)").closest("form")!;
-    const input = within(kilnForm).getByLabelText("kiln id");
+    const input = within(kilnForm).getByLabelText("Kiln ID");
     const label = kilnForm.querySelector(`label[for="${input.id}"]`);
     expect(label).not.toBeNull();
-    expect(label?.textContent).toBe("kiln id");
+    expect(label?.textContent).toBe("Kiln ID");
   });
 
   it("renders date fields with a native date input type", () => {
@@ -90,7 +90,7 @@ describe("Registry page", () => {
     const supervisorForm = screen
       .getByText("Supervisor visit")
       .closest("form")!;
-    const dateInput = within(supervisorForm).getByLabelText("visit date");
+    const dateInput = within(supervisorForm).getByLabelText("Visit date");
     expect(dateInput).toHaveAttribute("type", "date");
   });
 });
