@@ -23,7 +23,7 @@ import { fmtCredit } from "../format";
 export const STEP_ORDER = [
   "batch_photo", "flame_curtain", "quenching", "flame_height",
   "smoke_0", "0", "smoke_50", "50", "smoke_90", "90", "smoke_100", "100",
-  "lab_certificate",
+  "post_burn_mass", "packaging", "end_use", "lab_certificate",
 ];
 
 export const STEP_TITLES: Record<string, string> = {
@@ -37,6 +37,7 @@ export const STEP_TITLES: Record<string, string> = {
   smoke_100: "Smoke opacity — 100%", "100": "Smoke opacity — 100%",
   post_burn_mass: "Post-burn mass",
   packaging: "Packaging",
+  end_use: "End use — field application",
   lab_certificate: "Lab certificate",
   other: "Other / Uncategorized"
 };

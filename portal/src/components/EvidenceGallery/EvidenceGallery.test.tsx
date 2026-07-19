@@ -42,6 +42,21 @@ describe("EvidenceGallery", () => {
     expect(screen.queryByText(/Smoke opacity — 50%/)).not.toBeInTheDocument();
   });
 
+  it("renders a source-stamped end_use photo under its own named section, not Other", () => {
+    const withEndUse = [
+      ...ITEMS,
+      media({ operation_id: "o4", sha256_hash: "h4", capture_type: "end_use" }),
+    ];
+    render(<EvidenceGallery media={withEndUse} />);
+    expect(
+      screen.getByRole("heading", {
+        level: 3,
+        name: /End use — field application/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Other \/ Uncategorized/)).not.toBeInTheDocument();
+  });
+
   it("filter tabs narrow the visible chapters client-side", () => {
     render(<EvidenceGallery media={ITEMS} />);
     fireEvent.click(screen.getByRole("tab", { name: "Certificates" }));
