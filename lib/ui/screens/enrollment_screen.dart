@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/enrollment_qr.dart';
 import '../../services/api_base.dart';
 import '../../services/crypto_signer.dart';
 import '../components/dmrv_button.dart';
@@ -102,6 +103,28 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen> {
   bool get _canEnroll =>
       _tokenCtrl.text.trim().isNotEmpty && _urlCtrl.text.trim().isNotEmpty;
 
+  /// When the operator pastes a full `dmrv-enroll:v1:...` payload into the token
+  /// field, split it: keep only the bare token here and drop the server URL into
+  /// the URL field. A URL-less payload leaves the URL field untouched so a
+  /// hand-entered address survives. A bare token (no prefix) is left as-is —
+  /// the existing manual flow is unchanged.
+  void _onTokenChanged(String value) {
+    final payload = parseEnrollmentQr(value);
+    if (payload != null) {
+      _tokenCtrl.value = TextEditingValue(
+        text: payload.token,
+        selection: TextSelection.collapsed(offset: payload.token.length),
+      );
+      if (payload.url.isNotEmpty) {
+        _urlCtrl.value = TextEditingValue(
+          text: payload.url,
+          selection: TextSelection.collapsed(offset: payload.url.length),
+        );
+      }
+    }
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
@@ -133,7 +156,13 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen> {
             ),
             SizedBox(height: t.gapXL),
             _field(t, 'ENROLLMENT TOKEN', _tokenCtrl, 'enrollment-token-input',
-                'paste token'),
+                'paste token', onChanged: _onTokenChanged),
+            SizedBox(height: t.gapS),
+            Text(
+              'Tip: paste the whole enrollment code — the server URL fills in '
+              'automatically.',
+              style: t.body.copyWith(color: t.textSecondary),
+            ),
             SizedBox(height: t.gapL),
             _field(t, 'SERVER URL', _urlCtrl, 'enrollment-url-input',
                 'https://…'),
@@ -191,8 +220,9 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen> {
     String label,
     TextEditingController controller,
     String testId,
-    String hint,
-  ) {
+    String hint, {
+    ValueChanged<String>? onChanged,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -214,7 +244,7 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen> {
               enableSuggestions: false,
               cursorColor: t.accentText,
               style: t.body.copyWith(color: t.textPrimary),
-              onChanged: (_) => setState(() {}),
+              onChanged: onChanged ?? (_) => setState(() {}),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 isCollapsed: true,

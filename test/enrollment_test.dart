@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dmrv_app/services/api_base.dart';
 import 'package:dmrv_app/ui/screens/enrollment_screen.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -99,6 +100,54 @@ void main() {
       final s = container.read(enrollmentControllerProvider);
       expect(s.status, EnrollmentStatus.failed);
       expect(s.error, contains('Token invalid or already used'));
+    });
+  });
+
+  group('EnrollmentScreen paste-to-autofill', () {
+    Future<void> pump(WidgetTester tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(home: EnrollmentScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    // The token field is the first TextField on the screen, the URL field the
+    // second (their build order in EnrollmentScreen).
+    Finder tokenField() => find.byType(TextField).first;
+
+    testWidgets('pasting a full dmrv-enroll payload splits url + token',
+        (tester) async {
+      await pump(tester);
+
+      await tester.enterText(
+        tokenField(),
+        'dmrv-enroll:v1:{"url":"https://dmrv-api.onrender.com","token":"NCt_ABC"}',
+      );
+      await tester.pumpAndSettle();
+
+      // Token field is reduced to the bare token; URL field is filled.
+      expect(find.text('NCt_ABC'), findsOneWidget);
+      expect(find.text('https://dmrv-api.onrender.com'), findsOneWidget);
+      // The raw payload string must NOT remain in any field.
+      expect(find.textContaining('dmrv-enroll:v1:'), findsNothing);
+    });
+
+    testWidgets('pasting a bare token leaves it as-is (manual flow intact)',
+        (tester) async {
+      await pump(tester);
+
+      await tester.enterText(
+        tokenField(),
+        'NCt_VLaTnV9oMnpk8gdelqWyhqA7aP2PNxVW7irq7S8',
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('NCt_VLaTnV9oMnpk8gdelqWyhqA7aP2PNxVW7irq7S8'),
+        findsOneWidget,
+      );
     });
   });
 }
