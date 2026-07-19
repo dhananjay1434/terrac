@@ -99,7 +99,7 @@ describe("Batches page", () => {
     });
     await waitFor(() => {
       expect(mockList).toHaveBeenLastCalledWith(
-        expect.objectContaining({ status: "ISSUED", limit: "50" }),
+        expect.objectContaining({ status: "ISSUED", limit: "25" }),
       );
     });
   });
@@ -171,7 +171,7 @@ describe("Batches page", () => {
     }
   });
 
-  it("empty-while-filtered copy differs from empty-global, and warns when more pages exist", async () => {
+  it("page-local search empty copy differs from global empty", async () => {
     mockList.mockResolvedValue({
       batches: FIXTURE,
       next_cursor: "some-cursor",
@@ -184,11 +184,45 @@ describe("Batches page", () => {
       { target: { value: "no-such-device" } },
     );
 
-    expect(await screen.findByText("No matches in the loaded rows")).toBeInTheDocument();
+    expect(await screen.findByText("No matches on this page")).toBeInTheDocument();
     expect(
-      screen.getByText(/Load more rows, or refine your search/),
+      screen.getByText(/Clear the search to page through all results/),
     ).toBeInTheDocument();
     expect(screen.queryByText("No batches found")).not.toBeInTheDocument();
+  });
+
+  it("pages forward with next_cursor and back via the cursor stack", async () => {
+    mockList.mockResolvedValueOnce({ batches: FIXTURE, next_cursor: "cur-2" });
+    renderPage();
+    await screen.findByText("dev-1");
+
+    mockList.mockResolvedValueOnce({
+      batches: [
+        {
+          ...FIXTURE[0],
+          batch_uuid: "cccc1111-2222-3333-4444-555566667777",
+          device_id: "dev-3",
+        },
+      ],
+      next_cursor: null,
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Next/ }));
+    await screen.findByText("dev-3");
+    expect(mockList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ before: "cur-2", limit: "25" }),
+    );
+    expect(screen.getByText(/Page 2/)).toBeInTheDocument();
+
+    expect(screen.getByRole("button", { name: /Next/ })).toBeDisabled();
+
+    mockList.mockResolvedValueOnce({ batches: FIXTURE, next_cursor: "cur-2" });
+    fireEvent.click(screen.getByRole("button", { name: /Previous/ }));
+    await screen.findByText("dev-1");
+    expect(mockList).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ before: expect.anything() }),
+    );
+    expect(screen.getByText(/Page 1/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Previous/ })).toBeDisabled();
   });
 
   it("shows the summary stat-band once getSummary resolves", async () => {

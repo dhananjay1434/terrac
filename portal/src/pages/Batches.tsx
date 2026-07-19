@@ -39,6 +39,10 @@ function viewFromFilters(status: string, provisional: string): ViewKey | null {
   );
 }
 
+// Fixed page size for cursor pagination — each page is one listBatches call,
+// so memory is O(PAGE_SIZE) regardless of how many batches exist in total.
+const PAGE_SIZE = 25;
+
 function CopyId({ uuid }: { uuid: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -66,7 +70,14 @@ export default function Batches() {
     initialRawView in VIEWS ? (initialRawView as ViewKey) : "all";
 
   const [rows, setRows] = useState<BatchRow[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
+  // Current page only — never accumulated — so memory stays O(PAGE_SIZE).
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  // The "before" cursor that produced the CURRENTLY visible page (null on
+  // page 1). prevStack holds the "before" cursors of every earlier page so
+  // "Previous" can pop back through them without re-deriving anything.
+  const [currentBefore, setCurrentBefore] = useState<string | null>(null);
+  const [prevStack, setPrevStack] = useState<(string | null)[]>([]);
+  const [pageIndex, setPageIndex] = useState(1);
   const [status, setStatus] = useState<string>(() => VIEWS[initialView].status);
   const [provisional, setProvisional] = useState<string>(
     () => VIEWS[initialView].provisional,
@@ -81,18 +92,18 @@ export default function Batches() {
     ReturnType<typeof getSummary>
   > | null>(null);
 
-  const load = useCallback(
-    async (reset: boolean) => {
+  const fetchPage = useCallback(
+    async (before: string | null) => {
       setLoading(true);
       setErr(null);
       try {
-        const params: Record<string, string> = { limit: "50" };
+        const params: Record<string, string> = { limit: String(PAGE_SIZE) };
         if (status) params.status = status;
         if (provisional) params.provisional = provisional;
-        if (!reset && cursor) params.before = cursor;
+        if (before) params.before = before;
         const r = await listBatches(params);
-        setRows((prev) => (reset ? r.batches : [...prev, ...r.batches]));
-        setCursor(r.next_cursor);
+        setRows(r.batches);
+        setNextCursor(r.next_cursor);
       } catch (e) {
         if (e instanceof AuthError) nav("/login");
         else setErr("Failed to load batches.");
@@ -100,17 +111,39 @@ export default function Batches() {
         setLoading(false);
       }
     },
-    [status, provisional, cursor, nav],
+    [status, provisional, nav],
   );
 
-  // Reload from scratch whenever a filter changes. The URL mirrors the
-  // resolved view (or drops the param for "all"/no match) — it is written
-  // FROM state, never read back into it, so it can't drift out of sync.
+  // Reload from scratch (back to page 1, fresh cursor stack) whenever a
+  // filter changes. The URL mirrors the resolved view (or drops the param
+  // for "all"/no match) — it is written FROM state, never read back into it,
+  // so it can't drift out of sync.
   useEffect(() => {
-    load(true);
+    setPrevStack([]);
+    setCurrentBefore(null);
+    setPageIndex(1);
+    fetchPage(null);
     setSearchParams(view && view !== "all" ? { view } : {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, provisional]);
+
+  function goNext() {
+    if (!nextCursor) return;
+    setPrevStack((s) => [...s, currentBefore]);
+    setCurrentBefore(nextCursor);
+    setPageIndex((n) => n + 1);
+    fetchPage(nextCursor);
+  }
+  function goPrev() {
+    setPrevStack((s) => {
+      const copy = [...s];
+      const target = copy.pop() ?? null;
+      setCurrentBefore(target);
+      setPageIndex((n) => Math.max(1, n - 1));
+      fetchPage(target);
+      return copy;
+    });
+  }
 
   useEffect(() => {
     document.title = "Batches · TerraCipher";
@@ -118,7 +151,7 @@ export default function Batches() {
 
   // Fire-and-forget: the summary band is a supplementary signal, not the
   // page's primary data source, so a failure here must never block the
-  // table or trigger a redirect — load() already owns AuthError handling.
+  // table or trigger a redirect — fetchPage() already owns AuthError handling.
   useEffect(() => {
     getSummary()
       .then(setSummary)
@@ -232,7 +265,7 @@ export default function Batches() {
             value={fmtCredit(
               rows.reduce((sum, b) => sum + b.net_credit_t_co2e, 0),
             )}
-            hint="loaded rows"
+            hint="this page"
           />
         </div>
       )}
@@ -284,7 +317,11 @@ export default function Batches() {
           <span className="err" style={{ margin: 0 }}>
             {err}
           </span>
-          <button className="neutral" type="button" onClick={() => load(true)}>
+          <button
+            className="neutral"
+            type="button"
+            onClick={() => fetchPage(currentBefore)}
+          >
             Retry
           </button>
         </div>
@@ -299,12 +336,8 @@ export default function Batches() {
         empty={
           q && rows.length > 0 ? (
             <EmptyState
-              title="No matches in the loaded rows"
-              description={
-                cursor
-                  ? "This filters only what's loaded so far. Load more rows, or refine your search."
-                  : "No loaded batch or device matches. Try a different search."
-              }
+              title="No matches on this page"
+              description="Search filters the current page only. Clear the search to page through all results."
             />
           ) : (
             <EmptyState
@@ -315,29 +348,29 @@ export default function Batches() {
         }
       />
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: 12,
-        }}
-      >
-        <span className="micro">
-          Showing {displayed.length}{" "}
-          {cursor ? "loaded" : "row" + (displayed.length === 1 ? "" : "s")}
+      <nav className="pager" aria-label="Batches pagination">
+        <button
+          className="neutral"
+          type="button"
+          onClick={goPrev}
+          disabled={loading || prevStack.length === 0}
+        >
+          ‹ Previous
+        </button>
+        <span className="micro pager-status" aria-live="polite">
+          Page {pageIndex}
+          {rows.length > 0 &&
+            ` · ${rows.length} row${rows.length === 1 ? "" : "s"}`}
         </span>
-        {cursor && (
-          <button
-            className="linkbtn"
-            type="button"
-            onClick={() => load(false)}
-            disabled={loading}
-          >
-            {loading ? "Loading…" : "Load more"}
-          </button>
-        )}
-      </div>
+        <button
+          className="neutral"
+          type="button"
+          onClick={goNext}
+          disabled={loading || !nextCursor}
+        >
+          Next ›
+        </button>
+      </nav>
     </div>
   );
 }

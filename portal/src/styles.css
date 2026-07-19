@@ -341,6 +341,16 @@ tbody tr {
 tbody tr:hover {
   background: var(--surface-page);
 }
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+.pager-status {
+  color: var(--text-secondary);
+}
 /* hero */
 .hero {
   background: var(--surface-card);
