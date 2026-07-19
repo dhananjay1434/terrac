@@ -50,12 +50,38 @@
 .content {
   padding: 0 18px 14px;
 }
-.code {
-  color: var(--text-tertiary);
+.row {
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  margin: 0 -10px;
+  border-left: 3px solid transparent;
+}
+.row[data-status="blocking"] {
+  background: var(--status-error-bg);
+  border-left-color: var(--status-error);
+}
+.blockingIcon {
+  color: var(--status-error);
   flex: none;
 }
+.labelCol {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.code {
+  color: var(--text-tertiary);
+  font-size: var(--fs-12);
+  flex: none;
+}
+.enforcement {
+  background: var(--surface-sunken);
+  color: var(--text-tertiary);
+  font-weight: var(--fw-medium);
+}
 .ok { color: var(--status-success); }
-.blocking { color: var(--status-warning); }
+.blocking { color: var(--status-error); font-weight: var(--fw-bold); }
 .inert { color: var(--status-inert); }
 
 .miniNav {

@@ -1,5 +1,5 @@
 import * as Accordion from "@radix-ui/react-accordion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, AlertTriangle } from "lucide-react";
 import type { ChecklistItem } from "../../api";
 import { groupChecklist, statusOf, type ItemStatus } from "../../compliance";
 import StatusDot from "../StatusDot/StatusDot";
@@ -78,13 +78,29 @@ export default function ComplianceChecklist({
                   {sorted.map((item) => {
                     const st = statusOf(item);
                     return (
-                      <li key={item.code} className="crit" data-status={st}>
-                        <StatusDot variant={DOT_VARIANT[st]} />
-                        <span className={`mono ${styles.code}`}>
-                          {item.code}
+                      <li
+                        key={item.code}
+                        className={`crit ${styles.row}`}
+                        data-status={st}
+                      >
+                        {st === "blocking" ? (
+                          <AlertTriangle
+                            size={16}
+                            aria-hidden
+                            className={styles.blockingIcon}
+                          />
+                        ) : (
+                          <StatusDot variant={DOT_VARIANT[st]} />
+                        )}
+                        <span className={styles.labelCol}>
+                          <span className="crit-label">{item.label}</span>
+                          <span className={`mono ${styles.code}`}>
+                            {item.code}
+                          </span>
                         </span>
-                        <span className="crit-label">{item.label}</span>
-                        <span className="chip">{item.enforcement}</span>
+                        <span className={`chip ${styles.enforcement}`}>
+                          {item.enforcement}
+                        </span>
                         <span
                           className={`crit-status micro ${styles[st]}`}
                         >
