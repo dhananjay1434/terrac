@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dmrv_app/data/local/app_database.dart';
 import 'package:dmrv_app/data/local/yield_end_use_writers.dart';
+import 'package:dmrv_app/services/sync_queue_manager.dart';
 import 'package:dmrv_app/ui/screens/end_use_application_screen.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -109,7 +110,7 @@ void main() {
       expect(payload['buyer_contact'], '+91-99999-00000');
     });
 
-    test('stamps capture_type=end_use so the farmer photo is classified at source', () async {
+    test('does NOT put capture_type in the JSON body (strict metadata endpoint rejects extras); it is derived from the table', () async {
       await db.customStatement(
         'INSERT INTO system_metadata '
         '(batch_uuid, artisan_id, device_hardware_mac, app_build_version, '
@@ -133,7 +134,11 @@ void main() {
       )..where((t) => t.targetTable.equals('end_use_application'))).getSingle();
       final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
 
-      expect(payload['capture_type'], 'end_use');
+      // The JSON metadata POST body must stay clean — capture_type here caused
+      // the server's 422 extra_forbidden. Classification is derived from the
+      // target table and forwarded only as the media X-Capture-Type header.
+      expect(payload.containsKey('capture_type'), isFalse);
+      expect(kCaptureTypeByTable['end_use_application'], 'end_use');
     });
   });
 }

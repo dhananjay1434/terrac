@@ -12,7 +12,6 @@ import 'package:uuid/uuid.dart';
 
 import 'app_database.dart';
 import '../../services/crypto_signer.dart';
-import '../capture_types.dart';
 
 const _uuid = Uuid();
 
@@ -121,7 +120,6 @@ extension EndUseWriter on AppDatabase {
       'delivered_amount_kg': deliveredAmountKg,
       'buyer_name': buyerName,
       'buyer_contact': buyerContact,
-      'capture_type': CaptureType.endUse,
     };
 
     await insertWithOutbox(

@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:workmanager/workmanager.dart';
 
+import '../data/capture_types.dart';
 import '../data/local/app_database.dart';
 import '../data/local/database_provider.dart';
 import 'api_base.dart';
@@ -57,6 +58,21 @@ const Map<String, String> kEndpointByTable = <String, String>{
   'moisture_readings': 'moisture',
   'composite_pile_samples': 'composite-sample',
   'transport_events': 'transport',
+};
+
+/// Evidence classification for a photo carried by a JSON-metadata row, keyed by
+/// its target table. The type is DETERMINISTIC per record kind (a
+/// biomass_sourcing row's photo is always the batch anchor; an
+/// end_use_application row's photo is always the farmer field-application shot),
+/// so it is derived here — NOT threaded through the signed JSON payload, whose
+/// schema the metadata endpoints strictly validate (extra_forbidden). This is
+/// forwarded only as the media endpoint's X-Capture-Type header. Tables absent
+/// here carry no auto-classification (their photos stay unclassified until the
+/// signed-telemetry labeler or a manual step types them). The `media` target is
+/// intentionally excluded — those rows carry their own capture_type in-payload.
+const Map<String, String> kCaptureTypeByTable = <String, String>{
+  'biomass_sourcing': CaptureType.batchPhoto,
+  'end_use_application': CaptureType.endUse,
 };
 
 /// Resolve the sync endpoint for [targetTable]. Throws [StateError] for an
@@ -539,8 +555,14 @@ class SyncQueueManager {
           isMock = payload['mock_location_enabled'] == true;
         }
 
+        // `media` rows carry capture_type in their own payload; JSON-metadata
+        // rows (biomass_sourcing / end_use_application) derive it from the
+        // target table so it never enters the strictly-validated JSON body.
+        final captureType =
+            (payload['capture_type'] as String?) ??
+            kCaptureTypeByTable[entry.targetTable];
+
         if (entry.targetTable == 'media') {
-          final captureType = payload['capture_type'];
           debugPrint(
             '[SyncQueue] Preparing CAS media upload for $captureType (Mocked GPS: $isMock)',
           );
@@ -562,7 +584,7 @@ class SyncQueueManager {
             file: file,
             declaredSha256: declaredSha256,
             isMockLocation: isMock,
-            captureType: payload['capture_type'] as String?,
+            captureType: captureType,
           );
         } else if (entry.targetTable == 'media' || declaredSha256 != null) {
           // Fix 3: Prevent unverified payloads/media from marking as SYNCED

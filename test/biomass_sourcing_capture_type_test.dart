@@ -1,12 +1,16 @@
 import 'dart:convert';
 
 import 'package:dmrv_app/data/local/app_database.dart';
+import 'package:dmrv_app/services/sync_queue_manager.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// V5 — the batch anchor photo must be stamped `capture_type=batch_photo` at
-/// the outbox boundary, not left null for a backend backfill to guess later.
+/// V5 — the batch anchor photo is classified as `batch_photo`, but the
+/// classification is DERIVED from the target table and forwarded only as the
+/// media X-Capture-Type header. It must NOT be written into the JSON metadata
+/// body: /batches is a strict endpoint that rejects unknown fields (422
+/// extra_forbidden), which is the regression this test guards against.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -20,7 +24,7 @@ void main() {
 
     tearDown(() async => db.close());
 
-    test('stamps capture_type=batch_photo so the anchor photo is classified at source', () async {
+    test('does NOT put capture_type in the JSON body; it is derived from the table', () async {
       await db.insertBiomassSourcingWithOutbox(
         batchUuid: 'b1',
         feedstockSpecies: 'bamboo',
@@ -36,7 +40,8 @@ void main() {
       )..where((t) => t.targetTable.equals('biomass_sourcing'))).getSingle();
       final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
 
-      expect(payload['capture_type'], 'batch_photo');
+      expect(payload.containsKey('capture_type'), isFalse);
+      expect(kCaptureTypeByTable['biomass_sourcing'], 'batch_photo');
     });
   });
 }
