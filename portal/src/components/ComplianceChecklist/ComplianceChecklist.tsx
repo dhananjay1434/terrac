@@ -98,9 +98,11 @@ export default function ComplianceChecklist({
                             {item.code}
                           </span>
                         </span>
-                        <span className={`chip ${styles.enforcement}`}>
-                          {item.enforcement}
-                        </span>
+                        {item.enforcement !== "enforced" && (
+                          <span className={`chip ${styles.enforcement}`}>
+                            {item.enforcement}
+                          </span>
+                        )}
                         <span
                           className={`crit-status micro ${styles[st]}`}
                         >

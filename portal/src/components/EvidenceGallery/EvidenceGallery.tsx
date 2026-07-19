@@ -173,7 +173,6 @@ export default function EvidenceGallery({ media }: { media: MediaItem[] }) {
               {gi + 1}. {titleOf(stage)} · {items.length} item
               {items.length === 1 ? "" : "s"}
             </h3>
-            <div className="chip">{items.length}</div>
           </div>
           <div className="media-grid">
             {items.map((m) => (

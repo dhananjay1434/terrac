@@ -28,9 +28,6 @@ export default function LcaBreakdown({
           </span>
         </li>
       </ul>
-      <div className={styles.note}>
-        Full LCA factor breakdown is not exposed by the API yet.
-      </div>
     </div>
   );
 }

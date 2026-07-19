@@ -126,7 +126,6 @@ export default function BatchDetail() {
         <div className="tiles" style={{ marginBottom: 14 }}>
           <div className="skeleton" style={{ height: 72 }}></div>
           <div className="skeleton" style={{ height: 72 }}></div>
-          <div className="skeleton" style={{ height: 72 }}></div>
         </div>
         <div className="skeleton" style={{ height: 200, marginBottom: 14 }}></div>
         <div className="skeleton" style={{ height: 300 }}></div>
@@ -163,12 +162,7 @@ export default function BatchDetail() {
 
   return (
     <div className="wrap">
-      <Link className="back" to="/batches">
-        ← All batches
-      </Link>
-      <div style={{ marginTop: 12 }}>
-        <VerificationChain nodes={chainNodes} />
-      </div>
+      <VerificationChain nodes={chainNodes} />
       <div className="hero">
         <div className="hero-verdict">
           <SealedVerdict
@@ -247,10 +241,6 @@ export default function BatchDetail() {
       </div>
 
       <div className="tiles">
-        <div className="card tile">
-          <span className="micro">Production</span>
-          <div className="v tabular">{d.batch.wet_yield_kg} kg</div>
-        </div>
         <LcaBreakdown
           wetYieldKg={d.batch.wet_yield_kg}
           netCreditTCo2e={d.batch.net_credit_t_co2e}

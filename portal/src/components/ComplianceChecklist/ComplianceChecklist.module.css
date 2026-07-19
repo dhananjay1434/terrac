@@ -80,6 +80,9 @@
   color: var(--text-tertiary);
   font-weight: var(--fw-medium);
 }
+.row[data-status="ok"] .labelCol > :first-child {
+  color: var(--text-secondary);
+}
 .ok { color: var(--status-success); }
 .blocking { color: var(--status-error); font-weight: var(--fw-bold); }
 .inert { color: var(--status-inert); }

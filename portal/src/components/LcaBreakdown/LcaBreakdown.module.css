@@ -21,8 +21,4 @@
   font-weight: var(--fw-medium);
   color: var(--text-primary);
 }
-.note {
-  margin-top: 10px;
-  font-size: var(--fs-12);
-  color: var(--text-tertiary);
-}
+
