@@ -46,6 +46,7 @@ function GalleryThumb({
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     let live = true;
     let objUrl: string | null = null;
@@ -69,12 +70,17 @@ function GalleryThumb({
         aria-label={`Open evidence ${item.sha256_hash.slice(0, 12)}`}
       >
         {url ? (
-          <img src={url} alt={item.filename ?? item.operation_id} />
+          <img
+            src={url}
+            alt={item.filename ?? item.operation_id}
+            className={loaded ? styles.loaded : undefined}
+            onLoad={() => setLoaded(true)}
+          />
         ) : failed ? (
           <span className={styles.fallback}>
             <svg
-              width="24"
-              height="24"
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -84,6 +90,7 @@ function GalleryThumb({
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
               <line x1="1" y1="1" x2="23" y2="23"></line>
             </svg>
+            <span className={styles.fallbackLabel}>Preview unavailable</span>
           </span>
         ) : (
           <span className={styles.loading}>
@@ -96,14 +103,15 @@ function GalleryThumb({
           <span className="mono">{item.sha256_hash.slice(0, 12)}…</span>
           <CopyButton value={item.sha256_hash} label="Copy SHA-256" />
         </div>
-        {item.uploaded_at && (
-          <div className="text-tertiary">
-            {item.uploaded_at.slice(0, 16).replace("T", " ")}
-          </div>
-        )}
-        <div>
+        <div className={styles.metaLine}>
+          {item.uploaded_at
+            ? item.uploaded_at.slice(0, 16).replace("T", " ")
+            : "—"}
+        </div>
+        <div className={styles.metaLine}>
           {item.exif_lat !== null && item.exif_lon !== null ? (
             <a
+              className={styles.gpsLink}
               href={`https://www.openstreetmap.org/?mlat=${item.exif_lat}&mlon=${item.exif_lon}#map=17/${item.exif_lat}/${item.exif_lon}`}
               target="_blank"
               rel="noreferrer"
@@ -111,7 +119,7 @@ function GalleryThumb({
               {item.exif_lat.toFixed(5)}, {item.exif_lon.toFixed(5)}
             </a>
           ) : (
-            <span className="text-tertiary">no GPS</span>
+            "no GPS"
           )}
         </div>
         <div className={styles.chipRow}>
