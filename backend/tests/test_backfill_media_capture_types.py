@@ -5,7 +5,7 @@ import json
 from sqlalchemy import select
 from datetime import datetime, timezone
 
-from models import MediaFile, PyrolysisTelemetry, Batch
+from models import MediaFile, PyrolysisTelemetry, Batch, EndUseApplication
 from scripts.backfill_media_capture_types import backfill
 
 pytestmark = pytest.mark.asyncio
@@ -72,12 +72,34 @@ async def test_backfill_media_capture_types(session_factory):
             capture_type_verified=False
         ))
 
+        # Batch 4 for a legacy farmer end-use photo (predates the app stamping
+        # capture_type=end_use at capture time — the payload_json still has
+        # the farmer_photo_sha256 the backfill must match against).
+        b4 = str(uuid.uuid4())
+        s.add(make_batch(b4))
+        s.add(EndUseApplication(
+            application_uuid=str(uuid.uuid4()),
+            batch_uuid=b4,
+            payload_json=json.dumps({
+                "batch_uuid": b4,
+                "farmer_photo_sha256": "farmer-hash",
+            }),
+        ))
+        s.add(MediaFile(
+            batch_uuid=b4,
+            operation_id="m-4",
+            file_path="dummy.jpg",
+            sha256_hash="farmer-hash",
+            capture_type_verified=False
+        ))
+
         await s.commit()
 
     async with session_factory() as s:
         counts = await backfill(s, apply=True)
         assert counts["telemetry"] == 1
         assert counts["lab_certificate"] == 1
+        assert counts["end_use"] == 1
         assert counts["batch_photo"] == 1
         assert counts["unchanged"] == 1
 
@@ -97,3 +119,7 @@ async def test_backfill_media_capture_types(session_factory):
         m4 = (await s.execute(select(MediaFile).where(MediaFile.operation_id == "m-3"))).scalar_one()
         assert m4.capture_type is None
         assert m4.capture_type_verified is False
+
+        m5 = (await s.execute(select(MediaFile).where(MediaFile.operation_id == "m-4"))).scalar_one()
+        assert m5.capture_type == "end_use"
+        assert m5.capture_type_verified is False

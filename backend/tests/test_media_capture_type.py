@@ -52,6 +52,37 @@ async def test_capture_type_hint_stored_unverified(client, registered_device, se
         assert m.capture_type_verified is False
 
 
+async def test_end_use_capture_type_accepted_and_stored_unverified(client, registered_device, session_factory):
+    """V5: the farmer end-use photo is now stamped `end_use` at the app layer
+    and forwarded the same way flame_curtain etc. always were — the header
+    validator has no per-value allowlist, so this is the closing regression
+    test locking `end_use` into the accepted vocabulary end-to-end."""
+    bu = str(uuid.uuid4())
+    content = b"farmer-end-use-photo"
+    sha = hashlib.sha256(content).hexdigest()
+    op = "m-" + uuid.uuid4().hex[:8]
+    r = await client.post(
+        "/api/v1/media",
+        files=_file(content),
+        headers={
+            "X-Idempotency-Key": op,
+            "X-Declared-SHA256": sha,
+            "X-Batch-UUID": bu,
+            "X-Device-Id": DEVICE,
+            "X-Capture-Type": "end_use",
+            "X-Signature": sign_media(DEVICE, op, sha, bu),
+        },
+    )
+    assert r.status_code == 200, r.text
+
+    async with session_factory() as s:
+        m = (
+            await s.execute(select(MediaFile).where(MediaFile.operation_id == op))
+        ).scalar_one()
+        assert m.capture_type == "end_use"
+        assert m.capture_type_verified is False
+
+
 async def test_no_header_leaves_capture_type_null(client, registered_device, session_factory):
     bu = str(uuid.uuid4())
     content = b"legacy-client-photo"
