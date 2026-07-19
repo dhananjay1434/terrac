@@ -47,7 +47,6 @@ export default function Login() {
         style={{ maxWidth: 800, width: "100%", alignItems: "stretch" }}
       >
         <form className="login card" style={{ width: "100%" }} onSubmit={submit}>
-          <div className="mark">TC</div>
           <h1>Sign in to TerraCipher</h1>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", textAlign: "left" }}>
             <label className="micro" htmlFor="email">Email</label>
@@ -106,7 +105,7 @@ export default function Login() {
           }}
         >
           <div className="mark">TC</div>
-          <div style={{ fontSize: 22, fontWeight: 650, letterSpacing: "-0.02em" }}>
+          <div style={{ fontSize: 22, fontWeight: "var(--fw-bold)", letterSpacing: "-0.02em" }}>
             TerraCipher
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--basalt-300)" }}>

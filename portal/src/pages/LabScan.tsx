@@ -118,7 +118,7 @@ export default function LabScan() {
 
   return (
     <div className="wrap">
-      <h1 style={{ fontSize: 20, marginBottom: 12 }}>Scan batch card</h1>
+      <h1 className="page-title">Scan batch card</h1>
       <span className="micro">Point at the QR on the composite-sample card</span>
       <div className="card" style={{ marginTop: 12, overflow: "hidden", position: "relative" }}>
         <video

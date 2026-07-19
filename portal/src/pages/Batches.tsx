@@ -217,7 +217,7 @@ export default function Batches() {
 
   return (
     <div className="wrap">
-      <h1 style={{ fontSize: 20, marginBottom: 16 }}>Batches</h1>
+      <h1 className="page-title">Batches</h1>
 
       {summary && (
         <div className="stat-band">

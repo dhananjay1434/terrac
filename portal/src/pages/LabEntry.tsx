@@ -57,7 +57,7 @@ export default function LabEntry() {
       <Link className="back" to="/lab/scan">
         ← Scan another
       </Link>
-      <h1 style={{ fontSize: 20, margin: "12px 0" }}>
+      <h1 className="page-title">
         Lab results · {uuid.slice(0, 8)}
       </h1>
       <div className="registry-grid">

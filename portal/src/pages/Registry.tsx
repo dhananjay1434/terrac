@@ -67,7 +67,7 @@ function Form({
           const id = `${scope}-${f.key}`;
           return (
             <div key={f.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <label className="micro" htmlFor={id}>
+              <label className="micro field-label" htmlFor={id}>
                 {f.label}
               </label>
               <input
@@ -137,7 +137,7 @@ export default function Registry() {
 
   return (
     <div className="wrap">
-      <h1 style={{ fontSize: 20, marginBottom: 14 }}>Registry</h1>
+      <h1 className="page-title">Registry</h1>
       <Tabs.Root value={tab} onValueChange={setTab}>
         <Tabs.List aria-label="Registry sections" style={{ display: "flex", gap: 4, marginBottom: 14 }}>
           <Tabs.Trigger value="kilns" className={`linkbtn ${tab === "kilns" ? "active" : ""}`}>

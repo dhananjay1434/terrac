@@ -142,6 +142,12 @@
   --shadow-modal: 0 20px 48px rgba(0, 0, 0, 0.5),
                   0 8px 16px rgba(0, 0, 0, 0.35);
 }
+/* native date/number chrome (calendar icon, spinner buttons) render with the
+   OS light-mode glyph by default; color-scheme tells the UA to draw them
+   with dark-appropriate icons instead of a black-on-dark mismatch. */
+[data-theme="dark"] input {
+  color-scheme: dark;
+}
 /* inputs/selects/media-cells hardcode #fff backgrounds — remap them in dark */
 [data-theme="dark"] input,
 [data-theme="dark"] select,
@@ -203,6 +209,9 @@ code, .mono {
 }
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+.field-label {
+  text-transform: capitalize;
 }
 .amber-tag {
   color: var(--status-warning-fg);
@@ -419,6 +428,12 @@ a.back {
   font-size: var(--fs-13);
   text-decoration: none;
   font-weight: var(--fw-semibold);
+}
+.page-title {
+  font-size: var(--fs-20);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  margin: 12px 0 16px;
 }
 .seal {
   display: inline-block;
