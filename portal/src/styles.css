@@ -310,7 +310,6 @@ table {
   background: var(--surface-card);
   border: var(--border-hair);
   border-radius: var(--r-lg);
-  overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
 th,
@@ -320,6 +319,14 @@ td {
   border-bottom: var(--border-hair);
   font-size: var(--fs-13);
 }
+/* Rounded table corners without clipping the last row (overflow:hidden on
+   the table sliced cell content against the radius). Round the four corner
+   cells directly instead. */
+thead tr:first-child th:first-child { border-top-left-radius: var(--r-lg); }
+thead tr:first-child th:last-child { border-top-right-radius: var(--r-lg); }
+tbody tr:last-child td:first-child { border-bottom-left-radius: var(--r-lg); }
+tbody tr:last-child td:last-child { border-bottom-right-radius: var(--r-lg); }
+tbody tr:last-child td { border-bottom: 0; }
 th {
   font-size: var(--fs-12);
   font-weight: var(--fw-medium);
