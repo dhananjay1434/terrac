@@ -18,6 +18,7 @@ import 'wipe_context.dart';
 import '../../services/crypto_signer.dart';
 import '../../services/sync_queue_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../capture_types.dart';
 
 part 'app_database.g.dart';
 
@@ -411,6 +412,7 @@ class AppDatabase extends _$AppDatabase {
       'biomass_measurement_method': biomassMeasurementMethod,
       'project_id': projectId,
       'scale_id': scaleId,
+      'capture_type': CaptureType.batchPhoto,
     };
 
     await insertWithOutbox(

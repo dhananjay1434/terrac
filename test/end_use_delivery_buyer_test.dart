@@ -108,5 +108,32 @@ void main() {
       expect(payload['buyer_name'], 'Asha Farmer Collective');
       expect(payload['buyer_contact'], '+91-99999-00000');
     });
+
+    test('stamps capture_type=end_use so the farmer photo is classified at source', () async {
+      await db.customStatement(
+        'INSERT INTO system_metadata '
+        '(batch_uuid, artisan_id, device_hardware_mac, app_build_version, '
+        'sync_status, created_at) '
+        "VALUES ('b2','a','m','v','PENDING','2026-07-02T00:00:00Z')",
+      );
+
+      await db.insertEndUseWithOutbox(
+        batchUuid: 'b2',
+        applicationMethodology: 'SURFACE_BROADCAST',
+        applicationRateTonnes: 1.0,
+        transportDistanceKm: 0.0,
+        latitude: 1.0,
+        longitude: 2.0,
+        farmerPhotoPath: '/sandbox/farmer.jpg',
+        farmerPhotoSha256: 'a' * 64,
+      );
+
+      final row = await (db.select(
+        db.syncOutbox,
+      )..where((t) => t.targetTable.equals('end_use_application'))).getSingle();
+      final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+
+      expect(payload['capture_type'], 'end_use');
+    });
   });
 }
