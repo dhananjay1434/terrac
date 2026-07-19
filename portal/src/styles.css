@@ -1,23 +1,24 @@
 :root {
-  /* ── primitives: Basalt neutral scale ─────────────────────────── */
-  --basalt-50:  #f4f5f6;
-  --basalt-100: #e5e7eb;
-  --basalt-300: #d1d5db;
-  --basalt-500: #6a6e7d;   /* 5.07:1 on white — AA pass */
-  --basalt-700: #4a4e5a;   /* 8.31:1 */
-  --basalt-950: #0f1115;   /* 18.9:1 */
-  /* ── primitives: brand + semantic hues ────────────────────────── */
-  --indigo-600: #3b32b3;   /* THE brand accent. 9.16:1 */
-  --indigo-50:  #f5f4ff;
-  --green-700:  #0b663e;   /* semantic "verified/issuable" ONLY. 7.04:1 */
-  --green-50:   #f0faf5;
-  --amber-700:  #9e4200;   /* "provisional/missing". 6.50:1 */
-  --amber-50:   #fef6ee;
-  --red-700:    #b91c1c;   /* errors. 6.47:1 */
-  --red-50:     #fef2f2;
+  /* ── primitives: Basalt neutral scale — cool blue-grey undertone ── */
+  --basalt-50:  #f7f8fa;   /* faint cool off-white page */
+  --basalt-100: #e6e8ee;   /* hairline borders */
+  --basalt-300: #d0d5dd;   /* strong borders */
+  --basalt-500: #6b7280;   /* 4.83:1 on white — AA pass */
+  --basalt-700: #4a5065;   /* 8.00:1 */
+  --basalt-950: #1a1f36;   /* 16.24:1 — near-black, blue undertone, never pure black */
+  /* ── primitives: brand + semantic hues (Stripe/Mercury-calibrated) ── */
+  --indigo-600: #635bff;   /* THE brand accent. 4.70:1 on white — AA pass */
+  --indigo-50:  #f3f2ff;
+  --green-700:  #067647;   /* semantic "verified/issuable" ONLY. 5.69:1 */
+  --green-50:   #ecfdf3;
+  --amber-700:  #b54708;   /* "provisional/missing". 5.43:1 */
+  --amber-50:   #fffaeb;
+  --red-700:    #d92d20;   /* errors. 4.83:1 */
+  --red-50:     #fef3f2;
   /* ── semantic layer ───────────────────────────────────────────── */
   --surface-page: var(--basalt-50);
   --surface-card: #ffffff;
+  --surface-sunken: #f1f3f7;   /* wells, inset fields, fallback thumbnails */
   --surface-brand-subtle: var(--indigo-50);
   --border-subtle: var(--basalt-100);
   --border-strong: var(--basalt-300);
@@ -30,25 +31,26 @@
   --status-warning-bg: var(--amber-50);
   --status-error-fg: var(--red-700);
   --status-error-bg: var(--red-50);
-  --action-primary-bg: var(--basalt-950);
-  --action-primary-hover: var(--basalt-700);
-  /* ── shape / elevation / motion ───────────────────────────────── */
-  --shadow-sm: 0 1px 2px rgba(15, 17, 21, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(15, 17, 21, 0.1),
-               0 2px 4px -1px rgba(15, 17, 21, 0.06);
+  --action-primary-bg: var(--indigo-600);
+  --action-primary-hover: #5148e6;
+  /* ── shape / elevation (layered — cards read lifted) ──────────── */
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.10);
+  --shadow-md: 0 2px 4px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.08);
   --duration-fast: 150ms;
   --duration-standard: 250ms;
   --ease-productive: cubic-bezier(0.2, 0, 0, 1);
   --ease-expressive: cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* === Phase 1 tokens === */
-  /* basalt extensions — the six existing steps above are UNCHANGED */
+  /* === extended neutral steps (cool, indigo-tinted at the dark end) === */
   --basalt-0:   #ffffff;
-  --basalt-200: #dbdee3;
-  --basalt-400: #9ca1ad;
-  --basalt-600: #585c68;
-  --basalt-800: #2e3138;
-  --basalt-900: #1b1d22;
+  --basalt-200: #dcdfe6;
+  --basalt-400: #9297a8;
+  --basalt-600: #565c72;
+  --basalt-800: #21232f;
+  --basalt-900: #1c1e27;   /* dark-theme card surface */
+  --basalt-950-canvas: #14151c;   /* dark-theme page canvas — deeper than card */
+  /* indigo tint for dark-mode text/links (brand hue lifted for ≥4.5:1 on dark) */
+  --indigo-400: #8b85ff;   /* 5.45:1 on --basalt-900 */
   /* ember scale (brand-warm accent for banners/reticles) */
   --ember-50:  #fff7ed;
   --ember-100: #ffedd5;
@@ -57,9 +59,9 @@
   --ember-600: #ea580c;
   --ember-700: #c2410c;
   /* verde scale (aligned to existing semantic greens) */
-  --verde-50:  #f0faf5;
+  --verde-50:  #ecfdf3;
   --verde-500: #16a34a;
-  --verde-700: #0b663e;
+  --verde-700: #067647;
   /* semantic status aliases (single-value; -fg/-bg pairs above still canonical) */
   --status-success: var(--green-700);
   --status-warning: var(--amber-700);
@@ -71,8 +73,8 @@
   --r-md: 6px;
   --r-lg: 8px;
   --r-xl: 12px;
-  --shadow-modal: 0 10px 15px -3px rgba(15, 17, 21, 0.1),
-                  0 4px 6px -4px rgba(15, 17, 21, 0.1);
+  --shadow-modal: 0 20px 48px rgba(16, 24, 40, 0.24),
+                  0 8px 16px rgba(16, 24, 40, 0.12);
   --border-hair: 1px solid var(--border-subtle);
   /* type scale */
   --fs-12: 12px;
@@ -102,7 +104,7 @@
   --rail-w: 240px;
   --rail-w-collapsed: 64px;
   --topbar-h: 56px;
-  --content-max: 1280px;
+  --content-max: 1040px;   /* matches .wrap — a wider grid is a separate reviewed task */
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   /* spacing (8-pt grid) */
   --space-1: 4px;
@@ -115,14 +117,15 @@
   --space-8: 64px;
 }
 
-/* === Phase 1 dark mode — semantic remap only, primitives untouched === */
+/* === dark mode — indigo-black canvas, semantic remap only (primitives untouched) === */
 [data-theme="dark"] {
-  --surface-page: var(--basalt-950);
+  --surface-page: var(--basalt-950-canvas);
   --surface-card: var(--basalt-900);
-  --surface-brand-subtle: #221e4d;
+  --surface-sunken: var(--basalt-800);
+  --surface-brand-subtle: #26224d;
   --border-subtle: var(--basalt-800);
   --border-strong: var(--basalt-600);
-  --text-primary: var(--basalt-50);
+  --text-primary: #ededf3;   /* 14.24:1 on --basalt-900 */
   --text-secondary: var(--basalt-300);
   --text-tertiary: var(--basalt-400);
   --status-success-fg: #4ade80;
@@ -131,13 +134,13 @@
   --status-warning-bg: #431a03;
   --status-error-fg: #fca5a5;
   --status-error-bg: #450a0a;
-  --action-primary-bg: var(--basalt-50);
-  --action-primary-hover: var(--basalt-300);
+  --action-primary-bg: var(--indigo-600);
+  --action-primary-hover: #8b85ff;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5),
                0 2px 4px -1px rgba(0, 0, 0, 0.4);
-  --shadow-modal: 0 10px 15px -3px rgba(0, 0, 0, 0.6),
-                  0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 20px 48px rgba(0, 0, 0, 0.5),
+                  0 8px 16px rgba(0, 0, 0, 0.35);
 }
 /* inputs/selects/media-cells hardcode #fff backgrounds — remap them in dark */
 [data-theme="dark"] input,
@@ -150,7 +153,22 @@
   color: var(--basalt-0);
 }
 [data-theme="dark"] button.primary {
-  color: var(--basalt-950);
+  color: var(--basalt-0);
+}
+/* indigo used as TEXT/link (not a large fill) needs the lighter dark-mode tint
+   to keep ≥4.5:1 on the dark card surface — --indigo-600 itself is only ~3.5:1
+   on --basalt-900, fine for large fills/icons, not for body text or links. */
+[data-theme="dark"] .seal,
+[data-theme="dark"] .forensic-meta a,
+[data-theme="dark"] .link-indigo,
+[data-theme="dark"] :focus-visible {
+  color: var(--indigo-400);
+}
+[data-theme="dark"] :focus-visible {
+  outline-color: var(--indigo-400);
+}
+[data-theme="dark"] .linkbtn.active {
+  box-shadow: inset 0 -2px 0 var(--indigo-400);
 }
 * {
   box-sizing: border-box;
@@ -200,7 +218,7 @@ code, .mono {
   font-weight: var(--fw-bold);
 }
 .wrap {
-  max-width: 1040px;
+  max-width: var(--content-max);
   margin: 0 auto;
   padding: var(--space-6) 24px 60px;
 }
@@ -576,10 +594,15 @@ button.primary:disabled {
   transform: translateY(-50%);
   width: 16px;
   height: 16px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236c7086' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;
   pointer-events: none;
+}
+/* the chevron is a data-URI SVG (can't reference a CSS var inside it) — give
+   dark mode a lighter stroke so it stays visible on a dark select field. */
+[data-theme="dark"] .select-wrap::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239297a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 .input-lg {
   height: 44px;
