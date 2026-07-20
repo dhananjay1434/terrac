@@ -2,6 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freerasp/freerasp.dart';
 
+/// The ONE release identity — MUST equal `android/app/build.gradle.kts`
+/// applicationId. freerasp compares this against the running app; a mismatch
+/// trips the repackaging check (`onAppIntegrity`) and hard-locks the app.
+/// Regression-tested against build.gradle.kts in device_integrity_test.dart.
+const String kReleaseAndroidPackage = 'io.dmrv.dmrv_app';
+
+/// iOS bundle id (Android is the shipping target; kept consistent for parity).
+const String kReleaseIosBundleId = 'io.dmrv.dmrvApp';
+
 /// Service that initializes FreeRASP to detect rooted/jailbroken devices,
 /// emulators, and hooking frameworks (e.g. Frida, Xposed).
 class DeviceIntegrityService {
@@ -35,10 +44,10 @@ class DeviceIntegrityService {
 
     final config = TalsecConfig(
       androidConfig: AndroidConfig(
-        packageName: 'com.kontiki.dmrv',
+        packageName: kReleaseAndroidPackage,
         signingCertHashes: [certHash],
       ),
-      iosConfig: IOSConfig(bundleIds: ['com.kontiki.dmrv'], teamId: iosTeam),
+      iosConfig: IOSConfig(bundleIds: [kReleaseIosBundleId], teamId: iosTeam),
       watcherMail: 'security@kontiki.test',
       isProd: true,
     );
@@ -56,7 +65,15 @@ class DeviceIntegrityService {
       onSecureHardwareNotAvailable: () =>
           _compromised('Secure Hardware Unavailable'),
       onSimulator: () => _compromised('Simulator/Emulator Detected'),
-      onUnofficialStore: () => _compromised('Unofficial Store Detected'),
+      // Private B2B distribution is intentionally NOT via an app store (direct
+      // APK / MDM), so a non-store installer is EXPECTED — it must not brick a
+      // legitimate install. Log-only: keep the signal in telemetry without
+      // flipping the compromised flag. Every genuine tamper vector above
+      // (root, hooks, debugger, repackaging/app-integrity, device-binding,
+      // emulator) still hard-locks.
+      onUnofficialStore: () => debugPrint(
+        '[DeviceIntegrity] non-store install (expected for private distribution)',
+      ),
     );
 
     // Fail CLOSED on start failure too: a release build that cannot start the

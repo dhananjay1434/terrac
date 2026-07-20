@@ -11,6 +11,58 @@ void main() {
     isDeviceCompromisedGlobally = false;
   });
 
+  // V7 P1: the RASP package identity MUST match the real Android applicationId,
+  // or freerasp's repackaging check hard-locks the app on every install.
+  test('RASP android package matches build.gradle.kts applicationId', () {
+    final gradle = File(
+      'android/app/build.gradle.kts',
+    ).readAsStringSync();
+    final match = RegExp(r'applicationId\s*=\s*"([^"]+)"').firstMatch(gradle);
+    expect(match, isNotNull, reason: 'applicationId not found in build.gradle.kts');
+    final applicationId = match!.group(1);
+    expect(
+      kReleaseAndroidPackage,
+      applicationId,
+      reason:
+          'freerasp AndroidConfig.packageName ($kReleaseAndroidPackage) must equal '
+          'the release applicationId ($applicationId) or the app self-bricks.',
+    );
+  });
+
+  // V7 P1: private B2B distribution is sideload/MDM, never a store — a non-store
+  // installer must NOT hard-lock, while every real tamper vector still does.
+  test('onUnofficialStore is log-only; real threats still hard-lock', () {
+    final src = File(
+      'lib/services/device_integrity_service.dart',
+    ).readAsStringSync();
+
+    // onUnofficialStore must NOT route to _compromised.
+    final unofficialLine = RegExp(r'onUnofficialStore:\s*\(\)\s*=>\s*([^\n,]+)')
+        .firstMatch(src);
+    expect(unofficialLine, isNotNull);
+    expect(
+      unofficialLine!.group(1)!.contains('_compromised'),
+      isFalse,
+      reason: 'onUnofficialStore must be log-only for private distribution',
+    );
+
+    // The genuine tamper vectors MUST still hard-lock via _compromised.
+    for (final cb in [
+      'onPrivilegedAccess',
+      'onHooks',
+      'onDebug',
+      'onSimulator',
+      'onAppIntegrity',
+      'onDeviceBinding',
+    ]) {
+      expect(
+        RegExp('$cb:\\s*\\(\\)\\s*=>\\s*_compromised').hasMatch(src),
+        isTrue,
+        reason: '$cb must still route to _compromised (fail-closed)',
+      );
+    }
+  });
+
   test(
     'CryptoSigner throws StateError when device is compromised globally',
     () async {
