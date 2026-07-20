@@ -7,10 +7,24 @@ argument — no model import needed here.
 
 from __future__ import annotations
 
+import logging
+import os
 from math import asin, cos, radians, sin, sqrt
 from typing import Optional
 
 import piexif
+
+log = logging.getLogger("dmrv.geo")
+
+
+def _require_exif_gps() -> bool:
+    """T2.7b: whether a photo anchoring a batch that CLAIMS coordinates must
+    carry EXIF GPS to earn the clean RECEIVED upgrade. Default ON — the field
+    app embeds EXIF GPS on every capture (secure_capture_service writes
+    GPSLatitude/Longitude), so an EXIF-less anchor is anomalous (stripped /
+    tampered / non-app upload). A deployment whose devices can't reliably write
+    EXIF can relax this with DMRV_REQUIRE_EXIF_GPS=0."""
+    return os.environ.get("DMRV_REQUIRE_EXIF_GPS", "1") == "1"
 
 
 def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
@@ -83,11 +97,14 @@ def _evaluate_anchor(batch, photo_sha: Optional[str], exif_lat, exif_lon) -> Non
     the batch). When the photo's EXIF GPS disagrees with the batch's claimed
     coordinates by >1 km the batch is quarantined for review.
 
-    NOTE (audit): a photo with NO EXIF GPS bypasses the mismatch check entirely
-    (None coordinates short-circuit _gps_mismatch_km) and still upgrades the
-    batch. Deliberate for now — EXIF is client-authored/weak and attestation is
-    the strong control — but flagged for methodology-owner review: an EXIF-less
-    anchor could set a distinct status (e.g. RECEIVED_NO_GPS) instead.
+    T2.7b (V7 P3): a photo with NO EXIF GPS anchoring a batch that DOES claim
+    coordinates no longer silently earns the clean RECEIVED upgrade. The field
+    app embeds EXIF GPS on every capture, so a missing one is anomalous — under
+    the default `DMRV_REQUIRE_EXIF_GPS` policy it is quarantined for review
+    (QUARANTINE_GPS_MISSING) rather than passing unseen. Set the flag to 0 to
+    restore the legacy pass-through (a device family that can't write EXIF), in
+    which case the upgrade still happens but is logged. A batch that claims no
+    coordinates has nothing to corroborate, so the requirement does not apply.
     """
     if not batch.sha256_hash or not photo_sha:
         return
@@ -95,5 +112,24 @@ def _evaluate_anchor(batch, photo_sha: Optional[str], exif_lat, exif_lon) -> Non
         return  # wrong photo — do not upgrade
     if _gps_mismatch_km(batch.latitude, batch.longitude, exif_lat, exif_lon):
         batch.status = "QUARANTINE_GPS_MISMATCH"
-    elif batch.status == "UNVERIFIED":
+        return
+
+    batch_claims_gps = batch.latitude is not None and batch.longitude is not None
+    exif_gps_missing = exif_lat is None or exif_lon is None
+    if batch_claims_gps and exif_gps_missing:
+        if _require_exif_gps():
+            log.warning(
+                "batch %s anchor photo has no EXIF GPS but batch claims "
+                "coordinates — quarantining for review (QUARANTINE_GPS_MISSING)",
+                getattr(batch, "batch_uuid", "?"),
+            )
+            batch.status = "QUARANTINE_GPS_MISSING"
+            return
+        log.warning(
+            "batch %s anchor photo has no EXIF GPS; DMRV_REQUIRE_EXIF_GPS=0 so "
+            "upgrading anyway (GPS not independently corroborated)",
+            getattr(batch, "batch_uuid", "?"),
+        )
+
+    if batch.status == "UNVERIFIED":
         batch.status = "RECEIVED"
