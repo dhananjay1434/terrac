@@ -235,6 +235,25 @@ class SyncQueueManager {
     await kickSync();
   }
 
+  /// Operator-initiated IMMEDIATE retry of a row stuck in exponential backoff
+  /// (status PENDING, retryCount > 0, waiting out its window). Clears ONLY the
+  /// backoff gate by nulling `lastAttemptAt` — the `_processPending` backoff
+  /// check skips the wait when `lastAttemptAt == null` — so the next loop
+  /// attempts it right away. retryCount and the max-retry ceiling are preserved
+  /// (no change to the backoff formula), so a still-failing row keeps degrading
+  /// as before. The stored `failureReason` is left intact for display.
+  Future<void> retryNow(String operationId) async {
+    final db = await ref.read(appDatabaseProvider.future);
+    await (db.update(db.syncOutbox)
+          ..where(
+            (t) =>
+                t.operationId.equals(operationId) &
+                t.status.equals('PENDING'),
+          ))
+        .write(const SyncOutboxCompanion(lastAttemptAt: Value(null)));
+    await kickSync();
+  }
+
   /// Reset every permanently-failed row (the Sync Health "Retry all" action).
   Future<void> retryAllPermanentlyFailed() async {
     final db = await ref.read(appDatabaseProvider.future);

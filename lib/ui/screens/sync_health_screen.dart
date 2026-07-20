@@ -319,7 +319,8 @@ class _ProblemRowPanel extends ConsumerWidget {
           SizedBox(height: t.gapS),
           Text(
             'Batch ${_shortBatch(row.batchUuid)}  ·  Last tried '
-            '${_lastTried(row.lastAttemptAt)}',
+            '${_lastTried(row.lastAttemptAt)}'
+            '${isStuck ? '' : '  ·  attempt ${row.retryCount}, waiting to retry'}',
             style: t.metadata.copyWith(color: t.textSecondary),
           ),
           if (row.failureReason != null &&
@@ -330,19 +331,25 @@ class _ProblemRowPanel extends ConsumerWidget {
               style: t.metadata.copyWith(color: t.danger),
             ),
           ],
-          if (isStuck) ...[
-            SizedBox(height: t.gapM),
-            DmrvButton(
-              label: 'RETRY',
-              testId: 'retry-${row.operationId}',
-              variant: DmrvButtonVariant.primary,
-              fullWidth: false,
-              minHeight: 48,
-              onPressed: () => ref
-                  .read(syncQueueManagerProvider)
-                  .retryPermanentlyFailed(row.operationId),
-            ),
-          ],
+          // Stuck rows reset their retry ceiling (retryPermanentlyFailed);
+          // backoff rows just skip the wait (retryNow) — either way the operator
+          // is never left staring at a silently-stuck row with no action.
+          SizedBox(height: t.gapM),
+          DmrvButton(
+            label: isStuck ? 'RETRY' : 'RETRY NOW',
+            testId: 'retry-${row.operationId}',
+            variant: DmrvButtonVariant.primary,
+            fullWidth: false,
+            minHeight: 48,
+            onPressed: () {
+              final mgr = ref.read(syncQueueManagerProvider);
+              if (isStuck) {
+                mgr.retryPermanentlyFailed(row.operationId);
+              } else {
+                mgr.retryNow(row.operationId);
+              }
+            },
+          ),
         ],
       ),
     );
