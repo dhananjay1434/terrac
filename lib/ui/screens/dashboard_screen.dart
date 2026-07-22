@@ -16,12 +16,14 @@ import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
 import 'package:dmrv_app/l10n/app_localizations.dart';
 import 'dispatch/dispatch_screen.dart';
+import 'day_start_attestation_screen.dart';
 import 'density_calibration_screen.dart';
 import 'field_walk_screen.dart';
 import 'lantana_sourcing_screen.dart';
 import 'proof_wallet_screen.dart';
 import 'sync_health_screen.dart';
 import 'yield_scale_screen.dart';
+import '../../services/day_start_service.dart';
 import '../../services/device_integrity_service.dart';
 import '../../services/sync_queue_manager.dart';
 
@@ -47,6 +49,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.04).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    // Deferred R6 — day-start audit lock. Evaluated once per dashboard
+    // mount; gate-off (default) means this never fires. Checked post-frame
+    // so the dashboard has a BuildContext/Navigator ready before pushing.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkDayStart());
+  }
+
+  Future<void> _checkDayStart() async {
+    if (!kDayStartLockEnabled) return;
+    final lastAttestation = await DayStartService.loadLastAttestation();
+    final valid = isDayStartValid(
+      enforced: kDayStartLockEnabled,
+      lastAttestation: lastAttestation,
+      now: DateTime.now(),
+    );
+    if (valid || !mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const DayStartAttestationScreen(),
+        fullscreenDialog: true,
+      ),
     );
   }
 

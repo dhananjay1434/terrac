@@ -67,5 +67,13 @@
   "kyc_clear_button": "साफ़ करें",
 
   "kyc_registered_snackbar": "किसान पंजीकृत — सिंक के लिए कतारबद्ध।",
-  "kyc_register_failed_snackbar": "किसान पंजीकृत नहीं हो सका: {error}"
+  "kyc_register_failed_snackbar": "किसान पंजीकृत नहीं हो सका: {error}",
+
+  "daystart_title": "दिन-शुरुआत जांच",
+  "daystart_subtitle": "आज की पहली कैप्चर से पहले इनकी पुष्टि करें।",
+  "daystart_clock_label": "इस डिवाइस की घड़ी (तारीख और समय) सही है।",
+  "daystart_project_label": "मैं आज सही प्रोजेक्ट पर काम कर रहा/रही हूं।",
+  "daystart_calibration_label": "कैलिब्रेशन की आवश्यकता वाले किसी भी उपकरण (स्केल, थर्मोकपल) की जांच कर ली गई है और वह मान्य तिथि में है।",
+  "daystart_confirm_button": "पुष्टि करें और दिन शुरू करें",
+  "daystart_saving_label": "सहेजा जा रहा है…"
 }

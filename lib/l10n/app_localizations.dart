@@ -457,6 +457,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not register farmer: {error}'**
   String kyc_register_failed_snackbar(String error);
+
+  /// No description provided for @daystart_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Start-of-Day Check'**
+  String get daystart_title;
+
+  /// No description provided for @daystart_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm these before your first capture today.'**
+  String get daystart_subtitle;
+
+  /// No description provided for @daystart_clock_label.
+  ///
+  /// In en, this message translates to:
+  /// **'This device\'s clock (date & time) is correct.'**
+  String get daystart_clock_label;
+
+  /// No description provided for @daystart_project_label.
+  ///
+  /// In en, this message translates to:
+  /// **'I am working the correct project today.'**
+  String get daystart_project_label;
+
+  /// No description provided for @daystart_calibration_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Any equipment needing calibration (scale, thermocouple) has been checked and is in date.'**
+  String get daystart_calibration_label;
+
+  /// No description provided for @daystart_confirm_button.
+  ///
+  /// In en, this message translates to:
+  /// **'CONFIRM & START DAY'**
+  String get daystart_confirm_button;
+
+  /// No description provided for @daystart_saving_label.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVING…'**
+  String get daystart_saving_label;
 }
 
 class _AppLocalizationsDelegate

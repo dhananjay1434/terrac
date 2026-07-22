@@ -202,4 +202,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String kyc_register_failed_snackbar(String error) {
     return 'Could not register farmer: $error';
   }
+
+  @override
+  String get daystart_title => 'Start-of-Day Check';
+
+  @override
+  String get daystart_subtitle =>
+      'Confirm these before your first capture today.';
+
+  @override
+  String get daystart_clock_label =>
+      'This device\'s clock (date & time) is correct.';
+
+  @override
+  String get daystart_project_label =>
+      'I am working the correct project today.';
+
+  @override
+  String get daystart_calibration_label =>
+      'Any equipment needing calibration (scale, thermocouple) has been checked and is in date.';
+
+  @override
+  String get daystart_confirm_button => 'CONFIRM & START DAY';
+
+  @override
+  String get daystart_saving_label => 'SAVING…';
 }

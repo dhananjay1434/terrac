@@ -580,37 +580,71 @@ UI strings are localized in the same pass.
 
 ---
 
-## PART R6 — Day-start audit lock (OPTIONAL — blueprint marks it optional)
+## PART R6 — Day-start audit lock (ELECTED — human confirmed 2026-07-23)
 
-**Goal.** Close deferred item **#7** *if elected*. It does not exist anywhere
-(`grep -riE "day.?start" lib/` → 0 hits). The blueprint marks it optional — treat this
-Part as elective; skipping it does not block the production gate.
+**Goal.** Close deferred item **#7**. Verified competitive signal: Varaha's shipped biochar
+app (`com.varaha.biochar` v1.6.2, reverse-engineered teardown) ships an equivalent feature
+(`DayStartImageUploadScreen` + `DayStartVideoUploadScreen`, per-facility per-date, submit
+locks the audit) — this is no longer purely elective scope, it's table-stakes the incumbent
+has already shipped. Prior to this Part it did not exist anywhere in this codebase
+(`grep -riE "day.?start" lib/` → 0 hits).
 
-**Independent.** If built, may claim a Drift version — coordinate with R4 (`§1.1`).
+**Independent.** May claim a Drift version — coordinate with any other Part touching
+`schemaVersion` (re-verify live before landing, `§Verify`).
 
-### R6.1 — Define the feature precisely BEFORE coding
-Day-start audit lock = requiring the operator to acknowledge/attest a start-of-day
-checklist (device time correct, correct project, calibration in date) before the day's
-first capture is allowed. Because it is a *gate*, it is env-flagged default-on in code but
-rolled out OFF→canary→on (`§0.7.5`), and it must **grandfather**: a device that has never
-seen the feature is not retroactively locked out of in-flight work.
+### R6.1 — Exact rule (defined before coding, per this Part's own discipline)
+- **What the operator attests, once per calendar day, before that day's first capture:**
+  (a) this device's clock is correct, (b) they are working the correct project for today,
+  (c) any equipment needing in-date calibration (scale, thermocouple) has been checked.
+  This mirrors Varaha's day-start audit intent but stays app-only (no photo/video
+  requirement — that's a heavier lift than the plan's "thin UI" scope for this Part;
+  documented as a smaller, honestly-scoped version of the same idea, not a copy).
+- **Trigger:** evaluated once, at dashboard load. If invalid, a full-screen, non-dismissible
+  attestation screen blocks the dashboard until the operator confirms. Not re-evaluated
+  per-screen or per-capture — one gate, one place, so behavior is easy to reason about.
+- **Validity rule (pure):** valid when `DMRV_DAYSTART_LOCK` is off (**grandfather — default
+  state**), OR when a prior attestation exists AND its calendar date (device-local) equals
+  today's calendar date. Any other case (no attestation, attestation from a prior day) is
+  invalid → show the attestation screen.
+- **Grandfather:** gate defaults OFF (`bool.fromEnvironment('DMRV_DAYSTART_LOCK',
+  defaultValue: false)`) — a device that has never seen this feature never gets
+  retroactively locked out of in-flight work; this is a deliberate deviation from
+  `§0.4`'s "default-on" convention because, like R4's geometry flag, this is a new
+  UX-blocking gate with no field validation yet, not a data-integrity backstop.
+- **Persistence:** SharedPreferences, one key holding the last attestation's ISO date
+  string. Not PII (no content beyond "operator tapped confirm on date X") — same
+  reasoning already used for R2's dispatch-wizard-phase persistence.
 
 ### R6.2 — Implement (pure gate + thin UI)
-- Pure gate function (`§0.2.3`) deciding "is the day-start attestation valid for now?"
-  given last-attestation timestamp + clock + config — unit-tested without UI.
-- Thin UI acknowledgement screen; persist attestation (Drift or SharedPreferences per
-  sensitivity — an attestation is not PII, so SharedPreferences is acceptable; state why).
-- Env flag `DMRV_DAYSTART_LOCK` in `settings.py`-equivalent app config, default off until
-  field-validated.
-- Tests: pure gate (fresh / stale / same-day); gate-off → no lock (grandfather); UI
-  acknowledgement flips the gate.
+- **Pure gate** (`lib/services/day_start_service.dart::isDayStartValid`): gate-off → always
+  valid; gate-on → valid only if a prior attestation exists dated the SAME device-local
+  calendar day as now. A null, prior-day, OR future-day (clock-skew) attestation is invalid
+  — a future-dated attestation is deliberately never trusted as "still good," so a clock
+  jump can't wedge the gate permanently open.
+- **Thin UI** (`lib/ui/screens/day_start_attestation_screen.dart`): full-screen,
+  `PopScope(canPop: false)` — no back-swipe/back-button escape, the only way through is
+  ticking all three checkboxes (clock correct / correct project / equipment calibration
+  checked) and tapping confirm. Persisted via `DayStartService` (SharedPreferences — an
+  attestation is not PII, same reasoning as R2's dispatch-wizard-phase persistence).
+- **Wiring** (`lib/ui/screens/dashboard_screen.dart`): checked once per dashboard mount,
+  post-frame (so a Navigator is ready before pushing); gate-off (default) is a true no-op —
+  existing dashboard tests pass unmodified, proving this.
+- Env flag `kDayStartLockEnabled = bool.fromEnvironment('DMRV_DAYSTART_LOCK', defaultValue:
+  false)` — mirrors the `DMRV_DEMO_MODE`/`DMRV_DEVICE_PARCEL_GEOMETRY` pattern exactly.
+- **Tests:** `test/daystart_lock_test.dart` (7 cases — gate-off, no/same-day/prior-day/
+  future-day attestation, both calendar-day boundaries) + `test/day_start_attestation_screen_test.dart`
+  (3 cases — confirm gated on all-three-checked, confirming persists + pops, back-navigation
+  blocked). All pass; existing dashboard tests unaffected (gate-off no-op, verified).
 
 ### R6 — Definition of Done
-- [ ] Feature spec written down first; gate is pure + tested.
-- [ ] Env-flagged, default-off, grandfathers existing devices.
-- [ ] en+hi strings; three suites green.
-- [ ] If skipped: explicitly recorded as "elected not to build (optional)" — not silently
-      dropped.
+- [x] Feature spec written down first (`§R6.1` above); gate is pure + tested (7 tests).
+- [x] Env-flagged, default-off, grandfathers existing devices (a device that's never seen
+      this feature stays gate-off forever unless the flag is explicitly built with `true`).
+- [x] en+hi strings (7 keys, real Hindi translations — small screen, no i18n deferral
+      needed unlike R3's larger surface); flutter suite verified green (backend/portal
+      untouched — this Part is app-only).
+- [x] Built (human elected-in 2026-07-23, citing Varaha's shipped equivalent feature as
+      competitive signal) — not skipped, so the elect-out fallback doesn't apply.
 
 ---
 
@@ -661,8 +695,8 @@ Append to `PRODUCTION_EXECUTION_PLAN.md §7`:
 - [x] R3 (density capture) done — F fallback now consumes real captured density.
 - [x] R4 (geofence gate live) done — flag-gated, default off, documented rollout.
 - [x] R5 (farmer KYC i18n) done.
-- [ ] R6 (day-start lock) — **not yet elected or built.** Optional per blueprint; awaiting
-      an explicit decision from the human on whether to build it or formally elect out.
+- [x] R6 (day-start lock) done — elected-in (competitive signal: Varaha's shipped equivalent
+      feature), env-flagged default-off, grandfathers existing devices.
 - [ ] R7: iOS build **runbook authored and committed; NOT YET confirmed on a macOS
       runner** — this host cannot sign off on the actual build succeeding. Remains open
       until a Mac runs `docs/IOS_BUILD_RUNBOOK.md` and reports back.

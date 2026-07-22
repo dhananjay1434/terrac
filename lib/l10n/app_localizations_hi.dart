@@ -204,4 +204,27 @@ class AppLocalizationsHi extends AppLocalizations {
   String kyc_register_failed_snackbar(String error) {
     return 'किसान पंजीकृत नहीं हो सका: $error';
   }
+
+  @override
+  String get daystart_title => 'दिन-शुरुआत जांच';
+
+  @override
+  String get daystart_subtitle => 'आज की पहली कैप्चर से पहले इनकी पुष्टि करें।';
+
+  @override
+  String get daystart_clock_label => 'इस डिवाइस की घड़ी (तारीख और समय) सही है।';
+
+  @override
+  String get daystart_project_label =>
+      'मैं आज सही प्रोजेक्ट पर काम कर रहा/रही हूं।';
+
+  @override
+  String get daystart_calibration_label =>
+      'कैलिब्रेशन की आवश्यकता वाले किसी भी उपकरण (स्केल, थर्मोकपल) की जांच कर ली गई है और वह मान्य तिथि में है।';
+
+  @override
+  String get daystart_confirm_button => 'पुष्टि करें और दिन शुरू करें';
+
+  @override
+  String get daystart_saving_label => 'सहेजा जा रहा है…';
 }

@@ -91,5 +91,13 @@
   "kyc_register_failed_snackbar": "Could not register farmer: {error}",
   "@kyc_register_failed_snackbar": {
     "placeholders": { "error": {"type": "String"} }
-  }
+  },
+
+  "daystart_title": "Start-of-Day Check",
+  "daystart_subtitle": "Confirm these before your first capture today.",
+  "daystart_clock_label": "This device's clock (date & time) is correct.",
+  "daystart_project_label": "I am working the correct project today.",
+  "daystart_calibration_label": "Any equipment needing calibration (scale, thermocouple) has been checked and is in date.",
+  "daystart_confirm_button": "CONFIRM & START DAY",
+  "daystart_saving_label": "SAVING…"
 }
