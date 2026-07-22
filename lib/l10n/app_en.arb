@@ -22,5 +22,74 @@
   },
   "scan_biomass_hindi": "Scan Biomass Input",
   "connect_sensor_hindi": "Connect Sensor",
-  "record_yield_hindi": "Record Yield Weight"
+  "record_yield_hindi": "Record Yield Weight",
+
+  "kyc_screen_title": "Farmer KYC",
+  "kyc_form_title": "Register Farmer",
+  "kyc_subtitle": "Enrol the farmer and record their FPIC consent. Details sync to the verifier portal.",
+  "kyc_clear_draft_tooltip": "Clear draft",
+  "kyc_draft_restored_banner": "Draft restored from your last session.",
+  "kyc_dismiss": "Dismiss",
+  "kyc_no_project_configured": "No project is configured for this device, so a farmer cannot be scoped to a project. Registration is disabled.",
+
+  "kyc_section_personal": "PERSONAL",
+  "kyc_field_first_name": "FIRST NAME",
+  "kyc_field_first_name_hint": "e.g. Rahul",
+  "kyc_field_last_name": "LAST NAME (OPTIONAL)",
+  "kyc_field_last_name_hint": "e.g. Kumar",
+  "kyc_field_guardian": "GUARDIAN NAME (OPTIONAL)",
+  "kyc_field_mobile": "MOBILE NUMBER",
+  "kyc_field_mobile_hint": "+91 ...",
+  "kyc_field_village": "VILLAGE (OPTIONAL)",
+
+  "kyc_section_identity": "IDENTITY (OPTIONAL)",
+  "kyc_capture_signature": "SIGNATURE",
+  "kyc_capture_id_document": "ID DOCUMENT PHOTO",
+  "kyc_id_last4_label": "ID LAST 4 DIGITS",
+  "kyc_id_last4_hint": "e.g. 1234",
+  "kyc_id_type_label": "ID TYPE",
+  "kyc_id_type_aadhaar": "Aadhaar",
+  "kyc_id_type_pan": "PAN",
+  "kyc_id_type_passport": "Passport",
+  "kyc_id_type_nid": "National ID",
+
+  "kyc_section_payment": "PAYMENT (OPTIONAL, MASKED ON SAVE)",
+  "kyc_field_account_holder": "ACCOUNT HOLDER",
+  "kyc_field_account_number": "ACCOUNT NUMBER",
+  "kyc_field_account_number_hint": "stored masked — full number never leaves the device",
+  "kyc_field_pincode": "PINCODE (OPTIONAL — AUTO-FILLS DISTRICT/STATE)",
+  "kyc_field_pincode_hint": "e.g. 110001",
+  "kyc_lookup_button": "Look up",
+  "kyc_pincode_found": "Found: {district}, {state}",
+  "@kyc_pincode_found": {
+    "placeholders": { "district": {"type": "String"}, "state": {"type": "String"} }
+  },
+  "kyc_apply_to_village": "Apply to village",
+  "kyc_pincode_no_match": "No match — check the pincode or enter the address manually.",
+  "kyc_field_ifsc": "IFSC (OPTIONAL)",
+  "kyc_verify_button": "Verify",
+  "kyc_ifsc_found": "Bank: {bank} · Branch: {branch}",
+  "@kyc_ifsc_found": {
+    "placeholders": { "bank": {"type": "String"}, "branch": {"type": "String"} }
+  },
+  "kyc_ifsc_no_match": "No match — double-check the IFSC code.",
+
+  "kyc_section_consent": "CONSENT",
+  "kyc_fpic_consent_text": "Farmer has given free, prior & informed consent (FPIC), including exclusivity.",
+  "kyc_capture_fpic_pdf": "FPIC SIGNED CONSENT (PHOTO OF FORM)",
+  "kyc_capture_fpic_holding": "FPIC HOLDING PHOTO",
+
+  "kyc_register_button": "REGISTER FARMER",
+  "kyc_saving_label": "SAVING…",
+
+  "kyc_clear_draft_dialog_title": "Clear all entered fields?",
+  "kyc_clear_draft_dialog_content": "This erases every field on this form for this farmer. This cannot be undone.",
+  "kyc_cancel_button": "Cancel",
+  "kyc_clear_button": "Clear",
+
+  "kyc_registered_snackbar": "Farmer registered — queued for sync.",
+  "kyc_register_failed_snackbar": "Could not register farmer: {error}",
+  "@kyc_register_failed_snackbar": {
+    "placeholders": { "error": {"type": "String"} }
+  }
 }

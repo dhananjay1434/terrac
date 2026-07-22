@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:dmrv_app/l10n/app_localizations.dart';
 import 'package:dmrv_app/ui/screens/farmer_kyc_screen.dart';
 
 /// V8 Part 4 (J) — field-UX pack coverage for the farmer onboarding screen:
@@ -31,7 +32,11 @@ void main() {
   Future<void> pumpScreen(WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
-        child: MaterialApp(home: FarmerKycScreen()),
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: FarmerKycScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();

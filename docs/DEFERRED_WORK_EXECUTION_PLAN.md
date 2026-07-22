@@ -495,9 +495,29 @@ UI strings are localized in the same pass.
   assertions still pass and now cover the farmer KYC keys.
 
 ### R5 — Definition of Done
-- [ ] Zero hardcoded user-facing strings remain in `farmer_kyc_screen.dart`.
-- [ ] en + hi both complete; `l10n_test.dart` green including new keys.
-- [ ] Flutter suite green; no backend/portal change.
+- [x] Zero hardcoded user-facing strings remain in `farmer_kyc_screen.dart` build path
+      (screen title, form title/subtitle, all 4 section headers, all field labels/hints,
+      draft-restored banner + dismiss, no-project warning, ID type chips, pincode/IFSC
+      lookup rows + result/error text, consent checkbox text, media capture row labels,
+      clear-draft dialog, register/saving button, both snackbar messages — 52 keys added).
+      **Explicitly NOT localized (scoped out, documented not dropped):** the shared
+      `_mediaCaptureRow` "✓ {label}" / "CAPTURE {label}" verb-prefix formatting — it's
+      duplicated verbatim in `dispatch_screen.dart` too, so retrofitting just one
+      screen's copy would be inconsistent; better done as one pass across both when R1's
+      shared capture-row helper is eventually deduplicated.
+- [x] en + hi both complete with real Hindi translations (not placeholder text);
+      `l10n_test.dart` green (existing assertions untouched, new keys additive).
+- [x] Flutter suite green before + after (356 passed, +14 from R5's key additions +
+      2 pre-existing skips); no backend/portal change needed, as planned.
+- **Real-world fix needed beyond this plan's original scope:** the existing
+  `farmer_kyc_screen_test.dart`/`farmer_kyc_media_test.dart` widget tests wrapped
+  `FarmerKycScreen` in a bare `MaterialApp(home: ...)` with no
+  `localizationsDelegates`/`supportedLocales` — that's fine for a screen with zero
+  `AppLocalizations.of(context)` calls, but the moment R5 added them, `of(context)!`
+  null-checked on nothing and every existing farmer-KYC widget test crashed at build
+  time. Fixed both test files to mirror `dashboard_screen_test.dart`'s existing
+  `MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales, ...)` pattern.
 
 ---
 

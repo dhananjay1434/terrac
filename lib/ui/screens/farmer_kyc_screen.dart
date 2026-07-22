@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../data/capture_types.dart';
 import '../../data/local/database_provider.dart';
 import '../../data/local/pyrolysis_writer.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/ifsc_lookup_service.dart';
 import '../../services/pincode_lookup_service.dart';
 import '../../services/secure_capture_service.dart';
@@ -183,22 +184,20 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
   }
 
   Future<void> _confirmClearDraft() async {
+    final l = AppLocalizations.of(context)!;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clear all entered fields?'),
-        content: const Text(
-          'This erases every field on this form for this farmer. This cannot '
-          'be undone.',
-        ),
+        title: Text(l.kyc_clear_draft_dialog_title),
+        content: Text(l.kyc_clear_draft_dialog_content),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l.kyc_cancel_button),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Clear'),
+            child: Text(l.kyc_clear_button),
           ),
         ],
       ),
@@ -242,7 +241,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
       _pincodeLookupBusy = false;
       _pincodeResult = result;
       if (result == null) {
-        _pincodeError = 'No match — check the pincode or enter the address manually.';
+        _pincodeError = AppLocalizations.of(context)!.kyc_pincode_no_match;
       }
     });
   }
@@ -268,7 +267,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
       _ifscLookupBusy = false;
       _ifscResult = result;
       if (result == null) {
-        _ifscError = 'No match — double-check the IFSC code.';
+        _ifscError = AppLocalizations.of(context)!.kyc_ifsc_no_match;
       }
     });
   }
@@ -322,6 +321,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
 
   Future<void> _submit() async {
     final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context)!;
     setState(() => _submitting = true);
     try {
       final db = await ref.read(appDatabaseProvider.future);
@@ -383,14 +383,14 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
       await _clearDraft();
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('Farmer registered — queued for sync.')),
+        SnackBar(content: Text(l.kyc_registered_snackbar)),
       );
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
       messenger.showSnackBar(
-        SnackBar(content: Text('Could not register farmer: $e')),
+        SnackBar(content: Text(l.kyc_register_failed_snackbar(e.toString()))),
       );
     }
   }
@@ -398,6 +398,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final l = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: t.surface,
@@ -406,13 +407,13 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
         elevation: 0,
         iconTheme: IconThemeData(color: t.textPrimary),
         title: Text(
-          'Farmer KYC',
+          l.kyc_screen_title,
           style: t.blockHeader.copyWith(color: t.textPrimary),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_outline),
-            tooltip: 'Clear draft',
+            tooltip: l.kyc_clear_draft_tooltip,
             onPressed: _confirmClearDraft,
           ),
         ],
@@ -422,13 +423,12 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
           padding: EdgeInsets.fromLTRB(t.gapL, t.gapM, t.gapL, t.gapL),
           children: [
             Text(
-              'Register Farmer',
+              l.kyc_form_title,
               style: t.screenTitle.copyWith(color: t.textPrimary),
             ),
             SizedBox(height: t.gapS),
             Text(
-              'Enrol the farmer and record their FPIC consent. Details sync to '
-              'the verifier portal.',
+              l.kyc_subtitle,
               style: t.body.copyWith(color: t.textSecondary),
             ),
             if (_draftRestoredBannerVisible) ...[
@@ -445,14 +445,14 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
                     SizedBox(width: t.gapS),
                     Expanded(
                       child: Text(
-                        'Draft restored from your last session.',
+                        l.kyc_draft_restored_banner,
                         style: t.body.copyWith(color: t.textPrimary),
                       ),
                     ),
                     TextButton(
                       onPressed: () =>
                           setState(() => _draftRestoredBannerVisible = false),
-                      child: const Text('Dismiss'),
+                      child: Text(l.kyc_dismiss),
                     ),
                   ],
                 ),
@@ -461,31 +461,30 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
             if (_projectId.isEmpty) ...[
               SizedBox(height: t.gapM),
               Text(
-                'No project is configured for this device, so a farmer cannot '
-                'be scoped to a project. Registration is disabled.',
+                l.kyc_no_project_configured,
                 style: t.body.copyWith(color: t.danger),
               ),
             ],
             SizedBox(height: t.gapXL),
 
-            _section(t, 'PERSONAL'),
-            _field(t, 'FIRST NAME', _firstName, 'kyc-first', 'e.g. Rahul'),
+            _section(t, l.kyc_section_personal),
+            _field(t, l.kyc_field_first_name, _firstName, 'kyc-first', l.kyc_field_first_name_hint),
             SizedBox(height: t.gapL),
-            _field(t, 'LAST NAME (OPTIONAL)', _lastName, 'kyc-last', 'e.g. Kumar'),
+            _field(t, l.kyc_field_last_name, _lastName, 'kyc-last', l.kyc_field_last_name_hint),
             SizedBox(height: t.gapL),
-            _field(t, 'GUARDIAN NAME (OPTIONAL)', _guardian, 'kyc-guardian', ''),
+            _field(t, l.kyc_field_guardian, _guardian, 'kyc-guardian', ''),
             SizedBox(height: t.gapL),
-            _field(t, 'MOBILE NUMBER', _mobile, 'kyc-mobile', '+91 ...'),
+            _field(t, l.kyc_field_mobile, _mobile, 'kyc-mobile', l.kyc_field_mobile_hint),
             SizedBox(height: t.gapL),
-            _field(t, 'VILLAGE (OPTIONAL)', _village, 'kyc-village', ''),
+            _field(t, l.kyc_field_village, _village, 'kyc-village', ''),
             SizedBox(height: t.gapL),
-            _pincodeRow(t),
+            _pincodeRow(t, l),
 
             SizedBox(height: t.gapXL),
-            _section(t, 'IDENTITY (OPTIONAL)'),
+            _section(t, l.kyc_section_identity),
             _mediaCaptureRow(
               t,
-              label: 'SIGNATURE',
+              label: l.kyc_capture_signature,
               testId: 'kyc-capture-signature',
               captured: _signatureMediaId != null,
               onPressed: () => _captureFarmerMedia(
@@ -496,7 +495,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
             SizedBox(height: t.gapL),
             _mediaCaptureRow(
               t,
-              label: 'ID DOCUMENT PHOTO',
+              label: l.kyc_capture_id_document,
               testId: 'kyc-capture-id-doc',
               captured: _idDocMediaId != null,
               onPressed: () => _captureFarmerMedia(
@@ -506,48 +505,47 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
             ),
             if (_idDocMediaId != null) ...[
               SizedBox(height: t.gapM),
-              _idDocTypeRow(t),
+              _idDocTypeRow(t, l),
               SizedBox(height: t.gapL),
               _field(
                 t,
-                'ID LAST 4 DIGITS',
+                l.kyc_id_last4_label,
                 _idDocLast4,
                 'kyc-id-last4',
-                'e.g. 1234',
+                l.kyc_id_last4_hint,
               ),
             ],
 
             SizedBox(height: t.gapXL),
-            _section(t, 'PAYMENT (OPTIONAL, MASKED ON SAVE)'),
-            _field(t, 'ACCOUNT HOLDER', _accountHolder, 'kyc-holder', ''),
+            _section(t, l.kyc_section_payment),
+            _field(t, l.kyc_field_account_holder, _accountHolder, 'kyc-holder', ''),
             SizedBox(height: t.gapL),
             _field(
               t,
-              'ACCOUNT NUMBER',
+              l.kyc_field_account_number,
               _accountNumber,
               'kyc-account',
-              'stored masked — full number never leaves the device',
+              l.kyc_field_account_number_hint,
             ),
             SizedBox(height: t.gapL),
-            _ifscRow(t),
+            _ifscRow(t, l),
 
             SizedBox(height: t.gapXL),
-            _section(t, 'CONSENT'),
+            _section(t, l.kyc_section_consent),
             CheckboxListTile(
               value: _fpicAck,
               onChanged: (v) => setState(() => _fpicAck = v ?? false),
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,
               title: Text(
-                'Farmer has given free, prior & informed consent (FPIC), '
-                'including exclusivity.',
+                l.kyc_fpic_consent_text,
                 style: t.body.copyWith(color: t.textPrimary),
               ),
             ),
             SizedBox(height: t.gapL),
             _mediaCaptureRow(
               t,
-              label: 'FPIC SIGNED CONSENT (PHOTO OF FORM)',
+              label: l.kyc_capture_fpic_pdf,
               testId: 'kyc-capture-fpic-pdf',
               captured: _fpicPdfMediaId != null,
               onPressed: () => _captureFarmerMedia(
@@ -558,7 +556,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
             SizedBox(height: t.gapL),
             _mediaCaptureRow(
               t,
-              label: 'FPIC HOLDING PHOTO',
+              label: l.kyc_capture_fpic_holding,
               testId: 'kyc-capture-fpic-holding',
               captured: _fpicHoldingPhotoMediaId != null,
               onPressed: () => _captureFarmerMedia(
@@ -569,7 +567,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
 
             SizedBox(height: t.gapXL),
             DmrvButton(
-              label: _submitting ? 'SAVING…' : 'REGISTER FARMER',
+              label: _submitting ? l.kyc_saving_label : l.kyc_register_button,
               testId: 'kyc-save-btn',
               variant: DmrvButtonVariant.primary,
               onPressed: _canSubmit ? _submit : null,
@@ -580,7 +578,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
     );
   }
 
-  Widget _pincodeRow(DmrvTokens t) {
+  Widget _pincodeRow(DmrvTokens t, AppLocalizations l) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -590,10 +588,10 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
             Expanded(
               child: _field(
                 t,
-                'PINCODE (OPTIONAL — AUTO-FILLS DISTRICT/STATE)',
+                l.kyc_field_pincode,
                 _pincode,
                 'kyc-pincode',
-                'e.g. 110001',
+                l.kyc_field_pincode_hint,
               ),
             ),
             SizedBox(width: t.gapM),
@@ -607,7 +605,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Look up'),
+                    : Text(l.kyc_lookup_button),
               ),
             ),
           ],
@@ -620,13 +618,13 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'Found: ${_pincodeResult!.district}, ${_pincodeResult!.state}',
+                    l.kyc_pincode_found(_pincodeResult!.district, _pincodeResult!.state),
                     style: t.body.copyWith(color: t.success),
                   ),
                 ),
                 TextButton(
                   onPressed: _applyPincodeResult,
-                  child: const Text('Apply to village'),
+                  child: Text(l.kyc_apply_to_village),
                 ),
               ],
             ),
@@ -640,7 +638,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
     );
   }
 
-  Widget _ifscRow(DmrvTokens t) {
+  Widget _ifscRow(DmrvTokens t, AppLocalizations l) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -648,7 +646,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: _field(t, 'IFSC (OPTIONAL)', _ifsc, 'kyc-ifsc', ''),
+              child: _field(t, l.kyc_field_ifsc, _ifsc, 'kyc-ifsc', ''),
             ),
             SizedBox(width: t.gapM),
             SizedBox(
@@ -661,7 +659,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Verify'),
+                    : Text(l.kyc_verify_button),
               ),
             ),
           ],
@@ -671,7 +669,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
           Semantics(
             identifier: 'kyc-ifsc-result',
             child: Text(
-              'Bank: ${_ifscResult!.bankName} · Branch: ${_ifscResult!.branch}',
+              l.kyc_ifsc_found(_ifscResult!.bankName, _ifscResult!.branch),
               style: t.body.copyWith(color: t.success),
             ),
           ),
@@ -707,17 +705,17 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
     );
   }
 
-  Widget _idDocTypeRow(DmrvTokens t) {
-    const types = {
-      'aadhaar': 'Aadhaar',
-      'pan': 'PAN',
-      'passport': 'Passport',
-      'nid': 'National ID',
+  Widget _idDocTypeRow(DmrvTokens t, AppLocalizations l) {
+    final types = {
+      'aadhaar': l.kyc_id_type_aadhaar,
+      'pan': l.kyc_id_type_pan,
+      'passport': l.kyc_id_type_passport,
+      'nid': l.kyc_id_type_nid,
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('ID TYPE', style: t.chipLabel.copyWith(color: t.accentText)),
+        Text(l.kyc_id_type_label, style: t.chipLabel.copyWith(color: t.accentText)),
         SizedBox(height: t.gapS),
         Wrap(
           spacing: t.gapS,

@@ -145,6 +145,318 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Record Yield Weight'**
   String get record_yield_hindi;
+
+  /// No description provided for @kyc_screen_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Farmer KYC'**
+  String get kyc_screen_title;
+
+  /// No description provided for @kyc_form_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Register Farmer'**
+  String get kyc_form_title;
+
+  /// No description provided for @kyc_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enrol the farmer and record their FPIC consent. Details sync to the verifier portal.'**
+  String get kyc_subtitle;
+
+  /// No description provided for @kyc_clear_draft_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear draft'**
+  String get kyc_clear_draft_tooltip;
+
+  /// No description provided for @kyc_draft_restored_banner.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft restored from your last session.'**
+  String get kyc_draft_restored_banner;
+
+  /// No description provided for @kyc_dismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get kyc_dismiss;
+
+  /// No description provided for @kyc_no_project_configured.
+  ///
+  /// In en, this message translates to:
+  /// **'No project is configured for this device, so a farmer cannot be scoped to a project. Registration is disabled.'**
+  String get kyc_no_project_configured;
+
+  /// No description provided for @kyc_section_personal.
+  ///
+  /// In en, this message translates to:
+  /// **'PERSONAL'**
+  String get kyc_section_personal;
+
+  /// No description provided for @kyc_field_first_name.
+  ///
+  /// In en, this message translates to:
+  /// **'FIRST NAME'**
+  String get kyc_field_first_name;
+
+  /// No description provided for @kyc_field_first_name_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Rahul'**
+  String get kyc_field_first_name_hint;
+
+  /// No description provided for @kyc_field_last_name.
+  ///
+  /// In en, this message translates to:
+  /// **'LAST NAME (OPTIONAL)'**
+  String get kyc_field_last_name;
+
+  /// No description provided for @kyc_field_last_name_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Kumar'**
+  String get kyc_field_last_name_hint;
+
+  /// No description provided for @kyc_field_guardian.
+  ///
+  /// In en, this message translates to:
+  /// **'GUARDIAN NAME (OPTIONAL)'**
+  String get kyc_field_guardian;
+
+  /// No description provided for @kyc_field_mobile.
+  ///
+  /// In en, this message translates to:
+  /// **'MOBILE NUMBER'**
+  String get kyc_field_mobile;
+
+  /// No description provided for @kyc_field_mobile_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'+91 ...'**
+  String get kyc_field_mobile_hint;
+
+  /// No description provided for @kyc_field_village.
+  ///
+  /// In en, this message translates to:
+  /// **'VILLAGE (OPTIONAL)'**
+  String get kyc_field_village;
+
+  /// No description provided for @kyc_section_identity.
+  ///
+  /// In en, this message translates to:
+  /// **'IDENTITY (OPTIONAL)'**
+  String get kyc_section_identity;
+
+  /// No description provided for @kyc_capture_signature.
+  ///
+  /// In en, this message translates to:
+  /// **'SIGNATURE'**
+  String get kyc_capture_signature;
+
+  /// No description provided for @kyc_capture_id_document.
+  ///
+  /// In en, this message translates to:
+  /// **'ID DOCUMENT PHOTO'**
+  String get kyc_capture_id_document;
+
+  /// No description provided for @kyc_id_last4_label.
+  ///
+  /// In en, this message translates to:
+  /// **'ID LAST 4 DIGITS'**
+  String get kyc_id_last4_label;
+
+  /// No description provided for @kyc_id_last4_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 1234'**
+  String get kyc_id_last4_hint;
+
+  /// No description provided for @kyc_id_type_label.
+  ///
+  /// In en, this message translates to:
+  /// **'ID TYPE'**
+  String get kyc_id_type_label;
+
+  /// No description provided for @kyc_id_type_aadhaar.
+  ///
+  /// In en, this message translates to:
+  /// **'Aadhaar'**
+  String get kyc_id_type_aadhaar;
+
+  /// No description provided for @kyc_id_type_pan.
+  ///
+  /// In en, this message translates to:
+  /// **'PAN'**
+  String get kyc_id_type_pan;
+
+  /// No description provided for @kyc_id_type_passport.
+  ///
+  /// In en, this message translates to:
+  /// **'Passport'**
+  String get kyc_id_type_passport;
+
+  /// No description provided for @kyc_id_type_nid.
+  ///
+  /// In en, this message translates to:
+  /// **'National ID'**
+  String get kyc_id_type_nid;
+
+  /// No description provided for @kyc_section_payment.
+  ///
+  /// In en, this message translates to:
+  /// **'PAYMENT (OPTIONAL, MASKED ON SAVE)'**
+  String get kyc_section_payment;
+
+  /// No description provided for @kyc_field_account_holder.
+  ///
+  /// In en, this message translates to:
+  /// **'ACCOUNT HOLDER'**
+  String get kyc_field_account_holder;
+
+  /// No description provided for @kyc_field_account_number.
+  ///
+  /// In en, this message translates to:
+  /// **'ACCOUNT NUMBER'**
+  String get kyc_field_account_number;
+
+  /// No description provided for @kyc_field_account_number_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'stored masked — full number never leaves the device'**
+  String get kyc_field_account_number_hint;
+
+  /// No description provided for @kyc_field_pincode.
+  ///
+  /// In en, this message translates to:
+  /// **'PINCODE (OPTIONAL — AUTO-FILLS DISTRICT/STATE)'**
+  String get kyc_field_pincode;
+
+  /// No description provided for @kyc_field_pincode_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 110001'**
+  String get kyc_field_pincode_hint;
+
+  /// No description provided for @kyc_lookup_button.
+  ///
+  /// In en, this message translates to:
+  /// **'Look up'**
+  String get kyc_lookup_button;
+
+  /// No description provided for @kyc_pincode_found.
+  ///
+  /// In en, this message translates to:
+  /// **'Found: {district}, {state}'**
+  String kyc_pincode_found(String district, String state);
+
+  /// No description provided for @kyc_apply_to_village.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply to village'**
+  String get kyc_apply_to_village;
+
+  /// No description provided for @kyc_pincode_no_match.
+  ///
+  /// In en, this message translates to:
+  /// **'No match — check the pincode or enter the address manually.'**
+  String get kyc_pincode_no_match;
+
+  /// No description provided for @kyc_field_ifsc.
+  ///
+  /// In en, this message translates to:
+  /// **'IFSC (OPTIONAL)'**
+  String get kyc_field_ifsc;
+
+  /// No description provided for @kyc_verify_button.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get kyc_verify_button;
+
+  /// No description provided for @kyc_ifsc_found.
+  ///
+  /// In en, this message translates to:
+  /// **'Bank: {bank} · Branch: {branch}'**
+  String kyc_ifsc_found(String bank, String branch);
+
+  /// No description provided for @kyc_ifsc_no_match.
+  ///
+  /// In en, this message translates to:
+  /// **'No match — double-check the IFSC code.'**
+  String get kyc_ifsc_no_match;
+
+  /// No description provided for @kyc_section_consent.
+  ///
+  /// In en, this message translates to:
+  /// **'CONSENT'**
+  String get kyc_section_consent;
+
+  /// No description provided for @kyc_fpic_consent_text.
+  ///
+  /// In en, this message translates to:
+  /// **'Farmer has given free, prior & informed consent (FPIC), including exclusivity.'**
+  String get kyc_fpic_consent_text;
+
+  /// No description provided for @kyc_capture_fpic_pdf.
+  ///
+  /// In en, this message translates to:
+  /// **'FPIC SIGNED CONSENT (PHOTO OF FORM)'**
+  String get kyc_capture_fpic_pdf;
+
+  /// No description provided for @kyc_capture_fpic_holding.
+  ///
+  /// In en, this message translates to:
+  /// **'FPIC HOLDING PHOTO'**
+  String get kyc_capture_fpic_holding;
+
+  /// No description provided for @kyc_register_button.
+  ///
+  /// In en, this message translates to:
+  /// **'REGISTER FARMER'**
+  String get kyc_register_button;
+
+  /// No description provided for @kyc_saving_label.
+  ///
+  /// In en, this message translates to:
+  /// **'SAVING…'**
+  String get kyc_saving_label;
+
+  /// No description provided for @kyc_clear_draft_dialog_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all entered fields?'**
+  String get kyc_clear_draft_dialog_title;
+
+  /// No description provided for @kyc_clear_draft_dialog_content.
+  ///
+  /// In en, this message translates to:
+  /// **'This erases every field on this form for this farmer. This cannot be undone.'**
+  String get kyc_clear_draft_dialog_content;
+
+  /// No description provided for @kyc_cancel_button.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get kyc_cancel_button;
+
+  /// No description provided for @kyc_clear_button.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get kyc_clear_button;
+
+  /// No description provided for @kyc_registered_snackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'Farmer registered — queued for sync.'**
+  String get kyc_registered_snackbar;
+
+  /// No description provided for @kyc_register_failed_snackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not register farmer: {error}'**
+  String kyc_register_failed_snackbar(String error);
 }
 
 class _AppLocalizationsDelegate
