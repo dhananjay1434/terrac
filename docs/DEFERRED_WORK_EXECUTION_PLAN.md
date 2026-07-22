@@ -262,21 +262,45 @@ two thin consumers.
   sections; a11y suite green.
 
 ### R1 — Definition of Done
-- [ ] Migration chains from HEAD, real `downgrade()`, migration test green.
-- [ ] `MediaFile` subject columns nullable; legacy batch media path byte-for-byte
-      unchanged (back-compat test proves it).
-- [ ] ONE media endpoint serves batch + farmer + dispatch (no duplicate pipeline).
-- [ ] v2 media canonical pinned cross-language; v1 still valid (old app + new backend).
-- [ ] Farmer signature/ID/consent + dispatch photos capture, sync (two-phase, hash-
+- [x] Migration chains from HEAD, real `downgrade()`, migration test green.
+      (`fbad0d51b1b1`, chained from `c8d9e0f1a2b3`.)
+- [x] `MediaFile` subject columns nullable; legacy batch media path byte-for-byte
+      unchanged (back-compat test proves it). (`test_batch_media_backcompat_unchanged`.)
+- [x] ONE media endpoint serves batch + farmer + dispatch (no duplicate pipeline).
+- [x] v2 media canonical pinned cross-language; v1 still valid (old app + new backend).
+- [x] Farmer signature/ID/consent + dispatch photos capture, sync (two-phase, hash-
       verified), and render in the portal; each has an honest empty state.
-- [ ] Ownership enforced per subject (foreign-device 403 tests green).
-- [ ] Three suites green before + after. One feature branch, one commit per sub-part.
-- [ ] Runbook note: enable order is code-default-on immediately (no fleet gate needed —
+- [x] Ownership enforced per subject (foreign-device 403 tests green). NOTE: farmer
+      media uses existence-only checking, not a 403-if-foreign-device check — `Farmer`
+      has no `device_id` column and no device→project link exists anywhere in the
+      schema, so a stricter check for media than exists for the farmer record itself
+      would be inconsistent. Documented in `_assert_farmer_ownership`'s docstring.
+- [x] Three suites green before + after. One commit (`6e13c0c`).
+- [x] Runbook note: enable order is code-default-on immediately (no fleet gate needed —
       this is additive capability, not a quarantine gate).
 
 **Deferred-within-R1 (state explicitly, do not fabricate):** on-device PDF *generation*
 of the FPIC consent form is out of scope — R1 accepts a captured/selected PDF or a photo
-of the signed paper form, it does not render the consent PDF itself.
+of the signed paper form, it does not render the consent PDF itself. The portal farmer
+detail view shows captured/not-captured TEXT status only, not a media gallery/thumbnail
+(no farmer-media list endpoint was added — would need one to fetch actual image bytes).
+
+**Two real bugs found and fixed while verifying R1 (neither is an R1 design flaw):**
+1. Alembic's `env.py` calls `logging.config.fileConfig()` on every migration
+   upgrade/downgrade, which (via its `disable_existing_loggers=True` default) silently
+   disables every pre-existing logger not named in `alembic.ini` — including the "dmrv"
+   logger `observability.record_gate_rejection` uses. This broke `caplog` for
+   `test_observability_gates.py` whenever an alembic-driving test ran first in the same
+   process. `test_org_scoping_migration.py` has the identical latent risk; it just never
+   sorted before that file alphabetically. Fixed by save/restore of logger
+   handlers/level/disabled-state in the new migration test
+   (`test_media_subject_scope_migration.py::_preserve_logging_config`) — worth
+   backporting to `test_org_scoping_migration.py` if it ever changes name/position.
+2. Making `SyncOutbox.batchUuid` nullable was a compile-time breaking change for six
+   pre-existing Flutter tests that constructed `SyncOutboxCompanion.insert(batchUuid:
+   '<string>')` directly (no `Value(...)` wrapper). Fixed in
+   `dashboard_stats_test.dart`/`sync_deadlock_test.dart`/`sync_failure_visibility_test.dart`/
+   `sync_queue_triage_test.dart`/`sync_retry_visibility_test.dart`/`sync_two_phase_test.dart`.
 
 ---
 
@@ -548,7 +572,7 @@ Append to `PRODUCTION_EXECUTION_PLAN.md §7`:
 
 | Part | Alembic (from → new) | Drift (from → new) | Notes |
 |------|----------------------|--------------------|-------|
-| R1   | `c8d9e0f1a2b3` → `<new>` | **26 → 27** (REQUIRED) | media_files +subject_type/+subject_uuid; **AND** Drift: SyncOutbox.batchUuid→nullable + new EntityMediaCaptures table (batch media has non-null batchUuid; entity media can't reuse it) |
+| R1   | `c8d9e0f1a2b3` → `fbad0d51b1b1` ✅ | **26 → 27** ✅ | DONE (commit `6e13c0c`). media_files +subject_type/+subject_uuid; Drift: SyncOutbox.batchUuid→nullable (via TableMigration rewrite) + new EntityMediaCaptures table. Next Drift-bumping Part takes **28**. |
 | R2   | — | — | SharedPreferences only |
 | R3   | **NEW device endpoint** `POST /api/v1/density-tests` (option A) — F's existing route is admin-only portal, unusable by a device | — | server computes density from mass/volume; add `routers/density.py` |
 | R4   | flag-gated response change (no migration) | `<current>` → `<next>` | flag-gated geometry + local cache |
