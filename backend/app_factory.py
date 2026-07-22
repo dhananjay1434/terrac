@@ -22,6 +22,22 @@ from settings import log
 async def lifespan(app: FastAPI):
     await init_db()
     log.info("Database initialized")
+    # V8 Part 0.4/0.1: if server signing is configured, fail fast at boot when
+    # the private key doesn't match the published pubkey for its kid. Otherwise
+    # the /api/v1/config endpoint would happily sign documents that NO device
+    # can verify — the app treats an unverifiable config as "none", so the
+    # kill-switch would silently do nothing in an emergency with no server-side
+    # error. Guarded on all three env vars being present so a deployment that
+    # doesn't use signing is never forced to configure it.
+    if (
+        os.environ.get("DMRV_SERVER_SIGNING_SK")
+        and os.environ.get("DMRV_SERVER_SIGNING_KID")
+        and os.environ.get("DMRV_SERVER_SIGNING_PUBKEYS")
+    ):
+        import server_signing
+
+        server_signing.validate_consistency()  # raises on any mismatch
+        log.info("Server signing key validated")
     yield
 
 
@@ -74,6 +90,10 @@ def create_app() -> FastAPI:
     from routers.admin import router as admin_router
     from routers.compliance import router as compliance_router
     from routers.exports import router as exports_router
+    from routers.config import router as config_router
+    from routers.farmers import router as farmers_router
+    from routers.dispatch import router as dispatch_router
+    from routers.field_walk import router as field_walk_router
 
     application.include_router(health_router)
     application.include_router(devices_router)
@@ -84,6 +104,10 @@ def create_app() -> FastAPI:
     application.include_router(admin_router)
     application.include_router(compliance_router)
     application.include_router(exports_router)
+    application.include_router(config_router)
+    application.include_router(farmers_router)
+    application.include_router(dispatch_router)
+    application.include_router(field_walk_router)
 
     # Portal
     from portal.routes import router as portal_router

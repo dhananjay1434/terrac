@@ -655,6 +655,17 @@ class $BiomassSourcingTable extends BiomassSourcing
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _parcelUuidMeta = const VerificationMeta(
+    'parcelUuid',
+  );
+  @override
+  late final GeneratedColumn<String> parcelUuid = GeneratedColumn<String>(
+    'parcel_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     sourcingUuid,
@@ -676,6 +687,7 @@ class $BiomassSourcingTable extends BiomassSourcing
     biomassMeasurementMethod,
     projectId,
     scaleId,
+    parcelUuid,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -842,6 +854,12 @@ class $BiomassSourcingTable extends BiomassSourcing
         scaleId.isAcceptableOrUnknown(data['scale_id']!, _scaleIdMeta),
       );
     }
+    if (data.containsKey('parcel_uuid')) {
+      context.handle(
+        _parcelUuidMeta,
+        parcelUuid.isAcceptableOrUnknown(data['parcel_uuid']!, _parcelUuidMeta),
+      );
+    }
     return context;
   }
 
@@ -931,6 +949,10 @@ class $BiomassSourcingTable extends BiomassSourcing
         DriftSqlType.string,
         data['${effectivePrefix}scale_id'],
       ),
+      parcelUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parcel_uuid'],
+      ),
     );
   }
 
@@ -976,6 +998,7 @@ class BiomassSourcingData extends DataClass
 
   /// Weighing-scale identity, when known (BLE scale pairing metadata).
   final String? scaleId;
+  final String? parcelUuid;
   const BiomassSourcingData({
     required this.sourcingUuid,
     required this.batchUuid,
@@ -996,6 +1019,7 @@ class BiomassSourcingData extends DataClass
     this.biomassMeasurementMethod,
     this.projectId,
     this.scaleId,
+    this.parcelUuid,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1045,6 +1069,9 @@ class BiomassSourcingData extends DataClass
     if (!nullToAbsent || scaleId != null) {
       map['scale_id'] = Variable<String>(scaleId);
     }
+    if (!nullToAbsent || parcelUuid != null) {
+      map['parcel_uuid'] = Variable<String>(parcelUuid);
+    }
     return map;
   }
 
@@ -1091,6 +1118,9 @@ class BiomassSourcingData extends DataClass
       scaleId: scaleId == null && nullToAbsent
           ? const Value.absent()
           : Value(scaleId),
+      parcelUuid: parcelUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parcelUuid),
     );
   }
 
@@ -1125,6 +1155,7 @@ class BiomassSourcingData extends DataClass
       ),
       projectId: serializer.fromJson<String?>(json['projectId']),
       scaleId: serializer.fromJson<String?>(json['scaleId']),
+      parcelUuid: serializer.fromJson<String?>(json['parcelUuid']),
     );
   }
   @override
@@ -1152,6 +1183,7 @@ class BiomassSourcingData extends DataClass
       ),
       'projectId': serializer.toJson<String?>(projectId),
       'scaleId': serializer.toJson<String?>(scaleId),
+      'parcelUuid': serializer.toJson<String?>(parcelUuid),
     };
   }
 
@@ -1175,6 +1207,7 @@ class BiomassSourcingData extends DataClass
     Value<String?> biomassMeasurementMethod = const Value.absent(),
     Value<String?> projectId = const Value.absent(),
     Value<String?> scaleId = const Value.absent(),
+    Value<String?> parcelUuid = const Value.absent(),
   }) => BiomassSourcingData(
     sourcingUuid: sourcingUuid ?? this.sourcingUuid,
     batchUuid: batchUuid ?? this.batchUuid,
@@ -1201,6 +1234,7 @@ class BiomassSourcingData extends DataClass
         : this.biomassMeasurementMethod,
     projectId: projectId.present ? projectId.value : this.projectId,
     scaleId: scaleId.present ? scaleId.value : this.scaleId,
+    parcelUuid: parcelUuid.present ? parcelUuid.value : this.parcelUuid,
   );
   BiomassSourcingData copyWithCompanion(BiomassSourcingCompanion data) {
     return BiomassSourcingData(
@@ -1243,6 +1277,9 @@ class BiomassSourcingData extends DataClass
           : this.biomassMeasurementMethod,
       projectId: data.projectId.present ? data.projectId.value : this.projectId,
       scaleId: data.scaleId.present ? data.scaleId.value : this.scaleId,
+      parcelUuid: data.parcelUuid.present
+          ? data.parcelUuid.value
+          : this.parcelUuid,
     );
   }
 
@@ -1267,7 +1304,8 @@ class BiomassSourcingData extends DataClass
           ..write('biomassInputKg: $biomassInputKg, ')
           ..write('biomassMeasurementMethod: $biomassMeasurementMethod, ')
           ..write('projectId: $projectId, ')
-          ..write('scaleId: $scaleId')
+          ..write('scaleId: $scaleId, ')
+          ..write('parcelUuid: $parcelUuid')
           ..write(')'))
         .toString();
   }
@@ -1293,6 +1331,7 @@ class BiomassSourcingData extends DataClass
     biomassMeasurementMethod,
     projectId,
     scaleId,
+    parcelUuid,
   );
   @override
   bool operator ==(Object other) =>
@@ -1316,7 +1355,8 @@ class BiomassSourcingData extends DataClass
           other.biomassInputKg == this.biomassInputKg &&
           other.biomassMeasurementMethod == this.biomassMeasurementMethod &&
           other.projectId == this.projectId &&
-          other.scaleId == this.scaleId);
+          other.scaleId == this.scaleId &&
+          other.parcelUuid == this.parcelUuid);
 }
 
 class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
@@ -1339,6 +1379,7 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
   final Value<String?> biomassMeasurementMethod;
   final Value<String?> projectId;
   final Value<String?> scaleId;
+  final Value<String?> parcelUuid;
   final Value<int> rowid;
   const BiomassSourcingCompanion({
     this.sourcingUuid = const Value.absent(),
@@ -1360,6 +1401,7 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
     this.biomassMeasurementMethod = const Value.absent(),
     this.projectId = const Value.absent(),
     this.scaleId = const Value.absent(),
+    this.parcelUuid = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BiomassSourcingCompanion.insert({
@@ -1382,6 +1424,7 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
     this.biomassMeasurementMethod = const Value.absent(),
     this.projectId = const Value.absent(),
     this.scaleId = const Value.absent(),
+    this.parcelUuid = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : sourcingUuid = Value(sourcingUuid),
        batchUuid = Value(batchUuid),
@@ -1409,6 +1452,7 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
     Expression<String>? biomassMeasurementMethod,
     Expression<String>? projectId,
     Expression<String>? scaleId,
+    Expression<String>? parcelUuid,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1434,6 +1478,7 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
         'biomass_measurement_method': biomassMeasurementMethod,
       if (projectId != null) 'project_id': projectId,
       if (scaleId != null) 'scale_id': scaleId,
+      if (parcelUuid != null) 'parcel_uuid': parcelUuid,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1458,6 +1503,7 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
     Value<String?>? biomassMeasurementMethod,
     Value<String?>? projectId,
     Value<String?>? scaleId,
+    Value<String?>? parcelUuid,
     Value<int>? rowid,
   }) {
     return BiomassSourcingCompanion(
@@ -1481,6 +1527,7 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
           biomassMeasurementMethod ?? this.biomassMeasurementMethod,
       projectId: projectId ?? this.projectId,
       scaleId: scaleId ?? this.scaleId,
+      parcelUuid: parcelUuid ?? this.parcelUuid,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1547,6 +1594,9 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
     if (scaleId.present) {
       map['scale_id'] = Variable<String>(scaleId.value);
     }
+    if (parcelUuid.present) {
+      map['parcel_uuid'] = Variable<String>(parcelUuid.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1575,6 +1625,7 @@ class BiomassSourcingCompanion extends UpdateCompanion<BiomassSourcingData> {
           ..write('biomassMeasurementMethod: $biomassMeasurementMethod, ')
           ..write('projectId: $projectId, ')
           ..write('scaleId: $scaleId, ')
+          ..write('parcelUuid: $parcelUuid, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8689,6 +8740,7 @@ typedef $$BiomassSourcingTableCreateCompanionBuilder =
       Value<String?> biomassMeasurementMethod,
       Value<String?> projectId,
       Value<String?> scaleId,
+      Value<String?> parcelUuid,
       Value<int> rowid,
     });
 typedef $$BiomassSourcingTableUpdateCompanionBuilder =
@@ -8712,6 +8764,7 @@ typedef $$BiomassSourcingTableUpdateCompanionBuilder =
       Value<String?> biomassMeasurementMethod,
       Value<String?> projectId,
       Value<String?> scaleId,
+      Value<String?> parcelUuid,
       Value<int> rowid,
     });
 
@@ -8850,6 +8903,11 @@ class $$BiomassSourcingTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get parcelUuid => $composableBuilder(
+    column: $table.parcelUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$SystemMetadataTableFilterComposer get batchUuid {
     final $$SystemMetadataTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -8973,6 +9031,11 @@ class $$BiomassSourcingTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get parcelUuid => $composableBuilder(
+    column: $table.parcelUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SystemMetadataTableOrderingComposer get batchUuid {
     final $$SystemMetadataTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -9080,6 +9143,11 @@ class $$BiomassSourcingTableAnnotationComposer
   GeneratedColumn<String> get scaleId =>
       $composableBuilder(column: $table.scaleId, builder: (column) => column);
 
+  GeneratedColumn<String> get parcelUuid => $composableBuilder(
+    column: $table.parcelUuid,
+    builder: (column) => column,
+  );
+
   $$SystemMetadataTableAnnotationComposer get batchUuid {
     final $$SystemMetadataTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -9153,6 +9221,7 @@ class $$BiomassSourcingTableTableManager
                 Value<String?> biomassMeasurementMethod = const Value.absent(),
                 Value<String?> projectId = const Value.absent(),
                 Value<String?> scaleId = const Value.absent(),
+                Value<String?> parcelUuid = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BiomassSourcingCompanion(
                 sourcingUuid: sourcingUuid,
@@ -9174,6 +9243,7 @@ class $$BiomassSourcingTableTableManager
                 biomassMeasurementMethod: biomassMeasurementMethod,
                 projectId: projectId,
                 scaleId: scaleId,
+                parcelUuid: parcelUuid,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9197,6 +9267,7 @@ class $$BiomassSourcingTableTableManager
                 Value<String?> biomassMeasurementMethod = const Value.absent(),
                 Value<String?> projectId = const Value.absent(),
                 Value<String?> scaleId = const Value.absent(),
+                Value<String?> parcelUuid = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BiomassSourcingCompanion.insert(
                 sourcingUuid: sourcingUuid,
@@ -9218,6 +9289,7 @@ class $$BiomassSourcingTableTableManager
                 biomassMeasurementMethod: biomassMeasurementMethod,
                 projectId: projectId,
                 scaleId: scaleId,
+                parcelUuid: parcelUuid,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

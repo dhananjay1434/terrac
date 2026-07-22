@@ -156,6 +156,8 @@ describe("BatchDetail page", () => {
         capture_type_verified: true,
         exif_lat: null,
         exif_lon: null,
+        verification_status: null,
+        verification_remarks: null,
       },
     ];
     mockGet.mockResolvedValue(d);

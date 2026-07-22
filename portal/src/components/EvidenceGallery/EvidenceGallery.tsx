@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { fetchMediaUrl, type MediaItem } from "../../api";
+import { fetchMediaUrl, verifyMedia, type MediaItem } from "../../api";
+import { getRole } from "../../auth";
 // Canonical grouping + titles live in BatchDetail (with passing tests) — read,
 // never redefined. The import cycle is safe: only referenced at render time.
 import { groupMedia, STEP_TITLES } from "../../pages/BatchDetail";
@@ -37,12 +38,108 @@ function titleOf(stage: string) {
     : (STEP_TITLES[stage] ?? stage);
 }
 
+/** V8 Part 4 (K) — reviewer verdict controls, visible only to verifier/admin
+ * roles. Two-step reject (reveal a reason field) keeps the reason mandatory
+ * without a native `window.prompt` (untestable, poor a11y). */
+function VerdictControls({
+  item,
+  onVerified,
+}: {
+  item: MediaItem;
+  onVerified(status: string, remarks: string | null): void;
+}) {
+  const role = getRole();
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  if (role !== "verifier" && role !== "admin") return null;
+
+  async function approve() {
+    setBusy(true);
+    try {
+      const res = await verifyMedia(item.operation_id, { status: "approved" });
+      onVerified(res.verification_status ?? "approved", res.verification_remarks);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmReject() {
+    setBusy(true);
+    try {
+      const res = await verifyMedia(item.operation_id, {
+        status: "rejected",
+        remarks: reason.trim() || undefined,
+      });
+      onVerified(res.verification_status ?? "rejected", res.verification_remarks);
+      setRejecting(false);
+      setReason("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (rejecting) {
+    return (
+      <div className={styles.verdictRow} style={{ flexDirection: "column" }}>
+        <input
+          aria-label={`Rejection reason for ${item.operation_id}`}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Reason for rejection"
+        />
+        <div className={styles.verdictRow}>
+          <button
+            type="button"
+            className={styles.verdictBtn}
+            disabled={busy}
+            onClick={confirmReject}
+          >
+            Confirm reject
+          </button>
+          <button
+            type="button"
+            className={styles.verdictBtn}
+            onClick={() => setRejecting(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.verdictRow}>
+      <button
+        type="button"
+        className={styles.verdictBtn}
+        disabled={busy}
+        onClick={approve}
+      >
+        Approve
+      </button>
+      <button
+        type="button"
+        className={styles.verdictBtn}
+        disabled={busy}
+        onClick={() => setRejecting(true)}
+      >
+        Reject
+      </button>
+    </div>
+  );
+}
+
 function GalleryThumb({
   item,
   onOpen,
+  onVerified,
 }: {
   item: MediaItem;
   onOpen(): void;
+  onVerified(status: string, remarks: string | null): void;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -128,7 +225,16 @@ function GalleryThumb({
           ) : item.capture_type ? (
             <span className="chip warn">unverified</span>
           ) : null}
+          {item.verification_status === "approved" && (
+            <span className="chip ok">reviewer approved</span>
+          )}
+          {item.verification_status === "rejected" && (
+            <span className="chip err" title={item.verification_remarks ?? undefined}>
+              rejected{item.verification_remarks ? `: ${item.verification_remarks}` : ""}
+            </span>
+          )}
         </div>
+        <VerdictControls item={item} onVerified={onVerified} />
       </div>
     </div>
   );
@@ -142,9 +248,23 @@ function GalleryThumb({
 export default function EvidenceGallery({ media }: { media: MediaItem[] }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [lightbox, setLightbox] = useState<number | null>(null);
+  // Local verdict overrides so Approve/Reject reflect immediately without
+  // requiring the parent to refetch the whole batch detail.
+  const [overrides, setOverrides] = useState<
+    Record<string, { status: string; remarks: string | null }>
+  >({});
 
   if (media.length === 0) return null;
-  const filtered = media.filter((m) => matches(filter, m));
+  const withOverrides = media.map((m) =>
+    overrides[m.operation_id]
+      ? {
+          ...m,
+          verification_status: overrides[m.operation_id].status,
+          verification_remarks: overrides[m.operation_id].remarks,
+        }
+      : m,
+  );
+  const filtered = withOverrides.filter((m) => matches(filter, m));
   const groups = groupMedia(filtered);
 
   return (
@@ -180,6 +300,12 @@ export default function EvidenceGallery({ media }: { media: MediaItem[] }) {
                 key={m.sha256_hash}
                 item={m}
                 onOpen={() => setLightbox(filtered.indexOf(m))}
+                onVerified={(status, remarks) =>
+                  setOverrides((o) => ({
+                    ...o,
+                    [m.operation_id]: { status, remarks },
+                  }))
+                }
               />
             ))}
           </div>

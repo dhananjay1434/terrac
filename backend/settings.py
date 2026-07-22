@@ -99,6 +99,14 @@ def env_int(name: str, default: int) -> int:
 _rl_int = env_int
 
 
+def env_float(name: str, default: float) -> float:
+    """Read a float env var, falling back to `default` on absent/invalid."""
+    try:
+        return float(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
 # Platform attestation (Play Integrity / DeviceCheck). T2.1 added a verifier
 # interface (attestation.py); real provider verification still awaits Google /
 # Apple credentials, so verify_attestation returns UNVERIFIED for genuine tokens.
@@ -125,6 +133,36 @@ def _canonical_skew_seconds() -> int:
 
 def _require_canonical_v2() -> bool:
     return os.environ.get("DMRV_REQUIRE_CANONICAL_V2", "0") == "1"
+
+
+# Part 1.1 Source Parcel Boundary settings (live reads for test monkeypatching)
+def parcel_overlap_enforced() -> bool:
+    return os.environ.get("DMRV_PARCEL_OVERLAP_ENFORCED", "1") != "0"
+
+
+def parcel_overlap_ratio() -> float:
+    return env_float("DMRV_PARCEL_OVERLAP_RATIO", 0.02)
+
+
+def parcel_sliver_floor_m2() -> float:
+    return env_float("DMRV_PARCEL_SLIVER_FLOOR_M2", 200.0)
+
+
+def parcel_geofence_buffer_m() -> float:
+    return env_float("DMRV_PARCEL_GEOFENCE_BUFFER_M", 10.0)
+
+
+def parcel_area_mismatch_pct() -> float:
+    return env_float("DMRV_PARCEL_AREA_MISMATCH_PCT", 15.0)
+
+
+def parcel_max_vertices() -> int:
+    return env_int("DMRV_PARCEL_MAX_VERTICES", 5000)
+
+
+# V8 Part 3 — Dispatch dual-weigh reconciliation tolerance (live read).
+def dispatch_weight_tolerance_pct() -> float:
+    return env_float("DMRV_DISPATCH_WEIGHT_TOLERANCE_PCT", 5.0)
 
 
 log = logging.getLogger("dmrv")

@@ -133,6 +133,9 @@ class _MoistureVerificationScreenState
               ? null
               : const String.fromEnvironment('DMRV_PROJECT_ID'),
           scaleId: null,
+          // V8 Part 1.6: the operator-selected source parcel (from the sourcing
+          // screen). Null when unselected → server geofence stays inert.
+          parcelUuid: sourcing.parcelUuid,
         );
       }
 

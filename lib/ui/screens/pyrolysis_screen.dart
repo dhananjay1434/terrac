@@ -14,6 +14,7 @@ import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
 import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
+import '../../data/capture_types.dart';
 import '../../services/secure_capture_service.dart';
 import '../../providers/smoke_evidence_provider.dart';
 import 'kiln_select_screen.dart';
@@ -200,6 +201,42 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
       }
     } finally {
       if (mounted) setState(() => _isCapturingSmoke = false);
+    }
+  }
+
+  bool _isCapturingQuenchVideo = false;
+  bool _quenchVideoCaptured = false;
+
+  /// V8 Part 4 (O) — optional short video of the quench (in addition to,
+  /// never instead of, the required `quenching` still — this does not touch
+  /// `canEndBurn`'s gating set).
+  Future<void> _captureQuenchVideo() async {
+    if (_isCapturingQuenchVideo) return;
+    setState(() => _isCapturingQuenchVideo = true);
+    try {
+      final result = await Navigator.of(
+        context,
+      ).push<SecureVideoCaptureResult>(
+        MaterialPageRoute(
+          builder: (_) =>
+              const SecureCameraScreen(captureMode: SecureCaptureMode.video),
+        ),
+      );
+      if (result != null && mounted) {
+        final batchUuid = ref.read(batchSessionProvider);
+        if (batchUuid == null) return;
+        final db = await ref.read(appDatabaseProvider.future);
+        await db.insertMediaCaptureAndEnqueue(
+          batchUuid: batchUuid,
+          captureType: CaptureType.quenchingVideo,
+          sandboxPath: result.sandboxPath,
+          sha256Hash: result.sha256Hash,
+          isMockLocation: result.isMocked,
+        );
+        if (mounted) setState(() => _quenchVideoCaptured = true);
+      }
+    } finally {
+      if (mounted) setState(() => _isCapturingQuenchVideo = false);
     }
   }
 
@@ -477,11 +514,46 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
           ),
           SizedBox(height: t.gapM),
           if (isOpenKiln) ...[
-            _stageCaptureRow(t, 'flame_curtain', 'Flame curtain photo', captured),
+            // V8 Part 4 (J): stage-labeled prompts — each capture names WHEN
+            // in the burn to shoot and what must be visible, instead of a
+            // bare "photo" label.
+            _stageCaptureRow(
+              t,
+              'flame_curtain',
+              'Flame curtain photo',
+              'Shoot when the flame curtain covers the kiln mouth — mid-burn, kiln ID visible.',
+              captured,
+            ),
             SizedBox(height: t.gapM),
-            _stageCaptureRow(t, 'quenching', 'Quenching photo', captured),
+            _stageCaptureRow(
+              t,
+              'quenching',
+              'Quenching photo',
+              'Shoot the moment water/soil is applied to quench — ~100% of run, kiln ID visible.',
+              captured,
+            ),
+            SizedBox(height: t.gapS),
+            // V8 Part 4 (O) — optional quench video, additive evidence only;
+            // does not gate `canEndBurn`.
+            DmrvButton(
+              label: _quenchVideoCaptured
+                  ? '✓ QUENCH VIDEO RECORDED'
+                  : '+ RECORD QUENCH VIDEO (OPTIONAL)',
+              testId: 'capture-quenching-video-btn',
+              icon: _quenchVideoCaptured ? Icons.check_circle : Icons.videocam,
+              variant: _quenchVideoCaptured
+                  ? DmrvButtonVariant.success
+                  : DmrvButtonVariant.neutral,
+              onPressed: _captureQuenchVideo,
+            ),
             SizedBox(height: t.gapM),
-            _stageCaptureRow(t, 'flame_height', 'Flame-height photo', captured),
+            _stageCaptureRow(
+              t,
+              'flame_height',
+              'Flame-height photo',
+              'Shoot the flame alongside a height marker for scale — used for the reading below.',
+              captured,
+            ),
             SizedBox(height: t.gapM),
             _numericField(
               t,
@@ -531,15 +603,31 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
     DmrvTokens t,
     String stage,
     String label,
+    String hint,
     Set<String> captured,
   ) {
     final done = captured.contains(stage);
-    return DmrvButton(
-      label: done ? '✓ ${label.toUpperCase()}' : 'CAPTURE ${label.toUpperCase()}',
-      testId: 'capture-$stage-btn',
-      icon: done ? Icons.check_circle : Icons.camera_alt,
-      variant: done ? DmrvButtonVariant.success : DmrvButtonVariant.neutral,
-      onPressed: () => _captureStage(stage),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DmrvButton(
+          label: done ? '✓ ${label.toUpperCase()}' : 'CAPTURE ${label.toUpperCase()}',
+          testId: 'capture-$stage-btn',
+          icon: done ? Icons.check_circle : Icons.camera_alt,
+          variant: done ? DmrvButtonVariant.success : DmrvButtonVariant.neutral,
+          onPressed: () => _captureStage(stage),
+        ),
+        if (!done) ...[
+          const SizedBox(height: 4),
+          Semantics(
+            identifier: 'capture-$stage-hint',
+            child: Text(
+              hint,
+              style: t.metadata.copyWith(color: t.textSecondary),
+            ),
+          ),
+        ],
+      ],
     );
   }
 

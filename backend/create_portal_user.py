@@ -23,7 +23,7 @@ from models import PortalUser
 from portal.auth import VALID_ROLES, hash_password
 
 
-async def _upsert(email: str, password: str, role: str) -> str:
+async def _upsert(email: str, password: str, role: str, org_id: str | None) -> str:
     async with SessionLocal() as session:
         existing = (
             await session.execute(
@@ -33,6 +33,7 @@ async def _upsert(email: str, password: str, role: str) -> str:
         if existing is not None:
             existing.password_hash = hash_password(password)
             existing.role = role
+            existing.org_id = org_id
             existing.disabled = False
             action = "updated"
         else:
@@ -41,6 +42,7 @@ async def _upsert(email: str, password: str, role: str) -> str:
                     email=email,
                     password_hash=hash_password(password),
                     role=role,
+                    org_id=org_id,
                     disabled=False,
                 )
             )
@@ -53,6 +55,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Create/update a portal user.")
     parser.add_argument("--email", required=True)
     parser.add_argument("--role", required=True, choices=VALID_ROLES)
+    parser.add_argument(
+        "--org-id",
+        default=None,
+        help="V8 Part 5 (D): confine this user to one org's Projects/"
+        "Facilities/Batches. Omit for a global (unscoped) user — the "
+        "default, and the only option before this Part existed.",
+    )
     args = parser.parse_args()
 
     password = os.environ.get("DMRV_PORTAL_PASSWORD")
@@ -67,8 +76,9 @@ def main() -> int:
         )
         return 2
 
-    action = asyncio.run(_upsert(args.email, password, args.role))
-    print(f"portal user {action}: {args.email} ({args.role})")
+    action = asyncio.run(_upsert(args.email, password, args.role, args.org_id))
+    org_note = f", org={args.org_id}" if args.org_id else ""
+    print(f"portal user {action}: {args.email} ({args.role}{org_note})")
     return 0
 
 

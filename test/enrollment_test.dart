@@ -149,5 +149,17 @@ void main() {
         findsOneWidget,
       );
     });
+
+    // V8 Part 5 (L) — "SCAN QR INSTEAD" pushes a real camera screen
+    // (`MobileScanner`), which needs a platform implementation this headless
+    // widget-test environment doesn't have — same documented limitation as
+    // `SecureCameraScreen` elsewhere in this codebase. This only verifies the
+    // button itself renders; the scan→autofill wiring (`_scanQr` feeding its
+    // result through the same `_onTokenChanged` the paste path uses) is
+    // exercised by inspection, not by driving the real camera widget.
+    testWidgets('SCAN QR INSTEAD button is present', (tester) async {
+      await pump(tester);
+      expect(find.text('SCAN QR INSTEAD'), findsOneWidget);
+    });
   });
 }

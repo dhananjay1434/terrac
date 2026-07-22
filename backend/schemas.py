@@ -39,6 +39,15 @@ class BatchPayload(BaseModel):
     project_id: Optional[str] = Field(None, min_length=1, max_length=128)
     scale_id: Optional[str] = Field(None, min_length=1, max_length=128)
 
+    # V8 Part 1 (A): optional source-parcel linkage. When present, the batch's
+    # claimed GPS coordinate is checked point-in-polygon against the approved,
+    # non-overlapping parcel (geo.py → QUARANTINE_GPS_OUTSIDE_PARCEL); the photo
+    # EXIF must independently agree with the claim within the mismatch threshold,
+    # so the geofence rides on top of the existing GPS corroboration. OPTIONAL
+    # and additive: old app builds omit it (the geofence stays inert for their
+    # batches — grandfathered), so no signed-body 422 regression.
+    parcel_uuid: Optional[str] = Field(None, min_length=1, max_length=36)
+
     # --- LCA inputs (Prompt 8) ---
     # Phase 7-R: these are NOT client-supplied. They are corroborated server-side
     # from the /telemetry (min temp), /yield (wet yield) and /application (transport
@@ -344,5 +353,137 @@ class TransportEventPayload(_BatchScopedPayload):
     fuel_type: Optional[str] = Field(None, max_length=64)
     fuel_amount_litres: Optional[float] = Field(None, ge=0.0, le=100_000.0)
     occurred_at: Optional[str] = Field(None, max_length=64)
+
+
+class FarmerDocumentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    doc_type: Literal["aadhaar", "pan", "passport", "nid"]
+    last4: str = Field(..., min_length=4, max_length=4)
+    media_id: str = Field(..., max_length=64)
+
+
+_MASK_CHARS = frozenset("*xX•#")
+
+
+class FarmerPaymentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    rail: Literal["bank", "upi", "mfs"]
+    account_holder: Optional[str] = Field(None, max_length=255)
+    masked_account: Optional[str] = Field(None, max_length=255)
+    ifsc_code: Optional[str] = Field(None, max_length=32)
+    masked_upi_id: Optional[str] = Field(None, max_length=255)
+    masked_mfs_id: Optional[str] = Field(None, max_length=255)
+
+    @field_validator("masked_account", "masked_upi_id", "masked_mfs_id")
+    @classmethod
+    def _enforce_masking(cls, v: Optional[str]) -> Optional[str]:
+        """Server-side guard so a FULL account/card/phone number can never be
+        stored in a field named 'masked_*'. The masking used to be a naming
+        convention only — a device could put a full number here and it would
+        land in plaintext Postgres. Reject any value with a long run of digits
+        (≥7) that carries no masking character."""
+        if v is None:
+            return v
+        digit_count = sum(c.isdigit() for c in v)
+        if digit_count >= 7 and not any(c in _MASK_CHARS for c in v):
+            raise ValueError(
+                "payment identifier appears unmasked; store a masked value "
+                "(e.g. 'XXXXXX3210'), never the full number"
+            )
+        return v
+
+
+class FarmerConsentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fpic_template_id: Optional[str] = Field(None, max_length=128)
+    signed_pdf_media_id: Optional[str] = Field(None, max_length=64)
+    holding_photo_media_id: Optional[str] = Field(None, max_length=64)
+    signed_at: Optional[datetime] = None
+    exclusivity_ack: bool
+
+
+class FarmerCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    farmer_uuid: str = Field(..., min_length=36, max_length=36)
+    project_id: str = Field(..., min_length=1, max_length=128)
+    first_name: str = Field(..., min_length=1, max_length=255)
+    last_name: Optional[str] = Field(None, max_length=255)
+    gender: Optional[str] = Field(None, max_length=32)
+    guardian_name: Optional[str] = Field(None, max_length=255)
+    dob: Optional[datetime] = None
+    mobile_number: str = Field(..., min_length=1, max_length=32)
+    education: Optional[str] = Field(None, max_length=128)
+    family_size: Optional[int] = Field(None, ge=0)
+    reported_area: Optional[float] = Field(None, ge=0.0)
+    village: Optional[str] = Field(None, max_length=255)
+    kyc_status: Optional[str] = Field(None, max_length=32)
+    consent_status: Optional[str] = Field(None, max_length=32)
+    signature_media_id: Optional[str] = Field(None, max_length=64)
+    sync_status: Optional[str] = Field(None, max_length=32)
+    
+    documents: list[FarmerDocumentCreate] = Field(default_factory=list)
+    payments: list[FarmerPaymentCreate] = Field(default_factory=list)
+    consents: list[FarmerConsentCreate] = Field(default_factory=list)
+
+
+class DispatchSiteInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    parcel_uuid: Optional[str] = Field(None, max_length=36)
+    moisture_pct: Optional[float] = Field(None, ge=0.0, le=100.0)
+    truck_percentage_filled: Optional[float] = Field(None, ge=0.0, le=100.0)
+
+
+class DispatchCreate(BaseModel):
+    """V8 Part 3.3 — device-signed dispatch creation (draft). Re-POSTing the
+    same dispatch_uuid while still 'draft' is an idempotent upsert (lets the
+    operator edit fields before Submit); once the dispatch has left 'draft'
+    this endpoint 409s (weight-lock / sequential-stage gating)."""
+
+    model_config = ConfigDict(extra="forbid")
+    dispatch_uuid: str = Field(..., min_length=36, max_length=36)
+    kind: Literal["biomass", "biochar"]
+    source_ref: Optional[str] = Field(None, max_length=128)
+    dest_facility_uuid: Optional[str] = Field(None, max_length=36)
+    weight_source_kg: Optional[float] = Field(None, gt=0.0, le=1_000_000.0)
+    weight_source_method: Optional[str] = Field(None, max_length=64)
+    driver_name: Optional[str] = Field(None, max_length=255)
+    driver_phone: Optional[str] = Field(None, max_length=32)
+    truck_number: Optional[str] = Field(None, max_length=32)
+    sites: list[DispatchSiteInput] = Field(default_factory=list)
+
+
+class DispatchTransition(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    target_status: Literal["in_transit", "received"]
+    # Required only when target_status == "received" (the facility's witnessed
+    # re-weigh); validated in the router against dispatch_state's rules.
+    weight_facility_kg: Optional[float] = Field(None, gt=0.0, le=1_000_000.0)
+
+
+class FieldWalkSubmit(BaseModel):
+    """V8 Part 5 (A phase-2) — device submission of a GPS boundary walk.
+
+    `link_payload`/`link_kid`/`link_signature` are the server-signed
+    field-walk link exactly as minted by
+    `POST /portal/parcels/{uuid}/field-walk-link` (see server_signing.py) —
+    the router re-verifies this signature, expiry, and single-use nonce
+    before trusting `points` at all. `points` are [lon, lat] pairs in walk
+    order; the router closes the ring and validates it via
+    `geometry.polygon_from_track_points`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    link_payload: str = Field(..., max_length=2000)
+    link_kid: str = Field(..., max_length=32)
+    link_signature: str = Field(..., max_length=512)
+    points: list[list[float]] = Field(..., min_length=3, max_length=5000)
+
+    @field_validator("points")
+    @classmethod
+    def _points_are_lon_lat_pairs(cls, v: list[list[float]]) -> list[list[float]]:
+        for pt in v:
+            if len(pt) != 2:
+                raise ValueError("each point must be a [lon, lat] pair")
+        return v
 
 

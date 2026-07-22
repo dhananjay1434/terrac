@@ -17,6 +17,8 @@ const ITEMS: MediaItem[] = [0, 1, 2].map((i) => ({
   capture_type_verified: true,
   exif_lat: 12.34567,
   exif_lon: 76.54321,
+  verification_status: null,
+  verification_remarks: null,
 }));
 
 describe("EvidenceLightbox", () => {

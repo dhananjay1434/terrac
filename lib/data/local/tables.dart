@@ -99,6 +99,9 @@ class BiomassSourcing extends Table {
   /// Weighing-scale identity, when known (BLE scale pairing metadata).
   TextColumn get scaleId => text().nullable()();
 
+  // ---------- v26 source parcel reference (V8 Part 1.6) ----------
+  TextColumn get parcelUuid => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {sourcingUuid};
 

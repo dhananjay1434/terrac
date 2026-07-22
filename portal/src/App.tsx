@@ -6,6 +6,9 @@ import BatchDetail from "./pages/BatchDetail";
 import LabScan from "./pages/LabScan";
 import LabEntry from "./pages/LabEntry";
 import Registry from "./pages/Registry";
+import Projects from "./pages/Projects";
+import Farmers from "./pages/Farmers";
+import Dispatch from "./pages/Dispatch";
 import AppShell from "./components/AppShell/AppShell";
 import type { JSX } from "react";
 
@@ -67,6 +70,36 @@ export default function App() {
           <RequireAuth>
             <Shell>
               <Registry />
+            </Shell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/projects"
+        element={
+          <RequireAuth>
+            <Shell>
+              <Projects />
+            </Shell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/farmers"
+        element={
+          <RequireAuth>
+            <Shell>
+              <Farmers />
+            </Shell>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/dispatch"
+        element={
+          <RequireAuth>
+            <Shell>
+              <Dispatch />
             </Shell>
           </RequireAuth>
         }

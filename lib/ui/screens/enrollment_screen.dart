@@ -11,6 +11,7 @@ import '../design/premium_field_components.dart';
 import '../design/tokens.dart';
 import 'dashboard_screen.dart';
 import 'farmer_kyc_screen.dart';
+import 'qr_scan_screen.dart';
 
 /// Maps an enrollment failure to a human, cause-specific message. Pure so the
 /// mapping is unit-tested without the network.
@@ -125,6 +126,22 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen> {
     setState(() {});
   }
 
+  /// V8 Part 5 (L) — camera QR scan as an alternative to pasting. Feeds the
+  /// raw decoded string through the SAME `_onTokenChanged` path a manual
+  /// paste would take, so the existing pure `parseEnrollmentQr` parsing (and
+  /// its test coverage) is reused verbatim — scanning adds a capture method,
+  /// never a new parsing path.
+  Future<void> _scanQr() async {
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => const QrScanScreen(title: 'SCAN ENROLLMENT QR'),
+      ),
+    );
+    if (result == null || !mounted) return;
+    _tokenCtrl.text = result;
+    _onTokenChanged(result);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
@@ -162,6 +179,14 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen> {
               'Tip: paste the whole enrollment code — the server URL fills in '
               'automatically.',
               style: t.body.copyWith(color: t.textSecondary),
+            ),
+            SizedBox(height: t.gapM),
+            DmrvButton(
+              label: 'SCAN QR INSTEAD',
+              testId: 'scan-enrollment-qr-btn',
+              variant: DmrvButtonVariant.neutral,
+              icon: Icons.qr_code_scanner,
+              onPressed: _scanQr,
             ),
             SizedBox(height: t.gapL),
             _field(t, 'SERVER URL', _urlCtrl, 'enrollment-url-input',

@@ -65,3 +65,20 @@
 .chipRow {
   margin-top: 4px;
 }
+.verdictRow {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.verdictBtn {
+  flex: 1;
+  font-size: var(--fs-12);
+  padding: 4px 8px;
+  border-radius: var(--radius-s, 4px);
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+}
+.verdictBtn:hover {
+  background: var(--surface-sunken);
+}

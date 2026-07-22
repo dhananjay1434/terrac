@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     Float,
+    ForeignKey,
     Integer,
     String,
     Text,
@@ -242,6 +243,117 @@ class ScaleCalibration(Base):
     )
 
 
+class Project(Base):
+    """V8 Part 0.2 — the real Project entity. Until now `Batch.project_id`
+    (l.333) and `AnnualVerification.project_id` (l.266) were bare strings with
+    no backing table, no metadata, no tenancy anchor. Blueprint A (parcel),
+    B (farmer), C (facility), D (org/tenancy), and G (registry-config) all
+    scope off "project" as a real entity — this unblocks them.
+
+    `project_id` is kept as the PRIMARY KEY (not a synthetic UUID) because
+    every existing Batch/AnnualVerification row already stores this natural
+    string value — using it as the PK means the backfill migration needs no
+    data rewrite; existing rows resolve their project by a plain value match.
+
+    Deliberately NOT a DB-enforced ForeignKey from Batch/AnnualVerification:
+    a device may sync a batch whose project hasn't been portal-registered yet
+    (offline-first), and an enforced FK would reject that write. The link is
+    by value at the application layer — same looseness the project_id column
+    already had, now resolvable against real project metadata when present.
+    """
+
+    __tablename__ = "projects"
+
+    project_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Reserved for Blueprint G (config-driven methodology/registry) — nullable
+    # until that Part exists.
+    registry_config_id: Mapped[str] = mapped_column(String(128), nullable=True)
+    # Reserved for Blueprint D (multi-tenancy) — nullable until that Part exists.
+    org_id: Mapped[str] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class SourceParcel(Base):
+    """V8 Part 1.2 — source parcel entity.
+
+    Biomass harvest origin boundary. Registered in the portal at project setup.
+    Stores GeoJSON text, server-computed geodesic area, declared area, and
+    bounding box coordinates for fast O(1) SQL prefiltering during overlap checks.
+    """
+
+    __tablename__ = "source_parcels"
+
+    parcel_uuid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(
+        String(128), ForeignKey("projects.project_id"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    boundary_geojson: Mapped[str] = mapped_column(Text, nullable=False)
+    area_m2: Mapped[float] = mapped_column(Float, nullable=False)
+    declared_area_acres: Mapped[float] = mapped_column(Float, nullable=True)
+    bbox_min_lat: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    bbox_min_lon: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    bbox_max_lat: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    bbox_max_lon: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    boundary_method: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="portal_drawn"
+    )
+    boundary_status: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="approved"
+    )
+    created_by_user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("portal_users.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class FieldWalkTrack(Base):
+    """V8 Part 5 (A phase-2) — a device-recorded GPS boundary walk, submitted
+    against a server-signed "field-walk link" (see `server_signing.py` — the
+    same Ed25519 key that signs the remote-config document). The link
+    authorizes ONE walk of ONE parcel; `link_nonce` is UNIQUE so a captured
+    link can't be replayed to submit a second, different track.
+
+    This is corroborating evidence alongside the portal-drawn
+    `SourceParcel.boundary_geojson`, never a silent replacement — an admin
+    reviews `overlap_ratio_vs_declared` and decides whether to act on a
+    mismatch. `points_json` keeps the raw walked (lon, lat, timestamp) log for
+    audit; `computed_boundary_geojson`/`computed_area_m2` are the derived
+    polygon so a review doesn't need to reconstruct it.
+    """
+
+    __tablename__ = "field_walk_tracks"
+    __table_args__ = (
+        UniqueConstraint("link_nonce", name="uq_field_walk_tracks_link_nonce"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    parcel_uuid: Mapped[str] = mapped_column(
+        String(36), ForeignKey("source_parcels.parcel_uuid"), nullable=False, index=True
+    )
+    device_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    link_nonce: Mapped[str] = mapped_column(String(64), nullable=False)
+    points_json: Mapped[str] = mapped_column(Text, nullable=False)
+    computed_boundary_geojson: Mapped[str] = mapped_column(Text, nullable=False)
+    computed_area_m2: Mapped[float] = mapped_column(Float, nullable=False)
+    overlap_ratio_vs_declared: Mapped[float] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class AnnualVerification(Base):
     """Rainbow compliance C9: annual / per-verification project inputs.
 
@@ -332,6 +444,9 @@ class Batch(Base):
     # batches predate the linkage and those gates stay inert for them.
     project_id: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
     scale_id: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
+    parcel_uuid: Mapped[str] = mapped_column(
+        String(36), ForeignKey("source_parcels.parcel_uuid"), nullable=True, index=True
+    )
 
     sourcing_uuid: Mapped[str] = mapped_column(String(36), nullable=True)
     moisture_compliant: Mapped[bool] = mapped_column(nullable=True)
@@ -427,6 +542,11 @@ class MediaFile(Base):
     capture_type_verified: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
+    # V8 Part 4 (K) — per-media reviewer verdict. NULL = not yet reviewed.
+    # A verifier can reject ONE photo with a reason (targeted recapture)
+    # instead of the all-or-nothing batch-level compliance gate.
+    verification_status: Mapped[str] = mapped_column(String(16), nullable=True)
+    verification_remarks: Mapped[str] = mapped_column(Text, nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -464,14 +584,14 @@ class DeviceKey(Base):
 # P2.1 — Lab & Verifier portal auth.
 # ---------------------------------------------------------------------------
 class PortalUser(Base):
-    """A human portal operator (admin / lab / verifier). Distinct from the
-    device fleet — devices sign with Ed25519; humans log in with a password
-    (argon2 hash) and carry an opaque session token."""
+    """A human portal operator (admin / lab / verifier / org_admin). Distinct
+    from the device fleet — devices sign with Ed25519; humans log in with a
+    password (argon2 hash) and carry an opaque session token."""
 
     __tablename__ = "portal_users"
     __table_args__ = (
         CheckConstraint(
-            "role IN ('admin', 'lab', 'verifier')",
+            "role IN ('admin', 'lab', 'verifier', 'org_admin')",
             name="ck_portal_users_role",
         ),
     )
@@ -482,6 +602,11 @@ class PortalUser(Base):
     )
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(String(16), nullable=False)
+    # V8 Part 5 (D) — multi-tenancy scoping. NULL (every user before this Part,
+    # and any global admin) sees all orgs' data, unchanged from pre-tenancy
+    # behavior. Set only for a user who should be confined to one org's
+    # Projects/Facilities/Batches (see tenancy.py).
+    org_id: Mapped[str] = mapped_column(String(128), nullable=True)
     disabled: Mapped[bool] = mapped_column(nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -511,6 +636,194 @@ class PortalSession(Base):
     )
 
 
+class Facility(Base):
+    """V8 Part 3.1 — registered facility (artisanal or industrial site) that can
+    receive a dispatch. Portal-registered infrastructure (like Project/
+    SourceParcel), not device-created — mirrors that admin-registration pattern.
+
+    `org_id` and `registry_config_id` are reserved for later Blueprints (D
+    multi-tenancy, G config-driven registry) — nullable until those Parts exist.
+    """
+
+    __tablename__ = "facilities"
+
+    facility_uuid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    org_id: Mapped[str] = mapped_column(String(128), nullable=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    facility_type: Mapped[str] = mapped_column(String(16), nullable=False)  # artisanal|industrial
+    state: Mapped[str] = mapped_column(String(128), nullable=True)
+    district: Mapped[str] = mapped_column(String(128), nullable=True)
+    latitude: Mapped[float] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float] = mapped_column(Float, nullable=True)
+    registry_config_id: Mapped[str] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class Dispatch(Base):
+    """V8 Part 3.1/3.2 — a custody-transfer shipment of biomass or biochar.
+
+    Lifecycle (services/dispatch_state.py owns the rules): draft -> in_transit
+    (Submit — LOCKS weight_source_kg) -> received (Mark Received — sets
+    weight_facility_kg exactly once + runs dual-weigh reconciliation).
+
+    Device-created (mirrors Batch): a field operator's app writes this via the
+    signed evidence pattern, not the portal. `dest_facility_uuid` is a soft
+    value-link (NOT a DB-enforced FK) for the same offline-first reason
+    Project/SourceParcel use one — a device may dispatch to a facility that
+    hasn't synced to the portal's view yet.
+    """
+
+    __tablename__ = "dispatches"
+
+    dispatch_uuid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # biomass|biochar
+    source_ref: Mapped[str] = mapped_column(String(128), nullable=True)  # parcel_uuid or farmer_uuid
+    dest_facility_uuid: Mapped[str] = mapped_column(String(36), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+
+    # Weight-lock pair: weight_source_kg set once in 'draft', immutable after.
+    weight_source_kg: Mapped[float] = mapped_column(Float, nullable=True)
+    weight_source_method: Mapped[str] = mapped_column(String(64), nullable=True)
+    # weight_facility_kg set exactly once, at in_transit -> received.
+    weight_facility_kg: Mapped[float] = mapped_column(Float, nullable=True)
+
+    # Dual-weigh reconciliation outcome (computed server-side at receiving).
+    weight_delta_kg: Mapped[float] = mapped_column(Float, nullable=True)
+    weight_delta_pct: Mapped[float] = mapped_column(Float, nullable=True)
+    weight_flagged: Mapped[bool] = mapped_column(nullable=True)
+
+    driver_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    driver_phone: Mapped[str] = mapped_column(String(32), nullable=True)
+    truck_number: Mapped[str] = mapped_column(String(32), nullable=True)
+
+    device_id: Mapped[str] = mapped_column(String(255), nullable=True, index=True)
+    sync_status: Mapped[str] = mapped_column(String(32), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    transitioned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class DispatchSite(Base):
+    """V8 Part 3.1 — child rows aggregating the source site(s) contributing to
+    one dispatch (a truck load may combine multiple parcels)."""
+
+    __tablename__ = "dispatch_sites"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dispatch_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    parcel_uuid: Mapped[str] = mapped_column(String(36), nullable=True)
+    moisture_pct: Mapped[float] = mapped_column(Float, nullable=True)
+    truck_percentage_filled: Mapped[float] = mapped_column(Float, nullable=True)
+
+
+class RegistryConfig(Base):
+    """V8 Part 4 (G) — config-driven methodology/registry. `lca_engine.py`
+    hardcoded CSI-3.2 as Python constants; this table lets a second
+    program/registry (a different biochar standard, ARR, regen) supply its
+    own methodology parameters without touching engine code.
+
+    `params_json` holds the LcaParams fields (see lca_engine.params_from_json)
+    — corg_table, safety_deduction_kg_per_t, transport_factor_kg_per_t_km,
+    transport_threshold_km, ch4_compliant_kg_per_t, ch4_non_compliant_kg_per_t.
+    A row missing any key falls back to the CSI-3.2 default for that key, so
+    a partial config can never crash the engine, only under-specify.
+
+    Bound to `Project.registry_config_id` (added in Part 0.2, reserved for
+    this) — NOT to Facility: batches carry `project_id` today, not a facility
+    reference, so project is the natural, already-wired scoping level.
+    """
+
+    __tablename__ = "registry_configs"
+
+    config_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    registry_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    methodology_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    params_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    fpic_template_set_id: Mapped[str] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class BulkDensityTest(Base):
+    """V8 Part 4 (F) — bulk-density calibration for the volume→mass yield path.
+
+    Artisanal biochar can't go on a truck scale mid-process; when no direct
+    crane-scale weight exists for a batch, wet_yield_kg can instead be derived
+    as kiln_gross_capacity (telemetry, litres) × density_kg_per_l from an
+    IN-DATE test here (credit_engine._resolve wires this; see
+    corroboration.derive_wet_yield_from_density). `valid_until` drives the
+    `production_requires_valid_density` C10 gate, mirroring
+    ScaleCalibration.valid_until / `scale_calibration_expired` exactly.
+
+    Bound to `project_id` (like RegistryConfig, Part 4 G) rather than a
+    facility: Batch carries `project_id`, not a facility reference, so
+    project is the real, already-wired scoping level.
+
+    Media (mass photo / calibration video) is deliberately NOT captured here
+    yet — same deferred-media policy as farmer documents and dispatch
+    photos: claiming a media_id nothing uploads would be a false attestation.
+    """
+
+    __tablename__ = "bulk_density_tests"
+
+    test_uuid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
+    density_kg_per_l: Mapped[float] = mapped_column(Float, nullable=False)
+    performed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    mass_kg: Mapped[float] = mapped_column(Float, nullable=True)
+    volume_l: Mapped[float] = mapped_column(Float, nullable=True)
+    valid_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class AppConfig(Base):
+    """V8 Part 0.4 — remote control plane: server-signed feature flags,
+    kill-switch, and minimum supported app version. A private-APK + CI-off
+    fleet has zero remote control otherwise — a bad build or a discovered
+    fraud vector can't be flag-gated or force-updated post-deploy.
+
+    Single logical row (config_id='default') — no multi-tenant config yet
+    (that's Blueprint D, later), so admin writes are a plain upsert on this
+    one key. An EMPTY table (no row at all) is the safe "never configured"
+    state: `GET /api/v1/config` serves inert defaults (no kill-switch, no
+    min-version floor) rather than erroring, so this feature stays fully
+    dormant until an admin explicitly writes a config.
+    """
+
+    __tablename__ = "app_config"
+
+    config_id: Mapped[str] = mapped_column(
+        String(32), primary_key=True, default="default"
+    )
+    flags_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    min_version: Mapped[str] = mapped_column(String(32), nullable=True)
+    kill_switch: Mapped[bool] = mapped_column(nullable=False, default=False)
+    message: Mapped[str] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class AuditEvent(Base):
     """P2.6 — append-only audit trail for every portal mutation (token mint, lab
     results, registry writes, credit issuance). INSERT-only: there is no update
@@ -534,3 +847,75 @@ class AuditEvent(Base):
 @event.listens_for(AuditEvent, "before_update", propagate=True)
 def _audit_events_are_immutable(_mapper, _connection, _target):
     raise RuntimeError("audit_events are append-only; UPDATE is forbidden")
+
+
+class Farmer(Base):
+    __tablename__ = "farmers"
+    __table_args__ = (
+        UniqueConstraint("project_id", "mobile_number", name="uq_farmer_project_mobile"),
+    )
+    farmer_uuid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    first_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    gender: Mapped[str] = mapped_column(String(32), nullable=True)
+    guardian_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    dob: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    mobile_number: Mapped[str] = mapped_column(String(32), nullable=False)
+    education: Mapped[str] = mapped_column(String(128), nullable=True)
+    family_size: Mapped[int] = mapped_column(Integer, nullable=True)
+    reported_area: Mapped[float] = mapped_column(Float, nullable=True)
+    village: Mapped[str] = mapped_column(String(255), nullable=True)
+    kyc_status: Mapped[str] = mapped_column(String(32), nullable=True)
+    consent_status: Mapped[str] = mapped_column(String(32), nullable=True)
+    signature_media_id: Mapped[str] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    sync_status: Mapped[str] = mapped_column(String(32), nullable=True)
+
+
+class FarmerDocument(Base):
+    __tablename__ = "farmer_documents"
+    __table_args__ = (
+        CheckConstraint(
+            "doc_type IN ('aadhaar', 'pan', 'passport', 'nid')",
+            name="ck_farmer_doc_type",
+        ),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    farmer_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    doc_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    last4: Mapped[str] = mapped_column(String(4), nullable=False)
+    media_id: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class FarmerPayment(Base):
+    __tablename__ = "farmer_payments"
+    __table_args__ = (
+        CheckConstraint(
+            "rail IN ('bank', 'upi', 'mfs')",
+            name="ck_farmer_payment_rail",
+        ),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    farmer_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    rail: Mapped[str] = mapped_column(String(32), nullable=False)
+    account_holder: Mapped[str] = mapped_column(String(255), nullable=True)
+    masked_account: Mapped[str] = mapped_column(String(255), nullable=True)
+    ifsc_code: Mapped[str] = mapped_column(String(32), nullable=True)
+    masked_upi_id: Mapped[str] = mapped_column(String(255), nullable=True)
+    masked_mfs_id: Mapped[str] = mapped_column(String(255), nullable=True)
+
+
+class FarmerConsent(Base):
+    __tablename__ = "farmer_consents"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    farmer_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    fpic_template_id: Mapped[str] = mapped_column(String(128), nullable=True)
+    signed_pdf_media_id: Mapped[str] = mapped_column(String(64), nullable=True)
+    holding_photo_media_id: Mapped[str] = mapped_column(String(64), nullable=True)
+    signed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    exclusivity_ack: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

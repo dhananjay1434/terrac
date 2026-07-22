@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/dashboard_provider.dart';
 import '../../providers/lantana_sourcing_notifier.dart';
+import '../../services/parcel_service.dart';
 import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
 import '../design/tokens.dart';
@@ -16,9 +17,10 @@ import 'moisture_verification_screen.dart';
 /// =============================================================================
 /// LantanaSourcingScreen — India paper skin (tokens + Dmrv components)
 /// =============================================================================
-/// Three operational blocks (business logic unchanged):
+/// Three operational blocks:
 ///   1. IMMUTABLE feedstock placard ("Lantana_camara" — Registry Positive List)
-///   2. GPS polygon capture (mock)
+///   2. Source parcel status (read-only; real parcel registration + overlap
+///      checking lands in V8 Part 1 — see docs/BOUNDARY_DESIGN.md)
 ///   3. Harvest timestamp + 72-hour SUN-DRY temporal lock
 ///       • Hidden DEV BYPASS toggle (triple-tap the lock block to expose)
 /// =============================================================================
@@ -70,12 +72,7 @@ class _LantanaSourcingScreenState extends ConsumerState<LantanaSourcingScreen> {
                   children: [
                     _FeedstockBlock(species: s.feedstockSpecies),
                     SizedBox(height: t.gapL),
-                    _PolygonBlock(
-                      captured: s.polygonCaptured,
-                      onTap: () async {
-                        await notifier.captureGpsPolygon();
-                      },
-                    ),
+                    const _SourceParcelBlock(),
                     SizedBox(height: t.gapL),
                     _HarvestBlock(
                       hasHarvest: s.hasHarvest,
@@ -301,63 +298,125 @@ class _FeedstockBlock extends StatelessWidget {
   }
 }
 
-class _PolygonBlock extends StatelessWidget {
-  const _PolygonBlock({required this.captured, required this.onTap});
-  final bool captured;
-  final VoidCallback onTap;
+/// V8 Part 1.6 — source-parcel selector. Replaces the removed
+/// `captureGpsPolygon()` boolean theatre (Part 0.3, which persisted a tap as
+/// "Polygon captured // 4 vertices" with no real geometry — a false
+/// attestation). This fetches the project's APPROVED parcels (offline-cached),
+/// lets the operator pick one, and persists the choice; the selected
+/// `parcel_uuid` rides the batch so the server geofences the capture against
+/// that approved, non-overlapping parcel. Honest "not yet assigned" until a
+/// real parcel is chosen.
+class _SourceParcelBlock extends ConsumerStatefulWidget {
+  const _SourceParcelBlock();
+
+  @override
+  ConsumerState<_SourceParcelBlock> createState() => _SourceParcelBlockState();
+}
+
+class _SourceParcelBlockState extends ConsumerState<_SourceParcelBlock> {
+  static const _projectId = String.fromEnvironment('DMRV_PROJECT_ID');
+  bool _loading = false;
+
+  Future<void> _pickParcel() async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (_projectId.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No project configured for this device.')),
+      );
+      return;
+    }
+    setState(() => _loading = true);
+    final parcels = await ParcelService.fetchForProject(_projectId);
+    if (!mounted) return;
+    setState(() => _loading = false);
+    if (parcels.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('No approved parcels available for this project.'),
+        ),
+      );
+      return;
+    }
+    final selected = await showModalBottomSheet<ParcelOption>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final p in parcels)
+              ListTile(
+                title: Text(p.name),
+                subtitle: Text(
+                  p.uuid,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => Navigator.of(ctx).pop(p),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null) {
+      await ref
+          .read(lantanaSourcingProvider.notifier)
+          .selectParcel(selected.uuid, selected.name);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final Color accent = captured ? t.success : t.accentText;
+    final parcelName =
+        ref.watch(lantanaSourcingProvider).valueOrNull?.parcelName;
+    final hasParcel = parcelName != null && parcelName.isNotEmpty;
+    final accent = hasParcel ? t.success : t.textSecondary;
     return PremiumFieldPanel(
-      accentBorderColor: captured ? t.success : null,
+      accentBorderColor: hasParcel ? t.success : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _BlockHeader('GPS Polygon // Harvest Parcel'),
+          const _BlockHeader('Source Parcel // Harvest Origin'),
           SizedBox(height: t.gapM),
           Material(
-            color: accent.withValues(alpha: 0.08),
+            color: accent.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(t.radiusM),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: () {
-                HapticFeedback.heavyImpact();
-                onTap();
-              },
+              onTap: _loading ? null : _pickParcel,
               child: Container(
                 constraints: const BoxConstraints(minHeight: 72),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: Row(
                   children: [
                     Icon(
-                      captured ? Icons.check_circle : Icons.gps_fixed,
+                      hasParcel ? Icons.check_circle : Icons.map_outlined,
                       color: accent,
                       size: 28,
                     ),
                     SizedBox(width: t.gapL),
                     Expanded(
                       child: Semantics(
-                        identifier: 'capture-gps-polygon-btn',
+                        identifier: 'source-parcel-selector',
                         button: true,
                         child: Text(
-                          captured
-                              ? 'Polygon captured // 4 vertices'
-                              : 'Capture GPS Polygon',
+                          hasParcel
+                              ? 'Source parcel: $parcelName'
+                              : 'Select source parcel',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(color: t.textPrimary),
                         ),
                       ),
                     ),
-                    if (captured)
-                      const PremiumStatusChip(
-                        label: 'VERIFIED',
-                        status: PremiumChipStatus.verified,
-                      ),
+                    if (_loading)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      Icon(Icons.chevron_right, color: t.textSecondary),
                   ],
                 ),
               ),

@@ -65,7 +65,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 25;
+  int get schemaVersion => 26;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -266,6 +266,10 @@ class AppDatabase extends _$AppDatabase {
         // P1-S3: local kiln registry for mandatory burn-start selection.
         await m.createTable(kilns);
       }
+      if (from < 26) {
+        // V8 Part 1.6: source-parcel boundary reference on biomass sourcing.
+        await m.addColumn(biomassSourcing, biomassSourcing.parcelUuid);
+      }
     },
   );
 
@@ -338,6 +342,112 @@ class AppDatabase extends _$AppDatabase {
   }
 
   // ---------------------------------------------------------------------------
+  // V8 Part 2 — Farmer registration writer (outbox-only)
+  // ---------------------------------------------------------------------------
+
+  /// Enqueue a farmer registration to the sync outbox (→ POST /api/v1/farmers).
+  ///
+  /// Outbox-only by design: farmers have no on-device domain table (the server
+  /// + verifier portal are the system of record, and the device never lists
+  /// them locally), so this reuses the audited [insertWithOutbox] path with a
+  /// no-op row insert — same in-transaction signing + invariant checks as every
+  /// other writer, just without a local domain row (mirrors the metadata path).
+  ///
+  /// MVP scope: structured farmer data + masked payment + consent FLAGS. It
+  /// deliberately does NOT emit `documents`/signed-PDF media references, because
+  /// farmer media upload (signature / ID photo / FPIC PDF via the media channel)
+  /// is a separate sub-feature — enqueuing a media_id we never upload would be a
+  /// false attestation. Missing evidence stays missing.
+  Future<void> insertFarmerWithOutbox({
+    required String farmerUuid,
+    required String projectId,
+    required String firstName,
+    required String mobileNumber,
+    String? lastName,
+    String? gender,
+    String? guardianName,
+    String? dobIso,
+    String? education,
+    int? familySize,
+    double? reportedArea,
+    String? village,
+    String? kycStatus,
+    String? consentStatus,
+    List<Map<String, dynamic>> payments = const [],
+    List<Map<String, dynamic>> consents = const [],
+  }) async {
+    final payload = <String, dynamic>{
+      'farmer_uuid': farmerUuid,
+      'project_id': projectId,
+      'first_name': firstName,
+      'last_name': lastName,
+      'gender': gender,
+      'guardian_name': guardianName,
+      'dob': dobIso,
+      'mobile_number': mobileNumber,
+      'education': education,
+      'family_size': familySize,
+      'reported_area': reportedArea,
+      'village': village,
+      'kyc_status': kycStatus,
+      'consent_status': consentStatus,
+      'sync_status': 'pending',
+      // No documents (media-backed) in the MVP; see docstring.
+      'documents': const [],
+      'payments': payments,
+      'consents': consents,
+    };
+    await insertWithOutbox(
+      batchUuid: farmerUuid, // correlation id for the outbox row
+      targetTable: 'farmers',
+      payload: payload,
+      insertRow: () async {}, // no on-device domain table for farmers
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // V8 Part 3.4 — Dispatch creation writer (outbox-only, same shape as
+  // insertFarmerWithOutbox: no on-device domain table — the server is the
+  // system of record). Enqueues a DRAFT dispatch (→ POST /api/v1/dispatch).
+  // Transitions (Submit → in_transit, Mark Received → received) are NOT
+  // outbox operations — they need an immediate result (weight-flagged y/n) and
+  // require the draft to already exist server-side, so they go through
+  // DispatchService's direct signed call, not this queue.
+  // ---------------------------------------------------------------------------
+
+  Future<void> insertDispatchWithOutbox({
+    required String dispatchUuid,
+    required String kind, // 'biomass' | 'biochar'
+    String? sourceRef,
+    String? destFacilityUuid,
+    double? weightSourceKg,
+    String? weightSourceMethod,
+    String? driverName,
+    String? driverPhone,
+    String? truckNumber,
+    List<Map<String, dynamic>> sites = const [],
+  }) async {
+    final payload = <String, dynamic>{
+      'dispatch_uuid': dispatchUuid,
+      'kind': kind,
+      'source_ref': sourceRef,
+      'dest_facility_uuid': destFacilityUuid,
+      'weight_source_kg': weightSourceKg,
+      'weight_source_method': weightSourceMethod,
+      'driver_name': driverName,
+      'driver_phone': driverPhone,
+      'truck_number': truckNumber,
+      'sites': sites,
+    };
+    await insertWithOutbox(
+      batchUuid: dispatchUuid, // correlation id for the outbox row
+      targetTable: 'dispatches',
+      payload: payload,
+      insertRow: () async {}, // no on-device domain table for dispatches
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Prompt 3 — BiomassSourcing convenience writer
   // ---------------------------------------------------------------------------
 
@@ -366,6 +476,9 @@ class AppDatabase extends _$AppDatabase {
     // Rainbow T1.1: batch->project/scale linkage (enables C8/C9 gates server-side).
     String? projectId,
     String? scaleId,
+    // V8 Part 1.6: operator-selected source parcel — the server checks the
+    // batch's GPS point-in-polygon against this approved parcel (geofence).
+    String? parcelUuid,
   }) async {
     final sourcingUuid = _uuid.v4();
     final companion = BiomassSourcingCompanion.insert(
@@ -388,6 +501,7 @@ class AppDatabase extends _$AppDatabase {
       biomassMeasurementMethod: Value(biomassMeasurementMethod),
       projectId: Value(projectId),
       scaleId: Value(scaleId),
+      parcelUuid: Value(parcelUuid),
     );
 
     final payload = <String, dynamic>{
@@ -411,6 +525,7 @@ class AppDatabase extends _$AppDatabase {
       'biomass_measurement_method': biomassMeasurementMethod,
       'project_id': projectId,
       'scale_id': scaleId,
+      'parcel_uuid': parcelUuid,
     };
 
     await insertWithOutbox(

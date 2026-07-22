@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import (
     AnnualVerification,
     Batch,
+    BulkDensityTest,
     CompositePileSample,
     DeviceKey,
     EndUseApplication,
@@ -21,20 +22,28 @@ from models import (
     MediaFile,
     MoistureReading,
     OperatorTraining,
+    Project,
     PyrolysisTelemetry,
+    RegistryConfig,
     ScaleCalibration,
     SupervisorVisit,
     SystemMetadata,
     TransportEvent,
     YieldMetrics,
 )
-from lca_engine import calculate_carbon_credit, sign_lca_audit, lca_sign_payload_bytes
+from lca_engine import (
+    calculate_carbon_credit,
+    params_from_json,
+    sign_lca_audit,
+    lca_sign_payload_bytes,
+)
 from corroboration import (
     assemble,
     derive_annual_methane_compliance,
     derive_biomass_compliance,
     derive_composite_sample_compliance,
     derive_delivery_compliance,
+    derive_density_calibration_compliance,
     derive_ignition_compliance,
     derive_kiln_registration_compliance,
     derive_min_temp,
@@ -45,6 +54,7 @@ from corroboration import (
     derive_scale_calibration_compliance,
     derive_transport_km,
     derive_wet_yield,
+    derive_wet_yield_from_density,
 )
 from emission_factors import TRANSPORT_EVENTS_ENFORCED, fuel_emissions_kg_co2e
 import attestation
@@ -76,6 +86,44 @@ def _recompute_slot(buid: str) -> dict:
         st = {"lock": asyncio.Lock(), "dirty": False}
         _recompute_state[buid] = st
     return st
+
+
+async def _resolve_lca_config(session: AsyncSession, project_id: str | None):
+    """V8 Part 4 (G) — resolve this batch's methodology config, if any.
+
+    Returns None (⇒ calculate_carbon_credit uses its CSI-3.2 default) unless
+    the batch's project both exists AND has a registry_config_id pointing at
+    a real RegistryConfig row. This is the explicit regression guarantee:
+    every batch with no project_id, an unregistered project_id, or a project
+    with no registry_config_id set gets EXACTLY today's behavior — nothing
+    changes until an admin deliberately opts a project into a config.
+    """
+    if not project_id:
+        return None
+    project = (
+        await session.execute(
+            select(Project).where(Project.project_id == project_id)
+        )
+    ).scalar_one_or_none()
+    if project is None or not project.registry_config_id:
+        return None
+    row = (
+        await session.execute(
+            select(RegistryConfig).where(
+                RegistryConfig.config_id == project.registry_config_id
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+    # methodology_version is its own RegistryConfig COLUMN (for querying/
+    # display), not part of params_json — params_from_json alone never sees
+    # it, so overlay the authoritative column value here.
+    from dataclasses import replace
+
+    return replace(
+        params_from_json(row.params_json), methodology_version=row.methodology_version
+    )
 
 
 async def _device_registered_at(session: AsyncSession, device_id):
@@ -195,6 +243,40 @@ async def _recompute_batch_credit_impl(
 
     min_temp, _ = derive_min_temp(tel_payload)
     wet_yield, _ = derive_wet_yield(yld_payload)
+
+    # V8 Part 4 (F): resolve this batch's project-scoped bulk-density
+    # calibration ONCE — reused below for both the volumetric yield fallback
+    # and the production_requires_valid_density C10 gate. Inert (None) for a
+    # batch with no project_id, mirroring every other project-scoped gate.
+    density_row = None
+    if batch.project_id:
+        _now_bd = datetime.now(timezone.utc)
+        _density_rows = (
+            (
+                await session.execute(
+                    select(BulkDensityTest).where(
+                        BulkDensityTest.project_id == batch.project_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        _in_date_density = [
+            r for r in _density_rows
+            if r.valid_until and _as_utc(r.valid_until) >= _now_bd
+        ]
+        density_row = _in_date_density[0] if _in_date_density else None
+
+    wet_yield_density_derived = False
+    if wet_yield is None and density_row is not None:
+        _density_yield, _density_reason = derive_wet_yield_from_density(
+            tel_payload, density_row.density_kg_per_l
+        )
+        if _density_yield is not None:
+            wet_yield = _density_yield
+            wet_yield_density_derived = True
+
     transport, _ = derive_transport_km(
         batch.latitude, batch.longitude, app_payload, haversine=haversine_km
     )
@@ -348,6 +430,23 @@ async def _recompute_batch_credit_impl(
         if _sc_reason:
             c10_reasons.append(_sc_reason)
 
+    # V8 Part 4 (F): production_requires_valid_density — mirrors the scale
+    # gate above exactly. Inert for a batch with no project_id. Applies
+    # regardless of whether THIS batch's yield used the volumetric fallback
+    # (an equipment-calibration QA gate, same convention as scale_calibration_
+    # expired). `density_row` was already resolved above (reused, not re-queried).
+    if batch.project_id:
+        _dc_ok, _dc_reason = derive_density_calibration_compliance(
+            density_row is not None
+        )
+        if _dc_reason:
+            c10_reasons.append(_dc_reason)
+    if wet_yield_density_derived:
+        # Transparency flag (not a gate): this batch's yield came from
+        # volume × density, not a direct crane-scale weight — auditable, but
+        # not itself grounds to withhold issuance.
+        c10_reasons.append("wet_yield_density_derived")
+
     # C9 (T1.3): the batch's project must have a methane verification (>= 3
     # representative runs) for the batch's production year. Inert when the batch
     # has no project linkage. The verification row is reused by the PAH gate
@@ -420,6 +519,10 @@ async def _recompute_batch_credit_impl(
         kwargs["h_corg_ratio"] = effective_lab
     if effective_corg is not None:
         kwargs["corg_override"] = effective_corg
+
+    lca_config = await _resolve_lca_config(session, batch.project_id)
+    if lca_config is not None:
+        kwargs["config"] = lca_config
 
     lca = calculate_carbon_credit(
         wet_yield_kg=corr.wet_yield_kg if corr.wet_yield_kg is not None else 0.0,

@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_session
 from models import PortalSession, PortalUser
 
-VALID_ROLES = ("admin", "lab", "verifier")
+VALID_ROLES = ("admin", "lab", "verifier", "org_admin")
 SESSION_TTL = timedelta(hours=24)
 _SESSION_TOKEN_BYTES = 32  # 256-bit opaque session token
 

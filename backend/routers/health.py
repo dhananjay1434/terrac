@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_session
 from models import Batch
 import observability
+import server_signing
 
 router = APIRouter()
 
@@ -30,6 +31,23 @@ async def health(session: AsyncSession = Depends(get_session)) -> JSONResponse:
         body,
         status_code=status.HTTP_200_OK if db_ok else status.HTTP_503_SERVICE_UNAVAILABLE,
     )
+@router.get("/api/v1/pubkeys")
+async def pubkeys() -> dict:
+    """V8 Part 0.1 — public verify-set for server-signed artifacts.
+
+    Public by design (these are public keys). Server signing is dormant until
+    a feature (Part 0.4 remote config, Part 1 field-walk link) enables it, so
+    absent config is reported as signing_configured=false rather than a 500 —
+    a client checking this before either feature ships must degrade cleanly.
+    """
+    try:
+        keys = server_signing.public_keys()
+        current = server_signing.current_kid()
+    except RuntimeError:
+        return {"signing_configured": False, "current_kid": None, "keys": {}}
+    return {"signing_configured": True, "current_kid": current, "keys": keys}
+
+
 @router.get("/metrics")
 async def metrics(
     x_metrics_token: Optional[str] = Header(None, alias="X-Metrics-Token"),

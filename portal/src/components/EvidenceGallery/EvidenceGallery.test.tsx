@@ -1,11 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import EvidenceGallery from "./EvidenceGallery";
 import type { MediaItem } from "../../api";
 
 vi.mock("../../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api")>();
-  return { ...actual, fetchMediaUrl: vi.fn().mockResolvedValue("blob:mock") };
+  return {
+    ...actual,
+    fetchMediaUrl: vi.fn().mockResolvedValue("blob:mock"),
+    verifyMedia: vi.fn(),
+  };
+});
+vi.mock("../../auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../auth")>();
+  return { ...actual, getRole: () => "admin" };
 });
 
 function media(over: Partial<MediaItem>): MediaItem {
@@ -18,6 +26,8 @@ function media(over: Partial<MediaItem>): MediaItem {
     capture_type_verified: false,
     exif_lat: null,
     exif_lon: null,
+    verification_status: null,
+    verification_remarks: null,
     ...over,
   };
 }
@@ -77,5 +87,55 @@ describe("EvidenceGallery", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open evidence h2" }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("SHA-256")).toBeInTheDocument();
+  });
+});
+
+describe("EvidenceGallery — reviewer verdict (V8 Part 4 K)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function cellFor(sha: string) {
+    const openBtn = screen.getByRole("button", { name: `Open evidence ${sha}` });
+    return within(openBtn.closest(".media-cell") as HTMLElement);
+  }
+
+  it("approves a media item and shows the verdict chip immediately", async () => {
+    const { verifyMedia } = await import("../../api");
+    vi.mocked(verifyMedia).mockResolvedValue({
+      operation_id: "o1",
+      verification_status: "approved",
+      verification_remarks: null,
+    });
+    render(<EvidenceGallery media={ITEMS} />);
+
+    fireEvent.click(cellFor("h1").getByRole("button", { name: "Approve" }));
+
+    expect(
+      await cellFor("h1").findByText("reviewer approved"),
+    ).toBeInTheDocument();
+    expect(verifyMedia).toHaveBeenCalledWith("o1", { status: "approved" });
+  });
+
+  it("rejects a media item with a reason and shows it inline", async () => {
+    const { verifyMedia } = await import("../../api");
+    vi.mocked(verifyMedia).mockResolvedValue({
+      operation_id: "o1",
+      verification_status: "rejected",
+      verification_remarks: "kiln ID not visible",
+    });
+    render(<EvidenceGallery media={ITEMS} />);
+
+    fireEvent.click(cellFor("h1").getByRole("button", { name: "Reject" }));
+    fireEvent.change(screen.getByLabelText("Rejection reason for o1"), {
+      target: { value: "kiln ID not visible" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm reject" }));
+
+    expect(
+      await cellFor("h1").findByText(/rejected: kiln ID not visible/),
+    ).toBeInTheDocument();
+    expect(verifyMedia).toHaveBeenCalledWith("o1", {
+      status: "rejected",
+      remarks: "kiln ID not visible",
+    });
   });
 });

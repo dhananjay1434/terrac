@@ -66,15 +66,45 @@ void main() {
     );
   });
 
-  test('captureGpsPolygon flips polygonCaptured', () async {
+  // V8 Part 0.3 regression guard: the fake boundary attestation
+  // (`captureGpsPolygon()` persisting a `polygonCaptured` boolean with no
+  // real geometry behind it — the UI even claimed "4 vertices" that were
+  // never captured) has been removed entirely, not just hidden. Real source
+  // parcels arrive in V8 Part 1 via a portal-registered `parcel_uuid`.
+  test('no boundary boolean is persisted — the fake attestation is gone', () async {
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('polygon_captured'), isNull);
+  });
+
+  // V8 Part 1.6: real source-parcel selection replaces the fake stub. The
+  // operator's choice must persist (SharedPreferences) so it survives the
+  // sourcing → moisture → capture steps where the batch is actually written.
+  test('selectParcel persists the choice and exposes it in state', () async {
     expect(
-      container.read(lantanaSourcingProvider).requireValue.polygonCaptured,
-      isFalse,
+      container.read(lantanaSourcingProvider).requireValue.parcelUuid,
+      isNull,
     );
-    await notifier.captureGpsPolygon();
-    expect(
-      container.read(lantanaSourcingProvider).requireValue.polygonCaptured,
-      isTrue,
-    );
+
+    await notifier.selectParcel('parcel-123', 'North Field');
+
+    final s = container.read(lantanaSourcingProvider).requireValue;
+    expect(s.parcelUuid, 'parcel-123');
+    expect(s.parcelName, 'North Field');
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('selected_parcel_uuid'), 'parcel-123');
+    expect(prefs.getString('selected_parcel_name'), 'North Field');
+  });
+
+  test('a persisted parcel selection is restored on reload', () async {
+    SharedPreferences.setMockInitialValues({
+      'selected_parcel_uuid': 'parcel-restore',
+      'selected_parcel_name': 'Restored Field',
+    });
+    final freshContainer = ProviderContainer();
+    addTearDown(freshContainer.dispose);
+    final s = await freshContainer.read(lantanaSourcingProvider.future);
+    expect(s.parcelUuid, 'parcel-restore');
+    expect(s.parcelName, 'Restored Field');
   });
 }

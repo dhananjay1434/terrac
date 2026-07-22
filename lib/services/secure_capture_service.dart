@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'geofence_check.dart';
 import 'location_service.dart';
 import 'package:image/image.dart' as img;
 import 'package:native_exif/native_exif.dart';
@@ -17,10 +18,18 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'device_integrity_service.dart';
 
 /// Must be top-level for compute() isolate.
-Uint8List _reencodeJpegInIsolate(Uint8List rawBytes) {
+class _ReencodeResult {
+  const _ReencodeResult(this.jpegBytes, this.blurVariance);
+  final Uint8List jpegBytes;
+  final double blurVariance;
+}
+
+_ReencodeResult _reencodeJpegInIsolate(Uint8List rawBytes) {
   final decoded = img.decodeImage(rawBytes);
   if (decoded == null) throw Exception('Decoded image was null.');
-  return Uint8List.fromList(img.encodeJpg(decoded, quality: 70));
+  final blurVariance = SecureCaptureService.computeBlurVariance(decoded);
+  final encoded = Uint8List.fromList(img.encodeJpg(decoded, quality: 70));
+  return _ReencodeResult(encoded, blurVariance);
 }
 
 /// =============================================================================
@@ -61,6 +70,8 @@ class SecureCaptureResult {
     this.azimuth,
     this.pitch,
     this.roll,
+    this.blurVariance,
+    this.geofenceWarning = false,
   });
 
   final String sandboxPath;
@@ -73,6 +84,22 @@ class SecureCaptureResult {
   final double? azimuth;
   final double? pitch;
   final double? roll;
+
+  /// V8 Part 4 (E) — Laplacian-variance sharpness score of the captured
+  /// frame (higher = sharper); null only if the isolate somehow failed to
+  /// compute it. Purely informational unless `kBlurGateEnforced` is on, in
+  /// which case a too-low score aborts the capture before this result ever
+  /// exists (see [SecureCaptureService.capture]).
+  final double? blurVariance;
+
+  /// V8 Part 4 (E) — true if a parcel boundary was supplied to [capture] AND
+  /// the GPS fix fell outside it (+ buffer). This WARNS the operator; it
+  /// never blocks the capture (the authoritative check is server-side).
+  /// Always false when no boundary was supplied — most call sites today
+  /// don't yet thread the batch's parcel geometry down to the camera
+  /// screen, so this is inert for them (documented gap, not fabricated
+  /// enforcement).
+  final bool geofenceWarning;
 
   String? get cardinalDirection {
     if (azimuth == null) return null;
@@ -93,6 +120,39 @@ class SecureCaptureResult {
       'azimuth=$azimuth, pitch=$pitch, roll=$roll)';
 }
 
+/// V8 Part 4 (O) — result of a video capture. Mirrors [SecureCaptureResult]
+/// but there is no EXIF sink for video, so GPS/timestamp travel as plain
+/// signed fields on the media-insert payload instead of being burned into
+/// the file (see PyrolysisWriter.insertMediaCaptureAndEnqueue callers).
+class SecureVideoCaptureResult {
+  const SecureVideoCaptureResult({
+    required this.sandboxPath,
+    required this.sha256Hash,
+    required this.fileSizeBytes,
+    required this.durationMs,
+    required this.recordedAtIso,
+    required this.latitude,
+    required this.longitude,
+    required this.isMocked,
+  });
+
+  final String sandboxPath;
+  final String sha256Hash;
+  final int fileSizeBytes;
+  final int durationMs;
+  final String recordedAtIso;
+  final double latitude;
+  final double longitude;
+  final bool isMocked;
+
+  @override
+  String toString() =>
+      'SecureVideoCaptureResult('
+      'path=$sandboxPath, sha256=$sha256Hash, bytes=$fileSizeBytes, '
+      'durationMs=$durationMs, recordedAt=$recordedAtIso, '
+      'lat=$latitude, lon=$longitude, mocked=$isMocked)';
+}
+
 class SecureCaptureException implements Exception {
   SecureCaptureException(this.message, {this.kind = CaptureErrorKind.other});
   final String message;
@@ -108,8 +168,24 @@ enum CaptureErrorKind {
   locationPermissionDenied,
   locationPermissionPermanent,
   cameraUnavailable,
+  tooBlurry,
   other,
 }
+
+/// V8 Part 4 (E) — capture-integrity env gates, same `bool.fromEnvironment`
+/// pattern as `DMRV_DEMO_MODE` elsewhere in this codebase. Both default OFF:
+/// these are new UI-blocking/warning gates with no field validation of the
+/// blur threshold yet, so shipping them pre-armed risks blocking legitimate
+/// captures on an uncalibrated cutoff. Flip on via
+/// `--dart-define=DMRV_BLUR_GATE_ENFORCED=true` once field-tuned.
+const bool kBlurGateEnforced = bool.fromEnvironment(
+  'DMRV_BLUR_GATE_ENFORCED',
+  defaultValue: false,
+);
+const bool kGeofenceCaptureEnforced = bool.fromEnvironment(
+  'DMRV_GEOFENCE_CAPTURE',
+  defaultValue: false,
+);
 
 class SecureCaptureService {
   SecureCaptureService(this._locationService);
@@ -120,6 +196,23 @@ class SecureCaptureService {
 
   /// JPEG quality used for the re-encode pass.
   static const int kJpegQuality = 70;
+
+  /// V8 Part 4 (O) — video evidence caps (2G payload budget: short clips
+  /// only, no compression pass since `camera` records H.264 already).
+  static const Duration kMaxVideoDuration = Duration(seconds: 15);
+  static const int kMaxVideoBytes = 8 * 1024 * 1024;
+
+  /// V8 Part 4 (E) — below this Laplacian variance a frame is judged too
+  /// blurry to be usable evidence. Chosen conservatively from the classic
+  /// "variance of Laplacian" blur-detection literature; not yet calibrated
+  /// against real kiln-site photos, hence [kBlurGateEnforced] defaults off.
+  static const double kBlurVarianceThreshold = 60.0;
+
+  /// V8 Part 4 (E) — on-device geofence warning buffer, meters. Matches the
+  /// backend's default corroboration buffer (see geometry.py) so an
+  /// operator standing right at the parcel edge doesn't get warned when the
+  /// server itself would accept the same fix.
+  static const double kGeofenceBufferMeters = 10.0;
 
   /// Name of the cleanup manifest inside getApplicationSupportDirectory().
   /// Each line is a file path that failed to delete and must be retried.
@@ -163,8 +256,16 @@ class SecureCaptureService {
 
   /// Run the entire pipeline. The caller is responsible for ensuring camera +
   /// location permissions are already granted (see [ensurePermissions]).
+  ///
+  /// [parcelBoundaryRing] — V8 Part 4 (E): optional GeoJSON-order `[lon,
+  /// lat]` exterior ring for the batch's registered parcel. When supplied
+  /// AND [kGeofenceCaptureEnforced] is on, a GPS fix that falls outside the
+  /// ring (+ [kGeofenceBufferMeters]) sets [SecureCaptureResult.geofenceWarning]
+  /// — a WARNING surfaced to the operator, never a block. Omitted by most
+  /// call sites today (see [SecureCaptureResult.geofenceWarning] doc).
   Future<SecureCaptureResult> capture({
     required CameraController controller,
+    List<List<double>>? parcelBoundaryRing,
   }) async {
     if (isDeviceCompromisedGlobally) {
       throw SecureCaptureException(
@@ -186,9 +287,29 @@ class SecureCaptureService {
     }
     final sandboxPath = p.join(evidenceDir.path, '${_uuid.v4()}.jpg');
 
-    // 3) Re-encode at q=70 to enforce <500kb 2G budget (offloaded to isolate).
+    // 3) Re-encode at q=70 to enforce <500kb 2G budget (offloaded to isolate),
+    //    also scoring sharpness (V8 Part 4 (E)) while the decoded image is
+    //    already in hand, rather than decoding twice.
     final rawBytes = await raw.readAsBytes();
-    final encoded = await compute(_reencodeJpegInIsolate, rawBytes);
+    final reencoded = await compute(_reencodeJpegInIsolate, rawBytes);
+    final encoded = reencoded.jpegBytes;
+    final blurVariance = reencoded.blurVariance;
+
+    if (kBlurGateEnforced && blurVariance < kBlurVarianceThreshold) {
+      // Reject BEFORE anything is written to the sandbox — no orphan file,
+      // no wasted GPS fix. The plugin's own temp copy is cleaned up below
+      // exactly like the size-cap rejection path.
+      try {
+        final tmp = File(raw.path);
+        if (await tmp.exists()) await tmp.delete();
+      } catch (_) {}
+      throw SecureCaptureException(
+        'Image too blurry to use as evidence (sharpness $blurVariance < '
+        '$kBlurVarianceThreshold). Hold steady and retake.',
+        kind: CaptureErrorKind.tooBlurry,
+      );
+    }
+
     final sandboxFile = File(sandboxPath);
     await sandboxFile.writeAsBytes(encoded, flush: true);
 
@@ -244,6 +365,17 @@ class SecureCaptureService {
     // Phase 7: Fetch Device Hardware Telemetry (Compass / Gyro)
     final telemetry = await _getDeviceOrientationSnapshot();
 
+    // V8 Part 4 (E) — geofence-to-parcel warning (non-blocking; see doc).
+    var geofenceWarning = false;
+    if (kGeofenceCaptureEnforced && parcelBoundaryRing != null) {
+      geofenceWarning = !isPointNearPolygon(
+        pos.longitude,
+        pos.latitude,
+        parcelBoundaryRing,
+        bufferMeters: kGeofenceBufferMeters,
+      );
+    }
+
     return SecureCaptureResult(
       sandboxPath: sandboxPath,
       sha256Hash: hashHex,
@@ -255,7 +387,104 @@ class SecureCaptureService {
       azimuth: telemetry['azimuth'],
       pitch: telemetry['pitch'],
       roll: telemetry['roll'],
+      blurVariance: blurVariance,
+      geofenceWarning: geofenceWarning,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // V8 Part 4 (O) — Video capture
+  // ---------------------------------------------------------------------------
+
+  /// Begin recording. The caller (UI) is responsible for enforcing
+  /// [kMaxVideoDuration] in wall-clock time and calling [stopVideoRecording]
+  /// — the cap is re-checked server-side of this call too, via
+  /// [assertVideoWithinCaps], so a UI bug can't ship an oversized clip.
+  Future<void> startVideoRecording({required CameraController controller}) async {
+    if (isDeviceCompromisedGlobally) {
+      throw SecureCaptureException(
+        'Device integrity compromised. Capture aborted.',
+      );
+    }
+    if (!controller.value.isInitialized) {
+      throw SecureCaptureException('Camera not initialized.');
+    }
+    await controller.startVideoRecording();
+  }
+
+  /// Stop recording, sandbox the artifact (never DCIM), hash it, enforce the
+  /// duration/size caps, and stamp a GPS fix — same anti-fraud shape as
+  /// [capture], adapted for a file format that has no EXIF sink.
+  Future<SecureVideoCaptureResult> stopVideoRecording({
+    required CameraController controller,
+    required Duration recordedDuration,
+  }) async {
+    final XFile raw = await controller.stopVideoRecording();
+
+    final supportDir = await getApplicationSupportDirectory();
+    final evidenceDir = Directory(p.join(supportDir.path, 'evidence'));
+    if (!await evidenceDir.exists()) {
+      await evidenceDir.create(recursive: true);
+    }
+    final sandboxPath = p.join(evidenceDir.path, '${_uuid.v4()}.mp4');
+
+    final rawFile = File(raw.path);
+    await rawFile.copy(sandboxPath);
+    try {
+      if (await rawFile.exists()) {
+        await rawFile.delete();
+        debugPrint('[SecureCapture] video temp file deleted: ${raw.path}');
+      }
+    } on FileSystemException catch (e) {
+      debugPrint('[SecureCapture] WARNING: video temp deletion failed: $e');
+      await _appendToCleanupManifest(raw.path);
+    }
+
+    final sandboxFile = File(sandboxPath);
+    final sizeBytes = await sandboxFile.length();
+
+    try {
+      assertVideoWithinCaps(sizeBytes, recordedDuration);
+    } on SecureCaptureException {
+      // Reject: don't leave an over-cap artifact sitting in the sandbox.
+      try {
+        await sandboxFile.delete();
+      } catch (_) {}
+      rethrow;
+    }
+
+    final pos = await _locationService.acquirePosition();
+    final finalBytes = await sandboxFile.readAsBytes();
+    final hashHex = sha256.convert(finalBytes).toString();
+
+    return SecureVideoCaptureResult(
+      sandboxPath: sandboxPath,
+      sha256Hash: hashHex,
+      fileSizeBytes: finalBytes.length,
+      durationMs: recordedDuration.inMilliseconds,
+      recordedAtIso: DateTime.now().toUtc().toIso8601String(),
+      latitude: pos.latitude,
+      longitude: pos.longitude,
+      isMocked: pos.isMocked,
+    );
+  }
+
+  /// Pure cap check — testable without a real camera/recording. Throws
+  /// [SecureCaptureException] the moment either the duration or size budget
+  /// is exceeded.
+  @visibleForTesting
+  static void assertVideoWithinCaps(int sizeBytes, Duration duration) {
+    if (duration > kMaxVideoDuration) {
+      throw SecureCaptureException(
+        'Video exceeded the ${kMaxVideoDuration.inSeconds}s cap '
+        '(${duration.inSeconds}s recorded).',
+      );
+    }
+    if (sizeBytes > kMaxVideoBytes) {
+      throw SecureCaptureException(
+        'Video exceeded ${kMaxVideoBytes ~/ (1024 * 1024)}MB cap ($sizeBytes B).',
+      );
+    }
   }
 
   /// Request and verify the runtime permissions needed end-to-end.
@@ -336,6 +565,42 @@ class SecureCaptureService {
       debugPrint('[SecureCapture] Telemetry snapshot failed: $e');
       return {};
     }
+  }
+
+  /// V8 Part 4 (E) — "variance of Laplacian" sharpness score. Downsamples to
+  /// a fixed width first (sharpness signal survives a modest resize; this
+  /// keeps the isolate cost bounded regardless of the camera's native
+  /// resolution), converts to grayscale, convolves the discrete Laplacian
+  /// kernel `[[0,1,0],[1,-4,1],[0,1,0]]`, and returns the variance of the
+  /// response. Higher = sharper; a near-uniform (blurry) image collapses
+  /// toward 0.
+  static double computeBlurVariance(img.Image image) {
+    final small = image.width > 200
+        ? img.copyResize(image, width: 200)
+        : image;
+    final gray = img.grayscale(small);
+    final w = gray.width, h = gray.height;
+    if (w < 3 || h < 3) return 0;
+
+    var sum = 0.0;
+    var sumSq = 0.0;
+    var count = 0;
+    for (var y = 1; y < h - 1; y++) {
+      for (var x = 1; x < w - 1; x++) {
+        final c = gray.getPixel(x, y).r;
+        final up = gray.getPixel(x, y - 1).r;
+        final down = gray.getPixel(x, y + 1).r;
+        final left = gray.getPixel(x - 1, y).r;
+        final right = gray.getPixel(x + 1, y).r;
+        final value = (up + down + left + right - 4 * c).toDouble();
+        sum += value;
+        sumSq += value * value;
+        count++;
+      }
+    }
+    if (count == 0) return 0;
+    final mean = sum / count;
+    return (sumSq / count) - (mean * mean);
   }
 
   @visibleForTesting

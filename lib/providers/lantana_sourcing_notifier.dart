@@ -11,7 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Holds the state for the Sourcing Screen:
 ///   • the (immutable) feedstock selection ("Lantana_camara")
 ///   • the harvest timestamp captured at the moment of logging
-///   • the GPS polygon mock state
+///   • the source parcel this batch is registered against (V8 Part 1; null
+///     until the portal-registered-boundary feature ships — see Part 0.3)
 ///   • the 72-hour sun-drying temporal lock
 ///   • a hidden `devBypass` flag that QA can flip during testing to skip the
 ///     72-hour wait
@@ -22,11 +23,12 @@ class SourcingState {
     required this.feedstockSpecies,
     this.harvestTimestamp,
     this.harvestUptimeSeconds,
-    this.polygonCaptured = false,
     this.devBypass = false,
     this.now,
     this.biomassInputKg,
     this.biomassMeasurementMethod,
+    this.parcelUuid,
+    this.parcelName,
   });
 
   /// Immutable per the Registry Positive List rule.
@@ -39,7 +41,6 @@ class SourcingState {
   /// only 1 h, a clock-spoof attack is flagged.
   final int? harvestUptimeSeconds;
 
-  final bool polygonCaptured;
   final bool devBypass;
 
   /// Injected clock for deterministic tests. Defaults to `DateTime.now()`.
@@ -50,6 +51,12 @@ class SourcingState {
   /// (max(10, ceil(kg/100))) and the server C1 gate.
   final double? biomassInputKg;
   final String? biomassMeasurementMethod;
+
+  /// V8 Part 1.6: the operator-selected source parcel for this batch. Null
+  /// until the operator picks one (the server geofence stays inert for a batch
+  /// with no parcel — grandfathered).
+  final String? parcelUuid;
+  final String? parcelName;
 
   bool get hasBiomass =>
       (biomassInputKg ?? 0) > 0 && biomassMeasurementMethod != null;
@@ -93,11 +100,12 @@ class SourcingState {
   SourcingState copyWith({
     DateTime? harvestTimestamp,
     int? harvestUptimeSeconds,
-    bool? polygonCaptured,
     bool? devBypass,
     DateTime? now,
     double? biomassInputKg,
     String? biomassMeasurementMethod,
+    String? parcelUuid,
+    String? parcelName,
     bool clearHarvest = false,
   }) {
     return SourcingState(
@@ -108,12 +116,13 @@ class SourcingState {
       harvestUptimeSeconds: clearHarvest
           ? null
           : (harvestUptimeSeconds ?? this.harvestUptimeSeconds),
-      polygonCaptured: polygonCaptured ?? this.polygonCaptured,
       devBypass: devBypass ?? this.devBypass,
       now: now ?? this.now,
       biomassInputKg: biomassInputKg ?? this.biomassInputKg,
       biomassMeasurementMethod:
           biomassMeasurementMethod ?? this.biomassMeasurementMethod,
+      parcelUuid: parcelUuid ?? this.parcelUuid,
+      parcelName: parcelName ?? this.parcelName,
     );
   }
 }
@@ -128,15 +137,29 @@ class LantanaSourcingNotifier extends AsyncNotifier<SourcingState> {
     final prefs = await SharedPreferences.getInstance();
     final tsString = prefs.getString('harvest_timestamp');
     final uptime = prefs.getInt('harvest_uptime_seconds');
-    final poly = prefs.getBool('polygon_captured') ?? false;
 
     return SourcingState(
       feedstockSpecies: 'Lantana_camara',
       harvestTimestamp: tsString != null ? DateTime.parse(tsString) : null,
       harvestUptimeSeconds: uptime,
-      polygonCaptured: poly,
       biomassInputKg: prefs.getDouble('biomass_input_kg'),
       biomassMeasurementMethod: prefs.getString('biomass_method'),
+      parcelUuid: prefs.getString('selected_parcel_uuid'),
+      parcelName: prefs.getString('selected_parcel_name'),
+    );
+  }
+
+  /// V8 Part 1.6: record the operator's source-parcel selection for this batch.
+  /// Persisted so it survives across the sourcing → moisture → capture steps
+  /// (the batch is written at capture time, in moisture_verification_screen).
+  Future<void> selectParcel(String parcelUuid, String parcelName) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_parcel_uuid', parcelUuid);
+    await prefs.setString('selected_parcel_name', parcelName);
+    final current = state.valueOrNull;
+    if (current == null) return;
+    state = AsyncData(
+      current.copyWith(parcelUuid: parcelUuid, parcelName: parcelName),
     );
   }
 
@@ -157,11 +180,6 @@ class LantanaSourcingNotifier extends AsyncNotifier<SourcingState> {
     } else {
       await prefs.setInt('harvest_uptime_seconds', uptime);
     }
-  }
-
-  Future<void> _persistPolygon(bool captured) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('polygon_captured', captured);
   }
 
   // logHarvestNow is now async — the UI should call it with unawaited() or
@@ -204,13 +222,6 @@ class LantanaSourcingNotifier extends AsyncNotifier<SourcingState> {
       debugPrint('[Sourcing] could not read /proc/uptime: $e');
       return null;
     }
-  }
-
-  Future<void> captureGpsPolygon() async {
-    await _persistPolygon(true);
-    final current = state.valueOrNull;
-    if (current == null) return;
-    state = AsyncData(current.copyWith(polygonCaptured: true));
   }
 
   /// Rainbow C1: record the biomass weight (kg) + measurement method for this

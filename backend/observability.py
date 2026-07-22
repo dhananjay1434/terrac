@@ -121,6 +121,43 @@ if _PROM:
         "(P4.2).",
         ["route"],
     )
+    GATE_REJECTIONS = Counter(
+        "dmrv_gate_rejections_total",
+        "Anti-fraud and compliance gate rejections and quarantine events.",
+        ["gate", "reason"],
+    )
+
+
+def record_gate_rejection(
+    gate: str, reason: str = "rejected", extra: Optional[dict] = None
+) -> None:
+    """Record a compliance / anti-fraud gate rejection across Prometheus, JSON
+    logs, and Sentry breadcrumbs."""
+    if _PROM:
+        GATE_REJECTIONS.labels(gate, reason).inc()
+
+    payload = {"extra_fields": {"gate": gate, "reason": reason, **(extra or {})}}
+    logging.getLogger("dmrv").warning(
+        "gate_rejection: %s (%s)", gate, reason, extra=payload
+    )
+
+    try:
+        import sentry_sdk
+
+        clean_extra = {}
+        if extra:
+            for k, v in extra.items():
+                if k.lower() not in _PII_KEYS:
+                    clean_extra[k] = v
+
+        sentry_sdk.add_breadcrumb(
+            category="gate",
+            message=f"{gate}: {reason}",
+            level="warning",
+            data=clean_extra,
+        )
+    except Exception:
+        pass
 
 
 def _route_template(request) -> str:

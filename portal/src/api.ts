@@ -51,6 +51,23 @@ export interface MediaItem {
   capture_type_verified: boolean;
   exif_lat: number | null;
   exif_lon: number | null;
+  verification_status: string | null;
+  verification_remarks: string | null;
+}
+
+// --- V8 Part 4 (K): per-media reviewer verdict ---
+export function verifyMedia(
+  operationId: string,
+  body: { status: "approved" | "rejected"; remarks?: string },
+): Promise<{
+  operation_id: string;
+  verification_status: string | null;
+  verification_remarks: string | null;
+}> {
+  return req(`/api/v1/portal/media/${operationId}/verify`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 export interface BatchDetail {
@@ -58,6 +75,40 @@ export interface BatchDetail {
   compliance: Compliance;
   evidence_counts: Record<string, number>;
   media: MediaItem[];
+}
+
+export interface ProjectRow {
+  project_id: string;
+  name: string;
+  registry_config_id: string | null;
+  org_id: string | null;
+  status: string;
+  created_at: string | null;
+}
+
+export interface SourceParcel {
+  parcel_uuid: string;
+  project_id: string;
+  name: string;
+  boundary_geojson: string;
+  area_m2: number;
+  declared_area_acres: number | null;
+  bbox_min_lat: number;
+  bbox_min_lon: number;
+  bbox_max_lat: number;
+  bbox_max_lon: number;
+  boundary_method: string;
+  boundary_status: string;
+  created_at: string | null;
+}
+
+export interface ParcelCreateInput {
+  project_id: string;
+  name: string;
+  boundary_geojson: Record<string, unknown> | string;
+  declared_area_acres?: number;
+  parcel_uuid?: string;
+  boundary_method?: string;
 }
 
 async function req<T>(
@@ -82,7 +133,10 @@ async function req<T>(
     } catch {
       /* non-JSON body */
     }
-    throw new ApiError(res.status, detail);
+    throw new ApiError(
+      res.status,
+      typeof detail === "object" ? JSON.stringify(detail) : String(detail)
+    );
   }
   return (await res.json()) as T;
 }
@@ -102,6 +156,8 @@ export async function logout(): Promise<void> {
     await req("/api/v1/portal/logout", { method: "POST" });
   } catch {
     /* best-effort */
+  } finally {
+    clearSession();
   }
 }
 
@@ -116,6 +172,8 @@ export function listBatches(params: Record<string, string> = {}): Promise<{
 export function getBatch(uuid: string): Promise<BatchDetail> {
   return req(`/api/v1/portal/batches/${uuid}`);
 }
+
+export const getBatchDetail = getBatch;
 
 export function getSummary(): Promise<{
   by_status: Record<string, number>;
@@ -151,6 +209,112 @@ export interface KilnRow {
 
 export function listKilns(): Promise<{ kilns: KilnRow[] }> {
   return req("/api/v1/portal/registry/kilns");
+}
+
+export function listProjects(
+  params: Record<string, string> = {},
+): Promise<{ projects: ProjectRow[]; next_cursor: string | null }> {
+  const q = new URLSearchParams(params).toString();
+  return req(`/api/v1/portal/projects${q ? `?${q}` : ""}`);
+}
+
+export function createProject(body: {
+  project_id: string;
+  name: string;
+  registry_config_id?: string;
+  org_id?: string;
+}): Promise<ProjectRow> {
+  return req("/api/v1/portal/projects", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function listParcels(
+  projectId?: string,
+  before?: string,
+): Promise<{ parcels: SourceParcel[]; next_cursor: string | null }> {
+  const query = new URLSearchParams();
+  if (projectId) query.set("project_id", projectId);
+  if (before) query.set("before", before);
+  const q = query.toString();
+  return req(`/api/v1/portal/parcels${q ? `?${q}` : ""}`);
+}
+
+export function createParcel(body: ParcelCreateInput): Promise<SourceParcel> {
+  return req("/api/v1/portal/parcels", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+// --- V8 Part 2: Farmer registry (portal read: admin + verifier) ---
+export interface FarmerRow {
+  farmer_uuid: string;
+  project_id: string;
+  first_name: string;
+  last_name: string | null;
+  mobile_number: string;
+  village: string | null;
+  kyc_status: string | null;
+  consent_status: string | null;
+  created_at: string | null;
+}
+
+export interface FarmerDocument {
+  id: number;
+  doc_type: string;
+  last4: string;
+  media_id: string | null;
+}
+export interface FarmerPayment {
+  id: number;
+  rail: string;
+  account_holder: string | null;
+  masked_account: string | null;
+  ifsc_code: string | null;
+  masked_upi_id: string | null;
+  masked_mfs_id: string | null;
+}
+export interface FarmerConsent {
+  id: number;
+  fpic_template_id: string | null;
+  signed_pdf_media_id: string | null;
+  holding_photo_media_id: string | null;
+  signed_at: string | null;
+  exclusivity_ack: boolean;
+}
+export interface FarmerDetail extends FarmerRow {
+  gender: string | null;
+  guardian_name: string | null;
+  dob: string | null;
+  education: string | null;
+  family_size: number | null;
+  reported_area: number | null;
+  signature_media_id: string | null;
+  sync_status: string | null;
+  documents: FarmerDocument[];
+  payments: FarmerPayment[];
+  consents: FarmerConsent[];
+}
+
+export function listFarmers(params: {
+  project_id?: string;
+  search?: string;
+  page?: number;
+  size?: number;
+}): Promise<{ items: FarmerRow[]; total: number; page: number; size: number }> {
+  const q = new URLSearchParams();
+  if (params.project_id) q.set("project_id", params.project_id);
+  if (params.search) q.set("search", params.search);
+  if (params.page) q.set("page", String(params.page));
+  if (params.size) q.set("size", String(params.size));
+  const s = q.toString();
+  return req(`/api/v1/portal/farmers${s ? `?${s}` : ""}`);
+}
+
+export function getFarmer(farmerUuid: string): Promise<FarmerDetail> {
+  return req(`/api/v1/portal/farmers/${farmerUuid}`);
 }
 
 export function issueCredit(
@@ -237,4 +401,63 @@ export async function fetchMediaUrl(operationId: string): Promise<string> {
   }
   if (!res.ok) throw new ApiError(res.status, res.statusText);
   return URL.createObjectURL(await res.blob());
+}
+
+// --- V8 Part 3: Facility + Dispatch (portal read + facility admin) ---
+export interface FacilityRow {
+  facility_uuid: string;
+  name: string;
+  facility_type: string;
+  state: string | null;
+  district: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  status: string;
+  created_at: string | null;
+}
+
+export function listFacilities(params: Record<string, string> = {}): Promise<{
+  facilities: FacilityRow[];
+  next_cursor: string | null;
+}> {
+  const q = new URLSearchParams(params).toString();
+  return req(`/api/v1/portal/facilities${q ? `?${q}` : ""}`);
+}
+
+export function createFacility(body: {
+  facility_uuid: string;
+  name: string;
+  facility_type: "artisanal" | "industrial";
+  state?: string;
+  district?: string;
+}): Promise<FacilityRow> {
+  return req("/api/v1/portal/facilities", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export interface DispatchRow {
+  dispatch_uuid: string;
+  kind: string;
+  source_ref: string | null;
+  dest_facility_uuid: string | null;
+  status: string;
+  weight_source_kg: number | null;
+  weight_facility_kg: number | null;
+  weight_delta_pct: number | null;
+  weight_flagged: boolean | null;
+  driver_name: string | null;
+  truck_number: string | null;
+  device_id: string | null;
+  created_at: string | null;
+  received_at: string | null;
+}
+
+export function listDispatch(params: Record<string, string> = {}): Promise<{
+  dispatches: DispatchRow[];
+  next_cursor: string | null;
+}> {
+  const q = new URLSearchParams(params).toString();
+  return req(`/api/v1/portal/dispatch${q ? `?${q}` : ""}`);
 }

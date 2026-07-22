@@ -13,9 +13,32 @@ import 'package:workmanager/workmanager.dart';
 import '../data/capture_types.dart';
 import '../data/local/app_database.dart';
 import '../data/local/database_provider.dart';
+import '../providers/upload_progress_provider.dart';
 import 'api_base.dart';
 import 'crypto_signer.dart';
 import 'device_integrity_service.dart';
+import 'upload_progress_stream.dart';
+
+/// V8 Part 4 (H) — a [http.MultipartRequest] that reports upload progress as
+/// its own byte stream is actually consumed by the client. `finalize()` is a
+/// normal overridable method on the base class (not `final`), so this stays
+/// a genuine `MultipartRequest` at runtime — anything checking `is/as
+/// MultipartRequest` still works identically.
+class _ProgressTrackingMultipartRequest extends http.MultipartRequest {
+  _ProgressTrackingMultipartRequest(
+    super.method,
+    super.url, {
+    required void Function(double fraction) onProgress,
+  }) : _onProgress = onProgress;
+
+  final void Function(double fraction) _onProgress;
+
+  @override
+  http.ByteStream finalize() {
+    final stream = super.finalize();
+    return http.ByteStream(trackUploadProgress(stream, contentLength, _onProgress));
+  }
+}
 
 class PermanentSyncException implements Exception {
   final String message;
@@ -58,6 +81,14 @@ const Map<String, String> kEndpointByTable = <String, String>{
   'moisture_readings': 'moisture',
   'composite_pile_samples': 'composite-sample',
   'transport_events': 'transport',
+  // V8 Part 2: farmer registration (device → POST /api/v1/farmers). JSON-only
+  // (no media in the MVP), so it has no kCaptureTypeByTable entry and the sync
+  // media phase no-ops for it.
+  'farmers': 'farmers',
+  // V8 Part 3: dispatch DRAFT creation (device → POST /api/v1/dispatch).
+  // JSON-only; transitions are a separate direct-call path (DispatchService),
+  // not routed through this outbox map.
+  'dispatches': 'dispatch',
 };
 
 /// Evidence classification for a photo carried by a JSON-metadata row, keyed by
@@ -669,6 +700,25 @@ class SyncQueueManager {
   }
 
   // ---------------------------------------------------------------------------
+  // V8 Part 4 (H) — upload progress reporting (best-effort, never fatal)
+  // ---------------------------------------------------------------------------
+  // Progress is a UI nicety layered on top of the upload, never a
+  // precondition for it: a `ref` that doesn't have `uploadProgressProvider`
+  // wired up (e.g. a narrowly-scoped test double) must not turn a
+  // reporting failure into an upload failure.
+  void _reportUploadProgress(String operationId, double fraction) {
+    try {
+      ref.read(uploadProgressProvider.notifier).report(operationId, fraction);
+    } catch (_) {}
+  }
+
+  void _clearUploadProgress(String operationId) {
+    try {
+      ref.read(uploadProgressProvider.notifier).clear(operationId);
+    } catch (_) {}
+  }
+
+  // ---------------------------------------------------------------------------
   // Media upload — Fix 5: two-phase commit with server SHA-256 verification
   // ---------------------------------------------------------------------------
   Future<void> _uploadMedia({
@@ -681,9 +731,16 @@ class SyncQueueManager {
     required String? captureType,
   }) async {
     debugPrint('[SyncQueue] Uploading media: $photoPath');
-    final request = http.MultipartRequest(
+    // V8 Part 4 (H) — a MultipartRequest subclass that taps its own byte
+    // stream for progress. Overriding `finalize()` (not `final` on the base
+    // class) keeps the runtime type a genuine `MultipartRequest`, so nothing
+    // downstream (including existing tests asserting `is MultipartRequest`)
+    // sees a different request shape — only its stream reports progress as
+    // it's actually written to the socket.
+    final request = _ProgressTrackingMultipartRequest(
       'POST',
       Uri.parse('${_config.apiBase}/api/v1/media'),
+      onProgress: (fraction) => _reportUploadProgress(entry.operationId, fraction),
     );
     final mediaOpKey = '${entry.operationId}_media';
     final mediaDeviceId = await CryptoSigner.getDeviceId();
@@ -707,7 +764,14 @@ class SyncQueueManager {
     }
     request.files.add(await http.MultipartFile.fromPath('file', photoPath));
 
-    final streamedResponse = await _client.send(request);
+    final http.StreamedResponse streamedResponse;
+    try {
+      streamedResponse = await _client.send(request);
+    } finally {
+      // Always clear on the way out (success or failure) so a retry starts
+      // the bar fresh instead of showing a stale fraction.
+      _clearUploadProgress(entry.operationId);
+    }
     final mediaResponse = await http.Response.fromStream(streamedResponse);
     _recordClockSkew(mediaResponse.headers);
 

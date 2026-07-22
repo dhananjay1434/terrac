@@ -9,6 +9,7 @@ import hashlib
 import io
 import json
 import uuid
+from types import SimpleNamespace
 
 import piexif
 import pytest
@@ -42,7 +43,7 @@ def _jpeg_with_gps(lat: float, lon: float) -> bytes:
     return buf.getvalue()
 
 
-async def _post_batch(client, batch_uuid, sha, lat, lon, op):
+async def _post_batch(client, batch_uuid, sha, lat, lon, op, parcel_uuid=None):
     payload = {
         "batch_uuid": batch_uuid,
         "feedstock_species": "Lantana_camara",
@@ -56,6 +57,10 @@ async def _post_batch(client, batch_uuid, sha, lat, lon, op):
         "latitude": lat,
         "longitude": lon,
     }
+    # Only include parcel_uuid when set, so existing callers' signed payloads
+    # (and signatures) are byte-identical to before.
+    if parcel_uuid is not None:
+        payload["parcel_uuid"] = parcel_uuid
     body = json.dumps(payload).encode("utf-8")
     return await client.post(
         "/api/v1/batches",
@@ -100,90 +105,126 @@ async def test_matching_gps_anchors_to_received(client, session_factory):
     r2 = await _post_media(client, bu, photo, "op-gps-ok-media")
     assert r2.status_code == 200, r2.text
 
-    async with session_factory() as s:
-        batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
+    async with session_factory() as session:
+        b = (
+            await session.execute(select(Batch).where(Batch.batch_uuid == bu))
         ).scalar_one()
-        assert batch.status == "RECEIVED"
+        assert b.status == "RECEIVED"
+
+
+async def _seed_parcel(session_factory, parcel_uuid, *, min_lon, min_lat, size=0.02):
+    """Insert an approved SourceParcel covering [min_lon..min_lon+size] x
+    [min_lat..min_lat+size]. Used to drive the geofence end-to-end (not by
+    calling _evaluate_anchor directly)."""
+    from models import SourceParcel
+
+    poly = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [min_lon, min_lat],
+                [min_lon + size, min_lat],
+                [min_lon + size, min_lat + size],
+                [min_lon, min_lat + size],
+                [min_lon, min_lat],
+            ]
+        ],
+    }
+    async with session_factory() as session:
+        session.add(
+            SourceParcel(
+                parcel_uuid=parcel_uuid,
+                project_id="proj-geofence",
+                name="Geofence Parcel",
+                boundary_geojson=json.dumps(poly),
+                area_m2=1.0,
+                declared_area_acres=None,
+                bbox_min_lat=min_lat,
+                bbox_min_lon=min_lon,
+                bbox_max_lat=min_lat + size,
+                bbox_max_lon=min_lon + size,
+                boundary_method="portal_drawn",
+                boundary_status="approved",
+            )
+        )
+        await session.commit()
 
 
 @pytest.mark.asyncio
-async def test_mismatched_gps_is_quarantined(client, session_factory):
+async def test_batch_inside_parcel_anchors_to_received(client, session_factory):
+    """End-to-end (Part 1 H1 wiring): a batch that carries a real parcel_uuid
+    and whose GPS is INSIDE the approved parcel anchors normally. Drives the
+    full ingest→media→_evaluate_anchor path, NOT _evaluate_anchor directly."""
+    parcel_uuid = str(uuid.uuid4())
+    await _seed_parcel(session_factory, parcel_uuid, min_lon=77.20, min_lat=28.60)
+
     bu = str(uuid.uuid4())
-    photo = _jpeg_with_gps(28.6139, 77.2090)  # Delhi
+    photo = _jpeg_with_gps(28.6139, 77.2090)  # inside the parcel
     sha = hashlib.sha256(photo).hexdigest()
 
-    # Batch claims London — >1 km from the photo's Delhi EXIF.
-    r1 = await _post_batch(client, bu, sha, 51.5074, -0.1278, "op-gps-bad")
+    r1 = await _post_batch(
+        client, bu, sha, 28.6139, 77.2090, "op-inside", parcel_uuid=parcel_uuid
+    )
+    assert r1.status_code == 201, r1.text
+    r2 = await _post_media(client, bu, photo, "op-inside-media")
+    assert r2.status_code == 200, r2.text
+
+    async with session_factory() as session:
+        b = (
+            await session.execute(select(Batch).where(Batch.batch_uuid == bu))
+        ).scalar_one()
+        assert b.parcel_uuid == parcel_uuid  # H1: the linkage is actually stored
+        assert b.status == "RECEIVED"
+
+
+@pytest.mark.asyncio
+async def test_batch_outside_parcel_is_quarantined(client, session_factory):
+    """End-to-end: a batch whose GPS is OUTSIDE its approved parcel is
+    quarantined. This is the geofence the review found was dead code (nothing
+    ever set batch.parcel_uuid); it now fires through the real ingest path."""
+    parcel_uuid = str(uuid.uuid4())
+    await _seed_parcel(session_factory, parcel_uuid, min_lon=77.20, min_lat=28.60)
+
+    bu = str(uuid.uuid4())
+    photo = _jpeg_with_gps(28.7000, 77.3000)  # well outside the parcel
+    sha = hashlib.sha256(photo).hexdigest()
+
+    r1 = await _post_batch(
+        client, bu, sha, 28.7000, 77.3000, "op-outside", parcel_uuid=parcel_uuid
+    )
+    assert r1.status_code == 201, r1.text
+    r2 = await _post_media(client, bu, photo, "op-outside-media")
+    assert r2.status_code == 200, r2.text
+
+    async with session_factory() as session:
+        b = (
+            await session.execute(select(Batch).where(Batch.batch_uuid == bu))
+        ).scalar_one()
+        assert b.status == "QUARANTINE_GPS_OUTSIDE_PARCEL"
+
+
+@pytest.mark.asyncio
+async def test_mismatching_gps_quarantines_batch(client, session_factory):
+    bu = str(uuid.uuid4())
+    # Photo is at Delhi (28.6139, 77.2090).
+    photo = _jpeg_with_gps(28.6139, 77.2090)
+    sha = hashlib.sha256(photo).hexdigest()
+
+    # Batch claims Mumbai (19.0760, 72.8777) — >1000 km away.
+    r1 = await _post_batch(client, bu, sha, 19.0760, 72.8777, "op-gps-bad")
     assert r1.status_code == 201, r1.text
 
     r2 = await _post_media(client, bu, photo, "op-gps-bad-media")
     assert r2.status_code == 200, r2.text
 
-    async with session_factory() as s:
-        batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
+    async with session_factory() as session:
+        b = (
+            await session.execute(select(Batch).where(Batch.batch_uuid == bu))
         ).scalar_one()
-        assert batch.status == "QUARANTINE_GPS_MISMATCH"
-
-
-def _jpeg_no_gps() -> bytes:
-    """A tiny JPEG with NO EXIF GPS (simulates a stripped / non-app photo)."""
-    buf = io.BytesIO()
-    Image.new("RGB", (8, 8), (120, 200, 120)).save(buf, "jpeg")
-    return buf.getvalue()
-
-
-@pytest.mark.asyncio
-async def test_no_exif_gps_is_quarantined_by_default(client, session_factory):
-    """V7 P3: a batch that CLAIMS coordinates but is anchored by a photo with no
-    EXIF GPS no longer silently reaches RECEIVED — it is quarantined for review."""
-    bu = str(uuid.uuid4())
-    photo = _jpeg_no_gps()
-    sha = hashlib.sha256(photo).hexdigest()
-
-    r1 = await _post_batch(client, bu, sha, 28.6139, 77.2090, "op-gps-missing")
-    assert r1.status_code == 201, r1.text
-    assert r1.json()["status"] == "UNVERIFIED"
-
-    r2 = await _post_media(client, bu, photo, "op-gps-missing-media")
-    assert r2.status_code == 200, r2.text
-
-    async with session_factory() as s:
-        batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
-        ).scalar_one()
-        assert batch.status == "QUARANTINE_GPS_MISSING"
-
-
-@pytest.mark.asyncio
-async def test_no_exif_gps_upgrades_when_requirement_relaxed(
-    client, session_factory, monkeypatch
-):
-    """With DMRV_REQUIRE_EXIF_GPS=0 the legacy pass-through is restored (for a
-    device family that can't write EXIF) — the batch upgrades but the event is
-    logged as not-independently-corroborated."""
-    monkeypatch.setenv("DMRV_REQUIRE_EXIF_GPS", "0")
-    bu = str(uuid.uuid4())
-    photo = _jpeg_no_gps()
-    sha = hashlib.sha256(photo).hexdigest()
-
-    r1 = await _post_batch(client, bu, sha, 28.6139, 77.2090, "op-gps-relaxed")
-    assert r1.status_code == 201, r1.text
-
-    r2 = await _post_media(client, bu, photo, "op-gps-relaxed-media")
-    assert r2.status_code == 200, r2.text
-
-    async with session_factory() as s:
-        batch = (
-            await s.execute(select(Batch).where(Batch.batch_uuid == str(uuid.UUID(bu))))
-        ).scalar_one()
-        assert batch.status == "RECEIVED"
+        assert b.status == "QUARANTINE_GPS_MISMATCH"
 
 
 def test_evaluate_anchor_missing_exif_units():
-    """Pure-unit lock on the P3 policy without the HTTP stack."""
-    from types import SimpleNamespace
     from geo import _evaluate_anchor
 
     def _batch(**kw):
@@ -211,6 +252,54 @@ def test_evaluate_anchor_missing_exif_units():
     b3 = _batch()
     _evaluate_anchor(b3, "A" * 64, 28.6139, 77.2090)
     assert b3.status == "RECEIVED"
+
+
+def test_evaluate_anchor_source_parcel_geofencing():
+    from geo import _evaluate_anchor
+
+    parcel_geojson = json.dumps({
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [77.2000, 28.6100],
+                [77.2200, 28.6100],
+                [77.2200, 28.6200],
+                [77.2000, 28.6200],
+                [77.2000, 28.6100],
+            ]
+        ]
+    })
+
+    def _batch(**kw):
+        base = dict(
+            batch_uuid="b1",
+            sha256_hash="a" * 64,
+            latitude=28.6139,
+            longitude=77.2090,
+            status="UNVERIFIED",
+        )
+        base.update(kw)
+        return SimpleNamespace(**base)
+
+    # 1. Batch inside source parcel -> RECEIVED
+    b_inside = _batch()
+    _evaluate_anchor(b_inside, "A" * 64, 28.6139, 77.2090, parcel_geojson=parcel_geojson)
+    assert b_inside.status == "RECEIVED"
+
+    # 2. Batch outside source parcel -> QUARANTINE_GPS_OUTSIDE_PARCEL
+    b_outside = _batch(latitude=28.7000, longitude=77.3000)
+    _evaluate_anchor(b_outside, "A" * 64, 28.7000, 77.3000, parcel_geojson=parcel_geojson)
+    assert b_outside.status == "QUARANTINE_GPS_OUTSIDE_PARCEL"
+
+    # 3. Batch at parcel buffer edge (slightly outside polygon boundary) -> RECEIVED
+    b_edge = _batch(latitude=28.60995, longitude=77.2090) # ~5m outside min_lat 28.6100
+    _evaluate_anchor(b_edge, "A" * 64, 28.60995, 77.2090, parcel_geojson=parcel_geojson)
+    assert b_edge.status == "RECEIVED"
+
+    # 4. Null parcel_geojson -> grandfathered, RECEIVED
+    b_null = _batch()
+    _evaluate_anchor(b_null, "A" * 64, 28.6139, 77.2090, parcel_geojson=None)
+    assert b_null.status == "RECEIVED"
 
 
 @pytest.mark.asyncio

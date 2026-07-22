@@ -43,5 +43,51 @@ void main() {
       expect(payload.containsKey('capture_type'), isFalse);
       expect(kCaptureTypeByTable['biomass_sourcing'], 'batch_photo');
     });
+
+    test('carries the selected parcel_uuid into the outbox JSON body (Part 1.6)',
+        () async {
+      await db.insertBiomassSourcingWithOutbox(
+        batchUuid: 'b-parcel',
+        feedstockSpecies: 'Lantana_camara',
+        harvestTimestamp: '2026-07-02T00:00:00Z',
+        moisturePercent: 12.0,
+        moistureCompliant: true,
+        photoPath: '/sandbox/anchor.jpg',
+        sha256Hash: 'a' * 64,
+        projectId: 'proj-1',
+        parcelUuid: 'parcel-xyz',
+      );
+
+      final row = await (db.select(
+        db.syncOutbox,
+      )..where((t) => t.targetTable.equals('biomass_sourcing'))).getSingle();
+      final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+
+      // The server's /batches schema geofences on this field; it must be in the
+      // signed JSON body the app sends.
+      expect(payload['parcel_uuid'], 'parcel-xyz');
+      expect(payload['project_id'], 'proj-1');
+    });
+
+    test('omitting the parcel leaves parcel_uuid null (grandfathered batch)',
+        () async {
+      await db.insertBiomassSourcingWithOutbox(
+        batchUuid: 'b-noparcel',
+        feedstockSpecies: 'Lantana_camara',
+        harvestTimestamp: '2026-07-02T00:00:00Z',
+        moisturePercent: 12.0,
+        moistureCompliant: true,
+        photoPath: '/sandbox/anchor.jpg',
+        sha256Hash: 'a' * 64,
+      );
+
+      final row = await (db.select(
+        db.syncOutbox,
+      )..where((t) => t.targetTable.equals('biomass_sourcing'))).getSingle();
+      final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+
+      // Present as an explicit null (server treats null as "no geofence").
+      expect(payload['parcel_uuid'], isNull);
+    });
   });
 }

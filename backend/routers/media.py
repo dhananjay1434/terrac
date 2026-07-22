@@ -9,13 +9,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_session
-from models import Batch, MediaFile, PyrolysisTelemetry
+from models import Batch, MediaFile, PyrolysisTelemetry, SourceParcel
 import json
-from services.evidence import label_media_from_telemetry
+from services.evidence import label_media_from_telemetry, _assert_batch_ownership
 from pydantic import BaseModel, Field
 from schemas import MediaUploadResponse
 
-from security import verify_media_signature, _SAFE
+from security import verify_media_signature, verify_signature, _SAFE
 from geo import _evaluate_anchor, _parse_exif_gps
 from storage import get_storage
 from settings import log
@@ -185,7 +185,12 @@ async def upload_media(
         # only verifies the batch if its hash matches the batch's declared
         # sha256_hash, and the EXIF GPS corroborates the claimed coords (Phase 9).
         if batch:
-            _evaluate_anchor(batch, calculated_hash, exif_lat, exif_lon)
+            parcel_geojson = None
+            if getattr(batch, "parcel_uuid", None):
+                sp = (await session.execute(select(SourceParcel).where(SourceParcel.parcel_uuid == batch.parcel_uuid))).scalar_one_or_none()
+                if sp:
+                    parcel_geojson = sp.boundary_geojson
+            _evaluate_anchor(batch, calculated_hash, exif_lat, exif_lon, parcel_geojson=parcel_geojson)
             session.add(batch)
 
         session.add(media)
@@ -216,3 +221,36 @@ async def upload_media(
         stored=True,
         file_path=Path(stored_key).name,
     )
+
+
+@router.get("/api/v1/batches/{batch_uuid}/media-verdicts")
+async def get_media_verdicts(
+    batch_uuid: str,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """V8 Part 4 (K) — device-facing read of reviewer verdicts on this batch's
+    media, so the app can surface "rejected: <reason>" and prompt a targeted
+    recapture instead of the operator learning only when the whole batch is
+    provisional. Same ownership rule as the evidence-write endpoints
+    (_assert_batch_ownership): a different device's batch is 403; a batch that
+    doesn't exist yet (or is unowned) returns an empty list, not an error.
+    """
+    await _assert_batch_ownership(session, batch_uuid, device_id)
+    rows = (
+        await session.execute(
+            select(MediaFile).where(MediaFile.batch_uuid == batch_uuid)
+        )
+    ).scalars().all()
+    return {
+        "media": [
+            {
+                "operation_id": m.operation_id,
+                "capture_type": m.capture_type,
+                "verification_status": m.verification_status,
+                "verification_remarks": m.verification_remarks,
+            }
+            for m in rows
+            if m.verification_status is not None
+        ]
+    }

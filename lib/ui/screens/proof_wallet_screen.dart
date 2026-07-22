@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/local/app_database.dart' show MediaCapture;
 import '../../data/local/proof_queries.dart';
 import '../../providers/sync_providers.dart';
+import '../../services/media_verdict_service.dart';
 import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
 
@@ -155,6 +159,7 @@ class _ReceiptCard extends StatelessWidget {
                 : '—',
           ),
           _MediaHashesList(batchUuid: receipt.batchUuid),
+          _MediaVerdictBanner(batchUuid: receipt.batchUuid),
           _Line(
             label: 'gps',
             value: receipt.biomassLat != null && receipt.biomassLon != null
@@ -201,9 +206,119 @@ class _MediaHashesList extends ConsumerWidget {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: media.map((m) {
-        return _HashLine(label: '${m.captureType}_sha256', hash: m.sha256Hash);
-      }).toList(),
+      children: [
+        _ThumbnailStrip(media: media),
+        const SizedBox(height: 8),
+        ...media.map(
+          (m) => _HashLine(label: '${m.captureType}_sha256', hash: m.sha256Hash),
+        ),
+      ],
+    );
+  }
+}
+
+/// V8 Part 4 (M) — read-only thumbnail strip so the operator can confirm a
+/// capture is usable without re-opening the camera. Renders directly from
+/// each row's SANDBOXED `sandboxPath` — never the OS gallery/DCIM, keeping
+/// the hash-as-proof/sandbox model intact while adding real usability. A
+/// thumbnail whose file is missing (already synced+pruned, or deleted) shows
+/// a broken-image placeholder rather than crashing the ledger view.
+class _ThumbnailStrip extends StatelessWidget {
+  const _ThumbnailStrip({required this.media});
+  final List<MediaCapture> media;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return SizedBox(
+      height: 64,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: media.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final m = media[i];
+          return Semantics(
+            identifier: 'proof-wallet-thumb-${m.captureType}',
+            image: true,
+            label: m.captureType,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(t.radiusS),
+              child: Container(
+                width: 64,
+                height: 64,
+                color: t.surfaceRaised,
+                child: Image.file(
+                  File(m.sandboxPath),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stack) => Icon(
+                    Icons.broken_image_outlined,
+                    color: t.textSecondary,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// V8 Part 4 (K) — surfaces reviewer verdicts on this batch's media. Only
+/// rejected items produce a visible banner (a targeted-recapture prompt);
+/// approved/unreviewed media adds no noise. On-demand network fetch: any
+/// failure yields an empty list, so this never blocks the receipt card.
+class _MediaVerdictBanner extends StatefulWidget {
+  const _MediaVerdictBanner({required this.batchUuid});
+  final String batchUuid;
+
+  @override
+  State<_MediaVerdictBanner> createState() => _MediaVerdictBannerState();
+}
+
+class _MediaVerdictBannerState extends State<_MediaVerdictBanner> {
+  late final Future<List<MediaVerdict>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = MediaVerdictService.fetchForBatch(widget.batchUuid);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return FutureBuilder<List<MediaVerdict>>(
+      future: _future,
+      builder: (context, snap) {
+        final rejected =
+            (snap.data ?? const []).where((v) => v.status == 'rejected').toList();
+        if (rejected.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final v in rejected)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: t.danger.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(t.radiusS),
+                  ),
+                  child: Text(
+                    'Rejected${v.captureType != null ? " (${v.captureType})" : ""}: '
+                    '${v.remarks ?? "no reason given"} — recapture needed.',
+                    style: t.metadata.copyWith(fontSize: 11, color: t.danger),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

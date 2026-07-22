@@ -22,6 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
+from services.bulk_density import volume_to_mass_kg
+
 # CSI rule (preserved from the original create_batch): a telemetry log must carry
 # at least this many samples to count as a qualifying burn record.
 MIN_TEMPERATURE_SAMPLES = 60
@@ -92,6 +94,48 @@ def derive_wet_yield(
     if v <= 0.0:
         return None, "invalid_wet_yield"
     return v, None
+
+
+def derive_wet_yield_from_density(
+    telemetry_payload: Optional[dict],
+    density_kg_per_l: Optional[float],
+) -> tuple[Optional[float], Optional[str]]:
+    """V8 Part 4 (F) — volumetric fallback yield: mass = kiln_gross_capacity
+    (telemetry, litres) × an in-date bulk-density calibration. Used ONLY when
+    the caller has no direct crane-scale weight (derive_wet_yield returned
+    None) — artisanal biochar can't go on a truck scale mid-process.
+
+    Requires BOTH a telemetry-declared kiln_gross_capacity AND a density
+    value; returns (None, reason) on either being absent or invalid — never
+    fabricates a mass from a partial input.
+    """
+    if not telemetry_payload:
+        return None, "no_telemetry_for_density_fallback"
+    volume_l = telemetry_payload.get("kiln_gross_capacity")
+    if volume_l is None or density_kg_per_l is None:
+        return None, "missing_volume_or_density"
+    try:
+        mass_kg = volume_to_mass_kg(float(volume_l), float(density_kg_per_l))
+    except (TypeError, ValueError):
+        return None, "invalid_volume_or_density"
+    return mass_kg, None
+
+
+def derive_density_calibration_compliance(
+    has_in_date_density: bool, *, enforced: bool = COMPLIANCE_ENFORCED
+) -> tuple[bool, Optional[str]]:
+    """Rainbow C10 (V8 Part 4 F): production at a project must have an in-date
+    bulk-density calibration on file — mirrors derive_scale_calibration_
+    compliance exactly (same shape, same enforcement gate). Applies whenever
+    the batch has a project_id, regardless of whether THIS batch's yield used
+    the volumetric fallback (an equipment-calibration QA gate, not conditioned
+    on which yield path was taken — same convention as scale_calibration_
+    expired). Returns (compliant, `production_requires_valid_density`)."""
+    if not enforced:
+        return True, None
+    if not has_in_date_density:
+        return False, "production_requires_valid_density"
+    return True, None
 
 
 def derive_transport_km(

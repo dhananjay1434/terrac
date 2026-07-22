@@ -1,8 +1,7 @@
 """Geospatial + EXIF-GPS helpers (extracted from server.py, R1).
 
-Pure leaf: imports only stdlib math + piexif. `_evaluate_anchor` mutates a Batch's
-status in place (photo-anchored GPS corroboration, T2.7) but takes the batch as an
-argument — no model import needed here.
+Pure leaf: imports only stdlib math + piexif + geometry & settings. `_evaluate_anchor` mutates
+a Batch's status in place (photo-anchored GPS corroboration, T2.7 + V8 Part 1.4 source parcel geofencing).
 """
 
 from __future__ import annotations
@@ -13,6 +12,10 @@ from math import asin, cos, radians, sin, sqrt
 from typing import Optional
 
 import piexif
+
+import geometry
+import observability
+import settings
 
 log = logging.getLogger("dmrv.geo")
 
@@ -89,7 +92,13 @@ def _gps_mismatch_km(
     return haversine_km(lon1, lat1, lon2, lat2) > threshold_km
 
 
-def _evaluate_anchor(batch, photo_sha: Optional[str], exif_lat, exif_lon) -> None:
+def _evaluate_anchor(
+    batch,
+    photo_sha: Optional[str],
+    exif_lat,
+    exif_lon,
+    parcel_geojson: Optional[str] = None,
+) -> None:
     """Decide a batch's status when a photo is anchored to it.
 
     Phase 9 + media integrity: only a photo whose SHA-256 matches the batch's
@@ -97,14 +106,10 @@ def _evaluate_anchor(batch, photo_sha: Optional[str], exif_lat, exif_lon) -> Non
     the batch). When the photo's EXIF GPS disagrees with the batch's claimed
     coordinates by >1 km the batch is quarantined for review.
 
-    T2.7b (V7 P3): a photo with NO EXIF GPS anchoring a batch that DOES claim
-    coordinates no longer silently earns the clean RECEIVED upgrade. The field
-    app embeds EXIF GPS on every capture, so a missing one is anomalous — under
-    the default `DMRV_REQUIRE_EXIF_GPS` policy it is quarantined for review
-    (QUARANTINE_GPS_MISSING) rather than passing unseen. Set the flag to 0 to
-    restore the legacy pass-through (a device family that can't write EXIF), in
-    which case the upgrade still happens but is logged. A batch that claims no
-    coordinates has nothing to corroborate, so the requirement does not apply.
+    V8 Part 1.4: If parcel_geojson is provided (or loaded via batch.parcel_uuid),
+    check that the claimed GPS coordinates fall within the parcel polygon
+    (with DMRV_PARCEL_GEOFENCE_BUFFER_M tolerance). If outside, status becomes
+    QUARANTINE_GPS_OUTSIDE_PARCEL. Null parcel_geojson skips cleanly (grandfathering).
     """
     if not batch.sha256_hash or not photo_sha:
         return
@@ -130,6 +135,34 @@ def _evaluate_anchor(batch, photo_sha: Optional[str], exif_lat, exif_lon) -> Non
             "upgrading anyway (GPS not independently corroborated)",
             getattr(batch, "batch_uuid", "?"),
         )
+
+    # V8 Part 1.4: Source parcel geofence check
+    if parcel_geojson and batch_claims_gps:
+        try:
+            # Trusted parse of an already-approved stored parcel (skip the
+            # untrusted-input DoS guard so a later-lowered vertex cap can't turn
+            # corroboration into a self-DoS).
+            poly = geometry.parse_trusted_geojson(parcel_geojson)
+            buffer_m = settings.parcel_geofence_buffer_m()
+            if not geometry.point_in_polygon(poly, batch.longitude, batch.latitude, buffer_m=buffer_m):
+                log.warning(
+                    "batch %s GPS (%.5f, %.5f) is outside source parcel boundary — quarantining (QUARANTINE_GPS_OUTSIDE_PARCEL)",
+                    getattr(batch, "batch_uuid", "?"),
+                    batch.latitude,
+                    batch.longitude,
+                )
+                observability.record_gate_rejection(
+                    gate="boundary_geofence",
+                    reason="QUARANTINE_GPS_OUTSIDE_PARCEL",
+                    extra={
+                        "batch_uuid": getattr(batch, "batch_uuid", None),
+                        "parcel_uuid": getattr(batch, "parcel_uuid", None),
+                    },
+                )
+                batch.status = "QUARANTINE_GPS_OUTSIDE_PARCEL"
+                return
+        except Exception as exc:
+            log.warning("Failed to evaluate source parcel boundary for batch %s: %s", getattr(batch, "batch_uuid", "?"), exc)
 
     if batch.status == "UNVERIFIED":
         batch.status = "RECEIVED"

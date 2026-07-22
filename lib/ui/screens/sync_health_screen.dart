@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/app_database.dart';
 import '../../providers/sync_providers.dart';
+import '../../providers/upload_progress_provider.dart';
 import '../../services/sync_queue_manager.dart';
 import '../components/dmrv_button.dart';
 import '../components/dmrv_panel.dart';
@@ -25,6 +26,11 @@ class SyncHealthScreen extends ConsumerWidget {
     final skew = ref.watch(clockSkewProvider);
     final problems = ref.watch(problemOutboxRowsProvider);
     final syncedCount = ref.watch(syncedOutboxCountProvider).valueOrNull ?? 0;
+    // V8 Part 4 (H) — in-flight media upload progress, keyed by operationId.
+    // Independent of the problem-rows query above: a first-attempt upload
+    // (retryCount 0, not yet failed) never appears there, so this is the
+    // only place progress on a fresh upload is visible.
+    final uploadProgress = ref.watch(uploadProgressProvider);
 
     return Scaffold(
       backgroundColor: t.surface,
@@ -58,6 +64,10 @@ class SyncHealthScreen extends ConsumerWidget {
                     children: [
                       if (skew != null) ...[
                         _ClockSkewBanner(skew: skew),
+                        SizedBox(height: t.gapL),
+                      ],
+                      if (uploadProgress.isNotEmpty) ...[
+                        _UploadProgressBanner(progress: uploadProgress),
                         SizedBox(height: t.gapL),
                       ],
                       _SummaryRow(
@@ -196,6 +206,53 @@ class _ClockSkewBanner extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// V8 Part 4 (H) — shows the furthest-along in-flight upload's progress.
+/// Uploads run one at a time in practice, but this takes the max fraction
+/// defensively rather than assuming exactly one entry.
+class _UploadProgressBanner extends StatelessWidget {
+  const _UploadProgressBanner({required this.progress});
+
+  final Map<String, double> progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final fraction = progress.values.reduce((a, b) => a > b ? a : b);
+    final pct = (fraction * 100).round();
+    final count = progress.length;
+    return DmrvPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            identifier: 'upload-progress-label',
+            child: Text(
+              count > 1 ? 'UPLOADING EVIDENCE ($count)' : 'UPLOADING EVIDENCE',
+              style: t.chipLabel.copyWith(color: t.accentText),
+            ),
+          ),
+          SizedBox(height: t.gapS),
+          Semantics(
+            identifier: 'upload-progress-bar',
+            value: '$pct%',
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(t.radiusS),
+              child: LinearProgressIndicator(
+                value: fraction,
+                minHeight: 8,
+                backgroundColor: t.surfaceRaised,
+                valueColor: AlwaysStoppedAnimation(t.accent),
+              ),
+            ),
+          ),
+          SizedBox(height: t.gapS),
+          Text('$pct%', style: t.metadata.copyWith(color: t.textSecondary)),
         ],
       ),
     );

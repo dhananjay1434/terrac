@@ -14,6 +14,9 @@ import BatchDetail from "../pages/BatchDetail";
 import LabScan from "../pages/LabScan";
 import LabEntry from "../pages/LabEntry";
 import Registry from "../pages/Registry";
+import Projects from "../pages/Projects";
+import Farmers from "../pages/Farmers";
+import Dispatch from "../pages/Dispatch";
 import type { BatchDetail as Detail, BatchRow } from "../api";
 
 vi.mock("../api", async (importOriginal) => {
@@ -29,6 +32,17 @@ vi.mock("../api", async (importOriginal) => {
     listKilns: vi.fn().mockResolvedValue({ kilns: [] }),
     mintToken: vi.fn(),
     registryPost: vi.fn().mockResolvedValue({}),
+    listProjects: vi.fn().mockResolvedValue({ projects: [], next_cursor: null }),
+    createProject: vi.fn(),
+    listParcels: vi.fn().mockResolvedValue({ parcels: [], next_cursor: null }),
+    createParcel: vi.fn(),
+    listFarmers: vi
+      .fn()
+      .mockResolvedValue({ items: [], total: 0, page: 1, size: 25 }),
+    getFarmer: vi.fn(),
+    listDispatch: vi.fn().mockResolvedValue({ dispatches: [], next_cursor: null }),
+    listFacilities: vi.fn().mockResolvedValue({ facilities: [], next_cursor: null }),
+    createFacility: vi.fn(),
   };
 });
 vi.mock("../auth", async (importOriginal) => {
@@ -73,6 +87,8 @@ const DETAIL: Detail = {
       capture_type_verified: true,
       exif_lat: 12.3,
       exif_lon: 76.5,
+      verification_status: null,
+      verification_remarks: null,
     },
   ],
 };
@@ -159,6 +175,39 @@ describe("a11y (axe, WCAG 2.x A/AA)", () => {
       <MemoryRouter>
         <Tooltip.Provider>
           <main><Registry /></main>
+        </Tooltip.Provider>
+      </MemoryRouter>,
+    );
+    await expectNoViolations(container);
+  }, 20000);
+
+  it("Projects", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Tooltip.Provider>
+          <main><Projects /></main>
+        </Tooltip.Provider>
+      </MemoryRouter>,
+    );
+    await expectNoViolations(container);
+  }, 20000);
+
+  it("Dispatch", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Tooltip.Provider>
+          <main><Dispatch /></main>
+        </Tooltip.Provider>
+      </MemoryRouter>,
+    );
+    await expectNoViolations(container);
+  }, 20000);
+
+  it("Farmers", async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Tooltip.Provider>
+          <main><Farmers /></main>
         </Tooltip.Provider>
       </MemoryRouter>,
     );

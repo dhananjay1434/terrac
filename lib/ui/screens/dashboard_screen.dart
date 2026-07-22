@@ -15,6 +15,8 @@ import '../components/dmrv_panel.dart';
 import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
 import 'package:dmrv_app/l10n/app_localizations.dart';
+import 'dispatch/dispatch_screen.dart';
+import 'field_walk_screen.dart';
 import 'lantana_sourcing_screen.dart';
 import 'proof_wallet_screen.dart';
 import 'sync_health_screen.dart';
@@ -358,6 +360,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             MaterialPageRoute<void>(builder: (_) => const ProofWalletScreen()),
           );
           break;
+
+        case 'view_dispatch':
+          // V8 Part 3.4: dispatch spans multiple batches/parcels, not one — an
+          // always-accessible action like Proof Wallet, not a per-batch step.
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const DispatchScreen()),
+          );
+          break;
+
+        case 'view_field_walk':
+          // V8 Part 5 (A phase-2): ground-truthed boundary walk, authorized
+          // per-walk by an admin-minted signed link — not tied to any one
+          // batch, so always accessible like Dispatch/Proof Wallet.
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const FieldWalkScreen()),
+          );
+          break;
       }
     } finally {
       _isNavigating = false;
@@ -601,6 +620,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               title: 'View Proof Wallet',
                               onTap: () =>
                                   _handleCardTap('view_proof_wallet', db: db),
+                            ),
+
+                            _buildConnector(),
+
+                            // Dispatch (always accessible — spans multiple
+                            // batches/parcels, not part of the per-batch flow).
+                            _buildCompletedStep(
+                              title: 'Dispatch',
+                              onTap: () =>
+                                  _handleCardTap('view_dispatch', db: db),
+                            ),
+
+                            _buildConnector(),
+
+                            // Field-Walk Boundary (always accessible — an
+                            // admin-authorized, per-walk action tied to a
+                            // parcel, not the per-batch flow).
+                            _buildCompletedStep(
+                              title: 'Field-Walk Boundary',
+                              onTap: () =>
+                                  _handleCardTap('view_field_walk', db: db),
                             ),
 
                             SizedBox(height: t.gapXL),

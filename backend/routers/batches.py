@@ -6,7 +6,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_session
-from models import Batch, MediaFile
+from models import Batch, MediaFile, SourceParcel
 from geo import haversine_km, _evaluate_anchor
 from schemas import BatchPayload, BatchResponse
 from security import verify_signature
@@ -16,6 +16,39 @@ from settings import log
 from jsonsafe import _as_utc
 
 router = APIRouter()
+
+
+@router.get("/api/v1/parcels")
+async def list_parcels_for_device(
+    project_id: str,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """V8 Part 1.6 — device-facing list of APPROVED source parcels for a
+    project, so the field app can let the operator pick the batch's source
+    parcel (which then rides the batch as parcel_uuid → server geofence).
+
+    Device-Ed25519-authed (same trust as batch ingest). Read-only, and returns
+    ONLY what the picker needs (uuid + name) — never the boundary geometry.
+    """
+    rows = (
+        (
+            await session.execute(
+                select(SourceParcel)
+                .where(
+                    SourceParcel.project_id == project_id,
+                    SourceParcel.boundary_status == "approved",
+                )
+                .order_by(desc(SourceParcel.created_at))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return {
+        "parcels": [{"parcel_uuid": p.parcel_uuid, "name": p.name} for p in rows]
+    }
+
 
 @router.post(
     "/api/v1/batches",
@@ -128,6 +161,7 @@ async def create_batch(
         biomass_measurement_method=payload.biomass_measurement_method,
         project_id=payload.project_id,
         scale_id=payload.scale_id,
+        parcel_uuid=payload.parcel_uuid,
         device_id=device_id,
         status="RECEIVED",
     )
@@ -197,7 +231,12 @@ async def create_batch(
         media = (await session.execute(stmt)).scalars().first()
         batch.status = "UNVERIFIED"
         if media:
-            _evaluate_anchor(batch, media.sha256_hash, media.exif_lat, media.exif_lon)
+            parcel_geojson = None
+            if getattr(batch, "parcel_uuid", None):
+                sp = (await session.execute(select(SourceParcel).where(SourceParcel.parcel_uuid == batch.parcel_uuid))).scalar_one_or_none()
+                if sp:
+                    parcel_geojson = sp.boundary_geojson
+            _evaluate_anchor(batch, media.sha256_hash, media.exif_lat, media.exif_lon, parcel_geojson=parcel_geojson)
         await session.commit()
 
     log.info(

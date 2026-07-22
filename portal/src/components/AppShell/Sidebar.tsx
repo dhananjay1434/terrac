@@ -3,6 +3,9 @@ import {
   Layers,
   FlaskConical,
   Archive,
+  FolderKanban,
+  Users,
+  Truck,
   PanelLeft,
   PanelLeftClose,
 } from "lucide-react";
@@ -13,6 +16,9 @@ const NAV = [
   { to: "/batches", label: "Batches", match: "/batches", Icon: Layers },
   { to: "/lab/scan", label: "Lab", match: "/lab", Icon: FlaskConical },
   { to: "/registry", label: "Registry", match: "/registry", Icon: Archive },
+  { to: "/projects", label: "Projects", match: "/projects", Icon: FolderKanban },
+  { to: "/farmers", label: "Farmers", match: "/farmers", Icon: Users },
+  { to: "/dispatch", label: "Dispatch", match: "/dispatch", Icon: Truck },
 ];
 
 /**

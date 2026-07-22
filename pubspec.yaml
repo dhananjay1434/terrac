@@ -58,6 +58,9 @@ dependencies:
   freerasp: ^6.1.1
   cryptography: ^2.9.0
 
+  # V8 Part 5 (L) — on-device QR/barcode scanning (enrollment token capture)
+  mobile_scanner: ^7.4.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
