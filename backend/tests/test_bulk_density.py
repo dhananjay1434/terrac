@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from services.bulk_density import volume_to_mass_kg
+from services.bulk_density import mass_and_volume_to_density_kg_per_l, volume_to_mass_kg
 from corroboration import (
     derive_density_calibration_compliance,
     derive_wet_yield_from_density,
@@ -83,3 +83,33 @@ def test_derive_density_calibration_compliance_unenforced_is_inert():
     ok, reason = derive_density_calibration_compliance(False, enforced=False)
     assert ok is True
     assert reason is None
+
+
+# ---------------------------------------------------------------------------
+# Deferred R3 — mass_and_volume_to_density_kg_per_l (the inverse formula, used
+# by the new device-signed density-test-submission endpoint).
+# ---------------------------------------------------------------------------
+
+
+def test_mass_and_volume_to_density_basic():
+    assert mass_and_volume_to_density_kg_per_l(50.0, 200.0) == 0.25
+
+
+def test_mass_and_volume_to_density_is_exact_inverse_of_volume_to_mass():
+    mass = volume_to_mass_kg(200.0, 0.25)
+    assert mass_and_volume_to_density_kg_per_l(mass, 200.0) == 0.25
+
+
+def test_mass_and_volume_to_density_zero_volume_rejected():
+    with pytest.raises(ValueError):
+        mass_and_volume_to_density_kg_per_l(50.0, 0.0)
+
+
+def test_mass_and_volume_to_density_zero_mass_rejected():
+    with pytest.raises(ValueError):
+        mass_and_volume_to_density_kg_per_l(0.0, 200.0)
+
+
+def test_mass_and_volume_to_density_negative_rejected():
+    with pytest.raises(ValueError):
+        mass_and_volume_to_density_kg_per_l(-5.0, 200.0)

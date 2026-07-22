@@ -94,6 +94,7 @@ def create_app() -> FastAPI:
     from routers.farmers import router as farmers_router
     from routers.dispatch import router as dispatch_router
     from routers.field_walk import router as field_walk_router
+    from routers.density import router as density_router
 
     application.include_router(health_router)
     application.include_router(devices_router)
@@ -108,6 +109,7 @@ def create_app() -> FastAPI:
     application.include_router(farmers_router)
     application.include_router(dispatch_router)
     application.include_router(field_walk_router)
+    application.include_router(density_router)
 
     # Portal
     from portal.routes import router as portal_router

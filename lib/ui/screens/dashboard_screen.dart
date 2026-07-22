@@ -16,6 +16,7 @@ import '../design/tokens.dart';
 import '../widgets/integrity_footer.dart';
 import 'package:dmrv_app/l10n/app_localizations.dart';
 import 'dispatch/dispatch_screen.dart';
+import 'density_calibration_screen.dart';
 import 'field_walk_screen.dart';
 import 'lantana_sourcing_screen.dart';
 import 'proof_wallet_screen.dart';
@@ -377,6 +378,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             MaterialPageRoute<void>(builder: (_) => const FieldWalkScreen()),
           );
           break;
+
+        case 'view_density_calibration':
+          // Deferred R3: a site-level calibration, not tied to any one
+          // batch — always accessible like Dispatch/Field-Walk.
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const DensityCalibrationScreen(),
+            ),
+          );
+          break;
       }
     } finally {
       _isNavigating = false;
@@ -641,6 +652,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               title: 'Field-Walk Boundary',
                               onTap: () =>
                                   _handleCardTap('view_field_walk', db: db),
+                            ),
+
+                            _buildConnector(),
+
+                            // Bulk-Density Calibration (always accessible —
+                            // a site-level calibration, not tied to a batch).
+                            _buildCompletedStep(
+                              title: 'Bulk-Density Calibration',
+                              onTap: () => _handleCardTap(
+                                'view_density_calibration',
+                                db: db,
+                              ),
                             ),
 
                             SizedBox(height: t.gapXL),

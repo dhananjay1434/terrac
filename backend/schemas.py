@@ -487,3 +487,22 @@ class FieldWalkSubmit(BaseModel):
         return v
 
 
+class DensityTestSubmit(BaseModel):
+    """Deferred R3 — device-signed bulk-density calibration submission.
+
+    `project_id` is client-supplied (same pattern as `Batch.project_id` — a
+    device has no server-side project link to resolve it from). The SERVER
+    computes `density_kg_per_l = mass_kg / volume_l` from the submitted
+    mass/volume (`services/bulk_density.mass_and_volume_to_density_kg_per_l`)
+    — the device's own display-only calculation is never trusted as the
+    stored value. `test_uuid` is caller-supplied (idempotent create, like
+    Project/Facility/Dispatch)."""
+
+    model_config = ConfigDict(extra="forbid")
+    test_uuid: str = Field(..., min_length=1, max_length=36)
+    project_id: str = Field(..., min_length=1, max_length=128)
+    mass_kg: float = Field(..., gt=0.0, le=1_000_000.0)
+    volume_l: float = Field(..., gt=0.0, le=1_000_000.0)
+    performed_at: Optional[str] = Field(None, max_length=64)
+
+

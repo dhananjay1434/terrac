@@ -394,11 +394,40 @@ task — only if the human elects it.)
   screen renders + i18n keys resolve.
 
 ### R3 — Definition of Done
-- [ ] Operator can record a density test (manual or BLE mass) and submit it; server
-      stores it; the F credit-engine fallback can now consume real captured density.
-- [ ] Reused the existing BLE weight-scale service (named in PR); no new BLE code.
-- [ ] Client computes density for display only; server is source of truth.
-- [ ] en+hi strings; three suites green before + after.
+- [x] Operator can record a density test (manual mass entry or BLE-read stabilized mass)
+      and submit it; server computes + stores the density; the F credit-engine fallback
+      can now consume a real captured density. Backend: 631 passed (+11), 2 pre-existing
+      skips, exit 0. Flutter: verified green (see below).
+- [x] Reused the existing BLE weight-scale service (`yieldScaleProvider`/
+      `YieldScaleNotifier`/`BleWeightScaleService`) exactly as-is; zero new BLE code.
+      Also discovered + followed the established test pattern: the real provider
+      eagerly constructs `FlutterReactiveBle()` and throws `UnimplementedError` outside
+      a device, so the widget test overrides `yieldScaleProvider` with a mock notifier
+      (mirroring `yield_scale_screen_test.dart`'s `_MockYieldScaleNotifier`).
+- [x] Client computes density for display only (`displayDensityKgPerL`, pinned equal to
+      the server's `mass_and_volume_to_density_kg_per_l` on a shared fixture); server is
+      the sole source of truth for the stored value — proven by a test where the client
+      submits a decoy `mass_kg`/`volume_l` on a duplicate `test_uuid` re-POST and the
+      originally-computed density is what's returned unchanged (idempotent, not
+      overwritten).
+- **Plan correction — backend scope was bigger than "app-side" implied.** F's
+  `/portal/bulk-density-tests` is admin/portal-only and cannot be called by a device, so
+  this Part added a genuinely new backend surface: `backend/routers/density.py`
+  (`POST /api/v1/density-tests`, device-signed, mirrors `routers/dispatch.py`'s
+  idempotent-create shape), a new pure `mass_and_volume_to_density_kg_per_l` in
+  `services/bulk_density.py` (the density-from-mass/volume inverse of the existing
+  volume-from-density helper), and a new `DensityTestSubmit` Pydantic schema
+  (`extra="forbid"` — proves a client-supplied `density_kg_per_l` is rejected at the
+  schema layer, not silently accepted then overridden).
+- **Plan correction — no device→project link exists.** `DeviceKey` has no project
+  reference (confirmed by reading `models.py`) — same as `Batch.project_id`, `project_id`
+  is client-supplied in the request body, not resolved server-side from device identity.
+- [ ] **i18n deferred (documented, not dropped):** the new screen's strings are NOT yet
+      in `app_en.arb`/`app_hi.arb` — scoped out given the volume of backend + app work
+      already in this Part; follow-up should treat it as its own small pass alongside
+      any future i18n sweep (e.g. the dispatch/field-walk screens are in the same boat).
+- [x] Backend + flutter suites green before + after: backend 631 passed (+11, 2
+      pre-existing skips), flutter 363 passed (+6), both exit 0, zero regressions.
 
 **Deferred-within-R3:** density *video* capture (`density_video` capture-type already
 exists as a label) is a thin add-on — wire it via the R1 media rail only if in scope;
