@@ -636,22 +636,36 @@ fake a pass (`§0-DELTA.4`).
   runner"** in the production gate; it is NOT marked done by this host.
 
 ### R7 — Definition of Done
-- [ ] Runbook committed; reproducible; names every iOS-side plugin to smoke-test.
-- [ ] Production gate explicitly carries "iOS build unverified (macOS runner pending)"
-      until a Mac confirms — no false green from this host.
+- [x] Runbook committed (`docs/IOS_BUILD_RUNBOOK.md`); reproducible; names every
+      iOS-side plugin to smoke-test (camera, geolocator, mobile_scanner,
+      flutter_reactive_ble, flutter_secure_storage, sqlcipher_flutter_libs, native_exif,
+      freerasp, permission_handler, sentry_flutter — versions pinned from `pubspec.yaml`
+      at authoring time) with a concrete per-plugin verification step, not just "smoke
+      test it."
+- [x] Production gate explicitly carries "iOS build unverified (macOS runner pending)"
+      until a Mac confirms — no false green from this host (see `§7-DELTA` below).
+- **Notable finding while authoring this runbook:** `lib/main.dart::validateReleaseConfig`
+  throws `StateError` if a release build's `SENTRY_DSN` dart-define is empty — this is
+  an intentional fail-closed guard from earlier work, not a bug, but it means the
+  runbook's `flutter build ios --release` example MUST include `--dart-define=
+  SENTRY_DSN=...` or the build will refuse to run at all. Documented explicitly in the
+  runbook so a first-time macOS runner doesn't mistake it for a build failure.
 
 ---
 
 ## §7-DELTA. Updated Production-Readiness Gate (deferred backlog)
 
 Append to `PRODUCTION_EXECUTION_PLAN.md §7`:
-- [ ] R1 (farmer + dispatch media) done — evidence for all subjects, one rail.
-- [ ] R2 (dispatch durability) done.
-- [ ] R3 (density capture) done — F fallback now consumes real captured density.
-- [ ] R4 (geofence gate live) done OR consciously left flag-off with reason recorded.
-- [ ] R5 (farmer KYC i18n) done.
-- [ ] R6 (day-start lock) done OR explicitly elected-out (optional).
-- [ ] R7: iOS build **confirmed on a macOS runner** (this host cannot sign off).
+- [x] R1 (farmer + dispatch media) done — evidence for all subjects, one rail.
+- [x] R2 (dispatch durability) done.
+- [x] R3 (density capture) done — F fallback now consumes real captured density.
+- [x] R4 (geofence gate live) done — flag-gated, default off, documented rollout.
+- [x] R5 (farmer KYC i18n) done.
+- [ ] R6 (day-start lock) — **not yet elected or built.** Optional per blueprint; awaiting
+      an explicit decision from the human on whether to build it or formally elect out.
+- [ ] R7: iOS build **runbook authored and committed; NOT YET confirmed on a macOS
+      runner** — this host cannot sign off on the actual build succeeding. Remains open
+      until a Mac runs `docs/IOS_BUILD_RUNBOOK.md` and reports back.
 
 ---
 
