@@ -217,6 +217,61 @@ async def test_foreign_device_cannot_transition(client):
     assert r.status_code == 403
 
 
+# ---------------------------------------------------------------------------
+# Deferred R2 — GET /api/v1/dispatch/{uuid} (device status read, for wizard resume)
+# ---------------------------------------------------------------------------
+
+
+def _get_signed_headers(device_id: str, path: str, op: str) -> dict:
+    """A real GET sends no body at all, so the canonical's body-hash slot must
+    be sha256(b"") — NOT sha256(json.dumps({})) — matching how
+    `security.py::verify_signature` hashes `await request.body()`."""
+    import hashlib
+
+    from tests.remediation.crypto_utils import sign_canonical
+
+    body_hash = hashlib.sha256(b"").hexdigest()
+    canonical = "\n".join(["GET", path, op, body_hash, device_id]).encode("utf-8")
+    return {
+        "X-Idempotency-Key": op,
+        "X-Device-Id": device_id,
+        "X-Signature": sign_canonical(canonical),
+    }
+
+
+async def test_get_dispatch_status_owner_sees_current_status(client):
+    du = str(uuid.uuid4())
+    await _post(client, OWNER, "/api/v1/dispatch", "d-8a", _create_payload(du))
+    path = f"/api/v1/dispatch/{du}"
+    r = await client.get(path, headers=_get_signed_headers(OWNER, path, "d-8b"))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["dispatch_uuid"] == du
+    assert body["status"] == "draft"
+
+    await _post(
+        client, OWNER, f"/api/v1/dispatch/{du}/transition", "d-8c",
+        {"target_status": "in_transit"},
+    )
+    r2 = await client.get(path, headers=_get_signed_headers(OWNER, path, "d-8d"))
+    assert r2.json()["status"] == "in_transit"
+
+
+async def test_get_dispatch_status_unknown_uuid_404(client):
+    path = f"/api/v1/dispatch/{uuid.uuid4()}"
+    r = await client.get(path, headers=_get_signed_headers(OWNER, path, "d-9a"))
+    assert r.status_code == 404
+    assert r.json()["detail"] == "dispatch_not_found"
+
+
+async def test_get_dispatch_status_foreign_device_403(client):
+    du = str(uuid.uuid4())
+    await _post(client, OWNER, "/api/v1/dispatch", "d-10a", _create_payload(du))
+    path = f"/api/v1/dispatch/{du}"
+    r = await client.get(path, headers=_get_signed_headers(OTHER, path, "d-10b"))
+    assert r.status_code == 403
+
+
 async def test_transition_without_weight_source_rejected(client):
     du = str(uuid.uuid4())
     payload = _create_payload(du)

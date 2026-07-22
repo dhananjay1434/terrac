@@ -120,6 +120,32 @@ async def create_dispatch(
     }
 
 
+@router.get("/api/v1/dispatch/{dispatch_uuid}")
+async def get_dispatch_status(
+    dispatch_uuid: str,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Deferred R2 — device-facing status read, so a resumed wizard can
+    reconcile its persisted phase against server truth instead of trusting a
+    possibly-stale local value. Same ownership rule as `transition_dispatch`.
+    404 (not the 200-with-null pattern used elsewhere) is correct here: the
+    app only calls this for a dispatch_uuid IT persisted locally, so a 404
+    unambiguously means "the draft never reached the server" — the caller
+    already knows to treat that as "resume to draft, nothing to reconcile."
+    """
+    dispatch = (
+        await session.execute(
+            select(Dispatch).where(Dispatch.dispatch_uuid == dispatch_uuid)
+        )
+    ).scalar_one_or_none()
+    if dispatch is None:
+        raise HTTPException(status_code=404, detail="dispatch_not_found")
+    if dispatch.device_id != device_id:
+        raise HTTPException(status_code=403, detail="not_your_dispatch")
+    return {"dispatch_uuid": dispatch.dispatch_uuid, "status": dispatch.status}
+
+
 @router.post("/api/v1/dispatch/{dispatch_uuid}/transition")
 async def transition_dispatch(
     dispatch_uuid: str,

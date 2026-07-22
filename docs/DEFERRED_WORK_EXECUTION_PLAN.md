@@ -336,11 +336,19 @@ the app mid-flow and the operator must re-navigate manually
   cleared on `received`; a genuinely fresh dispatch shows no resume banner.
 
 ### R2 — Definition of Done
-- [ ] Killing the app mid-flow and re-opening restores the wizard to the correct phase,
-      reconciled against server truth (never resurrects a phase the server已 advanced past).
-- [ ] Only non-sensitive data (uuid + phase enum) in SharedPreferences; comment states why.
-- [ ] Resume banner is consequence-explicit and dismissible.
-- [ ] Flutter suite green before + after; no backend/portal change needed.
+- [x] Killing the app mid-flow and re-opening restores the wizard to the correct phase,
+      reconciled against server truth (never resurrects a phase the server already
+      advanced past).
+- [x] Only non-sensitive data (uuid + phase string) in SharedPreferences; comment states
+      why.
+- [x] Resume banner is consequence-explicit (nothing to undo — server truth already
+      reconciled) and dismissible.
+- [x] Flutter suite green before + after (357 passed, +10). **Correction to this plan:**
+      a backend change WAS needed — no device-facing endpoint existed to read a
+      dispatch's current status, which `resolveResumePhase`'s "trust server" design
+      requires. Added `GET /api/v1/dispatch/{uuid}` (device-signed, ownership-checked,
+      mirrors `transition_dispatch`) — backend suite 620 passed (+3), additive only, no
+      migration.
 
 ---
 

@@ -37,6 +37,29 @@ class FacilityOption {
       );
 }
 
+/// Deferred R2 — reconcile a persisted (possibly stale) local wizard phase
+/// against server truth for dispatch restart-resilience. Pure, string-based
+/// ('draft'|'in_transit'|'received') rather than sharing dispatch_screen.dart's
+/// private `_Phase` enum — this is the currency the server's status field
+/// already uses.
+///
+/// Server truth always wins when available: a persisted phase can only be
+/// STALE (a transition already succeeded right before the app was killed,
+/// so resuming to the old phase would re-show an editable form for a
+/// dispatch that's already moved on) or, in a rare case, momentarily AHEAD —
+/// either way, trusting the server avoids resurrecting a wrong phase. Only
+/// when the server is unreachable (offline resume) does the persisted value
+/// stand in. No persisted value and no server status means a genuinely
+/// fresh dispatch — draft.
+String resolveResumePhase({
+  required String? persistedPhase,
+  required String? serverStatus,
+}) {
+  if (serverStatus != null && serverStatus.isNotEmpty) return serverStatus;
+  if (persistedPhase != null && persistedPhase.isNotEmpty) return persistedPhase;
+  return 'draft';
+}
+
 class DispatchTransitionResult {
   const DispatchTransitionResult({
     required this.status,
@@ -174,5 +197,96 @@ class DispatchService {
     } finally {
       if (client == null) c.close();
     }
+  }
+
+  /// Deferred R2 — device-signed status read (GET /api/v1/dispatch/{uuid}),
+  /// used to reconcile a resumed wizard against server truth. Returns null
+  /// on ANY failure (offline, 404, error) — the caller falls back to the
+  /// persisted phase via [resolveResumePhase], never assumes a status.
+  static Future<String?> fetchStatus({
+    required String dispatchUuid,
+    http.Client? client,
+    String? apiBaseUrl,
+  }) async {
+    final base = apiBaseUrl ?? await resolveApiBaseUrl();
+    if (base.isEmpty) return null;
+
+    final c = client ?? http.Client();
+    try {
+      final path = '/api/v1/dispatch/$dispatchUuid';
+      final deviceId = await CryptoSigner.getDeviceId();
+      final (signature, signedAt) = await CryptoSigner.signRequestV2(
+        method: 'GET',
+        path: path,
+        idempotencyKey: '',
+        deviceId: deviceId,
+        jsonBody: '',
+      );
+      final resp = await c.get(
+        Uri.parse('$base$path'),
+        headers: {
+          'X-Device-Id': deviceId,
+          'X-Signature': signature,
+          'X-Canonical-Version': '2',
+          'X-Signed-At': signedAt,
+        },
+      ).timeout(const Duration(seconds: 8));
+
+      if (resp.statusCode != 200) return null;
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      return body['status'] as String?;
+    } catch (e) {
+      debugPrint('[DispatchService] status fetch failed (offline?): $e');
+      return null;
+    } finally {
+      if (client == null) c.close();
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Deferred R2 — persisted in-flight wizard state (restart-resilience).
+  // Only a dispatch_uuid + phase string are stored here — neither is PII,
+  // which is why SharedPreferences (unencrypted) is an acceptable store for
+  // this, unlike evidence/PII which always goes through the encrypted
+  // SQLCipher database. One fixed key, not uuid-keyed: this screen only
+  // ever has ONE active dispatch wizard at a time, and the uuid itself
+  // isn't known until _createDraft() succeeds — the screen needs to
+  // discover "is there an in-progress one at all" on initState, before it
+  // has a uuid to key by.
+  // ---------------------------------------------------------------------
+
+  static const _wizardStateKey = 'dmrv.dispatch_wizard.v1';
+
+  static Future<void> saveInFlightDispatch(String dispatchUuid, String phase) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _wizardStateKey,
+      jsonEncode({'dispatch_uuid': dispatchUuid, 'phase': phase}),
+    );
+  }
+
+  /// Returns `(dispatchUuid, phase)`, or null if nothing is persisted or the
+  /// stored value is corrupt (never throws — worst case is losing the resume
+  /// convenience, not crashing the screen).
+  static Future<(String, String)?> loadInFlightDispatch() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_wizardStateKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      final uuid = decoded['dispatch_uuid'] as String?;
+      final phase = decoded['phase'] as String?;
+      if (uuid == null || uuid.isEmpty || phase == null || phase.isEmpty) {
+        return null;
+      }
+      return (uuid, phase);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> clearInFlightDispatch() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_wizardStateKey);
   }
 }

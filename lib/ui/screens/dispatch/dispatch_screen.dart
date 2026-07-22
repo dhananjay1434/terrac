@@ -35,6 +35,20 @@ class DispatchScreen extends ConsumerStatefulWidget {
 
 enum _Phase { draft, inTransit, received }
 
+// Deferred R2 — string currency shared with resolveResumePhase/the server's
+// status field (which uses these exact strings).
+String _phaseToStatus(_Phase p) => switch (p) {
+      _Phase.draft => 'draft',
+      _Phase.inTransit => 'in_transit',
+      _Phase.received => 'received',
+    };
+
+_Phase _phaseFromStatus(String s) => switch (s) {
+      'in_transit' => _Phase.inTransit,
+      'received' => _Phase.received,
+      _ => _Phase.draft,
+    };
+
 class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   final _weightSource = TextEditingController();
   final _weightMethod = TextEditingController();
@@ -58,10 +72,40 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   String? _weighTicketMediaId;
   bool _capturingMedia = false;
 
+  // Deferred R2 — restart-resilience.
+  bool _resumeBannerVisible = false;
+
   @override
   void initState() {
     super.initState();
     _loadFacilities();
+    _resumeInFlightDispatch();
+  }
+
+  /// Deferred R2 — on launch, if a wizard was mid-flow when the app was
+  /// killed, restore it: reconcile the persisted phase against server truth
+  /// (server always wins — see resolveResumePhase's doc) and show a
+  /// dismissible banner. A dispatch with no persisted state is untouched
+  /// (fresh screen, no banner).
+  Future<void> _resumeInFlightDispatch() async {
+    final persisted = await DispatchService.loadInFlightDispatch();
+    if (persisted == null) return;
+    final (uuid, persistedPhase) = persisted;
+    final serverStatus = await DispatchService.fetchStatus(dispatchUuid: uuid);
+    final resolvedPhase = resolveResumePhase(
+      persistedPhase: persistedPhase,
+      serverStatus: serverStatus,
+    );
+    if (!mounted) return;
+    setState(() {
+      _dispatchUuid = uuid;
+      _phase = _phaseFromStatus(resolvedPhase);
+      _resumeBannerVisible = true;
+    });
+    // Keep the persisted record in sync with whatever we just resolved to
+    // (e.g. server had already advanced past the stale local value) so a
+    // SECOND kill-and-resume doesn't re-reconcile from stale data.
+    await DispatchService.saveInFlightDispatch(uuid, resolvedPhase);
   }
 
   @override
@@ -112,6 +156,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
         truckNumber:
             _truckNumber.text.trim().isEmpty ? null : _truckNumber.text.trim(),
       );
+      await DispatchService.saveInFlightDispatch(uuid, _phaseToStatus(_Phase.draft));
       if (!mounted) return;
       setState(() {
         _dispatchUuid = uuid;
@@ -196,6 +241,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
         );
         return;
       }
+      await DispatchService.saveInFlightDispatch(uuid, _phaseToStatus(_Phase.inTransit));
       setState(() => _phase = _Phase.inTransit);
       _snack('Submitted — In-Transit. Weight is now locked.');
     } finally {
@@ -248,6 +294,7 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
         _snack('Could not mark received — check connectivity and try again.');
         return;
       }
+      await DispatchService.clearInFlightDispatch();
       setState(() {
         _phase = _Phase.received;
         _lastFlagged = result.weightFlagged;
@@ -277,11 +324,50 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
         child: ListView(
           padding: EdgeInsets.fromLTRB(t.gapL, t.gapM, t.gapL, t.gapL),
           children: [
+            if (_resumeBannerVisible) ...[
+              _resumeBanner(t),
+              SizedBox(height: t.gapL),
+            ],
             if (_phase == _Phase.draft) ..._draftForm(t),
             if (_phase == _Phase.inTransit) ..._inTransitSection(t),
             if (_phase == _Phase.received) ..._receivedSection(t),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Deferred R2 — dismissible, consequence-free banner: the resumed state
+  /// is already correct (reconciled against server truth), this just tells
+  /// the operator what happened.
+  Widget _resumeBanner(DmrvTokens t) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(t.gapM),
+      decoration: BoxDecoration(
+        color: t.surfaceRaised,
+        borderRadius: BorderRadius.circular(t.radiusM),
+        border: Border.all(color: t.border, width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.history, color: t.accentText, size: 20),
+          SizedBox(width: t.gapM),
+          Expanded(
+            child: Semantics(
+              identifier: 'dispatch-resume-banner',
+              child: Text(
+                'Resumed your in-progress dispatch.',
+                style: t.body.copyWith(color: t.textPrimary),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close, color: t.textSecondary, size: 18),
+            tooltip: 'Dismiss',
+            onPressed: () => setState(() => _resumeBannerVisible = false),
+          ),
+        ],
       ),
     );
   }
