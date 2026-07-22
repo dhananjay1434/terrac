@@ -152,6 +152,18 @@ def parcel_geofence_buffer_m() -> float:
     return env_float("DMRV_PARCEL_GEOFENCE_BUFFER_M", 10.0)
 
 
+def device_parcel_geometry_enabled() -> bool:
+    """Deferred R4 — whether GET /api/v1/parcels includes boundary_geojson
+    for the device's own project. Default OFF (unlike other compliance
+    gates, which default on): putting landholding polygons on field phones
+    is a real exposure decision, not a data-integrity toggle, so this rolls
+    out deliberately (flip on via DMRV_DEVICE_PARCEL_GEOMETRY=1) rather than
+    shipping pre-armed. Off preserves today's exact behavior (uuid+name
+    only) — the on-device geofence capture gate stays inert until this is
+    explicitly enabled."""
+    return os.environ.get("DMRV_DEVICE_PARCEL_GEOMETRY", "0") == "1"
+
+
 def parcel_area_mismatch_pct() -> float:
     return env_float("DMRV_PARCEL_AREA_MISMATCH_PCT", 15.0)
 

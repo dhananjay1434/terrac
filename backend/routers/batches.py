@@ -12,7 +12,7 @@ from schemas import BatchPayload, BatchResponse
 from security import verify_signature
 from credit_engine import recompute_batch_credit
 from storage import get_storage
-from settings import log
+from settings import log, device_parcel_geometry_enabled
 from jsonsafe import _as_utc
 
 router = APIRouter()
@@ -28,8 +28,15 @@ async def list_parcels_for_device(
     project, so the field app can let the operator pick the batch's source
     parcel (which then rides the batch as parcel_uuid → server geofence).
 
-    Device-Ed25519-authed (same trust as batch ingest). Read-only, and returns
-    ONLY what the picker needs (uuid + name) — never the boundary geometry.
+    Device-Ed25519-authed (same trust as batch ingest). Read-only, and by
+    DEFAULT returns only what the picker needs (uuid + name) — never the
+    boundary geometry.
+
+    Deferred R4: when `device_parcel_geometry_enabled()` is on, each row also
+    carries `boundary_geojson` — this is an explicit, flag-gated exposure
+    decision (landholding polygons on field phones), not a data-integrity
+    toggle, so it defaults OFF and is scoped to the CALLING device's own
+    `project_id` (never another project's parcels). See settings.py docstring.
     """
     rows = (
         (
@@ -45,9 +52,14 @@ async def list_parcels_for_device(
         .scalars()
         .all()
     )
-    return {
-        "parcels": [{"parcel_uuid": p.parcel_uuid, "name": p.name} for p in rows]
-    }
+    include_geometry = device_parcel_geometry_enabled()
+    parcels = []
+    for p in rows:
+        row = {"parcel_uuid": p.parcel_uuid, "name": p.name}
+        if include_geometry:
+            row["boundary_geojson"] = p.boundary_geojson
+        parcels.append(row)
+    return {"parcels": parcels}
 
 
 @router.post(

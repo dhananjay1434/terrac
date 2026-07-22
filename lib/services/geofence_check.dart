@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 /// V8 Part 4 (E) — pure, on-device geofence-to-parcel check. This is a FAST,
@@ -10,6 +11,36 @@ import 'dart:math' as math;
 /// coordinate order), first ring only — interior rings/holes are not
 /// evaluated on-device.
 const double _kMetersPerDegree = 111320.0;
+
+/// Deferred R4 — parses a GeoJSON Polygon string's exterior ring into
+/// `[lon, lat]` pairs for [isPointNearPolygon]/[isPointInPolygonRing].
+/// Returns null for anything malformed (wrong geometry type, missing/short
+/// coordinates, non-numeric values) — never throws, so a corrupt or
+/// unexpected cached geometry just leaves the capture ungated rather than
+/// crashing the screen.
+List<List<double>>? parsePolygonExteriorRing(String geojson) {
+  try {
+    final decoded = jsonDecode(geojson);
+    if (decoded is! Map || decoded['type'] != 'Polygon') return null;
+    final coords = decoded['coordinates'];
+    if (coords is! List || coords.isEmpty) return null;
+    final exterior = coords[0];
+    if (exterior is! List) return null;
+
+    final ring = <List<double>>[];
+    for (final pt in exterior) {
+      if (pt is! List || pt.length < 2) return null;
+      final lon = pt[0];
+      final lat = pt[1];
+      if (lon is! num || lat is! num) return null;
+      ring.add([lon.toDouble(), lat.toDouble()]);
+    }
+    if (ring.length < 3) return null;
+    return ring;
+  } catch (_) {
+    return null;
+  }
+}
 
 /// Standard ray-casting point-in-polygon test (even-odd rule).
 bool isPointInPolygonRing(double lon, double lat, List<List<double>> ring) {

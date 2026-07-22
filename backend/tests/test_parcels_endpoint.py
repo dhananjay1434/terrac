@@ -266,6 +266,96 @@ async def test_device_parcels_list_requires_signature(client, session_factory):
     assert resp.status_code in (401, 403)
 
 
+# ---------------------------------------------------------------------------
+# Deferred R4 — device_parcel_geometry_enabled flag (default OFF, see
+# settings.py). test_device_parcels_list_returns_approved_only above already
+# proves the flag-OFF (default) back-compat behavior; these cover flag-ON.
+# ---------------------------------------------------------------------------
+
+
+async def test_device_parcels_geometry_included_when_flag_on(
+    client, session_factory, monkeypatch
+):
+    monkeypatch.setenv("DMRV_DEVICE_PARCEL_GEOMETRY", "1")
+    geojson = _make_geojson(10.0, 10.0, 0.01)
+
+    async with session_factory() as session:
+        session.add(Project(project_id="proj-geo", name="Geometry Project"))
+        session.add(
+            SourceParcel(
+                parcel_uuid="geo-approved-uuid",
+                project_id="proj-geo",
+                name="Geo Field",
+                boundary_geojson=json.dumps(geojson),
+                area_m2=1.0,
+                bbox_min_lat=10.0,
+                bbox_min_lon=10.0,
+                bbox_max_lat=10.01,
+                bbox_max_lon=10.01,
+                boundary_method="portal_drawn",
+                boundary_status="approved",
+            )
+        )
+        await session.commit()
+
+    resp = await client.get("/api/v1/parcels?project_id=proj-geo")
+    assert resp.status_code == 200
+    parcels = resp.json()["parcels"]
+    assert len(parcels) == 1
+    assert "boundary_geojson" in parcels[0]
+    assert json.loads(parcels[0]["boundary_geojson"]) == geojson
+
+
+async def test_device_parcels_geometry_scoped_to_own_project_when_flag_on(
+    client, session_factory, monkeypatch
+):
+    """Flag-on must still respect the existing project_id scoping — a device
+    asking for project A's parcels never sees project B's geometry (or rows)
+    just because the flag is on globally."""
+    monkeypatch.setenv("DMRV_DEVICE_PARCEL_GEOMETRY", "1")
+
+    async with session_factory() as session:
+        session.add(Project(project_id="proj-geo-a", name="Geo Project A"))
+        session.add(Project(project_id="proj-geo-b", name="Geo Project B"))
+        session.add(
+            SourceParcel(
+                parcel_uuid="geo-a-uuid",
+                project_id="proj-geo-a",
+                name="Field A",
+                boundary_geojson=json.dumps(_make_geojson(11.0, 11.0, 0.01)),
+                area_m2=1.0,
+                bbox_min_lat=11.0,
+                bbox_min_lon=11.0,
+                bbox_max_lat=11.01,
+                bbox_max_lon=11.01,
+                boundary_method="portal_drawn",
+                boundary_status="approved",
+            )
+        )
+        session.add(
+            SourceParcel(
+                parcel_uuid="geo-b-uuid",
+                project_id="proj-geo-b",
+                name="Field B",
+                boundary_geojson=json.dumps(_make_geojson(12.0, 12.0, 0.01)),
+                area_m2=1.0,
+                bbox_min_lat=12.0,
+                bbox_min_lon=12.0,
+                bbox_max_lat=12.01,
+                bbox_max_lon=12.01,
+                boundary_method="portal_drawn",
+                boundary_status="approved",
+            )
+        )
+        await session.commit()
+
+    resp = await client.get("/api/v1/parcels?project_id=proj-geo-a")
+    assert resp.status_code == 200
+    parcels = resp.json()["parcels"]
+    assert len(parcels) == 1
+    assert parcels[0]["parcel_uuid"] == "geo-a-uuid"
+
+
 async def test_overlap_env_gate_override(client, session_factory, monkeypatch):
     monkeypatch.setenv("DMRV_PARCEL_OVERLAP_ENFORCED", "0")
     headers = await _login_admin(client, session_factory)

@@ -57,4 +57,41 @@ void main() {
       );
     });
   });
+
+  group('parsePolygonExteriorRing', () {
+    test('parses a well-formed Polygon GeoJSON string', () {
+      final geojson =
+          '{"type":"Polygon","coordinates":[[[0.0,0.0],[0.009,0.0],[0.009,0.009],[0.0,0.009],[0.0,0.0]]]}';
+      final ring = parsePolygonExteriorRing(geojson);
+      expect(ring, isNotNull);
+      expect(ring!.length, 5);
+      expect(ring[0], [0.0, 0.0]);
+      // A ring parsed this way still works with the point-in-polygon check.
+      expect(isPointInPolygonRing(0.0045, 0.0045, ring), isTrue);
+    });
+
+    test('wrong geometry type returns null', () {
+      final geojson = '{"type":"Point","coordinates":[0.0,0.0]}';
+      expect(parsePolygonExteriorRing(geojson), isNull);
+    });
+
+    test('malformed JSON returns null, never throws', () {
+      expect(parsePolygonExteriorRing('not json'), isNull);
+    });
+
+    test('missing coordinates returns null', () {
+      expect(parsePolygonExteriorRing('{"type":"Polygon"}'), isNull);
+    });
+
+    test('too few points returns null', () {
+      final geojson = '{"type":"Polygon","coordinates":[[[0.0,0.0],[1.0,1.0]]]}';
+      expect(parsePolygonExteriorRing(geojson), isNull);
+    });
+
+    test('non-numeric coordinate values return null', () {
+      final geojson =
+          '{"type":"Polygon","coordinates":[[["a","b"],[1.0,0.0],[1.0,1.0]]]}';
+      expect(parsePolygonExteriorRing(geojson), isNull);
+    });
+  });
 }

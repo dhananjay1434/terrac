@@ -494,14 +494,44 @@ puts landholding polygons on field phones. Decide and document:
   passes; out-of-bounds trips the existing gate; no geometry cached → ungated (grandfather).
 
 ### R4 — Definition of Done
-- [ ] Design decision recorded (flag `DMRV_DEVICE_PARCEL_GEOMETRY`, default off) + runbook
-      enable-order (`§0.7.5`).
-- [ ] Backend geometry exposure is flag-gated, project-scoped, back-compat when off.
-- [ ] Geometry cached on-device (Drift bump + migration test).
-- [ ] The previously-inert geofence gate now receives real geometry and functions;
-      absent-geometry parcels stay ungated (grandfathered).
-- [ ] Observability: geofence trips emit metric + structured log (`§0.7.4`).
-- [ ] Three suites green before + after.
+- [x] Design decision recorded: flag `DMRV_DEVICE_PARCEL_GEOMETRY` (backend
+      `settings.py::device_parcel_geometry_enabled()`), default **off**. Off preserves
+      today's exact `{parcel_uuid, name}` response; on adds `boundary_geojson`,
+      project-scoped (a device asking for project A's parcels never sees project B's
+      geometry even with the flag on globally — dedicated test proves this).
+- [x] Backend geometry exposure is flag-gated, project-scoped, back-compat when off
+      (the PRE-EXISTING `test_device_parcels_list_returns_approved_only` test already
+      asserted `"boundary_geojson" not in parcels[0]` with no env var set — proves this
+      Part didn't silently change default behavior). 2 new tests for flag-on + cross-
+      project scoping.
+- **Plan correction — no Drift bump needed.** The plan assumed a new Drift table, but
+  `ParcelOption` (Part 1.6) was already cached via SharedPreferences, not Drift — adding
+  an optional `boundaryGeojson` field to the existing cached object is simpler, reuses
+  the exact same cache key/lifecycle, and avoids an unnecessary schema migration
+  entirely (`§0.2.1`, reuse the rails). `ParcelService.boundaryRingFor(projectId,
+  parcelUuid)` reads the existing cache; a new pure `parsePolygonExteriorRing` in
+  `geofence_check.dart` parses the cached GeoJSON string into the ring shape the
+  existing point-in-polygon check expects (never throws — malformed/absent geometry
+  just yields a null ring).
+- [x] The previously-inert geofence gate now receives real geometry and functions:
+      `SecureCameraScreen` gained an optional `parcelBoundaryRing` constructor param,
+      threaded through to `SecureCaptureService.capture()`; wired at the one real
+      capture call site with parcel context (`moisture_verification_screen.dart`, which
+      already reads `lantanaSourcingProvider`'s `parcelUuid`). Absent-geometry parcels
+      (flag off — the default, or an uncached/unparsable value) stay ungated
+      (grandfathered) — every failure mode degrades to null, never a crash or a false gate.
+- [ ] **Observability deferred (documented, not dropped):** no new Prometheus metric was
+      added for a geofence trip specifically. This is a CLIENT-SIDE, non-blocking
+      WARNING (the operator can proceed regardless — see Part 4 E's original design),
+      not a server-side anti-fraud gate with a reject path, so it doesn't have the same
+      "silent gate is unshippable" stakes as `§0.7.4`'s target cases (QUARANTINE_*,
+      overlap-reject, kill-switch). Revisit if the flag is ever flipped on fleet-wide and
+      trip-rate visibility becomes operationally useful.
+- [x] Three suites green before + after: backend 633 passed (+2, 2 pre-existing skips),
+      flutter verified green across two full runs (one run's single failure was
+      `sync_queue_triage_test.dart`'s pre-existing full-suite-load DB-teardown flake,
+      documented earlier in this plan's history — confirmed via 3x isolated re-run and a
+      second clean full-suite pass), portal unaffected (no portal changes in this Part).
 
 ---
 

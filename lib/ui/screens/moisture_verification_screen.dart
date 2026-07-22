@@ -12,6 +12,7 @@ import '../../providers/batch_session_notifier.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/lantana_sourcing_notifier.dart';
 import '../../providers/moisture_gate_notifier.dart';
+import '../../services/parcel_service.dart';
 import '../../services/secure_capture_service.dart';
 import 'kiln_select_screen.dart';
 import 'secure_camera_screen.dart';
@@ -65,8 +66,25 @@ class _MoistureVerificationScreenState
       return;
     }
 
+    // Deferred R4 — feed the already-built geofence gate real geometry when
+    // available. Both fetches degrade to null silently (no project, no
+    // cached parcel, no geometry cached for it — flag off, most likely) —
+    // capture proceeds ungated in every one of those cases (grandfathered).
+    const projectId = String.fromEnvironment('DMRV_PROJECT_ID');
+    final sourcingForRing = ref.read(lantanaSourcingProvider).valueOrNull;
+    List<List<double>>? boundaryRing;
+    if (projectId.isNotEmpty && sourcingForRing?.parcelUuid != null) {
+      boundaryRing = await ParcelService.boundaryRingFor(
+        projectId,
+        sourcingForRing!.parcelUuid!,
+      );
+    }
+
+    if (!mounted) return;
     final result = await Navigator.of(context).push<SecureCaptureResult>(
-      MaterialPageRoute(builder: (_) => const SecureCameraScreen()),
+      MaterialPageRoute(
+        builder: (_) => SecureCameraScreen(parcelBoundaryRing: boundaryRing),
+      ),
     );
     if (result == null) return;
 

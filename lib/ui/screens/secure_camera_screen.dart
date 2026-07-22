@@ -38,10 +38,18 @@ class SecureCameraScreen extends ConsumerStatefulWidget {
     super.key,
     this.preferFrontCamera = false,
     this.captureMode = SecureCaptureMode.photo,
+    this.parcelBoundaryRing,
   });
 
   final bool preferFrontCamera;
   final SecureCaptureMode captureMode;
+
+  /// Deferred R4 — the batch's parcel boundary ring (GeoJSON-order [lon,
+  /// lat] pairs), when available, so the already-built geofence gate in
+  /// [SecureCaptureService.capture] can evaluate. Null when no geometry is
+  /// cached for this parcel (flag off, or not yet fetched) — capture
+  /// proceeds ungated in that case (grandfathered).
+  final List<List<double>>? parcelBoundaryRing;
 
   @override
   ConsumerState<SecureCameraScreen> createState() => _SecureCameraScreenState();
@@ -150,7 +158,10 @@ class _SecureCameraScreenState extends ConsumerState<SecureCameraScreen> {
     try {
       final result = await ref
           .read(secureCaptureServiceProvider)
-          .capture(controller: controller);
+          .capture(
+            controller: controller,
+            parcelBoundaryRing: widget.parcelBoundaryRing,
+          );
       if (!mounted) return;
       // V8 Part 4 (M): review before committing — do NOT pop yet.
       setState(() {

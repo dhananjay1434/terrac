@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_base.dart';
 import 'crypto_signer.dart';
+import 'geofence_check.dart';
 
 /// V8 Part 1.6 — fetches the approved source parcels for a project so the
 /// sourcing screen can let the operator pick the batch's source parcel. The
@@ -17,16 +18,33 @@ import 'crypto_signer.dart';
 /// project, so a field device with no connectivity can still show and select
 /// from the parcels it last saw. A failed fetch returns the cache, never throws.
 class ParcelOption {
-  const ParcelOption({required this.uuid, required this.name});
+  const ParcelOption({required this.uuid, required this.name, this.boundaryGeojson});
   final String uuid;
   final String name;
 
-  Map<String, dynamic> toJson() => {'parcel_uuid': uuid, 'name': name};
+  /// Deferred R4 — present only when the backend's
+  /// `device_parcel_geometry_enabled()` flag is on; null otherwise
+  /// (today's default). Rides the SAME SharedPreferences cache as
+  /// uuid/name — no separate store or Drift table needed.
+  final String? boundaryGeojson;
+
+  Map<String, dynamic> toJson() => {
+        'parcel_uuid': uuid,
+        'name': name,
+        if (boundaryGeojson != null) 'boundary_geojson': boundaryGeojson,
+      };
 
   static ParcelOption fromJson(Map<String, dynamic> j) => ParcelOption(
         uuid: (j['parcel_uuid'] ?? '').toString(),
         name: (j['name'] ?? '').toString(),
+        boundaryGeojson: j['boundary_geojson'] as String?,
       );
+
+  /// The boundary ring for the on-device geofence check, or null when no
+  /// geometry is cached (flag off, or unparsable) — capture proceeds
+  /// ungated in that case (grandfathered).
+  List<List<double>>? get boundaryRing =>
+      boundaryGeojson != null ? parsePolygonExteriorRing(boundaryGeojson!) : null;
 }
 
 class ParcelService {
@@ -94,6 +112,23 @@ class ParcelService {
     } catch (_) {
       return const [];
     }
+  }
+
+  /// Deferred R4 — the cached boundary ring for [parcelUuid] within
+  /// [projectId]'s last-fetched parcel list, or null when the parcel isn't
+  /// cached, has no geometry (flag off), or the geometry doesn't parse.
+  /// Reads the cache directly rather than re-fetching — the picker screen
+  /// already populated it via [fetchForProject] when the operator selected
+  /// this parcel.
+  static Future<List<List<double>>?> boundaryRingFor(
+    String projectId,
+    String parcelUuid,
+  ) async {
+    final cached = await loadCached(projectId);
+    for (final p in cached) {
+      if (p.uuid == parcelUuid) return p.boundaryRing;
+    }
+    return null;
   }
 
   static Future<void> _cache(String projectId, List<ParcelOption> list) async {
