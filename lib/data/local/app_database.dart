@@ -56,6 +56,7 @@ void assertOutboxMediaInvariant(
     CompositePileSamples,
     TransportEvents,
     Kilns,
+    EntityMediaCaptures,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -65,7 +66,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 26;
+  int get schemaVersion => 27;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -270,6 +271,16 @@ class AppDatabase extends _$AppDatabase {
         // V8 Part 1.6: source-parcel boundary reference on biomass sourcing.
         await m.addColumn(biomassSourcing, biomassSourcing.parcelUuid);
       }
+      if (from < 27) {
+        // Deferred R1: entity-scoped media (farmer/dispatch). SyncOutbox's
+        // batchUuid becomes nullable — SQLite has no ALTER COLUMN DROP NOT
+        // NULL, so TableMigration performs the required rewrite (temp table +
+        // insert + rename), same technique as the v15 pyrolysis_telemetry
+        // migration above.
+        // ignore: experimental_member_use
+        await m.alterTable(TableMigration(syncOutbox));
+        await m.createTable(entityMediaCaptures);
+      }
     },
   );
 
@@ -302,7 +313,7 @@ class AppDatabase extends _$AppDatabase {
       await into(syncOutbox).insert(
         SyncOutboxCompanion.insert(
           operationId: _uuid.v4(),
-          batchUuid: meta.batchUuid.value,
+          batchUuid: Value(meta.batchUuid.value),
           targetTable: 'system_metadata',
           operationType: 'INSERT',
           payloadJson: jsonString,
@@ -330,7 +341,7 @@ class AppDatabase extends _$AppDatabase {
       await into(syncOutbox).insert(
         SyncOutboxCompanion.insert(
           operationId: _uuid.v4(),
-          batchUuid: batchUuid,
+          batchUuid: Value(batchUuid),
           targetTable: targetTable,
           operationType: 'INSERT',
           payloadJson: jsonString,
@@ -373,8 +384,13 @@ class AppDatabase extends _$AppDatabase {
     String? village,
     String? kycStatus,
     String? consentStatus,
+    // Deferred R1 — media ids returned by insertEntityMediaWithOutbox, NOT
+    // outbox operation ids (see that method's doc). Null when the operator
+    // hasn't captured that artifact yet — never fabricated.
+    String? signatureMediaId,
     List<Map<String, dynamic>> payments = const [],
     List<Map<String, dynamic>> consents = const [],
+    List<Map<String, dynamic>> documents = const [],
   }) async {
     final payload = <String, dynamic>{
       'farmer_uuid': farmerUuid,
@@ -392,8 +408,8 @@ class AppDatabase extends _$AppDatabase {
       'kyc_status': kycStatus,
       'consent_status': consentStatus,
       'sync_status': 'pending',
-      // No documents (media-backed) in the MVP; see docstring.
-      'documents': const [],
+      'signature_media_id': signatureMediaId,
+      'documents': documents,
       'payments': payments,
       'consents': consents,
     };

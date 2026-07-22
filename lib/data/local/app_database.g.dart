@@ -4056,9 +4056,9 @@ class $SyncOutboxTable extends SyncOutbox
   late final GeneratedColumn<String> batchUuid = GeneratedColumn<String>(
     'batch_uuid',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _targetTableMeta = const VerificationMeta(
     'targetTable',
@@ -4225,8 +4225,6 @@ class $SyncOutboxTable extends SyncOutbox
         _batchUuidMeta,
         batchUuid.isAcceptableOrUnknown(data['batch_uuid']!, _batchUuidMeta),
       );
-    } else if (isInserting) {
-      context.missing(_batchUuidMeta);
     }
     if (data.containsKey('target_table')) {
       context.handle(
@@ -4342,7 +4340,7 @@ class $SyncOutboxTable extends SyncOutbox
       batchUuid: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}batch_uuid'],
-      )!,
+      ),
       targetTable: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}target_table'],
@@ -4398,7 +4396,7 @@ class $SyncOutboxTable extends SyncOutbox
 
 class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
   final String operationId;
-  final String batchUuid;
+  final String? batchUuid;
   final String targetTable;
   final String operationType;
   final String payloadJson;
@@ -4424,7 +4422,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
   final String? hmacSignature;
   const SyncOutboxData({
     required this.operationId,
-    required this.batchUuid,
+    this.batchUuid,
     required this.targetTable,
     required this.operationType,
     required this.payloadJson,
@@ -4441,7 +4439,9 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['operation_id'] = Variable<String>(operationId);
-    map['batch_uuid'] = Variable<String>(batchUuid);
+    if (!nullToAbsent || batchUuid != null) {
+      map['batch_uuid'] = Variable<String>(batchUuid);
+    }
     map['target_table'] = Variable<String>(targetTable);
     map['operation_type'] = Variable<String>(operationType);
     map['payload_json'] = Variable<String>(payloadJson);
@@ -4469,7 +4469,9 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
   SyncOutboxCompanion toCompanion(bool nullToAbsent) {
     return SyncOutboxCompanion(
       operationId: Value(operationId),
-      batchUuid: Value(batchUuid),
+      batchUuid: batchUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(batchUuid),
       targetTable: Value(targetTable),
       operationType: Value(operationType),
       payloadJson: Value(payloadJson),
@@ -4501,7 +4503,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return SyncOutboxData(
       operationId: serializer.fromJson<String>(json['operationId']),
-      batchUuid: serializer.fromJson<String>(json['batchUuid']),
+      batchUuid: serializer.fromJson<String?>(json['batchUuid']),
       targetTable: serializer.fromJson<String>(json['targetTable']),
       operationType: serializer.fromJson<String>(json['operationType']),
       payloadJson: serializer.fromJson<String>(json['payloadJson']),
@@ -4520,7 +4522,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'operationId': serializer.toJson<String>(operationId),
-      'batchUuid': serializer.toJson<String>(batchUuid),
+      'batchUuid': serializer.toJson<String?>(batchUuid),
       'targetTable': serializer.toJson<String>(targetTable),
       'operationType': serializer.toJson<String>(operationType),
       'payloadJson': serializer.toJson<String>(payloadJson),
@@ -4537,7 +4539,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
 
   SyncOutboxData copyWith({
     String? operationId,
-    String? batchUuid,
+    Value<String?> batchUuid = const Value.absent(),
     String? targetTable,
     String? operationType,
     String? payloadJson,
@@ -4551,7 +4553,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
     Value<String?> hmacSignature = const Value.absent(),
   }) => SyncOutboxData(
     operationId: operationId ?? this.operationId,
-    batchUuid: batchUuid ?? this.batchUuid,
+    batchUuid: batchUuid.present ? batchUuid.value : this.batchUuid,
     targetTable: targetTable ?? this.targetTable,
     operationType: operationType ?? this.operationType,
     payloadJson: payloadJson ?? this.payloadJson,
@@ -4667,7 +4669,7 @@ class SyncOutboxData extends DataClass implements Insertable<SyncOutboxData> {
 
 class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
   final Value<String> operationId;
-  final Value<String> batchUuid;
+  final Value<String?> batchUuid;
   final Value<String> targetTable;
   final Value<String> operationType;
   final Value<String> payloadJson;
@@ -4698,7 +4700,7 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
   });
   SyncOutboxCompanion.insert({
     required String operationId,
-    required String batchUuid,
+    this.batchUuid = const Value.absent(),
     required String targetTable,
     required String operationType,
     required String payloadJson,
@@ -4712,7 +4714,6 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
     this.hmacSignature = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : operationId = Value(operationId),
-       batchUuid = Value(batchUuid),
        targetTable = Value(targetTable),
        operationType = Value(operationType),
        payloadJson = Value(payloadJson),
@@ -4753,7 +4754,7 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxData> {
 
   SyncOutboxCompanion copyWith({
     Value<String>? operationId,
-    Value<String>? batchUuid,
+    Value<String?>? batchUuid,
     Value<String>? targetTable,
     Value<String>? operationType,
     Value<String>? payloadJson,
@@ -7601,6 +7602,504 @@ class KilnsCompanion extends UpdateCompanion<Kiln> {
   }
 }
 
+class $EntityMediaCapturesTable extends EntityMediaCaptures
+    with TableInfo<$EntityMediaCapturesTable, EntityMediaCapture> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $EntityMediaCapturesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _subjectTypeMeta = const VerificationMeta(
+    'subjectType',
+  );
+  @override
+  late final GeneratedColumn<String> subjectType = GeneratedColumn<String>(
+    'subject_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subjectUuidMeta = const VerificationMeta(
+    'subjectUuid',
+  );
+  @override
+  late final GeneratedColumn<String> subjectUuid = GeneratedColumn<String>(
+    'subject_uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _captureTypeMeta = const VerificationMeta(
+    'captureType',
+  );
+  @override
+  late final GeneratedColumn<String> captureType = GeneratedColumn<String>(
+    'capture_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sandboxPathMeta = const VerificationMeta(
+    'sandboxPath',
+  );
+  @override
+  late final GeneratedColumn<String> sandboxPath = GeneratedColumn<String>(
+    'sandbox_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sha256HashMeta = const VerificationMeta(
+    'sha256Hash',
+  );
+  @override
+  late final GeneratedColumn<String> sha256Hash = GeneratedColumn<String>(
+    'sha256_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isMockLocationMeta = const VerificationMeta(
+    'isMockLocation',
+  );
+  @override
+  late final GeneratedColumn<bool> isMockLocation = GeneratedColumn<bool>(
+    'is_mock_location',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_mock_location" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    subjectType,
+    subjectUuid,
+    captureType,
+    sandboxPath,
+    sha256Hash,
+    isMockLocation,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'entity_media_captures';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<EntityMediaCapture> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('subject_type')) {
+      context.handle(
+        _subjectTypeMeta,
+        subjectType.isAcceptableOrUnknown(
+          data['subject_type']!,
+          _subjectTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectTypeMeta);
+    }
+    if (data.containsKey('subject_uuid')) {
+      context.handle(
+        _subjectUuidMeta,
+        subjectUuid.isAcceptableOrUnknown(
+          data['subject_uuid']!,
+          _subjectUuidMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectUuidMeta);
+    }
+    if (data.containsKey('capture_type')) {
+      context.handle(
+        _captureTypeMeta,
+        captureType.isAcceptableOrUnknown(
+          data['capture_type']!,
+          _captureTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_captureTypeMeta);
+    }
+    if (data.containsKey('sandbox_path')) {
+      context.handle(
+        _sandboxPathMeta,
+        sandboxPath.isAcceptableOrUnknown(
+          data['sandbox_path']!,
+          _sandboxPathMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sandboxPathMeta);
+    }
+    if (data.containsKey('sha256_hash')) {
+      context.handle(
+        _sha256HashMeta,
+        sha256Hash.isAcceptableOrUnknown(data['sha256_hash']!, _sha256HashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sha256HashMeta);
+    }
+    if (data.containsKey('is_mock_location')) {
+      context.handle(
+        _isMockLocationMeta,
+        isMockLocation.isAcceptableOrUnknown(
+          data['is_mock_location']!,
+          _isMockLocationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {subjectUuid, captureType};
+  @override
+  EntityMediaCapture map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return EntityMediaCapture(
+      subjectType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subject_type'],
+      )!,
+      subjectUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subject_uuid'],
+      )!,
+      captureType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}capture_type'],
+      )!,
+      sandboxPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sandbox_path'],
+      )!,
+      sha256Hash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sha256_hash'],
+      )!,
+      isMockLocation: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_mock_location'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $EntityMediaCapturesTable createAlias(String alias) {
+    return $EntityMediaCapturesTable(attachedDatabase, alias);
+  }
+}
+
+class EntityMediaCapture extends DataClass
+    implements Insertable<EntityMediaCapture> {
+  final String subjectType;
+  final String subjectUuid;
+  final String captureType;
+  final String sandboxPath;
+  final String sha256Hash;
+  final bool isMockLocation;
+  final String createdAt;
+  const EntityMediaCapture({
+    required this.subjectType,
+    required this.subjectUuid,
+    required this.captureType,
+    required this.sandboxPath,
+    required this.sha256Hash,
+    required this.isMockLocation,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['subject_type'] = Variable<String>(subjectType);
+    map['subject_uuid'] = Variable<String>(subjectUuid);
+    map['capture_type'] = Variable<String>(captureType);
+    map['sandbox_path'] = Variable<String>(sandboxPath);
+    map['sha256_hash'] = Variable<String>(sha256Hash);
+    map['is_mock_location'] = Variable<bool>(isMockLocation);
+    map['created_at'] = Variable<String>(createdAt);
+    return map;
+  }
+
+  EntityMediaCapturesCompanion toCompanion(bool nullToAbsent) {
+    return EntityMediaCapturesCompanion(
+      subjectType: Value(subjectType),
+      subjectUuid: Value(subjectUuid),
+      captureType: Value(captureType),
+      sandboxPath: Value(sandboxPath),
+      sha256Hash: Value(sha256Hash),
+      isMockLocation: Value(isMockLocation),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory EntityMediaCapture.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return EntityMediaCapture(
+      subjectType: serializer.fromJson<String>(json['subjectType']),
+      subjectUuid: serializer.fromJson<String>(json['subjectUuid']),
+      captureType: serializer.fromJson<String>(json['captureType']),
+      sandboxPath: serializer.fromJson<String>(json['sandboxPath']),
+      sha256Hash: serializer.fromJson<String>(json['sha256Hash']),
+      isMockLocation: serializer.fromJson<bool>(json['isMockLocation']),
+      createdAt: serializer.fromJson<String>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'subjectType': serializer.toJson<String>(subjectType),
+      'subjectUuid': serializer.toJson<String>(subjectUuid),
+      'captureType': serializer.toJson<String>(captureType),
+      'sandboxPath': serializer.toJson<String>(sandboxPath),
+      'sha256Hash': serializer.toJson<String>(sha256Hash),
+      'isMockLocation': serializer.toJson<bool>(isMockLocation),
+      'createdAt': serializer.toJson<String>(createdAt),
+    };
+  }
+
+  EntityMediaCapture copyWith({
+    String? subjectType,
+    String? subjectUuid,
+    String? captureType,
+    String? sandboxPath,
+    String? sha256Hash,
+    bool? isMockLocation,
+    String? createdAt,
+  }) => EntityMediaCapture(
+    subjectType: subjectType ?? this.subjectType,
+    subjectUuid: subjectUuid ?? this.subjectUuid,
+    captureType: captureType ?? this.captureType,
+    sandboxPath: sandboxPath ?? this.sandboxPath,
+    sha256Hash: sha256Hash ?? this.sha256Hash,
+    isMockLocation: isMockLocation ?? this.isMockLocation,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  EntityMediaCapture copyWithCompanion(EntityMediaCapturesCompanion data) {
+    return EntityMediaCapture(
+      subjectType: data.subjectType.present
+          ? data.subjectType.value
+          : this.subjectType,
+      subjectUuid: data.subjectUuid.present
+          ? data.subjectUuid.value
+          : this.subjectUuid,
+      captureType: data.captureType.present
+          ? data.captureType.value
+          : this.captureType,
+      sandboxPath: data.sandboxPath.present
+          ? data.sandboxPath.value
+          : this.sandboxPath,
+      sha256Hash: data.sha256Hash.present
+          ? data.sha256Hash.value
+          : this.sha256Hash,
+      isMockLocation: data.isMockLocation.present
+          ? data.isMockLocation.value
+          : this.isMockLocation,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EntityMediaCapture(')
+          ..write('subjectType: $subjectType, ')
+          ..write('subjectUuid: $subjectUuid, ')
+          ..write('captureType: $captureType, ')
+          ..write('sandboxPath: $sandboxPath, ')
+          ..write('sha256Hash: $sha256Hash, ')
+          ..write('isMockLocation: $isMockLocation, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    subjectType,
+    subjectUuid,
+    captureType,
+    sandboxPath,
+    sha256Hash,
+    isMockLocation,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is EntityMediaCapture &&
+          other.subjectType == this.subjectType &&
+          other.subjectUuid == this.subjectUuid &&
+          other.captureType == this.captureType &&
+          other.sandboxPath == this.sandboxPath &&
+          other.sha256Hash == this.sha256Hash &&
+          other.isMockLocation == this.isMockLocation &&
+          other.createdAt == this.createdAt);
+}
+
+class EntityMediaCapturesCompanion extends UpdateCompanion<EntityMediaCapture> {
+  final Value<String> subjectType;
+  final Value<String> subjectUuid;
+  final Value<String> captureType;
+  final Value<String> sandboxPath;
+  final Value<String> sha256Hash;
+  final Value<bool> isMockLocation;
+  final Value<String> createdAt;
+  final Value<int> rowid;
+  const EntityMediaCapturesCompanion({
+    this.subjectType = const Value.absent(),
+    this.subjectUuid = const Value.absent(),
+    this.captureType = const Value.absent(),
+    this.sandboxPath = const Value.absent(),
+    this.sha256Hash = const Value.absent(),
+    this.isMockLocation = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  EntityMediaCapturesCompanion.insert({
+    required String subjectType,
+    required String subjectUuid,
+    required String captureType,
+    required String sandboxPath,
+    required String sha256Hash,
+    this.isMockLocation = const Value.absent(),
+    required String createdAt,
+    this.rowid = const Value.absent(),
+  }) : subjectType = Value(subjectType),
+       subjectUuid = Value(subjectUuid),
+       captureType = Value(captureType),
+       sandboxPath = Value(sandboxPath),
+       sha256Hash = Value(sha256Hash),
+       createdAt = Value(createdAt);
+  static Insertable<EntityMediaCapture> custom({
+    Expression<String>? subjectType,
+    Expression<String>? subjectUuid,
+    Expression<String>? captureType,
+    Expression<String>? sandboxPath,
+    Expression<String>? sha256Hash,
+    Expression<bool>? isMockLocation,
+    Expression<String>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (subjectType != null) 'subject_type': subjectType,
+      if (subjectUuid != null) 'subject_uuid': subjectUuid,
+      if (captureType != null) 'capture_type': captureType,
+      if (sandboxPath != null) 'sandbox_path': sandboxPath,
+      if (sha256Hash != null) 'sha256_hash': sha256Hash,
+      if (isMockLocation != null) 'is_mock_location': isMockLocation,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  EntityMediaCapturesCompanion copyWith({
+    Value<String>? subjectType,
+    Value<String>? subjectUuid,
+    Value<String>? captureType,
+    Value<String>? sandboxPath,
+    Value<String>? sha256Hash,
+    Value<bool>? isMockLocation,
+    Value<String>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return EntityMediaCapturesCompanion(
+      subjectType: subjectType ?? this.subjectType,
+      subjectUuid: subjectUuid ?? this.subjectUuid,
+      captureType: captureType ?? this.captureType,
+      sandboxPath: sandboxPath ?? this.sandboxPath,
+      sha256Hash: sha256Hash ?? this.sha256Hash,
+      isMockLocation: isMockLocation ?? this.isMockLocation,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (subjectType.present) {
+      map['subject_type'] = Variable<String>(subjectType.value);
+    }
+    if (subjectUuid.present) {
+      map['subject_uuid'] = Variable<String>(subjectUuid.value);
+    }
+    if (captureType.present) {
+      map['capture_type'] = Variable<String>(captureType.value);
+    }
+    if (sandboxPath.present) {
+      map['sandbox_path'] = Variable<String>(sandboxPath.value);
+    }
+    if (sha256Hash.present) {
+      map['sha256_hash'] = Variable<String>(sha256Hash.value);
+    }
+    if (isMockLocation.present) {
+      map['is_mock_location'] = Variable<bool>(isMockLocation.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EntityMediaCapturesCompanion(')
+          ..write('subjectType: $subjectType, ')
+          ..write('subjectUuid: $subjectUuid, ')
+          ..write('captureType: $captureType, ')
+          ..write('sandboxPath: $sandboxPath, ')
+          ..write('sha256Hash: $sha256Hash, ')
+          ..write('isMockLocation: $isMockLocation, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7624,6 +8123,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $KilnsTable kilns = $KilnsTable(this);
+  late final $EntityMediaCapturesTable entityMediaCaptures =
+      $EntityMediaCapturesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7640,6 +8141,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     compositePileSamples,
     transportEvents,
     kilns,
+    entityMediaCaptures,
   ];
 }
 
@@ -10826,7 +11328,7 @@ typedef $$EndUseApplicationTableProcessedTableManager =
 typedef $$SyncOutboxTableCreateCompanionBuilder =
     SyncOutboxCompanion Function({
       required String operationId,
-      required String batchUuid,
+      Value<String?> batchUuid,
       required String targetTable,
       required String operationType,
       required String payloadJson,
@@ -10843,7 +11345,7 @@ typedef $$SyncOutboxTableCreateCompanionBuilder =
 typedef $$SyncOutboxTableUpdateCompanionBuilder =
     SyncOutboxCompanion Function({
       Value<String> operationId,
-      Value<String> batchUuid,
+      Value<String?> batchUuid,
       Value<String> targetTable,
       Value<String> operationType,
       Value<String> payloadJson,
@@ -11109,7 +11611,7 @@ class $$SyncOutboxTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> operationId = const Value.absent(),
-                Value<String> batchUuid = const Value.absent(),
+                Value<String?> batchUuid = const Value.absent(),
                 Value<String> targetTable = const Value.absent(),
                 Value<String> operationType = const Value.absent(),
                 Value<String> payloadJson = const Value.absent(),
@@ -11141,7 +11643,7 @@ class $$SyncOutboxTableTableManager
           createCompanionCallback:
               ({
                 required String operationId,
-                required String batchUuid,
+                Value<String?> batchUuid = const Value.absent(),
                 required String targetTable,
                 required String operationType,
                 required String payloadJson,
@@ -13048,6 +13550,272 @@ typedef $$KilnsTableProcessedTableManager =
       Kiln,
       PrefetchHooks Function()
     >;
+typedef $$EntityMediaCapturesTableCreateCompanionBuilder =
+    EntityMediaCapturesCompanion Function({
+      required String subjectType,
+      required String subjectUuid,
+      required String captureType,
+      required String sandboxPath,
+      required String sha256Hash,
+      Value<bool> isMockLocation,
+      required String createdAt,
+      Value<int> rowid,
+    });
+typedef $$EntityMediaCapturesTableUpdateCompanionBuilder =
+    EntityMediaCapturesCompanion Function({
+      Value<String> subjectType,
+      Value<String> subjectUuid,
+      Value<String> captureType,
+      Value<String> sandboxPath,
+      Value<String> sha256Hash,
+      Value<bool> isMockLocation,
+      Value<String> createdAt,
+      Value<int> rowid,
+    });
+
+class $$EntityMediaCapturesTableFilterComposer
+    extends Composer<_$AppDatabase, $EntityMediaCapturesTable> {
+  $$EntityMediaCapturesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get subjectType => $composableBuilder(
+    column: $table.subjectType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subjectUuid => $composableBuilder(
+    column: $table.subjectUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get captureType => $composableBuilder(
+    column: $table.captureType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sandboxPath => $composableBuilder(
+    column: $table.sandboxPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sha256Hash => $composableBuilder(
+    column: $table.sha256Hash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isMockLocation => $composableBuilder(
+    column: $table.isMockLocation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$EntityMediaCapturesTableOrderingComposer
+    extends Composer<_$AppDatabase, $EntityMediaCapturesTable> {
+  $$EntityMediaCapturesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get subjectType => $composableBuilder(
+    column: $table.subjectType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subjectUuid => $composableBuilder(
+    column: $table.subjectUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get captureType => $composableBuilder(
+    column: $table.captureType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sandboxPath => $composableBuilder(
+    column: $table.sandboxPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sha256Hash => $composableBuilder(
+    column: $table.sha256Hash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isMockLocation => $composableBuilder(
+    column: $table.isMockLocation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$EntityMediaCapturesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $EntityMediaCapturesTable> {
+  $$EntityMediaCapturesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get subjectType => $composableBuilder(
+    column: $table.subjectType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subjectUuid => $composableBuilder(
+    column: $table.subjectUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get captureType => $composableBuilder(
+    column: $table.captureType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sandboxPath => $composableBuilder(
+    column: $table.sandboxPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sha256Hash => $composableBuilder(
+    column: $table.sha256Hash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isMockLocation => $composableBuilder(
+    column: $table.isMockLocation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$EntityMediaCapturesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $EntityMediaCapturesTable,
+          EntityMediaCapture,
+          $$EntityMediaCapturesTableFilterComposer,
+          $$EntityMediaCapturesTableOrderingComposer,
+          $$EntityMediaCapturesTableAnnotationComposer,
+          $$EntityMediaCapturesTableCreateCompanionBuilder,
+          $$EntityMediaCapturesTableUpdateCompanionBuilder,
+          (
+            EntityMediaCapture,
+            BaseReferences<
+              _$AppDatabase,
+              $EntityMediaCapturesTable,
+              EntityMediaCapture
+            >,
+          ),
+          EntityMediaCapture,
+          PrefetchHooks Function()
+        > {
+  $$EntityMediaCapturesTableTableManager(
+    _$AppDatabase db,
+    $EntityMediaCapturesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$EntityMediaCapturesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$EntityMediaCapturesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$EntityMediaCapturesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> subjectType = const Value.absent(),
+                Value<String> subjectUuid = const Value.absent(),
+                Value<String> captureType = const Value.absent(),
+                Value<String> sandboxPath = const Value.absent(),
+                Value<String> sha256Hash = const Value.absent(),
+                Value<bool> isMockLocation = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => EntityMediaCapturesCompanion(
+                subjectType: subjectType,
+                subjectUuid: subjectUuid,
+                captureType: captureType,
+                sandboxPath: sandboxPath,
+                sha256Hash: sha256Hash,
+                isMockLocation: isMockLocation,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String subjectType,
+                required String subjectUuid,
+                required String captureType,
+                required String sandboxPath,
+                required String sha256Hash,
+                Value<bool> isMockLocation = const Value.absent(),
+                required String createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => EntityMediaCapturesCompanion.insert(
+                subjectType: subjectType,
+                subjectUuid: subjectUuid,
+                captureType: captureType,
+                sandboxPath: sandboxPath,
+                sha256Hash: sha256Hash,
+                isMockLocation: isMockLocation,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$EntityMediaCapturesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $EntityMediaCapturesTable,
+      EntityMediaCapture,
+      $$EntityMediaCapturesTableFilterComposer,
+      $$EntityMediaCapturesTableOrderingComposer,
+      $$EntityMediaCapturesTableAnnotationComposer,
+      $$EntityMediaCapturesTableCreateCompanionBuilder,
+      $$EntityMediaCapturesTableUpdateCompanionBuilder,
+      (
+        EntityMediaCapture,
+        BaseReferences<
+          _$AppDatabase,
+          $EntityMediaCapturesTable,
+          EntityMediaCapture
+        >,
+      ),
+      EntityMediaCapture,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -13074,4 +13842,6 @@ class $AppDatabaseManager {
       $$TransportEventsTableTableManager(_db, _db.transportEvents);
   $$KilnsTableTableManager get kilns =>
       $$KilnsTableTableManager(_db, _db.kilns);
+  $$EntityMediaCapturesTableTableManager get entityMediaCaptures =>
+      $$EntityMediaCapturesTableTableManager(_db, _db.entityMediaCaptures);
 }

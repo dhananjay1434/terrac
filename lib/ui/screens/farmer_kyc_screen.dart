@@ -5,11 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../data/capture_types.dart';
 import '../../data/local/database_provider.dart';
+import '../../data/local/pyrolysis_writer.dart';
 import '../../services/ifsc_lookup_service.dart';
 import '../../services/pincode_lookup_service.dart';
+import '../../services/secure_capture_service.dart';
 import '../components/dmrv_button.dart';
 import '../design/tokens.dart';
+import 'secure_camera_screen.dart';
 
 /// V8 Part 2 — real farmer registration (replaces the `// TODO` stub that
 /// saved nothing). Collects the structured farmer record + an optional masked
@@ -20,9 +24,11 @@ import '../design/tokens.dart';
 /// PII discipline:
 ///  - the account number is MASKED on-device (last-4 kept) before it is ever
 ///    persisted or sent — the full number never leaves the phone;
-///  - identity-document PHOTOS and the FPIC signed-PDF are deliberately NOT
-///    captured here: farmer media upload is a separate sub-feature, and
-///    claiming a media_id we never upload would be a false attestation.
+///  - identity-document PHOTOS and the FPIC signed-PDF/holding-photo ARE
+///    captured here (deferred R1 — entity-scoped media via
+///    `insertEntityMediaWithOutbox`, subject-scoped to this farmer's uuid).
+///    Each is optional and shows "not captured" until present — capturing
+///    media never blocks saving the farmer record (offline-first).
 ///
 /// V8 Part 4 (J, field-UX pack) additions:
 ///  - pincode → district/state auto-fill (api.postalpincode.in);
@@ -55,6 +61,20 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
   bool _submitting = false;
   bool _draftRestoredBannerVisible = false;
 
+  // Deferred R1 — entity-scoped media. Generated ONCE per screen instance
+  // (not at submit time, unlike before) so media captured before the farmer
+  // record is submitted attaches to the SAME farmer_uuid the eventual
+  // insertFarmerWithOutbox call uses — persisted in the draft so a restored
+  // draft session doesn't orphan already-captured media under a fresh uuid.
+  late String _farmerUuid;
+  String? _signatureMediaId;
+  String? _idDocMediaId;
+  String? _fpicPdfMediaId;
+  String? _fpicHoldingPhotoMediaId;
+  String? _idDocType; // 'aadhaar' | 'pan' | 'passport' | 'nid'
+  final _idDocLast4 = TextEditingController();
+  bool _capturingMedia = false;
+
   bool _pincodeLookupBusy = false;
   PincodeLookupResult? _pincodeResult;
   String? _pincodeError;
@@ -68,6 +88,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
   @override
   void initState() {
     super.initState();
+    _farmerUuid = const Uuid().v4();
     _fieldControllers.addAll({
       'first_name': _firstName,
       'last_name': _lastName,
@@ -78,6 +99,7 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
       'account_holder': _accountHolder,
       'account_number': _accountNumber,
       'ifsc': _ifsc,
+      'id_doc_last4': _idDocLast4,
     });
     for (final c in _fieldControllers.values) {
       c.addListener(_saveDraft);
@@ -117,10 +139,22 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
         }
       }
       final ack = saved['fpic_ack'];
+      // Deferred R1 — restore the SAME farmer_uuid + already-captured media
+      // ids, so re-opening an interrupted registration doesn't orphan media
+      // captured under a now-abandoned uuid.
+      final savedFarmerUuid = saved['farmer_uuid'];
       if (mounted) {
         setState(() {
           _fpicAck = ack == true;
           _draftRestoredBannerVisible = true;
+          if (savedFarmerUuid is String && savedFarmerUuid.isNotEmpty) {
+            _farmerUuid = savedFarmerUuid;
+          }
+          _signatureMediaId = saved['signature_media_id'] as String?;
+          _idDocMediaId = saved['id_doc_media_id'] as String?;
+          _fpicPdfMediaId = saved['fpic_pdf_media_id'] as String?;
+          _fpicHoldingPhotoMediaId = saved['fpic_holding_photo_media_id'] as String?;
+          _idDocType = saved['id_doc_type'] as String?;
         });
       }
     } catch (_) {
@@ -133,6 +167,12 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
     final data = <String, dynamic>{
       for (final entry in _fieldControllers.entries) entry.key: entry.value.text,
       'fpic_ack': _fpicAck,
+      'farmer_uuid': _farmerUuid,
+      'signature_media_id': _signatureMediaId,
+      'id_doc_media_id': _idDocMediaId,
+      'fpic_pdf_media_id': _fpicPdfMediaId,
+      'fpic_holding_photo_media_id': _fpicHoldingPhotoMediaId,
+      'id_doc_type': _idDocType,
     };
     await prefs.setString(_draftPrefsKey, jsonEncode(data));
   }
@@ -172,6 +212,15 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
       _pincodeResult = null;
       _ifscResult = null;
       _draftRestoredBannerVisible = false;
+      // Deferred R1 — a fresh farmer_uuid too: any media already captured
+      // under the old uuid is orphaned by this explicit "start over" action
+      // (same as clearing every other field), so don't carry it forward.
+      _farmerUuid = const Uuid().v4();
+      _signatureMediaId = null;
+      _idDocMediaId = null;
+      _fpicPdfMediaId = null;
+      _fpicHoldingPhotoMediaId = null;
+      _idDocType = null;
     });
     await _clearDraft();
   }
@@ -234,6 +283,43 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
     return 'X' * (digits.length - 4) + last4;
   }
 
+  // ---------------------------------------------------------------------
+  // Deferred R1 — farmer media capture (signature, ID document, FPIC
+  // consent PDF, FPIC holding photo). Each opens SecureCameraScreen and
+  // enqueues via insertEntityMediaWithOutbox, subject-scoped to _farmerUuid
+  // (stable for the life of this draft — see initState/_loadDraft).
+  // ---------------------------------------------------------------------
+
+  Future<void> _captureFarmerMedia({
+    required String captureType,
+    required void Function(String mediaId) onCaptured,
+  }) async {
+    if (_capturingMedia) return;
+    setState(() => _capturingMedia = true);
+    try {
+      final result = await Navigator.of(context).push<SecureCaptureResult>(
+        MaterialPageRoute<SecureCaptureResult>(
+          builder: (_) => const SecureCameraScreen(),
+        ),
+      );
+      if (result == null || !mounted) return;
+      final db = await ref.read(appDatabaseProvider.future);
+      final mediaId = await db.insertEntityMediaWithOutbox(
+        subjectType: 'farmer',
+        subjectUuid: _farmerUuid,
+        captureType: captureType,
+        sandboxPath: result.sandboxPath,
+        sha256Hash: result.sha256Hash,
+        isMockLocation: result.isMocked,
+      );
+      if (!mounted) return;
+      setState(() => onCaptured(mediaId));
+      await _saveDraft();
+    } finally {
+      if (mounted) setState(() => _capturingMedia = false);
+    }
+  }
+
   Future<void> _submit() async {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _submitting = true);
@@ -256,12 +342,29 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
       }
 
       final consents = <Map<String, dynamic>>[];
-      if (_fpicAck) {
-        consents.add({'exclusivity_ack': true});
+      // Deferred R1 — carry captured FPIC media ids even if the operator
+      // hasn't (yet) ticked the ack box; exclusivity_ack is a required field
+      // on the schema so it's always sent explicitly as whatever it is.
+      if (_fpicAck || _fpicPdfMediaId != null || _fpicHoldingPhotoMediaId != null) {
+        consents.add({
+          'exclusivity_ack': _fpicAck,
+          'signed_pdf_media_id': _fpicPdfMediaId,
+          'holding_photo_media_id': _fpicHoldingPhotoMediaId,
+        });
+      }
+
+      final documents = <Map<String, dynamic>>[];
+      final last4 = _idDocLast4.text.trim();
+      if (_idDocMediaId != null && _idDocType != null && last4.length == 4) {
+        documents.add({
+          'doc_type': _idDocType,
+          'last4': last4,
+          'media_id': _idDocMediaId,
+        });
       }
 
       await db.insertFarmerWithOutbox(
-        farmerUuid: const Uuid().v4(),
+        farmerUuid: _farmerUuid,
         projectId: _projectId,
         firstName: _firstName.text.trim(),
         lastName: _lastName.text.trim().isEmpty ? null : _lastName.text.trim(),
@@ -271,8 +374,10 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
         village: _village.text.trim().isEmpty ? null : _village.text.trim(),
         kycStatus: 'self_declared',
         consentStatus: _fpicAck ? 'acknowledged' : 'pending',
+        signatureMediaId: _signatureMediaId,
         payments: payments,
         consents: consents,
+        documents: documents,
       );
 
       await _clearDraft();
@@ -377,6 +482,42 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
             _pincodeRow(t),
 
             SizedBox(height: t.gapXL),
+            _section(t, 'IDENTITY (OPTIONAL)'),
+            _mediaCaptureRow(
+              t,
+              label: 'SIGNATURE',
+              testId: 'kyc-capture-signature',
+              captured: _signatureMediaId != null,
+              onPressed: () => _captureFarmerMedia(
+                captureType: CaptureType.farmerSignature,
+                onCaptured: (id) => _signatureMediaId = id,
+              ),
+            ),
+            SizedBox(height: t.gapL),
+            _mediaCaptureRow(
+              t,
+              label: 'ID DOCUMENT PHOTO',
+              testId: 'kyc-capture-id-doc',
+              captured: _idDocMediaId != null,
+              onPressed: () => _captureFarmerMedia(
+                captureType: CaptureType.farmerIdDocument,
+                onCaptured: (id) => _idDocMediaId = id,
+              ),
+            ),
+            if (_idDocMediaId != null) ...[
+              SizedBox(height: t.gapM),
+              _idDocTypeRow(t),
+              SizedBox(height: t.gapL),
+              _field(
+                t,
+                'ID LAST 4 DIGITS',
+                _idDocLast4,
+                'kyc-id-last4',
+                'e.g. 1234',
+              ),
+            ],
+
+            SizedBox(height: t.gapXL),
             _section(t, 'PAYMENT (OPTIONAL, MASKED ON SAVE)'),
             _field(t, 'ACCOUNT HOLDER', _accountHolder, 'kyc-holder', ''),
             SizedBox(height: t.gapL),
@@ -401,6 +542,28 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
                 'Farmer has given free, prior & informed consent (FPIC), '
                 'including exclusivity.',
                 style: t.body.copyWith(color: t.textPrimary),
+              ),
+            ),
+            SizedBox(height: t.gapL),
+            _mediaCaptureRow(
+              t,
+              label: 'FPIC SIGNED CONSENT (PHOTO OF FORM)',
+              testId: 'kyc-capture-fpic-pdf',
+              captured: _fpicPdfMediaId != null,
+              onPressed: () => _captureFarmerMedia(
+                captureType: CaptureType.fpicConsentPdf,
+                onCaptured: (id) => _fpicPdfMediaId = id,
+              ),
+            ),
+            SizedBox(height: t.gapL),
+            _mediaCaptureRow(
+              t,
+              label: 'FPIC HOLDING PHOTO',
+              testId: 'kyc-capture-fpic-holding',
+              captured: _fpicHoldingPhotoMediaId != null,
+              onPressed: () => _captureFarmerMedia(
+                captureType: CaptureType.fpicHoldingPhoto,
+                onCaptured: (id) => _fpicHoldingPhotoMediaId = id,
               ),
             ),
 
@@ -525,6 +688,57 @@ class _FarmerKycScreenState extends ConsumerState<FarmerKycScreen> {
         padding: EdgeInsets.only(bottom: t.gapM),
         child: Text(label, style: t.chipLabel.copyWith(color: t.accentText)),
       );
+
+  /// Deferred R1 — one row for an optional farmer media capture. Shows
+  /// "not captured" until present; capturing never blocks saving the farmer.
+  Widget _mediaCaptureRow(
+    DmrvTokens t, {
+    required String label,
+    required String testId,
+    required bool captured,
+    required VoidCallback onPressed,
+  }) {
+    return DmrvButton(
+      label: captured ? '✓ ${label.toUpperCase()}' : 'CAPTURE ${label.toUpperCase()}',
+      testId: testId,
+      icon: captured ? Icons.check_circle : Icons.camera_alt,
+      variant: captured ? DmrvButtonVariant.success : DmrvButtonVariant.neutral,
+      onPressed: _capturingMedia ? null : onPressed,
+    );
+  }
+
+  Widget _idDocTypeRow(DmrvTokens t) {
+    const types = {
+      'aadhaar': 'Aadhaar',
+      'pan': 'PAN',
+      'passport': 'Passport',
+      'nid': 'National ID',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('ID TYPE', style: t.chipLabel.copyWith(color: t.accentText)),
+        SizedBox(height: t.gapS),
+        Wrap(
+          spacing: t.gapS,
+          runSpacing: t.gapS,
+          children: [
+            for (final e in types.entries)
+              Semantics(
+                identifier: 'kyc-id-type-${e.key}',
+                button: true,
+                selected: _idDocType == e.key,
+                child: ChoiceChip(
+                  label: Text(e.value),
+                  selected: _idDocType == e.key,
+                  onSelected: (_) => setState(() => _idDocType = e.key),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
 
   Widget _field(
     DmrvTokens t,

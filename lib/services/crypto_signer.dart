@@ -224,6 +224,29 @@ class CryptoSigner {
     return base64Url.encode(sig.bytes).replaceAll('=', '');
   }
 
+  /// CANONICAL STRING (frozen, v2 media — deferred R1): entity-scoped media
+  /// (farmer/dispatch) has no batch_uuid, so the scope slot binds
+  /// `subject_type:subject_uuid` instead. MUST byte-match the server's
+  /// verify_media_signature v2 branch (X-Media-Canonical: "2"):
+  ///   POST\n/api/v1/media\n{idempotencyKey}\n{declaredSha256Lower}\n{subjectType}:{subjectUuid}\n{deviceId}
+  static Future<String> signMediaUploadV2({
+    required String idempotencyKey,
+    required String declaredSha256,
+    required String subjectType,
+    required String subjectUuid,
+    required String deviceId,
+  }) async {
+    if (isDeviceCompromisedGlobally) throw StateError('device_compromised');
+    final canonical =
+        'POST\n/api/v1/media\n$idempotencyKey\n'
+        '${declaredSha256.toLowerCase()}\n$subjectType:$subjectUuid\n$deviceId';
+    final sig = await _algo.sign(
+      utf8.encode(canonical),
+      keyPair: await _keyPair(),
+    );
+    return base64Url.encode(sig.bytes).replaceAll('=', '');
+  }
+
   /// Local-only tamper-evidence for the outbox row. NOT sent to the server as proof.
   static Future<String> signPayload(String jsonPayload) async {
     if (isDeviceCompromisedGlobally) throw StateError('device_compromised');

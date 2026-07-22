@@ -2,20 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../data/capture_types.dart';
 import '../../../data/local/database_provider.dart';
+import '../../../data/local/pyrolysis_writer.dart';
 import '../../../services/dispatch_service.dart';
+import '../../../services/secure_capture_service.dart';
 import '../../components/dmrv_button.dart';
 import '../../design/tokens.dart';
+import '../secure_camera_screen.dart';
 
 /// V8 Part 3.4 — dispatch capture: create a draft custody-transfer shipment,
 /// Submit (locks the source weight), and Mark as Received (facility re-weigh
 /// + dual-weigh reconciliation). One screen, three phases, same session.
 ///
-/// Scope note (deferred, like farmer media): truck/invoice PHOTOS and
-/// per-site moisture PHOTOS are not captured here — attaching them needs the
-/// same dispatch-scoped media channel farmer documents need, which is a
-/// separate sub-feature. The structured data (weights, driver, truck number,
-/// facility, reconciliation) is fully captured and synced.
+/// Deferred R1 — truck/invoice photos and the weigh ticket ARE captured here
+/// once a draft exists (entity-scoped media via
+/// `insertEntityMediaWithOutbox`, subject-scoped to this dispatch's uuid).
+/// Each is optional and shows "not captured" until present.
 ///
 /// Session-scoped by design: the in-progress draft/in_transit state lives in
 /// this screen's memory, not persisted across app restarts. If the app is
@@ -48,6 +51,12 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
   bool _busy = false;
   bool? _lastFlagged;
   double? _lastDeltaPct;
+
+  // Deferred R1 — dispatch media (truck/invoice photos, weigh ticket).
+  String? _truckPhotoMediaId;
+  String? _invoicePhotoMediaId;
+  String? _weighTicketMediaId;
+  bool _capturingMedia = false;
 
   @override
   void initState() {
@@ -110,6 +119,38 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
       _snack('Dispatch draft saved — queued for sync.');
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Deferred R1 — capture a dispatch-scoped media artifact. Only callable
+  /// once a draft exists (needs a real dispatch_uuid to attach to).
+  Future<void> _captureDispatchMedia({
+    required String captureType,
+    required void Function(String mediaId) onCaptured,
+  }) async {
+    final dispatchUuid = _dispatchUuid;
+    if (dispatchUuid == null || _capturingMedia) return;
+    setState(() => _capturingMedia = true);
+    try {
+      final result = await Navigator.of(context).push<SecureCaptureResult>(
+        MaterialPageRoute<SecureCaptureResult>(
+          builder: (_) => const SecureCameraScreen(),
+        ),
+      );
+      if (result == null || !mounted) return;
+      final db = await ref.read(appDatabaseProvider.future);
+      final mediaId = await db.insertEntityMediaWithOutbox(
+        subjectType: 'dispatch',
+        subjectUuid: dispatchUuid,
+        captureType: captureType,
+        sandboxPath: result.sandboxPath,
+        sha256Hash: result.sha256Hash,
+        isMockLocation: result.isMocked,
+      );
+      if (!mounted) return;
+      setState(() => onCaptured(mediaId));
+    } finally {
+      if (mounted) setState(() => _capturingMedia = false);
     }
   }
 
@@ -295,7 +336,41 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
           'weight and move to In-Transit.',
           style: t.body.copyWith(color: t.success),
         ),
+        SizedBox(height: t.gapXL),
+        _section(t, 'EVIDENCE (OPTIONAL)'),
+        _mediaCaptureRow(
+          t,
+          label: 'TRUCK PHOTO',
+          testId: 'dispatch-capture-truck',
+          captured: _truckPhotoMediaId != null,
+          onPressed: () => _captureDispatchMedia(
+            captureType: CaptureType.dispatchTruckPhoto,
+            onCaptured: (id) => _truckPhotoMediaId = id,
+          ),
+        ),
         SizedBox(height: t.gapL),
+        _mediaCaptureRow(
+          t,
+          label: 'INVOICE PHOTO',
+          testId: 'dispatch-capture-invoice',
+          captured: _invoicePhotoMediaId != null,
+          onPressed: () => _captureDispatchMedia(
+            captureType: CaptureType.dispatchInvoicePhoto,
+            onCaptured: (id) => _invoicePhotoMediaId = id,
+          ),
+        ),
+        SizedBox(height: t.gapL),
+        _mediaCaptureRow(
+          t,
+          label: 'WEIGH TICKET',
+          testId: 'dispatch-capture-weigh-ticket',
+          captured: _weighTicketMediaId != null,
+          onPressed: () => _captureDispatchMedia(
+            captureType: CaptureType.dispatchWeighTicket,
+            onCaptured: (id) => _weighTicketMediaId = id,
+          ),
+        ),
+        SizedBox(height: t.gapXL),
         DmrvButton(
           label: _busy ? 'SUBMITTING…' : 'SUBMIT (LOCK WEIGHT)',
           testId: 'dispatch-submit-btn',
@@ -430,6 +505,24 @@ class _DispatchScreenState extends ConsumerState<DispatchScreen> {
         padding: EdgeInsets.only(bottom: t.gapM),
         child: Text(label, style: t.chipLabel.copyWith(color: t.accentText)),
       );
+
+  /// Deferred R1 — one row for an optional dispatch media capture. Shows
+  /// "not captured" until present; capturing never blocks Submit/Receive.
+  Widget _mediaCaptureRow(
+    DmrvTokens t, {
+    required String label,
+    required String testId,
+    required bool captured,
+    required VoidCallback onPressed,
+  }) {
+    return DmrvButton(
+      label: captured ? '✓ ${label.toUpperCase()}' : 'CAPTURE ${label.toUpperCase()}',
+      testId: testId,
+      icon: captured ? Icons.check_circle : Icons.camera_alt,
+      variant: captured ? DmrvButtonVariant.success : DmrvButtonVariant.neutral,
+      onPressed: _capturingMedia ? null : onPressed,
+    );
+  }
 
   Widget _field(
     DmrvTokens t,

@@ -5,6 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dmrv_app/data/local/app_database.dart';
 import 'package:dmrv_app/data/local/database_provider.dart';
 import 'package:dmrv_app/services/sync_queue_manager.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,7 +80,7 @@ void main() {
   Future<void> seedJsonRow(String opId) => db.into(db.syncOutbox).insert(
     SyncOutboxCompanion.insert(
       operationId: opId,
-      batchUuid: 'b1',
+      batchUuid: Value('b1'),
       targetTable: 'system_metadata',
       operationType: 'INSERT',
       payloadJson: jsonEncode({'batch_uuid': 'b1'}),

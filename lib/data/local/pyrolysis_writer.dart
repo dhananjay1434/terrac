@@ -55,7 +55,7 @@ extension PyrolysisWriter on AppDatabase {
       await into(syncOutbox).insert(
         SyncOutboxCompanion.insert(
           operationId: _uuid.v4(),
-          batchUuid: batchUuid,
+          batchUuid: Value(batchUuid),
           targetTable: 'media',
           operationType: 'INSERT',
           payloadJson: jsonString,
@@ -64,6 +64,70 @@ extension PyrolysisWriter on AppDatabase {
         ),
       );
     });
+  }
+
+  /// Deferred R1 — entity-scoped media (farmer/dispatch). Mirrors
+  /// [insertMediaCaptureAndEnqueue] but has no batch: writes an
+  /// [EntityMediaCaptures] row (not [MediaCaptures] — that table's batchUuid
+  /// is a required FK + part of its PK, neither of which fits here) and
+  /// enqueues a `media` outbox op with `batchUuid: null` whose payload
+  /// carries `subject_type`/`subject_uuid` INSTEAD of `batch_uuid`.
+  ///
+  /// Returns the **media id** the server will store this upload under
+  /// (`MediaFile.operation_id`) — `sync_queue_manager.dart::_uploadMedia`
+  /// derives it as `'${outboxOperationId}_media'`, never the raw outbox
+  /// operationId. The caller (e.g. farmer KYC) must persist THIS returned
+  /// value into e.g. `Farmer.signature_media_id`, not the outbox op id.
+  Future<String> insertEntityMediaWithOutbox({
+    required String subjectType,
+    required String subjectUuid,
+    required String captureType,
+    required String sandboxPath,
+    required String sha256Hash,
+    required bool isMockLocation,
+  }) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    final outboxOperationId = _uuid.v4();
+
+    await transaction(() async {
+      await into(entityMediaCaptures).insert(
+        EntityMediaCapturesCompanion.insert(
+          subjectType: subjectType,
+          subjectUuid: subjectUuid,
+          captureType: captureType,
+          sandboxPath: sandboxPath,
+          sha256Hash: sha256Hash,
+          isMockLocation: Value(isMockLocation),
+          createdAt: now,
+        ),
+        mode: InsertMode.replace,
+      );
+
+      final payload = {
+        'photo_path': sandboxPath,
+        'sha256_hash': sha256Hash,
+        'capture_type': captureType,
+        'subject_type': subjectType,
+        'subject_uuid': subjectUuid,
+        'isMockLocation': isMockLocation,
+      };
+
+      final jsonString = jsonEncode(payload);
+      final signature = await CryptoSigner.signPayload(jsonString);
+
+      await into(syncOutbox).insert(
+        SyncOutboxCompanion.insert(
+          operationId: outboxOperationId,
+          batchUuid: const Value(null),
+          targetTable: 'media',
+          operationType: 'INSERT',
+          payloadJson: jsonString,
+          createdAt: now,
+          hmacSignature: Value(signature),
+        ),
+      );
+    });
+    return '${outboxOperationId}_media';
   }
 
   /// Atomically inserts a PyrolysisTelemetry row + SyncOutbox event.

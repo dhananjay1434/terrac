@@ -116,7 +116,7 @@ void main() {
     await db.into(db.syncOutbox).insert(
           SyncOutboxCompanion.insert(
             operationId: op,
-            batchUuid: 'batch-1',
+            batchUuid: Value('batch-1'),
             targetTable: 'moisture_readings',
             operationType: 'INSERT',
             payloadJson: jsonEncode({'reading_uuid': op, 'moisture': 12.0}),
@@ -148,7 +148,7 @@ void main() {
     await db.into(db.syncOutbox).insert(
           SyncOutboxCompanion.insert(
             operationId: 'op-dead',
-            batchUuid: 'batch-1',
+            batchUuid: Value('batch-1'),
             targetTable: 'moisture_readings',
             operationType: 'INSERT',
             payloadJson: jsonEncode({'reading_uuid': 'op-dead'}),

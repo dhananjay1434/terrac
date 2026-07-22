@@ -15,8 +15,10 @@ void main() {
     final executor = NativeDatabase.memory();
     final db = AppDatabase.forTesting(executor);
 
-    // Verify current schema version is 26
-    expect(db.schemaVersion, 26);
+    // Verify schema version is at least 26 (the parcel_uuid column this test
+    // covers). Not asserting an exact value — deferred R1 bumped the current
+    // version further (27) and this test predates that, unrelated change.
+    expect(db.schemaVersion, greaterThanOrEqualTo(26));
 
     // Insert a biomass sourcing row
     final sourcingUuid = 'test-sourcing-v26-uuid';

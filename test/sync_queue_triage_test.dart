@@ -6,6 +6,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dmrv_app/data/local/app_database.dart';
 import 'package:dmrv_app/data/local/database_provider.dart';
 import 'package:dmrv_app/services/sync_queue_manager.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -133,7 +134,7 @@ void main() {
           .insert(
             SyncOutboxCompanion.insert(
               operationId: opId,
-              batchUuid: 'batch-123',
+              batchUuid: Value('batch-123'),
               targetTable: 'biomass_sourcing',
               operationType: 'INSERT',
               payloadJson: jsonEncode({

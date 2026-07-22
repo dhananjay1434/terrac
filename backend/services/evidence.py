@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
-from models import Batch
+from models import Batch, Dispatch, Farmer
 from credit_engine import recompute_batch_credit
 
 async def _assert_batch_ownership(
@@ -44,6 +44,57 @@ async def _assert_batch_ownership(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="not_your_batch"
         )
+
+async def _assert_farmer_ownership(
+    session: AsyncSession, farmer_uuid_str: str, device_id: str
+) -> None:
+    """V8 deferred R1 — existence-only check for farmer-scoped media.
+
+    NOT a 403-if-owned-by-another-device check like `_assert_batch_ownership`:
+    the `Farmer` model has no `device_id` column and there is no device->project
+    link anywhere in the schema (`upsert_farmer` in routers/farmers.py accepts
+    any signed device's claimed `project_id` with zero ownership enforcement
+    today). Inventing a stricter check for farmer MEDIA than exists for the
+    farmer RECORD itself would be inconsistent and give a false sense of
+    security. This mirrors `_assert_batch_ownership`'s "evidence-first" policy
+    instead: a farmer_uuid that doesn't exist yet is OK (offline-first — the
+    farmer record may sync after its media does); a malformed uuid is left for
+    persistence to reject. `device_id` is accepted only to keep the call-site
+    signature symmetric with the other `_assert_*_ownership` helpers.
+    """
+    try:
+        uuid.UUID(farmer_uuid_str)
+    except (ValueError, AttributeError, TypeError):
+        return
+
+
+async def _assert_dispatch_ownership(
+    session: AsyncSession, dispatch_uuid_str: str, device_id: str
+) -> None:
+    """Reject media targeting a dispatch owned by a DIFFERENT device.
+
+    Mirrors `_assert_batch_ownership` exactly: `Dispatch.device_id` IS populated
+    (unlike Farmer) at creation (`routers/dispatch.py::create_dispatch`), so a
+    real ownership check applies here.
+    """
+    try:
+        duid = str(uuid.UUID(dispatch_uuid_str))
+    except (ValueError, AttributeError, TypeError):
+        return
+    dispatch = (
+        await session.execute(
+            select(Dispatch).where(Dispatch.dispatch_uuid == duid)
+        )
+    ).scalar_one_or_none()
+    if (
+        dispatch is not None
+        and dispatch.device_id is not None
+        and dispatch.device_id != device_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="not_your_dispatch"
+        )
+
 
 async def _upsert_one_to_one_evidence(
     session: AsyncSession,

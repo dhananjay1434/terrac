@@ -121,7 +121,7 @@ void main() {
         .insert(
           SyncOutboxCompanion.insert(
             operationId: uuid.v4(),
-            batchUuid: batch1,
+            batchUuid: Value(batch1),
             targetTable: 'system_metadata',
             operationType: 'INSERT',
             payloadJson: '{\"test\": 1}',
@@ -136,7 +136,7 @@ void main() {
         .insert(
           SyncOutboxCompanion.insert(
             operationId: uuid.v4(),
-            batchUuid: batch1,
+            batchUuid: Value(batch1),
             targetTable: 'biomass_sourcing',
             operationType: 'INSERT',
             payloadJson: '{\"test\": 2}',
@@ -151,7 +151,7 @@ void main() {
         .insert(
           SyncOutboxCompanion.insert(
             operationId: uuid.v4(),
-            batchUuid: batch1,
+            batchUuid: Value(batch1),
             targetTable: 'yield_metrics',
             operationType: 'INSERT',
             payloadJson: '{\"test\": 3}',

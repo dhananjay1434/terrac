@@ -164,7 +164,7 @@ extension EndUseWriter on AppDatabase {
       await into(syncOutbox).insert(
         SyncOutboxCompanion.insert(
           operationId: _uuid.v4(),
-          batchUuid: batchUuid,
+          batchUuid: Value(batchUuid),
           targetTable: 'system_metadata',
           operationType: 'UPDATE',
           payloadJson: jsonString,

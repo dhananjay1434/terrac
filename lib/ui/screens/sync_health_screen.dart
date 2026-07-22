@@ -438,8 +438,11 @@ String _operationLabel(String targetTable) {
   }
 }
 
-String _shortBatch(String batchUuid) =>
-    batchUuid.length <= 8 ? batchUuid : batchUuid.substring(0, 8);
+String _shortBatch(String? batchUuid) {
+  // Deferred R1 — entity-scoped media (farmer/dispatch) rows have no batch.
+  if (batchUuid == null || batchUuid.isEmpty) return 'entity media';
+  return batchUuid.length <= 8 ? batchUuid : batchUuid.substring(0, 8);
+}
 
 String _lastTried(String? lastAttemptAt) {
   if (lastAttemptAt == null || lastAttemptAt.isEmpty) return 'not yet';

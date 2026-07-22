@@ -224,7 +224,10 @@ class EndUseApplication extends Table {
 
 class SyncOutbox extends Table {
   TextColumn get operationId => text()();
-  TextColumn get batchUuid => text()();
+  // Deferred R1 — nullable: entity-scoped media ops (farmer/dispatch) have no
+  // batch. Every pre-existing row always has a value; only new entity-media
+  // ops are null. See EntityMediaCaptures below for their local record.
+  TextColumn get batchUuid => text().nullable()();
   TextColumn get targetTable => text()();
   TextColumn get operationType => text()();
   TextColumn get payloadJson => text()();
@@ -269,6 +272,24 @@ class MediaCaptures extends Table {
   List<Set<Column>> get uniqueKeys => [
     {batchUuid, captureType},
   ];
+}
+
+/// Deferred R1 — local record of entity-scoped media (farmer/dispatch), kept
+/// separate from MediaCaptures rather than altering it: MediaCaptures'
+/// batchUuid is a required FK to SystemMetadata and part of its PK, neither
+/// of which fits media that has no batch at all.
+class EntityMediaCaptures extends Table {
+  TextColumn get subjectType => text()(); // 'farmer' | 'dispatch'
+  TextColumn get subjectUuid => text()();
+  TextColumn get captureType => text()();
+  TextColumn get sandboxPath => text()();
+  TextColumn get sha256Hash => text()();
+  BoolColumn get isMockLocation =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get createdAt => text()();
+
+  @override
+  Set<Column> get primaryKey => {subjectUuid, captureType};
 }
 
 /// v18 — Rainbow compliance C2: individual moisture-meter readings.

@@ -120,12 +120,23 @@ async def verify_media_signature(
     x_idempotency_key: Optional[str] = Header(None, alias="X-Idempotency-Key"),
     x_declared_sha256: Optional[str] = Header(None, alias="X-Declared-SHA256"),
     x_batch_uuid: Optional[str] = Header(None, alias="X-Batch-UUID"),
+    # V8 deferred R1 — entity-scoped media v2 canonical (see below).
+    x_subject_type: Optional[str] = Header(None, alias="X-Subject-Type"),
+    x_subject_uuid: Optional[str] = Header(None, alias="X-Subject-UUID"),
+    x_media_canonical: Optional[str] = Header(None, alias="X-Media-Canonical"),
     session: AsyncSession = Depends(get_session),
 ) -> str:
     """Phase 15-A: Ed25519 auth for the media evidence channel.
 
-    FROZEN media canonical — MUST byte-match the client's CryptoSigner.signMediaUpload:
+    FROZEN v1 media canonical (X-Media-Canonical absent) — MUST byte-match the
+    client's CryptoSigner.signMediaUpload, UNCHANGED for old app builds:
         POST\\n/api/v1/media\\n{idempotency_key}\\n{declared_sha256_lower}\\n{batch_uuid}\\n{device_id}
+
+    V8 deferred R1 — v2 media canonical (X-Media-Canonical: "2"), used for
+    entity-scoped (farmer/dispatch) uploads which have no batch_uuid — MUST
+    byte-match CryptoSigner.signMediaUploadV2:
+        POST\\n/api/v1/media\\n{idempotency_key}\\n{declared_sha256_lower}\\n{subject_type}:{subject_uuid}\\n{device_id}
+
     We sign the DECLARED file hash rather than sha256(multipart body) — the client
     cannot reproduce the exact multipart bytes. upload_media separately enforces
     calculated_hash == declared, so signing the declared hash binds the real bytes.
@@ -148,13 +159,17 @@ async def verify_media_signature(
             status_code=status.HTTP_403_FORBIDDEN, detail="unknown_device"
         )
     pub = Ed25519PublicKey.from_public_bytes(_b64url_decode(device.public_key))
+    if x_media_canonical == "2":
+        scope_slot = f"{x_subject_type or ''}:{x_subject_uuid or ''}"
+    else:
+        scope_slot = x_batch_uuid or ""
     canonical = "\n".join(
         [
             "POST",
             "/api/v1/media",
             x_idempotency_key or "",
             (x_declared_sha256 or "").lower(),
-            x_batch_uuid or "",
+            scope_slot,
             x_device_id,
         ]
     ).encode("utf-8")

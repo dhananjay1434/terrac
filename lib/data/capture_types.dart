@@ -17,6 +17,15 @@ class CaptureType {
   // extension), so no backend change was needed to add these.
   static const quenchingVideo = 'quenching_video';
   static const densityVideo = 'density_video';
+  // Deferred R1 — farmer + dispatch media (entity-scoped, via /api/v1/media
+  // with X-Subject-Type/X-Subject-UUID instead of X-Batch-UUID).
+  static const farmerSignature = 'farmer_signature';
+  static const farmerIdDocument = 'farmer_id_document';
+  static const fpicConsentPdf = 'fpic_consent_pdf';
+  static const fpicHoldingPhoto = 'fpic_holding_photo';
+  static const dispatchTruckPhoto = 'dispatch_truck_photo';
+  static const dispatchInvoicePhoto = 'dispatch_invoice_photo';
+  static const dispatchWeighTicket = 'dispatch_weigh_ticket';
   // smoke_0 / smoke_50 / smoke_90 / smoke_100 are produced dynamically by the
   // pyrolysis smoke-stage flow and are already stamped there.
 }

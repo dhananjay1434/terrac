@@ -193,7 +193,7 @@ void main() {
         .insert(
           SyncOutboxCompanion.insert(
             operationId: opId,
-            batchUuid: 'batch-t1',
+            batchUuid: Value('batch-t1'),
             targetTable: 'biomass_sourcing',
             operationType: 'INSERT',
             payloadJson: jsonEncode({
@@ -250,7 +250,7 @@ void main() {
         .insert(
           SyncOutboxCompanion.insert(
             operationId: opId,
-            batchUuid: 'batch-t2',
+            batchUuid: Value('batch-t2'),
             targetTable: 'biomass_sourcing',
             operationType: 'INSERT',
             payloadJson: jsonEncode({
@@ -319,7 +319,7 @@ void main() {
         .insert(
           SyncOutboxCompanion.insert(
             operationId: opId,
-            batchUuid: 'batch-t3',
+            batchUuid: Value('batch-t3'),
             targetTable: 'biomass_sourcing',
             operationType: 'INSERT',
             payloadJson: jsonEncode({'photo_path': null}),
@@ -356,7 +356,7 @@ void main() {
         .insert(
           SyncOutboxCompanion.insert(
             operationId: opId,
-            batchUuid: 'batch-t4',
+            batchUuid: Value('batch-t4'),
             targetTable: 'biomass_sourcing',
             operationType: 'INSERT',
             payloadJson: jsonEncode({'photo_path': null}),

@@ -522,6 +522,11 @@ class MediaFile(Base):
     batch_uuid: Mapped[str] = mapped_column(
         Uuid(as_uuid=False), nullable=True
     )
+    # V8 deferred R1 — entity-scoped media. NULL subject_type = legacy row
+    # (implicitly a batch, still referenced by batch_uuid above). When set,
+    # media belongs to a farmer/dispatch instead of a batch.
+    subject_type: Mapped[str] = mapped_column(String(16), nullable=True)
+    subject_uuid: Mapped[str] = mapped_column(String(36), nullable=True, index=True)
     operation_id: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True
     )

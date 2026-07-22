@@ -214,6 +214,19 @@ export default function Farmers() {
                 </div>
               </dl>
 
+              {/* Deferred R1 — entity-scoped media presence. Text-only status,
+                  not a gallery: media rows aren't fetched by this page yet
+                  (would need a new farmer-media list endpoint call), so this
+                  shows only what's already on the farmer/consent/document
+                  records themselves — honest "captured"/"not captured", never
+                  a fabricated thumbnail for media that hasn't arrived. */}
+              <span className="micro" style={{ display: "block", marginTop: 12 }}>
+                Signature
+              </span>
+              <span className={selected.signature_media_id ? "" : "text-tertiary"}>
+                {selected.signature_media_id ? "Captured" : "Not captured"}
+              </span>
+
               <span className="micro" style={{ display: "block", marginTop: 12 }}>
                 Identity documents (last-4 only)
               </span>
@@ -224,6 +237,7 @@ export default function Farmers() {
                   {selected.documents.map((d) => (
                     <li key={d.id}>
                       {d.doc_type}: ••••{d.last4}
+                      {d.media_id ? " · photo captured" : " · photo not captured"}
                     </li>
                   ))}
                 </ul>
@@ -255,7 +269,10 @@ export default function Farmers() {
                   {selected.consents.map((c) => (
                     <li key={c.id}>
                       signed {fmtDate(c.signed_at)} · exclusivity{" "}
-                      {c.exclusivity_ack ? "acknowledged" : "not acknowledged"}
+                      {c.exclusivity_ack ? "acknowledged" : "not acknowledged"} ·{" "}
+                      consent PDF {c.signed_pdf_media_id ? "captured" : "not captured"} ·{" "}
+                      holding photo{" "}
+                      {c.holding_photo_media_id ? "captured" : "not captured"}
                     </li>
                   ))}
                 </ul>

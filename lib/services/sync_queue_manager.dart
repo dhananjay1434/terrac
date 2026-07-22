@@ -612,6 +612,11 @@ class SyncQueueManager {
             (payload['capture_type'] as String?) ??
             kCaptureTypeByTable[entry.targetTable];
 
+        // Deferred R1 — entity-scoped media (farmer/dispatch) carries these
+        // INSTEAD of batch_uuid; entry.batchUuid is null for such rows.
+        final subjectType = payload['subject_type'] as String?;
+        final subjectUuid = payload['subject_uuid'] as String?;
+
         if (entry.targetTable == 'media') {
           debugPrint(
             '[SyncQueue] Preparing CAS media upload for $captureType (Mocked GPS: $isMock)',
@@ -635,6 +640,8 @@ class SyncQueueManager {
             declaredSha256: declaredSha256,
             isMockLocation: isMock,
             captureType: captureType,
+            subjectType: subjectType,
+            subjectUuid: subjectUuid,
           );
         } else if (entry.targetTable == 'media' || declaredSha256 != null) {
           // Fix 3: Prevent unverified payloads/media from marking as SYNCED
@@ -729,6 +736,11 @@ class SyncQueueManager {
     required String? declaredSha256,
     required bool isMockLocation,
     required String? captureType,
+    // Deferred R1 — entity-scoped media. Present (both non-null) for
+    // farmer/dispatch uploads; null for the legacy batch path, which keeps
+    // using entry.batchUuid exactly as before.
+    String? subjectType,
+    String? subjectUuid,
   }) async {
     debugPrint('[SyncQueue] Uploading media: $photoPath');
     // V8 Part 4 (H) — a MultipartRequest subclass that taps its own byte
@@ -744,10 +756,19 @@ class SyncQueueManager {
     );
     final mediaOpKey = '${entry.operationId}_media';
     final mediaDeviceId = await CryptoSigner.getDeviceId();
+    final isEntityScoped = subjectType != null && subjectUuid != null;
     request.headers['X-Idempotency-Key'] = mediaOpKey;
     request.headers['X-Device-Id'] = mediaDeviceId;
     request.headers['X-Mock-Location'] = isMockLocation.toString();
-    request.headers['X-Batch-UUID'] = entry.batchUuid;
+    if (isEntityScoped) {
+      // Deferred R1 — entity-scoped media (farmer/dispatch): no batch, v2
+      // canonical binds subject_type:subject_uuid instead.
+      request.headers['X-Subject-Type'] = subjectType;
+      request.headers['X-Subject-UUID'] = subjectUuid;
+      request.headers['X-Media-Canonical'] = '2';
+    } else {
+      request.headers['X-Batch-UUID'] = entry.batchUuid ?? '';
+    }
     if (captureType != null) {
       request.headers['X-Capture-Type'] = captureType;
     }
@@ -755,12 +776,20 @@ class SyncQueueManager {
       request.headers['X-Declared-SHA256'] = declaredSha256;
       // Phase 15-A: Ed25519-sign the media upload (frozen media canonical) so the
       // evidence channel is authenticated, not an anonymous checksum.
-      request.headers['X-Signature'] = await CryptoSigner.signMediaUpload(
-        idempotencyKey: mediaOpKey,
-        declaredSha256: declaredSha256,
-        batchUuid: entry.batchUuid,
-        deviceId: mediaDeviceId,
-      );
+      request.headers['X-Signature'] = isEntityScoped
+          ? await CryptoSigner.signMediaUploadV2(
+              idempotencyKey: mediaOpKey,
+              declaredSha256: declaredSha256,
+              subjectType: subjectType,
+              subjectUuid: subjectUuid,
+              deviceId: mediaDeviceId,
+            )
+          : await CryptoSigner.signMediaUpload(
+              idempotencyKey: mediaOpKey,
+              declaredSha256: declaredSha256,
+              batchUuid: entry.batchUuid ?? '',
+              deviceId: mediaDeviceId,
+            );
     }
     request.files.add(await http.MultipartFile.fromPath('file', photoPath));
 
