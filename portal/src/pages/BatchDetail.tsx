@@ -18,6 +18,8 @@ import SealedVerdict from "../components/SealedVerdict/SealedVerdict";
 import CopyButton from "../components/CopyButton/CopyButton";
 import ProvenanceTile from "../components/ProvenanceTile/ProvenanceTile";
 import LcaBreakdown from "../components/LcaBreakdown/LcaBreakdown";
+import TemperatureChart from "../components/TemperatureChart/TemperatureChart";
+import StatTile from "../components/StatTile/StatTile";
 import { fmtCredit } from "../format";
 
 export const STEP_ORDER = [
@@ -255,6 +257,23 @@ export default function BatchDetail() {
       </div>
 
       <ComplianceChecklist checklist={d.compliance.checklist} />
+
+      <section className="card" style={{ marginTop: 14 }}>
+        <span className="micro">Burn telemetry</span>
+        <TemperatureChart
+          readings={d.telemetry?.temperature_readings ?? []}
+          minTemp={d.telemetry?.min_temp ?? null}
+          maxTemp={d.telemetry?.max_temp ?? null}
+        />
+        <div className="tiles" style={{ marginTop: 12 }}>
+          <StatTile label="Min temp" value={d.telemetry?.min_temp != null ? `${d.telemetry.min_temp}°C` : "—"} />
+          <StatTile label="Max temp" value={d.telemetry?.max_temp != null ? `${d.telemetry.max_temp}°C` : "—"} />
+          {/* Weight is a single post-burn measurement, not a time series —
+              shown as a stat, not a curve. A weight-vs-time curve would
+              require app-side series capture (out of scope). */}
+          <StatTile label="Post-burn yield" value={`${d.batch.wet_yield_kg} kg`} />
+        </div>
+      </section>
 
       <EvidenceGallery media={d.media} />
 
