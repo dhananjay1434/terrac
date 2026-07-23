@@ -466,9 +466,25 @@ default-cleanup only, proven by the suites staying green.
 4. **CHECKPOINT:** all three suites green (behavior unchanged).
 
 ### DoD
-- [ ] No `Lantana`-named files/classes/providers; no hard-coded `'Lantana_camara'` outside the
+- [x] No `Lantana`-named files/classes/providers; no hard-coded `'Lantana_camara'` outside the
       `CORG_TABLE` data + migration seed. Grep output pasted in commit body.
-- [ ] Behavior identical — three suites green before + after.
+- [x] Behavior identical — three suites green before + after.
+
+**DONE — 2026-07-24.** Renamed `lantana_sourcing_notifier.dart`/
+`lantana_sourcing_screen.dart` + all symbols/imports (git tracked as
+renames); `proof_wallet_screen.dart`'s fallback string generalized;
+`lca_engine.py`'s default param changed to `"Default"` (verified every
+real caller passes it explicitly or is immune to the value). Final
+re-grep's only remaining hits: `CORG_TABLE` data + migration seed + doc
+comments + a debug-only screen + a smoke-seed script (all legitimate, none
+are the product hard-code) — plus the many test files using
+`"Lantana_camara"` as valid fixture data, deliberately left alone (not a
+hard-code, renaming would be pure churn). Backend 743 passed, flutter 405
+passed (0 failed either), analyze clean — behavior unchanged.
+
+**This completes the core migration (FM-0 through FM-5).** FM-6 (runtime
+project identity via enrollment) remains a separate, later initiative —
+see its own section below.
 
 **COMMIT:** `refactor: de-Lantana the app + backend (feedstock-agnostic naming, no behavior change)`
 
