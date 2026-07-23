@@ -288,9 +288,21 @@ gates on nothing. You must first create the record type, or you are faking a gat
 3. **CHECKPOINT:** backend suite green.
 
 ### PR-3 DoD
-- [ ] Under-sampled or uncalibrated-instrument batches are not issuable (reason-coded).
-- [ ] Every new gate: pure, tested (enforced/present/absent), grandfathers legacy rows.
-- [ ] Cadence/thresholds come from config, never hardcoded/invented.
+- [x] Under-sampled or uncalibrated-instrument batches are not issuable (reason-coded).
+- [x] Every new gate: pure, tested (enforced/present/absent), grandfathers legacy rows.
+- [x] Cadence/thresholds come from config, never hardcoded/invented.
+
+**DONE — 2026-07-23, smaller scope taken per STEP PR-3.2.4's explicit
+allowance.** `derive_sampling_compliance` (pure, 9 tests) wired into C10 via
+a new config-driven `LcaParams.sampling_kg_per_lab_result` (default None =
+inert/grandfathered), with a wiring test suite (3 tests) proving inert /
+blocked / satisfied. Scale + density calibration gates were found ALREADY
+wired into C10 from prior work — confirmed, not rebuilt.
+**Deferred, listed explicitly:** thermocouple and moisture-meter calibration
+enforcement — no model/table/registry endpoint exists for either instrument
+in the schema (only `ScaleCalibration` and `BulkDensityTest` do); building
+that data model is real, separate work and is NOT done here. Backend-only;
+693 passed / 0 failed before and after.
 
 **COMMIT:** `feat(backend): sampling-plan + all-instrument calibration issuance gates`
 
