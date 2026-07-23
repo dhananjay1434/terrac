@@ -261,8 +261,14 @@ NOT invent a device→project lookup (that is PART FM-6, a separate initiative).
 3. **CHECKPOINT:** file green, then full backend suite green.
 
 ### DoD
-- [ ] Signed `GET /api/v1/project` returns the project's `allowed_feedstocks`, `client_target`,
+- [x] Signed `GET /api/v1/project` returns the project's `allowed_feedstocks`, `client_target`,
       and the positive list. Registered in `app_factory.py`. Unknown project → 404.
+
+**DONE — 2026-07-24.** Added to `routers/batches.py` (same file as
+`list_parcels_for_device`, already mounted in `app_factory.py` — no new
+registration needed). 5 tests: happy path, empty-feedstock project, custom
+per-project positive list, unknown project 404, unsigned request rejected.
+Backend-only; 743 passed (0 failed) before and after.
 
 **COMMIT:** `feat(backend): device-facing GET /api/v1/project (feedstock + positive list)`
 
