@@ -343,9 +343,20 @@ report**, per project, back-compat by default.
 3. **CHECKPOINT:** backend suite green.
 
 ### PR-4 DoD
-- [ ] Methodology selects gate-set + LCA + report, per project; default = today's behavior,
+- [x] Methodology selects gate-set + LCA + report, per project; default = today's behavior,
       proven by a byte-identical regression pin.
-- [ ] No invented CSI rules — gaps are `TODO(methodology)`-listed, not faked.
+- [x] No invented CSI rules — gaps are `TODO(methodology)`-listed, not faked.
+
+**DONE — 2026-07-23.** `services/methodology.py` (pure, 9 tests):
+`resolve_methodology` + `gate_set_for`. DEFAULT == RAINBOW's gate set
+(regression pin, 4 wiring tests) — CSI excludes the Rainbow-labeled C10
+extras (biomass/kiln/calibration/methane/PAH/sampling/plausibility) with a
+`TODO(methodology)` in the module docstring, since none are confirmed
+CSI-3.2 requirements; core corroboration (yield/temp/lab/moisture/
+composite/delivery/buyer) still gates every methodology equally. Export
+route now dispatches by resolved methodology (400 on mismatch), DEFAULT
+projects keep free format choice (3 new tests). Backend-only;
+709 passed / 0 failed before and after.
 
 **COMMIT:** `feat(backend): methodology as a first-class switch (gate-set + LCA + report)`
 
