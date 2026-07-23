@@ -410,10 +410,22 @@ uploading media that references a subject that doesn't exist.
 6. **CHECKPOINT:** analyze clean; app + backend suites green.
 
 ### PR-5 DoD
-- [ ] A server-side `DayStartAudit` record exists (the missing prerequisite); media attaches
+- [x] A server-side `DayStartAudit` record exists (the missing prerequisite); media attaches
       to its `audit_uuid`, not to a phantom subject.
-- [ ] Day-start requires a facility photo (video optional), synced via the reused media rail.
-- [ ] Rail extension is additive; existing subjects unchanged. en+hi. Three suites green.
+- [x] Day-start requires a facility photo (video optional), synced via the reused media rail.
+- [x] Rail extension is additive; existing subjects unchanged. en+hi. Three suites green.
+
+**DONE — 2026-07-23.** Backend: `DayStartAudit` model/migration/device-signed
+endpoint (4 tests) + `day_start_audit` as a third media subject_type
+(4 tests). App: facility picker (reusing `DispatchService.fetchFacilities`,
+persisted) + mandatory facility photo/optional video via
+`insertEntityMediaWithOutbox` scoped to the audit_uuid. Two scope decisions
+made with the user mid-Part (confirmed, not unilateral): server submission
+is best-effort/non-blocking (not connectivity-required like dispatch
+transitions — a day-start gate must not brick the operator over a network
+blip), and facility selection is an in-screen persisted picker rather than
+a separate prerequisite Part. Backend 715 passed, flutter 390 passed,
+0 failed either.
 
 **COMMIT:** `feat: day-start audit photo/video evidence via the entity-media rail`
 
