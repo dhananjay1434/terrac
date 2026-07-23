@@ -926,6 +926,32 @@ class FarmerConsent(Base):
     exclusivity_ack: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
+class DayStartAudit(Base):
+    """PR-5.1a — server-side record of a day-start audit, the prerequisite
+    for attaching evidence media to it (there is no subject_uuid to attach
+    to until this row exists). `facility_uuid` is a soft value-link (NOT a
+    DB-enforced FK) — mirrors Dispatch.dest_facility_uuid's offline-first
+    reason: a device may audit a facility that hasn't synced to the
+    portal's view yet. One audit per facility per (device-local) day."""
+
+    __tablename__ = "day_start_audits"
+    __table_args__ = (
+        UniqueConstraint(
+            "facility_uuid", "audit_date", name="uq_day_start_audits_facility_date"
+        ),
+    )
+
+    audit_uuid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    facility_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    audit_date: Mapped[str] = mapped_column(String(10), nullable=False)  # YYYY-MM-DD
+    device_id: Mapped[str] = mapped_column(String(255), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class CreditIssuance(Base):
     """PR-1 — credit issuance ledger. A registry credit as a serialized,
     issue-exactly-once unit traceable to one physical batch, with a lifecycle

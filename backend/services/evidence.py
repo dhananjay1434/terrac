@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
-from models import Batch, Dispatch, Farmer
+from models import Batch, DayStartAudit, Dispatch, Farmer
 from credit_engine import recompute_batch_credit
 
 async def _assert_batch_ownership(
@@ -93,6 +93,33 @@ async def _assert_dispatch_ownership(
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="not_your_dispatch"
+        )
+
+
+async def _assert_day_start_ownership(
+    session: AsyncSession, audit_uuid_str: str, device_id: str
+) -> None:
+    """PR-5.1b — reject media targeting a day-start audit owned by a
+    DIFFERENT device. Mirrors `_assert_dispatch_ownership` exactly:
+    `DayStartAudit.device_id` IS populated at creation
+    (`routers/day_start.py::create_day_start_audit`), so a real ownership
+    check applies here (unlike Farmer's existence-only policy)."""
+    try:
+        auid = str(uuid.UUID(audit_uuid_str))
+    except (ValueError, AttributeError, TypeError):
+        return
+    audit = (
+        await session.execute(
+            select(DayStartAudit).where(DayStartAudit.audit_uuid == auid)
+        )
+    ).scalar_one_or_none()
+    if (
+        audit is not None
+        and audit.device_id is not None
+        and audit.device_id != device_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="not_your_day_start_audit"
         )
 
 

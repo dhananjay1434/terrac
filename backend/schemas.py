@@ -452,6 +452,17 @@ class DispatchCreate(BaseModel):
     sites: list[DispatchSiteInput] = Field(default_factory=list)
 
 
+class DayStartAuditCreate(BaseModel):
+    """PR-5.1a — device-signed day-start audit creation. Client-generated
+    audit_uuid + idempotent upsert on (facility_uuid, audit_date), mirroring
+    DispatchCreate's create pattern."""
+
+    model_config = ConfigDict(extra="forbid")
+    audit_uuid: str = Field(..., min_length=36, max_length=36)
+    facility_uuid: str = Field(..., min_length=1, max_length=36)
+    audit_date: str = Field(..., min_length=10, max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
 class DispatchTransition(BaseModel):
     model_config = ConfigDict(extra="forbid")
     target_status: Literal["in_transit", "received"]

@@ -81,6 +81,31 @@ async def _create_farmer(client, farmer_uuid: str, project_id: str = "proj-r1"):
     assert resp.status_code == 201, resp.text
 
 
+async def _create_day_start_audit(
+    client, audit_uuid: str, device_id: str = DEVICE, facility_uuid: str = "fac-r1"
+):
+    from tests.remediation.crypto_utils import sign_request
+
+    payload = {
+        "audit_uuid": audit_uuid,
+        "facility_uuid": facility_uuid,
+        "audit_date": "2026-07-23",
+    }
+    op_id = f"dsa-create-{audit_uuid}"
+    resp = await client.post(
+        "/api/v1/day-start-audits",
+        content=json.dumps(payload).encode("utf-8"),
+        headers={
+            "X-Idempotency-Key": op_id,
+            "X-Device-Id": device_id,
+            "X-Signature": sign_request(
+                device_id, "", "POST", "/api/v1/day-start-audits", op_id, payload
+            ),
+        },
+    )
+    assert resp.status_code == 201, resp.text
+
+
 async def _create_dispatch(client, dispatch_uuid: str, device_id: str = DEVICE):
     from tests.remediation.crypto_utils import sign_request
 
@@ -131,6 +156,42 @@ async def test_dispatch_media_upload_happy_path(client):
     files = {"file": ("truck.jpg", io.BytesIO(content), "image/jpeg")}
     resp = await client.post("/api/v1/media", files=files, headers=headers)
     assert resp.status_code == 200, resp.text
+
+
+async def test_day_start_audit_media_upload_happy_path(client):
+    audit_uuid = str(uuid.uuid4())
+    await _create_day_start_audit(client, audit_uuid)
+    content = b"facility-photo-bytes"
+    sha = _sha256_hex(content)
+    headers = _media_headers_v2(
+        device_id=DEVICE,
+        op_id="dsa-op-1",
+        declared_sha256=sha,
+        subject_type="day_start_audit",
+        subject_uuid=audit_uuid,
+    )
+    files = {"file": ("facility.jpg", io.BytesIO(content), "image/jpeg")}
+    resp = await client.post("/api/v1/media", files=files, headers=headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["server_sha256"] == sha
+
+
+async def test_foreign_device_day_start_audit_upload_403(client):
+    audit_uuid = str(uuid.uuid4())
+    await _create_day_start_audit(client, audit_uuid, device_id=DEVICE)
+    content = b"someone-elses-facility"
+    sha = _sha256_hex(content)
+    headers = _media_headers_v2(
+        device_id=OTHER_DEVICE,
+        op_id="foreign-dsa-op-1",
+        declared_sha256=sha,
+        subject_type="day_start_audit",
+        subject_uuid=audit_uuid,
+    )
+    files = {"file": ("x.jpg", io.BytesIO(content), "image/jpeg")}
+    resp = await client.post("/api/v1/media", files=files, headers=headers)
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "not_your_day_start_audit"
 
 
 async def test_batch_media_backcompat_unchanged(client):

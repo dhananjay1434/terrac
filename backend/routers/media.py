@@ -16,6 +16,7 @@ from services.evidence import (
     _assert_batch_ownership,
     _assert_farmer_ownership,
     _assert_dispatch_ownership,
+    _assert_day_start_ownership,
 )
 from pydantic import BaseModel, Field
 from schemas import MediaUploadResponse
@@ -81,7 +82,7 @@ async def upload_media(
         raise HTTPException(status_code=400, detail="ambiguous_media_scope")
     if not has_batch and not has_subject:
         raise HTTPException(status_code=400, detail="missing_media_scope")
-    if has_subject and x_subject_type not in ("farmer", "dispatch"):
+    if has_subject and x_subject_type not in ("farmer", "dispatch", "day_start_audit"):
         raise HTTPException(status_code=400, detail="invalid_subject_type")
 
     if x_capture_type is not None and not re.match(
@@ -167,18 +168,20 @@ async def upload_media(
         if batch is not None and batch.device_id is not None and batch.device_id != device_id:
             raise HTTPException(status_code=403, detail="not_your_batch")
     else:
-        # V8 deferred R1 — entity-scoped media (farmer/dispatch). Validate the
-        # subject uuid shape, then enforce the appropriate ownership rule
-        # BEFORE any bytes are written (same side-effect-free ordering as the
-        # batch path above).
+        # V8 deferred R1 (+PR-5.1b: day_start_audit) — entity-scoped media.
+        # Validate the subject uuid shape, then enforce the appropriate
+        # ownership rule BEFORE any bytes are written (same side-effect-free
+        # ordering as the batch path above).
         try:
             subject_uuid = str(uuid.UUID(x_subject_uuid))
         except (ValueError, AttributeError):
             raise HTTPException(status_code=400, detail="invalid_subject_uuid")
         if x_subject_type == "farmer":
             await _assert_farmer_ownership(session, subject_uuid, device_id)
-        else:  # "dispatch" — the only other value invalid_subject_type allows through
+        elif x_subject_type == "dispatch":
             await _assert_dispatch_ownership(session, subject_uuid, device_id)
+        else:  # "day_start_audit" — the only remaining value invalid_subject_type allows through
+            await _assert_day_start_ownership(session, subject_uuid, device_id)
 
     # P3.2: persist through the storage abstraction (local FS or S3/MinIO). The
     # returned key — not an OS path — is what lands in media_files.file_path;
