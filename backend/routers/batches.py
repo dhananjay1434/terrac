@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Response, Depends, Header, HTTPException, status
@@ -6,7 +7,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_session
-from models import Batch, MediaFile, SourceParcel
+from models import Batch, MediaFile, Project, RegistryConfig, SourceParcel
 from geo import haversine_km, _evaluate_anchor
 from schemas import BatchPayload, BatchResponse
 from security import verify_signature
@@ -60,6 +61,65 @@ async def list_parcels_for_device(
             row["boundary_geojson"] = p.boundary_geojson
         parcels.append(row)
     return {"parcels": parcels}
+
+
+@router.get("/api/v1/project")
+async def get_project_for_device(
+    project_id: str,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """FM-2 — device-facing project resolution: lets the field app resolve
+    its project's registered feedstock(s) + the methodology's positive list,
+    instead of a hard-coded species. Device-Ed25519-authed (same trust as
+    batch ingest), read-only. Mirrors list_parcels_for_device's shape: the
+    app already knows its own project_id (DMRV_PROJECT_ID dart-define) and
+    passes it as a query param — this endpoint does not (and cannot yet)
+    derive project_id from the device identity itself (no device->project
+    mapping exists in the schema; that is FM-6, a separate initiative).
+    """
+    from lca_engine import CORG_TABLE
+    from services.feedstock import positive_list
+
+    project = (
+        await session.execute(
+            select(Project).where(Project.project_id == project_id)
+        )
+    ).scalar_one_or_none()
+    if project is None:
+        raise HTTPException(status_code=404, detail="project_not_found")
+
+    try:
+        allowed_feedstocks = (
+            json.loads(project.allowed_feedstocks) if project.allowed_feedstocks else []
+        )
+    except (ValueError, TypeError):
+        allowed_feedstocks = []
+
+    table = CORG_TABLE
+    if project.registry_config_id:
+        cfg_row = (
+            await session.execute(
+                select(RegistryConfig).where(
+                    RegistryConfig.config_id == project.registry_config_id
+                )
+            )
+        ).scalar_one_or_none()
+        if cfg_row is not None:
+            try:
+                params = json.loads(cfg_row.params_json) if cfg_row.params_json else {}
+            except (ValueError, TypeError):
+                params = {}
+            if isinstance(params, dict) and isinstance(params.get("corg_table"), dict):
+                table = params["corg_table"]
+
+    return {
+        "project_id": project.project_id,
+        "name": project.name,
+        "allowed_feedstocks": allowed_feedstocks,
+        "client_target": project.client_target,
+        "positive_list": positive_list(table),
+    }
 
 
 @router.post(
