@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import corroboration
 from db import get_session
 from models import Batch, CreditIssuance, PortalUser
 from services import issuance_state as iss
@@ -77,9 +78,17 @@ async def verify_issuance(
     user: PortalUser = Depends(require_role("verifier", "admin")),
     session: AsyncSession = Depends(get_session),
 ):
-    """Records independent verification (PR-2 hardens the gate itself; here
-    the `require_role` dependency already enforces a distinct verifier/admin
-    human channel — a portal user, never the producing device)."""
+    """Records independent verification. The `require_role` dependency
+    already enforces the role at the request layer; PR-2's pure gate
+    (`derive_independent_verification`) additionally re-checks it here so the
+    precondition is asserted the same way issuance's other preconditions are
+    (reason-coded, unit-tested, not just "some dependency happened to run")
+    and rejects with a machine-readable reason on the (should-be-impossible)
+    path where it doesn't hold."""
+    ok, reason = corroboration.derive_independent_verification(user.role, user.id)
+    if not ok:
+        raise HTTPException(status_code=403, detail=reason)
+
     await _get_batch_or_404(session, batch_uuid)
 
     issuance = await _get_issuance(session, batch_uuid)

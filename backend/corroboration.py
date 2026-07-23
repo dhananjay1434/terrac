@@ -138,6 +138,25 @@ def derive_density_calibration_compliance(
     return True, None
 
 
+def derive_independent_verification(
+    verifier_role: Optional[str], verifier_user_id: Optional[int]
+) -> tuple[bool, Optional[str]]:
+    """PR-2 MVP — a batch may not issue without sign-off by a portal user in
+    an authorized verifier role: a human channel distinct from the producing
+    device (devices sign with Ed25519 and have no portal login, so any
+    portal verifier is definitionally not the producing device).
+
+    KNOWN LIMIT (do not extend this to fake closure): true anti-collusion —
+    confirming the human verifier is not the same person who *operated* the
+    producing device — needs a device_id -> operator user_id identity map
+    that does not exist in the schema. TODO(identity): link device_id to an
+    operator user to enforce person-level 4-eyes; that is its own Part.
+    """
+    if verifier_role in ("verifier", "admin") and verifier_user_id is not None:
+        return True, None
+    return False, "not_an_authorized_verifier"
+
+
 def derive_transport_km(
     batch_lat: Optional[float],
     batch_lon: Optional[float],
