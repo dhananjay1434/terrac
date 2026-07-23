@@ -70,7 +70,12 @@ class _LantanaSourcingScreenState extends ConsumerState<LantanaSourcingScreen> {
                 child: ListView(
                   padding: EdgeInsets.fromLTRB(t.gapL, 4, t.gapL, t.gapL),
                   children: [
-                    _FeedstockBlock(species: s.feedstockSpecies),
+                    _FeedstockBlock(
+                      species: s.feedstockSpecies,
+                      allowedFeedstocks: s.allowedFeedstocks,
+                      onSelect: (species) =>
+                          notifier.selectFeedstock(species),
+                    ),
                     SizedBox(height: t.gapL),
                     const _SourceParcelBlock(),
                     SizedBox(height: t.gapL),
@@ -110,7 +115,9 @@ class _LantanaSourcingScreenState extends ConsumerState<LantanaSourcingScreen> {
                     DmrvButton(
                       label: (s.canProceedToMoisture && s.hasBiomass)
                           ? 'PROCEED TO MOISTURE CHECK'
-                          : (!s.hasBiomass
+                          : (!s.hasFeedstock
+                                ? 'SELECT FEEDSTOCK FIRST'
+                                : !s.hasBiomass
                                 ? 'RECORD BIOMASS WEIGHT FIRST'
                                 : 'LOCKED // 72-HOUR DRY MANDATE'),
                       testId: 'proceed-to-moisture-btn',
@@ -254,42 +261,100 @@ class _BlockHeader extends StatelessWidget {
   }
 }
 
+/// FM-4 — the feedstock is resolved from the project's registered
+/// allowed_feedstocks (ProjectService), never hard-coded. Three states:
+///   - resolving: allowedFeedstocks empty and species unresolved (offline
+///     first-run with no cached config) — never substitutes a placeholder.
+///   - locked: exactly one project feedstock — shown immutable, as before.
+///   - picker: multiple project feedstocks — a constrained dropdown limited
+///     to allowedFeedstocks (never free text).
 class _FeedstockBlock extends StatelessWidget {
-  const _FeedstockBlock({required this.species});
-  final String species;
+  const _FeedstockBlock({
+    required this.species,
+    required this.allowedFeedstocks,
+    required this.onSelect,
+  });
+  final String? species;
+  final List<String> allowedFeedstocks;
+  final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final isLocked = allowedFeedstocks.length <= 1;
+
+    Widget content;
+    if (species == null && allowedFeedstocks.length <= 1) {
+      content = Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: t.accent),
+          ),
+          SizedBox(width: t.gapM),
+          Expanded(
+            child: Semantics(
+              identifier: 'feedstock-species',
+              child: Text(
+                'Resolving feedstock…',
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(color: t.textSecondary),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (isLocked) {
+      content = Row(
+        children: [
+          Icon(Icons.lock_outline, color: t.accentText, size: 24),
+          SizedBox(width: t.gapM),
+          Expanded(
+            child: Semantics(
+              identifier: 'feedstock-species',
+              child: Text(
+                species ?? '',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+          ),
+          SizedBox(width: t.gapS),
+          const PremiumStatusChip(
+            label: 'IMMUTABLE',
+            status: PremiumChipStatus.verified,
+          ),
+        ],
+      );
+    } else {
+      content = Semantics(
+        identifier: 'feedstock-species',
+        child: DropdownButtonFormField<String>(
+          initialValue: species,
+          decoration: const InputDecoration(labelText: 'Feedstock'),
+          hint: const Text('Select the feedstock used for this batch'),
+          items: allowedFeedstocks
+              .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+              .toList(),
+          onChanged: (v) {
+            if (v != null) onSelect(v);
+          },
+        ),
+      );
+    }
+
     return PremiumFieldPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _BlockHeader('Feedstock // Registry Positive List'),
           SizedBox(height: t.gapM),
-          Row(
-            children: [
-              Icon(Icons.lock_outline, color: t.accentText, size: 24),
-              SizedBox(width: t.gapM),
-              Expanded(
-                child: Semantics(
-                  identifier: 'feedstock-species',
-                  child: Text(
-                    species,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-              ),
-              SizedBox(width: t.gapS),
-              const PremiumStatusChip(
-                label: 'IMMUTABLE',
-                status: PremiumChipStatus.verified,
-              ),
-            ],
-          ),
+          content,
           SizedBox(height: t.gapS),
           Text(
-            'Selection locked. Lantana camara is the only registry-approved feedstock for this artisan cohort.',
+            isLocked
+                ? 'Selection locked. This is the only registry-approved feedstock for this project.'
+                : 'Select the feedstock used for this batch from this project\'s registered options.',
             style: t.metadata.copyWith(color: t.textSecondary),
           ),
         ],

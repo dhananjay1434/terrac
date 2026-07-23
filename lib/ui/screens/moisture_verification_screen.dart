@@ -104,6 +104,14 @@ class _MoistureVerificationScreenState
       if (moisture.moisturePercent == null) {
         throw StateError('Missing reading.');
       }
+      // FM-4: Batch.feedstock_species is non-null end to end (DB + local
+      // write). The sourcing screen's "PROCEED TO MOISTURE CHECK" gate
+      // (canProceedToMoisture) already requires hasFeedstock before this
+      // screen is ever reachable — fail loud rather than write a null.
+      final feedstockSpecies = sourcing.feedstockSpecies;
+      if (feedstockSpecies == null || feedstockSpecies.isEmpty) {
+        throw StateError('Missing feedstock — sourcing gate should have blocked this.');
+      }
 
       final db = await ref.read(appDatabaseProvider.future);
 
@@ -127,7 +135,7 @@ class _MoistureVerificationScreenState
       if (!srcExists) {
         await db.insertBiomassSourcingWithOutbox(
           batchUuid: batchUuid,
-          feedstockSpecies: sourcing.feedstockSpecies,
+          feedstockSpecies: feedstockSpecies,
           harvestTimestamp:
               (sourcing.harvestTimestamp ?? DateTime.now().toUtc())
                   .toIso8601String(),

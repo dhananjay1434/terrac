@@ -12,7 +12,10 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test('hasBiomass requires both a positive weight and a method', () {
-    const s0 = SourcingState(feedstockSpecies: 'Lantana_camara');
+    const s0 = SourcingState(
+      feedstockSpecies: 'Lantana_camara',
+      allowedFeedstocks: ['Lantana_camara'],
+    );
     expect(s0.hasBiomass, isFalse);
     expect(s0.copyWith(biomassInputKg: 500).hasBiomass, isFalse);
     expect(

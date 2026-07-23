@@ -26,14 +26,20 @@ void main() {
   });
   tearDown(() => container.dispose());
 
-  test('initial state: Lantana_camara, no harvest, locked', () {
+  // FM-4: with no DMRV_PROJECT_ID configured (the test default), feedstock
+  // never resolves — this is the correct "resolving, not hard-coded"
+  // behavior, not a bug. Tests that need a resolved feedstock to exercise
+  // canProceedToMoisture use debugSetFeedstock (mirrors debugSetNow).
+  test('initial state: unresolved feedstock (no project configured), no harvest, locked', () {
     final s = container.read(lantanaSourcingProvider).requireValue;
-    expect(s.feedstockSpecies, 'Lantana_camara');
+    expect(s.feedstockSpecies, isNull);
+    expect(s.hasFeedstock, isFalse);
     expect(s.hasHarvest, isFalse);
     expect(s.canProceedToMoisture, isFalse);
   });
 
-  test('harvest just now → still locked (< 72h)', () async {
+  test('harvest just now → still locked (< 72h), even with feedstock resolved', () async {
+    notifier.debugSetFeedstock('Lantana_camara');
     await notifier.logHarvestAt(DateTime.now());
     expect(
       container.read(lantanaSourcingProvider).requireValue.canProceedToMoisture,
@@ -41,7 +47,8 @@ void main() {
     );
   });
 
-  test('harvest 73h ago → unlocked (≥ 72h)', () async {
+  test('harvest 73h ago → unlocked (≥ 72h) once feedstock is resolved', () async {
+    notifier.debugSetFeedstock('Lantana_camara');
     await notifier.logHarvestAt(
       DateTime.now().subtract(const Duration(hours: 73)),
     );
@@ -51,7 +58,18 @@ void main() {
     );
   });
 
-  test('Dev Bypass overrides the temporal lock', () async {
+  test('harvest 73h ago but feedstock unresolved → still locked', () async {
+    await notifier.logHarvestAt(
+      DateTime.now().subtract(const Duration(hours: 73)),
+    );
+    expect(
+      container.read(lantanaSourcingProvider).requireValue.canProceedToMoisture,
+      isFalse,
+    );
+  });
+
+  test('Dev Bypass overrides the temporal lock, but not the feedstock gate', () async {
+    notifier.debugSetFeedstock('Lantana_camara');
     await notifier.logHarvestAt(
       DateTime.now(),
     ); // fresh harvest → would be locked
@@ -106,5 +124,23 @@ void main() {
     final s = await freshContainer.read(lantanaSourcingProvider.future);
     expect(s.parcelUuid, 'parcel-restore');
     expect(s.parcelName, 'Restored Field');
+  });
+
+  // FM-4: selectFeedstock persists a multi-feedstock project's operator pick
+  // the same way selectParcel does.
+  test('selectFeedstock persists the choice and exposes it in state', () async {
+    expect(
+      container.read(lantanaSourcingProvider).requireValue.feedstockSpecies,
+      isNull,
+    );
+
+    await notifier.selectFeedstock('Wood_chips');
+
+    final s = container.read(lantanaSourcingProvider).requireValue;
+    expect(s.feedstockSpecies, 'Wood_chips');
+    expect(s.hasFeedstock, isTrue);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('selected_feedstock_species'), 'Wood_chips');
   });
 }

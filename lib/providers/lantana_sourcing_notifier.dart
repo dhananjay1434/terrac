@@ -5,11 +5,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/project_service.dart';
+
 /// =============================================================================
 /// LantanaSourcingNotifier
 /// =============================================================================
 /// Holds the state for the Sourcing Screen:
-///   • the (immutable) feedstock selection ("Lantana_camara")
+///   • the feedstock selection — FM-4: resolved from the project's registered
+///     `allowed_feedstocks` (via ProjectService), never hard-coded. Null until
+///     resolved (single-feedstock projects resolve automatically; multi-
+///     feedstock projects require an explicit pick — see [selectFeedstock]).
 ///   • the harvest timestamp captured at the moment of logging
 ///   • the source parcel this batch is registered against (V8 Part 1; null
 ///     until the portal-registered-boundary feature ships — see Part 0.3)
@@ -21,6 +26,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SourcingState {
   const SourcingState({
     required this.feedstockSpecies,
+    required this.allowedFeedstocks,
     this.harvestTimestamp,
     this.harvestUptimeSeconds,
     this.devBypass = false,
@@ -31,8 +37,19 @@ class SourcingState {
     this.parcelName,
   });
 
-  /// Immutable per the Registry Positive List rule.
-  final String feedstockSpecies;
+  /// FM-4: the batch's feedstock, resolved from the project's registered
+  /// allowed_feedstocks (ProjectService) — never hard-coded. Null means
+  /// unresolved: either a multi-feedstock project awaiting an explicit pick
+  /// ([selectFeedstock]), or a true offline first-run with no cached config
+  /// yet. Batch.feedstock_species is DB-non-null end to end (backend model +
+  /// local Drift write both require it) — callers MUST gate batch capture on
+  /// this being non-null; never substitute a placeholder.
+  final String? feedstockSpecies;
+
+  /// The project's registered feedstock options for the picker. Empty when
+  /// the project hasn't declared any yet (grandfather) or is unresolved.
+  final List<String> allowedFeedstocks;
+
   final DateTime? harvestTimestamp;
 
   /// Device monotonic uptime (seconds since boot) captured at the moment the
@@ -61,6 +78,11 @@ class SourcingState {
   bool get hasBiomass =>
       (biomassInputKg ?? 0) > 0 && biomassMeasurementMethod != null;
 
+  /// FM-4: true once feedstockSpecies is resolved (single project feedstock,
+  /// or an explicit multi-feedstock pick). The capture-advance gate must
+  /// check this — Batch.feedstock_species is non-null end to end.
+  bool get hasFeedstock => feedstockSpecies != null && feedstockSpecies!.isNotEmpty;
+
   static const Duration sunDryMandate = Duration(hours: 72);
 
   bool get hasHarvest => harvestTimestamp != null;
@@ -80,6 +102,7 @@ class SourcingState {
   /// The headline gating predicate. The Sourcing screen disables the
   /// "Proceed to Moisture Check" button until this returns true.
   bool get canProceedToMoisture {
+    if (!hasFeedstock) return false;
     if (devBypass) return true;
     if (!hasHarvest) return false;
     return elapsedSinceHarvest >= sunDryMandate;
@@ -87,6 +110,7 @@ class SourcingState {
 
   /// Convenience for the HUD label.
   String get lockHudLabel {
+    if (!hasFeedstock) return 'RESOLVING FEEDSTOCK…';
     if (devBypass) return 'DEV-BYPASS // LOCK OVERRIDDEN';
     if (!hasHarvest) return 'AWAITING HARVEST LOG';
     if (canProceedToMoisture) return 'LOCK CLEARED // PROCEED';
@@ -98,6 +122,8 @@ class SourcingState {
   }
 
   SourcingState copyWith({
+    String? feedstockSpecies,
+    List<String>? allowedFeedstocks,
     DateTime? harvestTimestamp,
     int? harvestUptimeSeconds,
     bool? devBypass,
@@ -109,7 +135,8 @@ class SourcingState {
     bool clearHarvest = false,
   }) {
     return SourcingState(
-      feedstockSpecies: feedstockSpecies,
+      feedstockSpecies: feedstockSpecies ?? this.feedstockSpecies,
+      allowedFeedstocks: allowedFeedstocks ?? this.allowedFeedstocks,
       harvestTimestamp: clearHarvest
           ? null
           : (harvestTimestamp ?? this.harvestTimestamp),
@@ -138,8 +165,31 @@ class LantanaSourcingNotifier extends AsyncNotifier<SourcingState> {
     final tsString = prefs.getString('harvest_timestamp');
     final uptime = prefs.getInt('harvest_uptime_seconds');
 
+    // FM-4: resolve the project's feedstock instead of hard-coding one.
+    // A single declared feedstock resolves (and locks) automatically; a
+    // multi-feedstock project leaves feedstockSpecies null until the
+    // operator picks one (selectFeedstock) — the persisted pick, if any,
+    // is honored across app restarts the same way selectParcel's is.
+    const projectId = String.fromEnvironment('DMRV_PROJECT_ID');
+    String? feedstockSpecies;
+    List<String> allowedFeedstocks = const [];
+    if (projectId.isNotEmpty) {
+      final config = await ProjectService.fetchProjectConfig(projectId);
+      if (config != null) {
+        allowedFeedstocks = config.allowedFeedstocks.isNotEmpty
+            ? config.allowedFeedstocks
+            : config.positiveList;
+        if (config.allowedFeedstocks.length == 1) {
+          feedstockSpecies = config.allowedFeedstocks.first;
+        } else {
+          feedstockSpecies = prefs.getString('selected_feedstock_species');
+        }
+      }
+    }
+
     return SourcingState(
-      feedstockSpecies: 'Lantana_camara',
+      feedstockSpecies: feedstockSpecies,
+      allowedFeedstocks: allowedFeedstocks,
       harvestTimestamp: tsString != null ? DateTime.parse(tsString) : null,
       harvestUptimeSeconds: uptime,
       biomassInputKg: prefs.getDouble('biomass_input_kg'),
@@ -147,6 +197,17 @@ class LantanaSourcingNotifier extends AsyncNotifier<SourcingState> {
       parcelUuid: prefs.getString('selected_parcel_uuid'),
       parcelName: prefs.getString('selected_parcel_name'),
     );
+  }
+
+  /// FM-4: record the operator's feedstock pick for a multi-feedstock
+  /// project. Persisted so it survives across the sourcing → moisture →
+  /// capture steps, mirroring selectParcel exactly.
+  Future<void> selectFeedstock(String species) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_feedstock_species', species);
+    final current = state.valueOrNull;
+    if (current == null) return;
+    state = AsyncData(current.copyWith(feedstockSpecies: species));
   }
 
   /// V8 Part 1.6: record the operator's source-parcel selection for this batch.
@@ -251,6 +312,16 @@ class LantanaSourcingNotifier extends AsyncNotifier<SourcingState> {
   /// Test-only — override the clock used to evaluate the lock.
   void debugSetNow(DateTime now) {
     state = AsyncData(state.requireValue.copyWith(now: now));
+  }
+
+  /// Test-only — override the resolved feedstock without a real project
+  /// fetch (mirrors debugSetNow). Production callers must go through
+  /// selectFeedstock (persisted) or the automatic single-feedstock
+  /// resolution in _loadState — this exists so tests can simulate "resolved"
+  /// without a live/cached ProjectService config.
+  @visibleForTesting
+  void debugSetFeedstock(String species) {
+    state = AsyncData(state.requireValue.copyWith(feedstockSpecies: species));
   }
 }
 

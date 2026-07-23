@@ -27,6 +27,11 @@ void main() {
     addTearDown(container.dispose);
 
     final notifier = container.read(lantanaSourcingProvider.notifier);
+    // FM-4: feedstock only resolves from a configured project; no
+    // DMRV_PROJECT_ID in the test env, so simulate "resolved" directly.
+    // build() must complete before debugSetFeedstock touches state.
+    await container.read(lantanaSourcingProvider.future);
+    notifier.debugSetFeedstock('Lantana_camara');
 
     // Log harvest 73h ago on wall clock. On non-Android CI, uptime will be null.
     await notifier.logHarvestAt(
@@ -64,6 +69,8 @@ void main() {
     addTearDown(container.dispose);
 
     final notifier = container.read(lantanaSourcingProvider.notifier);
+    await container.read(lantanaSourcingProvider.future);
+    notifier.debugSetFeedstock('Lantana_camara');
 
     // Log harvest 73h ago.
     await notifier.logHarvestAt(
@@ -132,6 +139,8 @@ void main() {
     addTearDown(container.dispose);
 
     final notifier = container.read(lantanaSourcingProvider.notifier);
+    await container.read(lantanaSourcingProvider.future);
+    notifier.debugSetFeedstock('Lantana_camara');
 
     // Harvest just happened — mandate definitely not met.
     await notifier.logHarvestNow();
