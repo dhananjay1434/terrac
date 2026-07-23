@@ -499,6 +499,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'SAVING…'**
   String get daystart_saving_label;
+
+  /// No description provided for @daystart_facility_label.
+  ///
+  /// In en, this message translates to:
+  /// **'FACILITY'**
+  String get daystart_facility_label;
+
+  /// No description provided for @daystart_facility_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select your facility'**
+  String get daystart_facility_hint;
+
+  /// No description provided for @daystart_facility_loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading facilities…'**
+  String get daystart_facility_loading;
+
+  /// No description provided for @daystart_facility_none_found.
+  ///
+  /// In en, this message translates to:
+  /// **'No facilities found. Check your connection.'**
+  String get daystart_facility_none_found;
+
+  /// No description provided for @daystart_facility_retry_button.
+  ///
+  /// In en, this message translates to:
+  /// **'RETRY'**
+  String get daystart_facility_retry_button;
+
+  /// No description provided for @daystart_photo_label.
+  ///
+  /// In en, this message translates to:
+  /// **'CAPTURE FACILITY PHOTO'**
+  String get daystart_photo_label;
+
+  /// No description provided for @daystart_photo_captured_label.
+  ///
+  /// In en, this message translates to:
+  /// **'FACILITY PHOTO CAPTURED'**
+  String get daystart_photo_captured_label;
+
+  /// No description provided for @daystart_video_label.
+  ///
+  /// In en, this message translates to:
+  /// **'CAPTURE WALKTHROUGH VIDEO (OPTIONAL)'**
+  String get daystart_video_label;
+
+  /// No description provided for @daystart_video_captured_label.
+  ///
+  /// In en, this message translates to:
+  /// **'WALKTHROUGH VIDEO CAPTURED'**
+  String get daystart_video_captured_label;
 }
 
 class _AppLocalizationsDelegate

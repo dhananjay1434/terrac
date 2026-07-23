@@ -227,4 +227,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get daystart_saving_label => 'SAVING…';
+
+  @override
+  String get daystart_facility_label => 'FACILITY';
+
+  @override
+  String get daystart_facility_hint => 'Select your facility';
+
+  @override
+  String get daystart_facility_loading => 'Loading facilities…';
+
+  @override
+  String get daystart_facility_none_found =>
+      'No facilities found. Check your connection.';
+
+  @override
+  String get daystart_facility_retry_button => 'RETRY';
+
+  @override
+  String get daystart_photo_label => 'CAPTURE FACILITY PHOTO';
+
+  @override
+  String get daystart_photo_captured_label => 'FACILITY PHOTO CAPTURED';
+
+  @override
+  String get daystart_video_label => 'CAPTURE WALKTHROUGH VIDEO (OPTIONAL)';
+
+  @override
+  String get daystart_video_captured_label => 'WALKTHROUGH VIDEO CAPTURED';
 }

@@ -99,5 +99,14 @@
   "daystart_project_label": "I am working the correct project today.",
   "daystart_calibration_label": "Any equipment needing calibration (scale, thermocouple) has been checked and is in date.",
   "daystart_confirm_button": "CONFIRM & START DAY",
-  "daystart_saving_label": "SAVING…"
+  "daystart_saving_label": "SAVING…",
+  "daystart_facility_label": "FACILITY",
+  "daystart_facility_hint": "Select your facility",
+  "daystart_facility_loading": "Loading facilities…",
+  "daystart_facility_none_found": "No facilities found. Check your connection.",
+  "daystart_facility_retry_button": "RETRY",
+  "daystart_photo_label": "CAPTURE FACILITY PHOTO",
+  "daystart_photo_captured_label": "FACILITY PHOTO CAPTURED",
+  "daystart_video_label": "CAPTURE WALKTHROUGH VIDEO (OPTIONAL)",
+  "daystart_video_captured_label": "WALKTHROUGH VIDEO CAPTURED"
 }

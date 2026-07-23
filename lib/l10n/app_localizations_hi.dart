@@ -227,4 +227,32 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get daystart_saving_label => 'सहेजा जा रहा है…';
+
+  @override
+  String get daystart_facility_label => 'सुविधा';
+
+  @override
+  String get daystart_facility_hint => 'अपनी सुविधा चुनें';
+
+  @override
+  String get daystart_facility_loading => 'सुविधाएं लोड हो रही हैं…';
+
+  @override
+  String get daystart_facility_none_found =>
+      'कोई सुविधा नहीं मिली। अपना कनेक्शन जांचें।';
+
+  @override
+  String get daystart_facility_retry_button => 'पुनः प्रयास करें';
+
+  @override
+  String get daystart_photo_label => 'सुविधा फोटो कैप्चर करें';
+
+  @override
+  String get daystart_photo_captured_label => 'सुविधा फोटो कैप्चर की गई';
+
+  @override
+  String get daystart_video_label => 'वॉकथ्रू वीडियो कैप्चर करें (वैकल्पिक)';
+
+  @override
+  String get daystart_video_captured_label => 'वॉकथ्रू वीडियो कैप्चर किया गया';
 }

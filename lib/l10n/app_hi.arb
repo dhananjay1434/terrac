@@ -75,5 +75,14 @@
   "daystart_project_label": "मैं आज सही प्रोजेक्ट पर काम कर रहा/रही हूं।",
   "daystart_calibration_label": "कैलिब्रेशन की आवश्यकता वाले किसी भी उपकरण (स्केल, थर्मोकपल) की जांच कर ली गई है और वह मान्य तिथि में है।",
   "daystart_confirm_button": "पुष्टि करें और दिन शुरू करें",
-  "daystart_saving_label": "सहेजा जा रहा है…"
+  "daystart_saving_label": "सहेजा जा रहा है…",
+  "daystart_facility_label": "सुविधा",
+  "daystart_facility_hint": "अपनी सुविधा चुनें",
+  "daystart_facility_loading": "सुविधाएं लोड हो रही हैं…",
+  "daystart_facility_none_found": "कोई सुविधा नहीं मिली। अपना कनेक्शन जांचें।",
+  "daystart_facility_retry_button": "पुनः प्रयास करें",
+  "daystart_photo_label": "सुविधा फोटो कैप्चर करें",
+  "daystart_photo_captured_label": "सुविधा फोटो कैप्चर की गई",
+  "daystart_video_label": "वॉकथ्रू वीडियो कैप्चर करें (वैकल्पिक)",
+  "daystart_video_captured_label": "वॉकथ्रू वीडियो कैप्चर किया गया"
 }

@@ -26,6 +26,10 @@ class CaptureType {
   static const dispatchTruckPhoto = 'dispatch_truck_photo';
   static const dispatchInvoicePhoto = 'dispatch_invoice_photo';
   static const dispatchWeighTicket = 'dispatch_weigh_ticket';
+  // PR-5 — day-start audit evidence (entity-scoped, subjectType
+  // 'day_start_audit'). Facility photo is required; walkthrough video optional.
+  static const dayStartFacilityPhoto = 'day_start_facility_photo';
+  static const dayStartWalkthroughVideo = 'day_start_walkthrough_video';
   // smoke_0 / smoke_50 / smoke_90 / smoke_100 are produced dynamically by the
   // pyrolysis smoke-stage flow and are already stamped there.
 }
