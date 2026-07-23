@@ -15,7 +15,7 @@ dmrv.db-*
 *.db-*
 
 # Runtime evidence uploads live on a volume/object store, not in the image.
-uploads/
+# uploads/
 
 # Secrets: config is injected via the environment, never a checked-in .env.
 .env
