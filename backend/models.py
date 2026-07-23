@@ -981,10 +981,10 @@ class CreditIssuance(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     issuance_uuid: Mapped[str] = mapped_column(
-        String(36), unique=True, nullable=False, index=True
+        Uuid(as_uuid=False), unique=True, nullable=False, index=True
     )
     batch_uuid: Mapped[str] = mapped_column(
-        String(36), ForeignKey("batches.batch_uuid"), nullable=False, index=True
+        Uuid(as_uuid=False), ForeignKey("batches.batch_uuid"), nullable=False, index=True
     )
     serial: Mapped[str] = mapped_column(String(128), unique=True, nullable=True)
     vintage: Mapped[int] = mapped_column(Integer, nullable=True)

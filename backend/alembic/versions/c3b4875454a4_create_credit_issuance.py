@@ -27,8 +27,8 @@ def upgrade() -> None:
     op.create_table(
         "credit_issuances",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("issuance_uuid", sa.String(length=36), nullable=False),
-        sa.Column("batch_uuid", sa.String(length=36), nullable=False),
+        sa.Column("issuance_uuid", sa.Uuid(as_uuid=False), nullable=False),
+        sa.Column("batch_uuid", sa.Uuid(as_uuid=False), nullable=False),
         sa.Column("serial", sa.String(length=128), nullable=True),
         sa.Column("vintage", sa.Integer(), nullable=True),
         sa.Column("t_co2e_frozen", sa.Float(), nullable=True),
