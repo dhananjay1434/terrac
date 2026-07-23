@@ -88,6 +88,32 @@ describe("EvidenceGallery", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("SHA-256")).toBeInTheDocument();
   });
+
+  it("renders a <video> thumbnail for a video item and an <img> for a photo", async () => {
+    const withVideo = [
+      ...ITEMS,
+      media({ operation_id: "o5", sha256_hash: "h5", capture_type: "quenching_video", filename: "quenching.mp4" }),
+    ];
+    const { container } = render(<EvidenceGallery media={withVideo} />);
+    const openBtn = await screen.findByRole("button", { name: "Open evidence h5" });
+    expect(openBtn.querySelector("video")).not.toBeNull();
+    const photoBtn = screen.getByRole("button", { name: "Open evidence h2" });
+    expect(photoBtn.querySelector("img")).not.toBeNull();
+    expect(photoBtn.querySelector("video")).toBeNull();
+    void container;
+  });
+
+  it("video thumbnail becomes visible on loadeddata (not load)", async () => {
+    const withVideo = [
+      media({ operation_id: "ov", sha256_hash: "hv", capture_type: "quenching_video", filename: "quenching.mp4" }),
+    ];
+    render(<EvidenceGallery media={withVideo} />);
+    const openBtn = await screen.findByRole("button", { name: "Open evidence hv" });
+    const video = openBtn.querySelector("video") as HTMLVideoElement;
+    expect(video.className).not.toContain("loaded");
+    fireEvent.loadedData(video);
+    expect(video.className).toContain("loaded");
+  });
 });
 
 describe("EvidenceGallery — reviewer verdict (V8 Part 4 K)", () => {

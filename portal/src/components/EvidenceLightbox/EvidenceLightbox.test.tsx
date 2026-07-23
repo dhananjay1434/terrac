@@ -84,4 +84,34 @@ describe("EvidenceLightbox", () => {
     fireEvent.keyDown(dialog, { key: "ArrowLeft" });
     expect(onNavigate).toHaveBeenCalledWith(0);
   });
+
+  it("renders a <video controls> for a video item, not <img>", async () => {
+    const videoItems: MediaItem[] = [
+      { ...ITEMS[0], operation_id: "ov", filename: "quenching.mp4", capture_type: "quenching_video" },
+    ];
+    render(
+      <EvidenceLightbox
+        items={videoItems}
+        index={0}
+        onClose={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    const video = await screen.findByTestId("lightbox-video");
+    expect(video.tagName).toBe("VIDEO");
+    expect(video).toHaveAttribute("controls");
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("still renders <img> for a photo item", async () => {
+    render(
+      <EvidenceLightbox
+        items={ITEMS}
+        index={0}
+        onClose={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(await screen.findByRole("img")).toBeInTheDocument();
+  });
 });

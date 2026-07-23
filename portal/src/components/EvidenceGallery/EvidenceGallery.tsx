@@ -22,8 +22,11 @@ function isCertificate(m: MediaItem) {
     m.capture_type === "lab_certificate" || /\.pdf$/i.test(m.filename ?? "")
   );
 }
-function isVideo(m: MediaItem) {
-  return /\.(mp4|mov|webm)$/i.test(m.filename ?? "");
+export function isVideo(m: { capture_type?: string | null; filename?: string | null }) {
+  return (
+    /\.(mp4|mov|webm)$/i.test(m.filename ?? "") ||
+    !!m.capture_type?.endsWith("_video")
+  );
 }
 function matches(filter: Filter, m: MediaItem) {
   if (filter === "all") return true;
@@ -167,12 +170,23 @@ function GalleryThumb({
         aria-label={`Open evidence ${item.sha256_hash.slice(0, 12)}`}
       >
         {url ? (
-          <img
-            src={url}
-            alt={item.filename ?? item.operation_id}
-            className={loaded ? styles.loaded : undefined}
-            onLoad={() => setLoaded(true)}
-          />
+          isVideo(item) ? (
+            <video
+              src={url}
+              muted
+              playsInline
+              preload="metadata"
+              className={loaded ? styles.loaded : undefined}
+              onLoadedData={() => setLoaded(true)}
+            />
+          ) : (
+            <img
+              src={url}
+              alt={item.filename ?? item.operation_id}
+              className={loaded ? styles.loaded : undefined}
+              onLoad={() => setLoaded(true)}
+            />
+          )
         ) : failed ? (
           <span className={styles.fallback}>
             <svg

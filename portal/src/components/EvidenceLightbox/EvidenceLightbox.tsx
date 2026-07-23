@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { fetchMediaUrl, type MediaItem } from "../../api";
+import { isVideo } from "../EvidenceGallery/EvidenceGallery";
 import CopyButton from "../CopyButton/CopyButton";
 import styles from "./EvidenceLightbox.module.css";
 
@@ -65,7 +66,17 @@ export default function EvidenceLightbox({
           </Dialog.Title>
           <div className={styles.media}>
             {url ? (
-              <img src={url} alt={item.filename ?? item.operation_id} />
+              isVideo(item) ? (
+                <video
+                  src={url}
+                  controls
+                  playsInline
+                  style={{ maxWidth: "100%" }}
+                  data-testid="lightbox-video"
+                />
+              ) : (
+                <img src={url} alt={item.filename ?? item.operation_id} />
+              )
             ) : (
               <span className={styles.unavailable}>media unavailable</span>
             )}
