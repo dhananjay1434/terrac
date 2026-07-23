@@ -271,6 +271,13 @@ class Project(Base):
     registry_config_id: Mapped[str] = mapped_column(String(128), nullable=True)
     # Reserved for Blueprint D (multi-tenancy) — nullable until that Part exists.
     org_id: Mapped[str] = mapped_column(String(128), nullable=True)
+    # FM-1: JSON-encoded list of species this project is registered to
+    # produce, validated against the project's resolved corg_table at
+    # registration (portal/routes.py::create_project). NULL = legacy project
+    # (registered before this Part) — grandfathered, no behavior change.
+    allowed_feedstocks: Mapped[str] = mapped_column(Text, nullable=True)
+    # FM-1: informational declared client count (not enforced as a cap).
+    client_target: Mapped[int] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

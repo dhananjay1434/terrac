@@ -115,9 +115,26 @@ already available in recompute as `lca_config` (credit_engine.py ~line 255).
    `python -m pytest -q` green (this proves no existing Lantana batch flipped).
 
 ### DoD
-- [ ] Unknown feedstock → `feedstock_not_in_positive_list` provisional reason (never silent Default).
-- [ ] Pure helper unit-tested; recompute wiring tested; existing batches unaffected (regression pin).
-- [ ] Full backend suite green before + after.
+- [x] Unknown feedstock → `feedstock_not_in_positive_list` provisional reason (never silent Default).
+- [x] Pure helper unit-tested; recompute wiring tested; existing batches unaffected (regression pin).
+- [x] Full backend suite green before + after.
+
+**DONE — 2026-07-24.** `services/feedstock.py::derive_feedstock_compliance` (pure, 10 tests),
+wired into `corroboration.assemble()` as a new `feedstock_ok` param — a **core** check
+(applies to every methodology, not folded into `c10_reasons`/`extra_reasons`, which CSI's gate
+set can exclude). 2 wiring tests via direct ORM insert. Backend-only; 730 passed / 0 failed.
+
+**⚠️ DISCOVERY THAT AFFECTS FM-1 — read before starting FM-1.** `schemas.py`'s
+`BatchPayload.feedstock_species` already has a Pydantic `field_validator` that rejects any
+species outside the **static module** `CORG_TABLE` at batch-create intake (422) — it is
+**project-blind** (a single-field validator can't see sibling fields like `project_id`, and has
+no DB access to look up a per-project `RegistryConfig.corg_table` anyway). Today this means: a
+project registered under FM-1 with a feedstock NOT in the static default table would have every
+real batch **rejected at intake**, even though FM-0's recompute-level check would have approved
+it. **FM-1 must address this** — loosen or remove `validate_feedstock` in `schemas.py` (the real
+enforcement now lives in FM-0's recompute-level `derive_feedstock_compliance`, which correctly
+resolves the project's own `corg_table`). This was not in the original FM-1 steps below — added
+as FM-1 step 0.
 
 **COMMIT:** `feat(backend): flag off-positive-list feedstock instead of silently defaulting Corg`
 
@@ -141,6 +158,29 @@ table). Resolve the positive list **directly from `payload.registry_config_id`**
 — you will add one import.
 
 ### Steps
+0. **First — loosen the project-blind intake validator (FM-0's discovery).** In `schemas.py`,
+   `BatchPayload.feedstock_species`'s `@field_validator("feedstock_species")` (`validate_feedstock`)
+   currently rejects any species outside the static module `CORG_TABLE`. Change it to only reject
+   **empty/whitespace-only** strings (a basic presence check) — remove the `CORG_TABLE` membership
+   check entirely. The real, project-aware positive-list enforcement is FM-0's
+   `derive_feedstock_compliance` in the recompute path, which correctly resolves the batch's own
+   project's `corg_table` (this validator never could, since it has no DB access or sibling-field
+   visibility). Update/remove the now-obsolete test(s) asserting the old 422-on-unknown-species
+   behavior at the batch-create endpoint — replace with an assertion that batch-create accepts
+   an arbitrary non-empty species string, and that FM-0's recompute gate is what flags it if
+   it's not in the resolved positive list.
+   **⚠️ VERIFIED — the full backend suite catches this if you skip it.** A grep for
+   `validate_feedstock`/`"must be one of"` finds nothing (the test doesn't reference the
+   validator by name), but running the FULL suite surfaces
+   `tests/test_hardening.py::test_p0_12_invalid_species_rejected` (a pre-existing P0 hardening
+   test, `_valid_payload(feedstock_species="Unicorn_horn")` → asserts 422) — it fails once the
+   validator is loosened. This is a deliberate, correct behavior change (see above), not a
+   regression: rename/rewrite it to `test_p0_12_species_validation_moved_to_recompute`, asserting
+   an arbitrary species is now ACCEPTED (200/201) and only empty/whitespace is still rejected
+   (422). Do not skip running the full suite before this checkpoint — a grep alone will not find
+   every affected test.
+   **CHECKPOINT:** the touched test file(s) green, then the FULL backend suite green, before
+   continuing to step 1.
 1. `models.py` `Project`: add two nullable columns:
    - `allowed_feedstocks: Mapped[str]` (String/Text, JSON-encoded list; nullable) — `NULL` = legacy.
    - `client_target: Mapped[int]` (Integer, nullable).

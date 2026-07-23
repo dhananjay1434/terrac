@@ -51,7 +51,8 @@ def _valid_payload(**overrides) -> dict:
 
 
 # =============================================================================
-# P0-12 — extra fields rejected, species validated
+# P0-12 — extra fields rejected, species presence-checked (positive-list
+# validation moved to the recompute layer, see FM-1)
 # =============================================================================
 
 
@@ -71,14 +72,32 @@ async def test_p0_12_extra_field_rejected(client):
 
 
 @pytest.mark.asyncio
-async def test_p0_12_invalid_species_rejected(client):
-    body = _valid_payload(feedstock_species="Unicorn_horn")
+async def test_p0_12_species_validation_moved_to_recompute(client):
+    """FM-1: BatchPayload.feedstock_species used to reject any species
+    outside the static module CORG_TABLE at intake. That check was
+    project-blind — a field_validator has no DB access and can't see this
+    payload's project_id, so it could never validate against a per-project
+    RegistryConfig.corg_table override, which would wrongly reject a valid
+    project-specific feedstock. The real, project-aware positive-list
+    enforcement now lives in services/feedstock.py::derive_feedstock_
+    compliance (credit_engine.py's recompute path) — see
+    test_feedstock_positive_list.py / test_feedstock_wiring.py. Intake now
+    only rejects an empty/whitespace species (basic presence check)."""
+    accepted = _valid_payload(feedstock_species="Unicorn_horn")
     r = await client.post(
         "/api/v1/batches",
-        json=body,
+        json=accepted,
         headers={"X-Idempotency-Key": str(uuid4())},
     )
-    assert r.status_code == 422
+    assert r.status_code in (200, 201), r.text
+
+    empty = _valid_payload(feedstock_species="")
+    r2 = await client.post(
+        "/api/v1/batches",
+        json=empty,
+        headers={"X-Idempotency-Key": str(uuid4())},
+    )
+    assert r2.status_code == 422
 
 
 # =============================================================================

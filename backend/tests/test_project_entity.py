@@ -106,6 +106,120 @@ async def test_duplicate_project_id_rejected(client, session_factory):
         assert rows[0].name == "First"
 
 
+async def test_create_project_with_valid_feedstock_and_client_target_roundtrips(
+    client, session_factory
+):
+    """FM-1: allowed_feedstocks (validated against the module default
+    positive list, since no registry_config_id is set) and client_target
+    round-trip through create + the response body."""
+    headers = await _login_admin(client, session_factory)
+    resp = await client.post(
+        "/api/v1/portal/projects",
+        json={
+            "project_id": "proj-feedstock",
+            "name": "Feedstock Project",
+            "allowed_feedstocks": ["Wood_chips"],
+            "client_target": 25,
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["allowed_feedstocks"] == ["Wood_chips"]
+    assert body["client_target"] == 25
+
+
+async def test_create_project_with_unknown_feedstock_rejected(client, session_factory):
+    """FM-1: a species not in the resolved positive list is rejected at
+    registration — the guardrail against the FM-0 silent-default bug."""
+    headers = await _login_admin(client, session_factory)
+    resp = await client.post(
+        "/api/v1/portal/projects",
+        json={
+            "project_id": "proj-bad-feedstock",
+            "name": "Bad Feedstock Project",
+            "allowed_feedstocks": ["Not_a_real_species"],
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert detail["error"] == "feedstock_not_in_positive_list"
+    assert "Not_a_real_species" in detail["unknown"]
+
+    async with session_factory() as session:
+        rows = (
+            await session.execute(
+                select(Project).where(Project.project_id == "proj-bad-feedstock")
+            )
+        ).scalars().all()
+        assert rows == []  # rejected before persist — no partial row
+
+
+async def test_create_project_with_empty_feedstock_list_allowed(
+    client, session_factory
+):
+    """Grandfather: a project may be registered before its feedstock is
+    decided — empty allowed_feedstocks is valid, not an error."""
+    headers = await _login_admin(client, session_factory)
+    resp = await client.post(
+        "/api/v1/portal/projects",
+        json={"project_id": "proj-no-feedstock-yet", "name": "TBD Project"},
+        headers=headers,
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["allowed_feedstocks"] == []
+    assert resp.json()["client_target"] is None
+
+
+async def test_create_project_feedstock_validated_against_own_registry_config(
+    client, session_factory
+):
+    """A project pointed at a RegistryConfig with a CUSTOM corg_table is
+    validated against THAT table, not the module default — proves the
+    per-project positive list (not _resolve_lca_config, which would return
+    None for a not-yet-persisted project) is what's actually checked."""
+    from models import RegistryConfig
+
+    async with session_factory() as session:
+        session.add(
+            RegistryConfig(
+                config_id="cfg-custom-feedstock",
+                registry_name="Custom Registry",
+                methodology_version="v1",
+                params_json=json.dumps({"corg_table": {"Bamboo": 0.45, "Default": 0.5}}),
+            )
+        )
+        await session.commit()
+
+    headers = await _login_admin(client, session_factory)
+    ok = await client.post(
+        "/api/v1/portal/projects",
+        json={
+            "project_id": "proj-custom-feedstock",
+            "name": "Custom Feedstock Project",
+            "registry_config_id": "cfg-custom-feedstock",
+            "allowed_feedstocks": ["Bamboo"],
+        },
+        headers=headers,
+    )
+    assert ok.status_code == 201, ok.text
+
+    rejected = await client.post(
+        "/api/v1/portal/projects",
+        json={
+            "project_id": "proj-custom-feedstock-2",
+            "name": "Custom Feedstock Project 2",
+            "registry_config_id": "cfg-custom-feedstock",
+            # Lantana_camara is in the MODULE default table but NOT in this
+            # project's own custom corg_table — must be rejected.
+            "allowed_feedstocks": ["Lantana_camara"],
+        },
+        headers=headers,
+    )
+    assert rejected.status_code == 422
+
+
 async def test_extra_field_rejected(client, session_factory):
     """model_config = extra='forbid' on ProjectCreate — schema boundary discipline."""
     headers = await _login_admin(client, session_factory)

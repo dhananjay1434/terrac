@@ -212,11 +212,17 @@ async def mint_enrollment_token(
 
 
 def _project_row(p: Project) -> dict:
+    try:
+        allowed_feedstocks = json.loads(p.allowed_feedstocks) if p.allowed_feedstocks else []
+    except (ValueError, TypeError):
+        allowed_feedstocks = []
     return {
         "project_id": p.project_id,
         "name": p.name,
         "registry_config_id": p.registry_config_id,
         "org_id": p.org_id,
+        "allowed_feedstocks": allowed_feedstocks,
+        "client_target": p.client_target,
         "status": p.status,
         "created_at": p.created_at.isoformat() if p.created_at else None,
     }
@@ -228,11 +234,57 @@ async def create_project(
     user: PortalUser = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_session),
 ):
+    # FM-1: validate the declared feedstocks against the resolved positive
+    # list BEFORE persisting. Resolved directly from payload.registry_config_id
+    # (NOT _resolve_lca_config — that helper loads the project by id from the
+    # DB and would return None here since the project doesn't exist yet,
+    # silently passing every species).
+    from lca_engine import CORG_TABLE
+    from services.feedstock import positive_list
+
+    if payload.allowed_feedstocks:
+        table = None
+        if payload.registry_config_id:
+            cfg_row = (
+                await session.execute(
+                    select(RegistryConfig).where(
+                        RegistryConfig.config_id == payload.registry_config_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if cfg_row is not None:
+                try:
+                    params = json.loads(cfg_row.params_json) if cfg_row.params_json else {}
+                except (ValueError, TypeError):
+                    params = {}
+                if isinstance(params, dict) and isinstance(params.get("corg_table"), dict):
+                    table = params["corg_table"]
+        if table is None:
+            table = CORG_TABLE
+        allowed = set(positive_list(table))
+        # positive_list is case-preserving; compare case-insensitively like
+        # derive_feedstock_compliance does.
+        allowed_ci = {s.casefold() for s in allowed}
+        unknown = [
+            s for s in payload.allowed_feedstocks if s.casefold() not in allowed_ci
+        ]
+        if unknown:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "feedstock_not_in_positive_list",
+                    "unknown": unknown,
+                    "allowed": sorted(allowed),
+                },
+            )
+
     project = Project(
         project_id=payload.project_id,
         name=payload.name,
         registry_config_id=payload.registry_config_id,
         org_id=payload.org_id,
+        allowed_feedstocks=json.dumps(payload.allowed_feedstocks),
+        client_target=payload.client_target,
     )
     session.add(project)
     try:

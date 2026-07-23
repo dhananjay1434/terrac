@@ -3,7 +3,6 @@ from typing import Optional, Literal
 from datetime import datetime
 from uuid import UUID
 import uuid
-from lca_engine import CORG_TABLE
 
 class BatchPayload(BaseModel):
     """Strict Pydantic V2 model for batch payload."""
@@ -72,10 +71,17 @@ class BatchPayload(BaseModel):
     @field_validator("feedstock_species")
     @classmethod
     def validate_feedstock(cls, v: str) -> str:
-        if v not in CORG_TABLE:
-            raise ValueError(
-                f"feedstock_species must be one of {list(CORG_TABLE.keys())}"
-            )
+        # FM-1: this single-field validator has no DB access and can't see
+        # this payload's project_id, so it can never correctly check a
+        # per-project RegistryConfig.corg_table override — it used to check
+        # membership in the static module CORG_TABLE only, which would wrongly
+        # reject a valid project-specific feedstock. Reduced to a basic
+        # presence check; the real, project-aware positive-list enforcement
+        # is services/feedstock.py::derive_feedstock_compliance in the
+        # recompute path (credit_engine.py), which resolves the batch's own
+        # project's corg_table.
+        if not v.strip():
+            raise ValueError("feedstock_species must not be empty")
         return v
 
     @field_validator("sha256_hash")

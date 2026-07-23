@@ -41,6 +41,12 @@ class ProjectCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     registry_config_id: Optional[str] = Field(None, max_length=128)
     org_id: Optional[str] = Field(None, max_length=128)
+    # FM-1: validated at create time against the resolved registry config's
+    # corg_table (or the module default when no config is set) — see
+    # create_project. Empty list is allowed (a project may be registered
+    # before its feedstock is decided).
+    allowed_feedstocks: list[str] = Field(default_factory=list)
+    client_target: Optional[int] = Field(None, ge=0)
 
 
 class ProjectOut(BaseModel):
@@ -48,6 +54,8 @@ class ProjectOut(BaseModel):
     name: str
     registry_config_id: Optional[str] = None
     org_id: Optional[str] = None
+    allowed_feedstocks: list[str] = Field(default_factory=list)
+    client_target: Optional[int] = None
     status: str
     created_at: str
 
