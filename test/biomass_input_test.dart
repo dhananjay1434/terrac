@@ -1,4 +1,4 @@
-import 'package:dmrv_app/providers/lantana_sourcing_notifier.dart';
+import 'package:dmrv_app/providers/sourcing_notifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,13 +33,13 @@ void main() {
   test('setBiomass persists and updates the sourcing state', () async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
-    await container.read(lantanaSourcingProvider.future);
+    await container.read(sourcingProvider.future);
 
     await container
-        .read(lantanaSourcingProvider.notifier)
+        .read(sourcingProvider.notifier)
         .setBiomass(750, 'direct_weigh');
 
-    final s = container.read(lantanaSourcingProvider).requireValue;
+    final s = container.read(sourcingProvider).requireValue;
     expect(s.biomassInputKg, 750);
     expect(s.biomassMeasurementMethod, 'direct_weigh');
     expect(s.hasBiomass, isTrue);

@@ -1,13 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dmrv_app/providers/lantana_sourcing_notifier.dart';
+import 'package:dmrv_app/providers/sourcing_notifier.dart';
 
 /// =============================================================================
-/// LantanaSourcingNotifier — Pure-Dart Riverpod state test
+/// SourcingNotifier — Pure-Dart Riverpod state test
 /// =============================================================================
 /// Verifies:
-///   • Feedstock species is immutably set to "Lantana_camara".
+///   • FM-4: feedstock species resolves from the project's registered
+///     allowed_feedstocks (never hard-coded) — unresolved until a project
+///     config or an explicit pick (selectFeedstock) exists.
 ///   • The 72-hour temporal lock blocks progression until 72h elapse.
 ///   • The Dev Bypass flag bypasses the lock immediately.
 /// =============================================================================
@@ -16,13 +18,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late ProviderContainer container;
-  late LantanaSourcingNotifier notifier;
+  late SourcingNotifier notifier;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     container = ProviderContainer();
-    notifier = container.read(lantanaSourcingProvider.notifier);
-    await container.read(lantanaSourcingProvider.future);
+    notifier = container.read(sourcingProvider.notifier);
+    await container.read(sourcingProvider.future);
   });
   tearDown(() => container.dispose());
 
@@ -31,7 +33,7 @@ void main() {
   // behavior, not a bug. Tests that need a resolved feedstock to exercise
   // canProceedToMoisture use debugSetFeedstock (mirrors debugSetNow).
   test('initial state: unresolved feedstock (no project configured), no harvest, locked', () {
-    final s = container.read(lantanaSourcingProvider).requireValue;
+    final s = container.read(sourcingProvider).requireValue;
     expect(s.feedstockSpecies, isNull);
     expect(s.hasFeedstock, isFalse);
     expect(s.hasHarvest, isFalse);
@@ -42,7 +44,7 @@ void main() {
     notifier.debugSetFeedstock('Lantana_camara');
     await notifier.logHarvestAt(DateTime.now());
     expect(
-      container.read(lantanaSourcingProvider).requireValue.canProceedToMoisture,
+      container.read(sourcingProvider).requireValue.canProceedToMoisture,
       isFalse,
     );
   });
@@ -53,7 +55,7 @@ void main() {
       DateTime.now().subtract(const Duration(hours: 73)),
     );
     expect(
-      container.read(lantanaSourcingProvider).requireValue.canProceedToMoisture,
+      container.read(sourcingProvider).requireValue.canProceedToMoisture,
       isTrue,
     );
   });
@@ -63,7 +65,7 @@ void main() {
       DateTime.now().subtract(const Duration(hours: 73)),
     );
     expect(
-      container.read(lantanaSourcingProvider).requireValue.canProceedToMoisture,
+      container.read(sourcingProvider).requireValue.canProceedToMoisture,
       isFalse,
     );
   });
@@ -74,12 +76,12 @@ void main() {
       DateTime.now(),
     ); // fresh harvest → would be locked
     expect(
-      container.read(lantanaSourcingProvider).requireValue.canProceedToMoisture,
+      container.read(sourcingProvider).requireValue.canProceedToMoisture,
       isFalse,
     );
     notifier.toggleDevBypass(true);
     expect(
-      container.read(lantanaSourcingProvider).requireValue.canProceedToMoisture,
+      container.read(sourcingProvider).requireValue.canProceedToMoisture,
       isTrue,
     );
   });
@@ -99,13 +101,13 @@ void main() {
   // sourcing → moisture → capture steps where the batch is actually written.
   test('selectParcel persists the choice and exposes it in state', () async {
     expect(
-      container.read(lantanaSourcingProvider).requireValue.parcelUuid,
+      container.read(sourcingProvider).requireValue.parcelUuid,
       isNull,
     );
 
     await notifier.selectParcel('parcel-123', 'North Field');
 
-    final s = container.read(lantanaSourcingProvider).requireValue;
+    final s = container.read(sourcingProvider).requireValue;
     expect(s.parcelUuid, 'parcel-123');
     expect(s.parcelName, 'North Field');
 
@@ -121,7 +123,7 @@ void main() {
     });
     final freshContainer = ProviderContainer();
     addTearDown(freshContainer.dispose);
-    final s = await freshContainer.read(lantanaSourcingProvider.future);
+    final s = await freshContainer.read(sourcingProvider.future);
     expect(s.parcelUuid, 'parcel-restore');
     expect(s.parcelName, 'Restored Field');
   });
@@ -130,13 +132,13 @@ void main() {
   // the same way selectParcel does.
   test('selectFeedstock persists the choice and exposes it in state', () async {
     expect(
-      container.read(lantanaSourcingProvider).requireValue.feedstockSpecies,
+      container.read(sourcingProvider).requireValue.feedstockSpecies,
       isNull,
     );
 
     await notifier.selectFeedstock('Wood_chips');
 
-    final s = container.read(lantanaSourcingProvider).requireValue;
+    final s = container.read(sourcingProvider).requireValue;
     expect(s.feedstockSpecies, 'Wood_chips');
     expect(s.hasFeedstock, isTrue);
 

@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/project_service.dart';
 
 /// =============================================================================
-/// LantanaSourcingNotifier
+/// SourcingNotifier
 /// =============================================================================
 /// Holds the state for the Sourcing Screen:
 ///   • the feedstock selection — FM-4: resolved from the project's registered
@@ -154,7 +154,7 @@ class SourcingState {
   }
 }
 
-class LantanaSourcingNotifier extends AsyncNotifier<SourcingState> {
+class SourcingNotifier extends AsyncNotifier<SourcingState> {
   @override
   FutureOr<SourcingState> build() async {
     return await _loadState();
@@ -325,9 +325,9 @@ class LantanaSourcingNotifier extends AsyncNotifier<SourcingState> {
   }
 }
 
-final lantanaSourcingProvider =
-    AsyncNotifierProvider<LantanaSourcingNotifier, SourcingState>(
-      LantanaSourcingNotifier.new,
+final sourcingProvider =
+    AsyncNotifierProvider<SourcingNotifier, SourcingState>(
+      SourcingNotifier.new,
     );
 
 /// Top-level function required by compute() — must NOT be a closure or method.

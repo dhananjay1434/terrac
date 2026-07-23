@@ -1,4 +1,4 @@
-import 'package:dmrv_app/providers/lantana_sourcing_notifier.dart';
+import 'package:dmrv_app/providers/sourcing_notifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,11 +26,11 @@ void main() {
     final container = makeContainer();
     addTearDown(container.dispose);
 
-    final notifier = container.read(lantanaSourcingProvider.notifier);
+    final notifier = container.read(sourcingProvider.notifier);
     // FM-4: feedstock only resolves from a configured project; no
     // DMRV_PROJECT_ID in the test env, so simulate "resolved" directly.
     // build() must complete before debugSetFeedstock touches state.
-    await container.read(lantanaSourcingProvider.future);
+    await container.read(sourcingProvider.future);
     notifier.debugSetFeedstock('Lantana_camara');
 
     // Log harvest 73h ago on wall clock. On non-Android CI, uptime will be null.
@@ -38,7 +38,7 @@ void main() {
       DateTime.now().toUtc().subtract(const Duration(hours: 73)),
     );
 
-    final s = container.read(lantanaSourcingProvider).requireValue;
+    final s = container.read(sourcingProvider).requireValue;
 
     // State must carry the uptime field (null on non-Android is valid).
     expect(
@@ -68,8 +68,8 @@ void main() {
     final container = makeContainer();
     addTearDown(container.dispose);
 
-    final notifier = container.read(lantanaSourcingProvider.notifier);
-    await container.read(lantanaSourcingProvider.future);
+    final notifier = container.read(sourcingProvider.notifier);
+    await container.read(sourcingProvider.future);
     notifier.debugSetFeedstock('Lantana_camara');
 
     // Log harvest 73h ago.
@@ -77,7 +77,7 @@ void main() {
       DateTime.now().toUtc().subtract(const Duration(hours: 73)),
     );
 
-    final s = container.read(lantanaSourcingProvider).requireValue;
+    final s = container.read(sourcingProvider).requireValue;
     expect(s.hasHarvest, isTrue);
     expect(s.elapsedSinceHarvest.inHours, greaterThanOrEqualTo(73));
     expect(
@@ -94,12 +94,12 @@ void main() {
     final container = makeContainer();
     addTearDown(container.dispose);
 
-    final notifier = container.read(lantanaSourcingProvider.notifier);
+    final notifier = container.read(sourcingProvider.notifier);
     await notifier.logHarvestAt(
       DateTime.now().toUtc().subtract(const Duration(hours: 1)),
     );
 
-    final s = container.read(lantanaSourcingProvider).requireValue;
+    final s = container.read(sourcingProvider).requireValue;
     expect(
       s.canProceedToMoisture,
       isFalse,
@@ -118,10 +118,10 @@ void main() {
     final container = makeContainer();
     addTearDown(container.dispose);
 
-    final notifier = container.read(lantanaSourcingProvider.notifier);
+    final notifier = container.read(sourcingProvider.notifier);
     await notifier.logHarvestNow();
 
-    final s = container.read(lantanaSourcingProvider).requireValue;
+    final s = container.read(sourcingProvider).requireValue;
     expect(s.hasHarvest, isTrue);
     // harvestUptimeSeconds may be null on non-Android CI, but must not throw.
     expect(
@@ -138,21 +138,21 @@ void main() {
     final container = makeContainer();
     addTearDown(container.dispose);
 
-    final notifier = container.read(lantanaSourcingProvider.notifier);
-    await container.read(lantanaSourcingProvider.future);
+    final notifier = container.read(sourcingProvider.notifier);
+    await container.read(sourcingProvider.future);
     notifier.debugSetFeedstock('Lantana_camara');
 
     // Harvest just happened — mandate definitely not met.
     await notifier.logHarvestNow();
     expect(
-      container.read(lantanaSourcingProvider).requireValue.canProceedToMoisture,
+      container.read(sourcingProvider).requireValue.canProceedToMoisture,
       isFalse,
     );
 
     // Flip bypass.
     notifier.toggleDevBypass(true);
     expect(
-      container.read(lantanaSourcingProvider).requireValue.canProceedToMoisture,
+      container.read(sourcingProvider).requireValue.canProceedToMoisture,
       isTrue,
       reason: 'Dev bypass must unlock the workflow regardless of elapsed time',
     );

@@ -307,7 +307,7 @@ def calculate_carbon_credit(
     moisture_percent: float,
     min_recorded_temp_c: float = 0.0,
     transport_distance_km: float = 0.0,
-    feedstock_species: str = "Lantana_camara",
+    feedstock_species: str = "Default",
     h_corg_ratio: float | None = None,
     corg_override: float | None = None,
     config: LcaParams | None = None,

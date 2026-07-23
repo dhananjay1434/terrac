@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:dmrv_app/providers/moisture_gate_notifier.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:dmrv_app/providers/lantana_sourcing_notifier.dart';
+import 'package:dmrv_app/providers/sourcing_notifier.dart';
 
 /// =============================================================================
 /// MoistureGateNotifier — Pure-Dart Riverpod state test
@@ -21,10 +21,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     container = ProviderContainer();
 
-    await container.read(lantanaSourcingProvider.future);
+    await container.read(sourcingProvider.future);
 
     // Bypass the Lantana lock so Moisture can initiate pyrolysis
-    container.read(lantanaSourcingProvider.notifier).toggleDevBypass(true);
+    container.read(sourcingProvider.notifier).toggleDevBypass(true);
 
     notifier = container.read(moistureGateProvider.notifier);
   });

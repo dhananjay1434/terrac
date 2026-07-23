@@ -10,7 +10,7 @@ import '../../data/local/database_provider.dart';
 
 import '../../providers/batch_session_notifier.dart';
 import '../../providers/dashboard_provider.dart';
-import '../../providers/lantana_sourcing_notifier.dart';
+import '../../providers/sourcing_notifier.dart';
 import '../../providers/moisture_gate_notifier.dart';
 import '../../services/parcel_service.dart';
 import '../../services/secure_capture_service.dart';
@@ -71,7 +71,7 @@ class _MoistureVerificationScreenState
     // cached parcel, no geometry cached for it — flag off, most likely) —
     // capture proceeds ungated in every one of those cases (grandfathered).
     const projectId = String.fromEnvironment('DMRV_PROJECT_ID');
-    final sourcingForRing = ref.read(lantanaSourcingProvider).valueOrNull;
+    final sourcingForRing = ref.read(sourcingProvider).valueOrNull;
     List<List<double>>? boundaryRing;
     if (projectId.isNotEmpty && sourcingForRing?.parcelUuid != null) {
       boundaryRing = await ParcelService.boundaryRingFor(
@@ -99,7 +99,7 @@ class _MoistureVerificationScreenState
     });
     try {
       final batchUuid = ref.read(requiredBatchUuidProvider);
-      final sourcing = ref.read(lantanaSourcingProvider).requireValue;
+      final sourcing = ref.read(sourcingProvider).requireValue;
       final moisture = ref.read(moistureGateProvider);
       if (moisture.moisturePercent == null) {
         throw StateError('Missing reading.');
@@ -202,7 +202,7 @@ class _MoistureVerificationScreenState
     // S1: Rainbow C2 multi-reading loop. The target is driven by the biomass
     // weight recorded on Sourcing (S2): max(10, ceil(kg/100)).
     final biomassKg = ref
-        .watch(lantanaSourcingProvider)
+        .watch(sourcingProvider)
         .valueOrNull
         ?.biomassInputKg;
     final target = moistureSampleTarget(biomassKg);

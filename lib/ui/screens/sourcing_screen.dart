@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/dashboard_provider.dart';
-import '../../providers/lantana_sourcing_notifier.dart';
+import '../../providers/sourcing_notifier.dart';
 import '../../services/parcel_service.dart';
 import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
@@ -15,32 +15,34 @@ import '../widgets/integrity_footer.dart';
 import 'moisture_verification_screen.dart';
 
 /// =============================================================================
-/// LantanaSourcingScreen — India paper skin (tokens + Dmrv components)
+/// SourcingScreen — India paper skin (tokens + Dmrv components)
 /// =============================================================================
 /// Three operational blocks:
-///   1. IMMUTABLE feedstock placard ("Lantana_camara" — Registry Positive List)
+///   1. Feedstock placard — FM-4: resolved from the project's registered
+///      allowed_feedstocks (Registry Positive List); locked when the project
+///      has exactly one, a constrained picker when it has more.
 ///   2. Source parcel status (read-only; real parcel registration + overlap
 ///      checking lands in V8 Part 1 — see docs/BOUNDARY_DESIGN.md)
 ///   3. Harvest timestamp + 72-hour SUN-DRY temporal lock
 ///       • Hidden DEV BYPASS toggle (triple-tap the lock block to expose)
 /// =============================================================================
-class LantanaSourcingScreen extends ConsumerStatefulWidget {
-  const LantanaSourcingScreen({super.key});
+class SourcingScreen extends ConsumerStatefulWidget {
+  const SourcingScreen({super.key});
 
   @override
-  ConsumerState<LantanaSourcingScreen> createState() =>
-      _LantanaSourcingScreenState();
+  ConsumerState<SourcingScreen> createState() =>
+      _SourcingScreenState();
 }
 
-class _LantanaSourcingScreenState extends ConsumerState<LantanaSourcingScreen> {
+class _SourcingScreenState extends ConsumerState<SourcingScreen> {
   int _devToggleTaps = 0;
   bool _devToggleVisible = false;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final asyncS = ref.watch(lantanaSourcingProvider);
-    final notifier = ref.read(lantanaSourcingProvider.notifier);
+    final asyncS = ref.watch(sourcingProvider);
+    final notifier = ref.read(sourcingProvider.notifier);
     final lastHash = ref.watch(dashboardProvider).lastHash;
 
     return asyncS.when(
@@ -190,7 +192,7 @@ class _BiomassBlockState extends ConsumerState<_BiomassBlock> {
       return;
     }
     setState(() => _error = null);
-    ref.read(lantanaSourcingProvider.notifier).setBiomass(kg, _method!);
+    ref.read(sourcingProvider.notifier).setBiomass(kg, _method!);
   }
 
   void _pick(String method) {
@@ -424,7 +426,7 @@ class _SourceParcelBlockState extends ConsumerState<_SourceParcelBlock> {
     );
     if (selected != null) {
       await ref
-          .read(lantanaSourcingProvider.notifier)
+          .read(sourcingProvider.notifier)
           .selectParcel(selected.uuid, selected.name);
     }
   }
@@ -433,7 +435,7 @@ class _SourceParcelBlockState extends ConsumerState<_SourceParcelBlock> {
   Widget build(BuildContext context) {
     final t = context.tokens;
     final parcelName =
-        ref.watch(lantanaSourcingProvider).valueOrNull?.parcelName;
+        ref.watch(sourcingProvider).valueOrNull?.parcelName;
     final hasParcel = parcelName != null && parcelName.isNotEmpty;
     final accent = hasParcel ? t.success : t.textSecondary;
     return PremiumFieldPanel(

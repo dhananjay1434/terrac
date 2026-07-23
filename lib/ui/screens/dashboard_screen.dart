@@ -19,7 +19,7 @@ import 'dispatch/dispatch_screen.dart';
 import 'day_start_attestation_screen.dart';
 import 'density_calibration_screen.dart';
 import 'field_walk_screen.dart';
-import 'lantana_sourcing_screen.dart';
+import 'sourcing_screen.dart';
 import 'proof_wallet_screen.dart';
 import 'sync_health_screen.dart';
 import 'yield_scale_screen.dart';
@@ -308,7 +308,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           if (!mounted) return;
           await Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (_) => const LantanaSourcingScreen(),
+              builder: (_) => const SourcingScreen(),
             ),
           );
           break;

@@ -150,7 +150,7 @@ class _ReceiptCard extends StatelessWidget {
           _Line(label: 'artisan', value: receipt.artisanId),
           _Line(
             label: 'species',
-            value: receipt.feedstockSpecies ?? 'Lantana camara (Pending)',
+            value: receipt.feedstockSpecies ?? 'Feedstock (Pending)',
           ),
           _Line(
             label: 'moisture',
