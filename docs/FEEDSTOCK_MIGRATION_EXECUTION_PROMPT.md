@@ -397,12 +397,22 @@ display it locked (single) or as a constrained picker (multiple).
 5. **CHECKPOINT:** `flutter analyze` clean on touched files; `flutter test` green.
 
 ### DoD
-- [ ] No hard-coded `'Lantana_camara'` in the sourcing notifier; feedstock resolved from the
+- [x] No hard-coded `'Lantana_camara'` in the sourcing notifier; feedstock resolved from the
       project (FM-2), cached offline-first, never silently substituted.
-- [ ] Single → locked display; multiple → constrained picker. Downstream batch write untouched.
-- [ ] **Advance is gated on a non-null feedstock** — a batch can never be captured/written with a
+- [x] Single → locked display; multiple → constrained picker. Downstream batch write untouched.
+- [x] **Advance is gated on a non-null feedstock** — a batch can never be captured/written with a
       null feedstock (DB + local write are both non-null). Proven by a test.
-- [ ] App suite green; analyze clean.
+- [x] App suite green; analyze clean.
+
+**DONE — 2026-07-24.** `ProjectService` (mirrors `ParcelService`) + notifier
+resolves single/multi/unresolved states; `_FeedstockBlock` renders all
+three (spinner/locked/dropdown); `canProceedToMoisture` now requires
+`hasFeedstock`; `moisture_verification_screen.dart` fails loud if that
+invariant is ever violated (type system can't express it statically). Added
+a `debugSetFeedstock` test hook (mirrors `debugSetNow`) since the test
+harness has no `DMRV_PROJECT_ID` — 4 pre-existing tests needed it to reach
+a resolved state. App-only; flutter suite 405 passed (0 failed), analyze
+clean.
 
 **COMMIT:** `feat(app): resolve project feedstock at runtime (remove Lantana hard-code)`
 
