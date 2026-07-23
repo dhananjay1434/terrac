@@ -148,6 +148,82 @@ async def test_export_unknown_format_is_400(export_client):
     assert r.status_code == 400
 
 
+async def _seed_with_project(Session, batch, *, project_id, methodology_version=None):
+    from models import Project, RegistryConfig
+
+    batch.project_id = project_id
+    async with Session() as s:
+        if methodology_version is not None:
+            config_id = f"cfg-{project_id}"
+            s.add(
+                RegistryConfig(
+                    config_id=config_id,
+                    registry_name="Export Routing Test Registry",
+                    methodology_version=methodology_version,
+                    params_json="{}",
+                )
+            )
+            s.add(
+                Project(
+                    project_id=project_id, name=project_id,
+                    registry_config_id=config_id,
+                )
+            )
+        else:
+            s.add(Project(project_id=project_id, name=project_id))
+        s.add(batch)
+        await s.commit()
+        return str(batch.batch_uuid)
+
+
+async def test_default_project_export_still_allows_either_format(export_client):
+    """Regression pin: a project with no registry_config (every existing
+    project's actual state) keeps today's free choice of export format."""
+    ac, Session = export_client
+    bu = await _seed_with_project(
+        Session, _mk_batch(provisional=False), project_id="exp-proj-default"
+    )
+    admin = await _auth(ac, "admin@x.org")
+    r1 = await ac.get(f"/api/v1/portal/batches/{bu}/export/csi", headers=admin)
+    assert r1.status_code == 200
+    r2 = await ac.get(f"/api/v1/portal/batches/{bu}/export/rainbow", headers=admin)
+    assert r2.status_code == 200
+
+
+async def test_csi_project_rejects_rainbow_format(export_client):
+    ac, Session = export_client
+    bu = await _seed_with_project(
+        Session,
+        _mk_batch(provisional=False),
+        project_id="exp-proj-csi",
+        methodology_version="CSI-3.2",
+    )
+    admin = await _auth(ac, "admin@x.org")
+    r_ok = await ac.get(f"/api/v1/portal/batches/{bu}/export/csi", headers=admin)
+    assert r_ok.status_code == 200
+
+    r_bad = await ac.get(f"/api/v1/portal/batches/{bu}/export/rainbow", headers=admin)
+    assert r_bad.status_code == 400
+    assert r_bad.json()["detail"]["expected_format"] == "csi"
+
+
+async def test_rainbow_project_rejects_csi_format(export_client):
+    ac, Session = export_client
+    bu = await _seed_with_project(
+        Session,
+        _mk_batch(provisional=False),
+        project_id="exp-proj-rainbow",
+        methodology_version="Rainbow",
+    )
+    admin = await _auth(ac, "admin@x.org")
+    r_ok = await ac.get(f"/api/v1/portal/batches/{bu}/export/rainbow", headers=admin)
+    assert r_ok.status_code == 200
+
+    r_bad = await ac.get(f"/api/v1/portal/batches/{bu}/export/csi", headers=admin)
+    assert r_bad.status_code == 400
+    assert r_bad.json()["detail"]["expected_format"] == "rainbow"
+
+
 async def test_export_is_admin_only(export_client):
     ac, Session = export_client
     bu = await _seed(Session, _mk_batch(provisional=False))

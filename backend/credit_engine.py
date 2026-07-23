@@ -37,6 +37,7 @@ from lca_engine import (
     sign_lca_audit,
     lca_sign_payload_bytes,
 )
+from services.methodology import gate_set_for, resolve_methodology
 from corroboration import (
     assemble,
     derive_annual_methane_compliance,
@@ -516,6 +517,20 @@ async def _recompute_batch_credit_impl(
         )
     )
 
+    # PR-4: methodology selects the gate SET. DEFAULT (no project, no
+    # registry_config_id, or a methodology_version naming neither known
+    # methodology) resolves to the same gate set as RAINBOW — the full
+    # c10_reasons list applies, exactly as it did before this Part. Only a
+    # project an admin has DELIBERATELY pointed at a CSI-labeled
+    # RegistryConfig excludes the Rainbow-labeled c10_reasons (see
+    # services/methodology.py's gate_set_for docstring for why: none of
+    # those items are confirmed CSI-3.2 requirements, so CSI's set omits
+    # them rather than guessing).
+    methodology = resolve_methodology(
+        lca_config.methodology_version if lca_config is not None else None
+    )
+    c10_extras_enabled = "c10_extras" in gate_set_for(methodology)
+
     corr = assemble(
         wet_yield,
         min_temp,
@@ -530,7 +545,7 @@ async def _recompute_batch_credit_impl(
         composite_sample_ok=composite_sample_ok,
         delivery_ok=delivery_ok,
         buyer_ok=buyer_ok,
-        extra_reasons=c10_reasons,
+        extra_reasons=c10_reasons if c10_extras_enabled else [],
     )
 
     kwargs = {}

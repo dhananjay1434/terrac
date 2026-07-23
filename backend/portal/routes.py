@@ -1475,11 +1475,46 @@ async def export_batch(
     cannot be exported.
     """
     from services.export import CSIExportService, RainbowExportService
+    from services.methodology import CSI, DEFAULT, RAINBOW, resolve_methodology
 
     if fmt not in ("csi", "rainbow"):
         raise HTTPException(status_code=400, detail="unknown_export_format")
 
     batch = await _load_batch(session, batch_uuid)
+
+    # PR-4.2: the requested format must match the batch's project's resolved
+    # methodology — UNLESS that project is DEFAULT (no registry_config, or
+    # one naming neither known methodology), which is every existing
+    # project's actual state today and must keep today's free-choice
+    # behavior (the regression guarantee).
+    methodology_version = None
+    if batch.project_id:
+        project = (
+            await session.execute(
+                select(Project).where(Project.project_id == batch.project_id)
+            )
+        ).scalar_one_or_none()
+        if project is not None and project.registry_config_id:
+            cfg = (
+                await session.execute(
+                    select(RegistryConfig).where(
+                        RegistryConfig.config_id == project.registry_config_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if cfg is not None:
+                methodology_version = cfg.methodology_version
+    methodology = resolve_methodology(methodology_version)
+    _expected_fmt = {CSI: "csi", RAINBOW: "rainbow"}.get(methodology)
+    if _expected_fmt is not None and fmt != _expected_fmt:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "format_does_not_match_project_methodology",
+                "expected_format": _expected_fmt,
+            },
+        )
+
     if batch.provisional:
         reasons = batch.provisional_reasons
         try:
