@@ -407,6 +407,7 @@ def assemble(
     composite_sample_ok: bool = True,
     delivery_ok: bool = True,
     buyer_ok: bool = True,
+    feedstock_ok: bool = True,
     extra_reasons: Optional[list[str]] = None,
 ) -> Corroboration:
     """Combine the derived inputs into a Corroboration, computing provisional
@@ -449,6 +450,13 @@ def assemble(
         reasons.append("missing_delivery_record")
     if not buyer_ok:
         reasons.append("missing_buyer_identity")
+    if not feedstock_ok:
+        # FM-0: unlike the Rainbow-labeled C10 extras, this is core credit-
+        # math integrity (get_corg's silent Default fallback would otherwise
+        # mint a wrong number for an unknown species) — applies to EVERY
+        # methodology equally, so it is a direct assemble() param, never
+        # folded into extra_reasons (which CSI's gate set can exclude).
+        reasons.append("feedstock_not_in_positive_list")
     # C10: caller-supplied gate reasons (C1 biomass, C8 kiln/calibration, C9
     # methane/PAH) — already ordered by the caller; de-duplicated defensively.
     for r in extra_reasons or []:

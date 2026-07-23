@@ -32,11 +32,13 @@ from models import (
     YieldMetrics,
 )
 from lca_engine import (
+    CORG_TABLE,
     calculate_carbon_credit,
     params_from_json,
     sign_lca_audit,
     lca_sign_payload_bytes,
 )
+from services.feedstock import derive_feedstock_compliance
 from services.methodology import gate_set_for, resolve_methodology
 from corroboration import (
     assemble,
@@ -531,6 +533,15 @@ async def _recompute_batch_credit_impl(
     )
     c10_extras_enabled = "c10_extras" in gate_set_for(methodology)
 
+    # FM-0: unknown/misconfigured feedstock must never silently mint a
+    # credit at the wrong Corg value. Core check (applies to every
+    # methodology equally), so it's a direct assemble() param, not folded
+    # into c10_reasons/extra_reasons (which CSI's gate set can exclude).
+    _feedstock_ok, _feedstock_reason = derive_feedstock_compliance(
+        batch.feedstock_species,
+        lca_config.corg_table if lca_config is not None else CORG_TABLE,
+    )
+
     corr = assemble(
         wet_yield,
         min_temp,
@@ -545,6 +556,7 @@ async def _recompute_batch_credit_impl(
         composite_sample_ok=composite_sample_ok,
         delivery_ok=delivery_ok,
         buyer_ok=buyer_ok,
+        feedstock_ok=_feedstock_ok,
         extra_reasons=c10_reasons if c10_extras_enabled else [],
     )
 
