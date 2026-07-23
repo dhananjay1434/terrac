@@ -7,6 +7,11 @@ REM      DEVICE = phone id                  (run: flutter devices)  -- currently
 set LANIP=192.168.1.19
 set DEVICE=RZCY511HZBE
 set TOKEN=demo-eu-3
+REM FM-4: the app resolves its feedstock from THIS project at runtime. Must
+REM match a project seeded with allowed_feedstocks (seed_demo.py seeds
+REM 'demo-lantana-01'). Without it the Sourcing screen stalls on
+REM "Resolving feedstock...". Baked into the prebuilt APK too.
+set PROJECT_ID=demo-lantana-01
 set FLUTTER=C:\Users\bit\development\flutter\bin\flutter.bat
 
 cd /d "%~dp0.."
@@ -14,7 +19,7 @@ echo ============================================================
 echo   Running app on %DEVICE%  using backend http://%LANIP%:8000
 echo   (phone must be on the SAME Wi-Fi as this laptop)
 echo ============================================================
-"%FLUTTER%" run -d %DEVICE% --dart-define=DMRV_API_BASE_URL=http://%LANIP%:8000 --dart-define=ENROLLMENT_TOKEN=%TOKEN% --dart-define=DMRV_DEMO_MODE=true
+"%FLUTTER%" run -d %DEVICE% --dart-define=DMRV_API_BASE_URL=http://%LANIP%:8000 --dart-define=ENROLLMENT_TOKEN=%TOKEN% --dart-define=DMRV_PROJECT_ID=%PROJECT_ID% --dart-define=DMRV_DEMO_MODE=true
 
 echo.
 echo App stopped.
