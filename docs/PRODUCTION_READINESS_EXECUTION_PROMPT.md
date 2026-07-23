@@ -525,9 +525,14 @@ git log --all --oneline -- demo_tools/demo_secrets.bat   # expect EMPTY (never c
    TLS trust), and which gates to enable per environment.
 
 ### PR-8 DoD
-- [ ] Secret state re-verified; history-purge only if the re-check actually shows tracking
+- [x] Secret state re-verified; history-purge only if the re-check actually shows tracking
       (current state: clean — nothing to purge). No destructive action by the agent.
-- [ ] Deploy checklist committed.
+- [x] Deploy checklist committed.
+
+**DONE — 2026-07-23.** Re-ran all three verification commands — state
+unchanged (clean, nothing to purge). `docs/SECRET_ROTATION.md` +
+`docs/DEPLOY_CHECKLIST.md` committed. Docs-only; no code changed, no
+destructive action taken.
 
 **COMMIT:** `docs: secret-rotation + deploy checklist (destructive steps human-gated)`
 
