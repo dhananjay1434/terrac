@@ -209,10 +209,20 @@ table). Resolve the positive list **directly from `payload.registry_config_id`**
 6. **CHECKPOINT:** file green, then full backend suite green.
 
 ### DoD
-- [ ] Project stores `allowed_feedstocks` (JSON list) + `client_target`; migration additive + `downgrade`.
-- [ ] Registration rejects off-positive-list feedstock at the source (422), validated against the
+- [x] Project stores `allowed_feedstocks` (JSON list) + `client_target`; migration additive + `downgrade`.
+- [x] Registration rejects off-positive-list feedstock at the source (422), validated against the
       project's resolved `corg_table`.
-- [ ] Empty list still allowed (grandfather). Round-trips in `ProjectOut`.
+- [x] Empty list still allowed (grandfather). Round-trips in `ProjectOut`.
+
+**DONE — 2026-07-24.** `Project.allowed_feedstocks`/`client_target` (migration
+`653b964bf1c2`); `create_project` validates against the project's OWN
+resolved `corg_table` (custom-config test proves it's genuinely per-project,
+not the module default). Test file: `test_project_entity.py` (extended, 5
+new tests). Two mid-Part discoveries, both documented above and in the
+commit: (1) the intake validator had to be loosened (step 0, now done) —
+(2) that surfaced one real test casualty, `test_hardening.py`'s P0-12,
+rewritten to assert the new deliberate behavior. Backend-only; 738 passed
+(0 failed) before and after.
 
 **COMMIT:** `feat(backend): project-scoped allowed_feedstocks + client_target (positive-list validated)`
 
