@@ -82,8 +82,22 @@ export interface ProjectRow {
   name: string;
   registry_config_id: string | null;
   org_id: string | null;
+  allowed_feedstocks: string[];
+  client_target: number | null;
   status: string;
   created_at: string | null;
+}
+
+// FM-3: the feedstock dropdown's option source. corg_table is the
+// methodology's positive list; "Default" is a fallback marker, never a
+// real feedstock choice.
+export interface RegistryConfigRow {
+  config_id: string;
+  registry_name: string;
+  methodology_version: string;
+  params: { corg_table?: Record<string, number> };
+  fpic_template_set_id: string | null;
+  created_at: string;
 }
 
 export interface SourceParcel {
@@ -223,11 +237,21 @@ export function createProject(body: {
   name: string;
   registry_config_id?: string;
   org_id?: string;
+  allowed_feedstocks?: string[];
+  client_target?: number;
 }): Promise<ProjectRow> {
   return req("/api/v1/portal/projects", {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+// FM-3: populates the feedstock dropdown's options (the union of every
+// registry config's corg_table keys) — never a hardcoded species list.
+export function listRegistryConfigs(): Promise<{
+  registry_configs: RegistryConfigRow[];
+}> {
+  return req("/api/v1/portal/registry-configs");
 }
 
 export function listParcels(

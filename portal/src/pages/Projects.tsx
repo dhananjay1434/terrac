@@ -5,6 +5,7 @@ import {
   listProjects,
   createParcel,
   listParcels,
+  listRegistryConfigs,
   AuthError,
   ApiError,
   type ProjectRow,
@@ -37,6 +38,12 @@ export default function Projects() {
     null,
   );
   const [submitting, setSubmitting] = useState(false);
+
+  // FM-3: feedstock dropdown options (union of every registry config's
+  // corg_table keys, minus "Default") + selection + client-count input.
+  const [feedstockOptions, setFeedstockOptions] = useState<string[]>([]);
+  const [selectedFeedstock, setSelectedFeedstock] = useState("");
+  const [clientTarget, setClientTarget] = useState("");
 
   // Parcel form & list state (Part 1.5)
   const [parcels, setParcels] = useState<SourceParcel[]>([]);
@@ -90,6 +97,26 @@ export default function Projects() {
   }, []);
 
   useEffect(() => {
+    // FM-3: build the feedstock dropdown's options from real registry-config
+    // data — never a hardcoded species list. The backend (create_project)
+    // remains the validation authority; this union is just the picker's
+    // candidate set.
+    listRegistryConfigs()
+      .then((r) => {
+        const union = new Set<string>();
+        for (const cfg of r.registry_configs) {
+          for (const species of Object.keys(cfg.params?.corg_table ?? {})) {
+            if (species.toLowerCase() !== "default") union.add(species);
+          }
+        }
+        setFeedstockOptions(Array.from(union).sort());
+      })
+      .catch(() => {
+        /* leave feedstockOptions empty — the picker disables itself below */
+      });
+  }, []);
+
+  useEffect(() => {
     fetchParcels();
   }, [fetchParcels, parcelProjectId]);
 
@@ -132,10 +159,18 @@ export default function Projects() {
     setSubmitting(true);
     setFormMsg(null);
     try {
-      await createProject({ project_id: projectId.trim(), name: name.trim() });
+      const target = clientTarget.trim() ? parseInt(clientTarget.trim(), 10) : undefined;
+      await createProject({
+        project_id: projectId.trim(),
+        name: name.trim(),
+        allowed_feedstocks: selectedFeedstock ? [selectedFeedstock] : [],
+        client_target: target,
+      });
       setFormMsg({ text: "✓ Project created", ok: true });
       setProjectId("");
       setName("");
+      setSelectedFeedstock("");
+      setClientTarget("");
       setPrevStack([]);
       setCurrentBefore(null);
       setPageIndex(1);
@@ -145,6 +180,15 @@ export default function Projects() {
         nav("/login");
       } else if (e instanceof ApiError && e.status === 409) {
         setFormMsg({ text: "A project with that ID already exists", ok: false });
+      } else if (e instanceof ApiError && e.status === 422) {
+        let msg = "That feedstock is not on the registry's positive list.";
+        try {
+          const detail = JSON.parse(e.message);
+          if (detail?.error === "feedstock_not_in_positive_list") {
+            msg = `Not on the positive list: ${detail.unknown?.join(", ")}. Allowed: ${detail.allowed?.join(", ")}.`;
+          }
+        } catch (_) {}
+        setFormMsg({ text: msg, ok: false });
       } else {
         setFormMsg({ text: "Create failed — check values", ok: false });
       }
@@ -195,6 +239,16 @@ export default function Projects() {
   const columns: ColumnDef<ProjectRow>[] = [
     { key: "project_id", header: "Project ID", mono: true, render: (p) => p.project_id },
     { key: "name", header: "Name", render: (p) => p.name },
+    {
+      key: "feedstock",
+      header: "Feedstock",
+      render: (p) => (p.allowed_feedstocks.length > 0 ? p.allowed_feedstocks.join(", ") : "—"),
+    },
+    {
+      key: "clients",
+      header: "Clients",
+      render: (p) => (p.client_target != null ? String(p.client_target) : "—"),
+    },
     { key: "status", header: "Status", render: (p) => p.status },
     { key: "created", header: "Created", render: (p) => fmtDate(p.created_at) },
   ];
@@ -237,6 +291,44 @@ export default function Projects() {
               aria-label="Project name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label className="micro" htmlFor="project-feedstock-select">
+              Feedstock
+            </label>
+            <select
+              id="project-feedstock-select"
+              aria-label="Feedstock"
+              value={selectedFeedstock}
+              disabled={feedstockOptions.length === 0}
+              onChange={(e) => setSelectedFeedstock(e.target.value)}
+            >
+              <option value="">
+                {feedstockOptions.length === 0
+                  ? "-- Create a registry config first --"
+                  : "-- Select feedstock --"}
+              </option>
+              {feedstockOptions.map((species) => (
+                <option key={species} value={species}>
+                  {species}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label className="micro" htmlFor="project-client-target-input">
+              Client Target (Optional)
+            </label>
+            <input
+              id="project-client-target-input"
+              aria-label="Client Target"
+              type="number"
+              min={0}
+              step={1}
+              value={clientTarget}
+              placeholder="e.g. 25"
+              onChange={(e) => setClientTarget(e.target.value)}
             />
           </div>
           <button
