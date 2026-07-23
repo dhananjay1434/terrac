@@ -257,9 +257,18 @@ async def main() -> None:
                     ("batch_photo", (60, 110, 60)),
                     ("flame_curtain", (200, 90, 40)),
                     ("quenching", (60, 90, 160)),
+                    ("flame_height", (150, 80, 40)),
+                    ("post_burn_mass", (100, 100, 100)),
                 ]:
                     op = f"media-{ct}-{buid[:8]}"
-                    content = _dummy_jpeg(color)
+                    
+                    asset_path = os.path.join(os.path.dirname(__file__), "demo_assets", f"{ct}.jpg")
+                    if os.path.exists(asset_path):
+                        with open(asset_path, "rb") as f:
+                            content = f.read()
+                    else:
+                        content = _dummy_jpeg(color)
+                        
                     import hashlib
 
                     key = storage.write(op, "demo-device", content)
