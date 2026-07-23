@@ -232,11 +232,15 @@ by id equality. Do not pretend to. The honest, implementable MVP and its explici
 3. **CHECKPOINT:** backend suite green.
 
 ### PR-2 DoD
-- [ ] A batch cannot reach `issued` without a recorded sign-off by a `verifier`/`admin`
+- [x] A batch cannot reach `issued` without a recorded sign-off by a `verifier`/`admin`
       portal user (a human channel separate from the producing device).
-- [ ] Enforced at the gate, `verified_by_user_id` recorded immutably, reason-coded, unit-tested.
-- [ ] `TODO(identity)` filed: person-level anti-collusion needs a device↔operator-user map
+- [x] Enforced at the gate, `verified_by_user_id` recorded immutably, reason-coded, unit-tested.
+- [x] `TODO(identity)` filed: person-level anti-collusion needs a device↔operator-user map
       (its own Part) — NOT claimed as done here.
+
+**DONE — 2026-07-23.** `derive_independent_verification` in `corroboration.py`
+(pure, 6 tests) wired into `verify_issuance` alongside `require_role`.
+Backend-only; 681 passed / 0 failed before and after.
 
 **COMMIT:** `feat(backend): enforced 4-eyes independent verification before issuance`
 
