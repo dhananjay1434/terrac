@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass, field
-from typing import Dict, Mapping
+from typing import Dict, Mapping, Optional
 from types import MappingProxyType
 
 
@@ -69,6 +69,12 @@ class LcaParams:
     transport_threshold_km: float = TRANSPORT_THRESHOLD_KM
     ch4_compliant_kg_per_t: float = CH4_COMPLIANT_KG_PER_T
     ch4_non_compliant_kg_per_t: float = CH4_NON_COMPLIANT_KG_PER_T
+    # PR-3.1: the methodology's representative-sampling cadence, in kg of
+    # batch mass per required in-scope lab result. None (the default, and
+    # every existing config's implicit value) = cadence not configured =
+    # the sampling gate stays inert — the existing regression guarantee
+    # extends to this field exactly like the others above.
+    sampling_kg_per_lab_result: Optional[float] = None
 
 
 def params_from_json(params_json: str) -> LcaParams:
@@ -100,6 +106,9 @@ def params_from_json(params_json: str) -> LcaParams:
         ),
         ch4_non_compliant_kg_per_t=raw.get(
             "ch4_non_compliant_kg_per_t", defaults.ch4_non_compliant_kg_per_t
+        ),
+        sampling_kg_per_lab_result=raw.get(
+            "sampling_kg_per_lab_result", defaults.sampling_kg_per_lab_result
         ),
     )
 

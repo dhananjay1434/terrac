@@ -138,6 +138,32 @@ def derive_density_calibration_compliance(
     return True, None
 
 
+def derive_sampling_compliance(
+    batch_mass_kg: Optional[float],
+    in_scope_lab_result_count: int,
+    samples_required_per_rule: Optional[float],
+    *,
+    enforced: bool = COMPLIANCE_ENFORCED,
+) -> tuple[bool, Optional[str]]:
+    """PR-3.1 — the methodology's representative-sampling cadence:
+    `samples_required_per_rule` is kg of batch mass per required in-scope lab
+    result (sourced from RegistryConfig via LcaParams.sampling_kg_per_lab_
+    result — never invented here). None/<=0 means the cadence isn't
+    configured for this project, so the gate stays inert (grandfathered).
+    Likewise inert when batch_mass_kg is missing/non-positive (nothing to
+    evaluate the cadence against)."""
+    if not enforced:
+        return True, None
+    if samples_required_per_rule is None or samples_required_per_rule <= 0:
+        return True, None
+    if batch_mass_kg is None or batch_mass_kg <= 0:
+        return True, None
+    required = math.ceil(batch_mass_kg / samples_required_per_rule)
+    if in_scope_lab_result_count < required:
+        return False, "insufficient_lab_sampling"
+    return True, None
+
+
 def derive_independent_verification(
     verifier_role: Optional[str], verifier_user_id: Optional[int]
 ) -> tuple[bool, Optional[str]]:

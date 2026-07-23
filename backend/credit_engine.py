@@ -51,6 +51,7 @@ from corroboration import (
     derive_pah_compliance,
     derive_plausibility_reasons,
     derive_pyrolysis_photo_compliance,
+    derive_sampling_compliance,
     derive_scale_calibration_compliance,
     derive_transport_km,
     derive_wet_yield,
@@ -243,6 +244,14 @@ async def _recompute_batch_credit_impl(
 
     min_temp, _ = derive_min_temp(tel_payload)
     wet_yield, _ = derive_wet_yield(yld_payload)
+
+    # Moved up from just before assemble()/calculate_carbon_credit below so
+    # the C10 sampling-plan gate (PR-3.1) can use them; no other change in
+    # behavior, since both depend only on the function args + batch fields
+    # already available at this point.
+    effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
+    effective_corg = lab_corg if lab_corg is not None else batch.organic_carbon_pct
+    lca_config = await _resolve_lca_config(session, batch.project_id)
 
     # V8 Part 4 (F): resolve this batch's project-scoped bulk-density
     # calibration ONCE — reused below for both the volumetric yield fallback
@@ -447,6 +456,19 @@ async def _recompute_batch_credit_impl(
         # not itself grounds to withhold issuance.
         c10_reasons.append("wet_yield_density_derived")
 
+    # PR-3.1: representative-sampling cadence, config-driven (inert unless a
+    # project's RegistryConfig sets sampling_kg_per_lab_result — no invented
+    # number). in_scope_lab_result_count is this batch's own C7 lab result
+    # (1 if present, else 0) — the batch's already-persisted representative
+    # sample, not a cross-batch/facility count (no such linkage exists yet).
+    _samp_ok, _samp_reason = derive_sampling_compliance(
+        wet_yield,
+        1 if effective_lab is not None else 0,
+        lca_config.sampling_kg_per_lab_result if lca_config is not None else None,
+    )
+    if _samp_reason:
+        c10_reasons.append(_samp_reason)
+
     # C9 (T1.3): the batch's project must have a methane verification (>= 3
     # representative runs) for the batch's production year. Inert when the batch
     # has no project linkage. The verification row is reused by the PAH gate
@@ -494,9 +516,6 @@ async def _recompute_batch_credit_impl(
         )
     )
 
-    effective_lab = lab_h_corg if lab_h_corg is not None else batch.lab_h_corg
-    # C7: prefer a lab-measured organic-carbon fraction over the species constant.
-    effective_corg = lab_corg if lab_corg is not None else batch.organic_carbon_pct
     corr = assemble(
         wet_yield,
         min_temp,
@@ -520,7 +539,6 @@ async def _recompute_batch_credit_impl(
     if effective_corg is not None:
         kwargs["corg_override"] = effective_corg
 
-    lca_config = await _resolve_lca_config(session, batch.project_id)
     if lca_config is not None:
         kwargs["config"] = lca_config
 
