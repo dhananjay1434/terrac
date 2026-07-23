@@ -174,10 +174,22 @@ sed -n '1,40p' backend/services/dispatch_state.py   # mirror this pure-module sh
 2. **CHECKPOINT:** file green, then full `python -m pytest -q` green.
 
 ### PR-1 DoD
-- [ ] Credit is a serialized, issue-once, immutable-after-issued unit with a lifecycle.
-- [ ] Anti-double-issue enforced at the DB layer (unique batch_uuid) — concurrency test.
-- [ ] Pure state machine + serial are unit-tested with no DB; endpoints are thin.
-- [ ] Export traces serial → batch. Three suites green before + after. One commit.
+- [x] Credit is a serialized, issue-once, immutable-after-issued unit with a lifecycle.
+- [x] Anti-double-issue enforced at the DB layer (unique batch_uuid) — concurrency test.
+- [x] Pure state machine + serial are unit-tested with no DB; endpoints are thin.
+- [x] Export traces serial → batch. Three suites green before + after. One commit.
+
+**DONE — 2026-07-23.** `services/issuance_state.py` (pure, 30 tests) +
+`portal/issuance_routes.py` (new router, kept separate from the already-large
+portal/routes.py) + `CreditIssuance` model/migration (`c3b4875454a4`) +
+export wiring. **Correction vs the plan:** a pre-existing flat
+`POST /batches/{uuid}/issue` endpoint (P2.6) already flipped
+`Batch.status="ISSUED"` directly — not mentioned in this prompt. Left it
+working (existing tests depend on it) but the new `.../issuance/issue` path
+now also syncs `batch.status="ISSUED"` so the two don't disagree, with a
+comment marking the ledger as the authoritative path going forward and the
+old endpoint a deprecation candidate. Backend 675 passed / flutter 387
+passed / portal 151 passed, before and after.
 
 **COMMIT:** `feat(backend): credit issuance ledger — serialized, issue-once, traceable units`
 
