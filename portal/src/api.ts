@@ -70,11 +70,20 @@ export function verifyMedia(
   });
 }
 
+export interface BatchTelemetry {
+  temperature_readings: number[];
+  min_temp: number | null;
+  max_temp: number | null;
+  burn_start_timestamp: string | null;
+  burn_end_timestamp: string | null;
+}
+
 export interface BatchDetail {
   batch: BatchRow;
   compliance: Compliance;
   evidence_counts: Record<string, number>;
   media: MediaItem[];
+  telemetry: BatchTelemetry | null;
 }
 
 export interface ProjectRow {

@@ -1091,11 +1091,32 @@ async def batch_detail(
         for m in media_rows
     ]
 
+    tel_row = (
+        await session.execute(
+            select(PyrolysisTelemetry).where(PyrolysisTelemetry.batch_uuid == buid)
+        )
+    ).scalar_one_or_none()
+    telemetry = None
+    if tel_row is not None:
+        from jsonsafe import _safe_json_async
+
+        p = await _safe_json_async(tel_row.payload_json, context=f"telemetry {buid}")
+        if isinstance(p, dict):
+            readings = p.get("temperature_readings")
+            telemetry = {
+                "temperature_readings": readings if isinstance(readings, list) else [],
+                "min_temp": p.get("min_temp"),
+                "max_temp": p.get("max_temp"),
+                "burn_start_timestamp": p.get("burn_start_timestamp"),
+                "burn_end_timestamp": p.get("burn_end_timestamp"),
+            }
+
     return {
         "batch": _batch_row(batch),
         "compliance": compliance_view(batch),
         "evidence_counts": evidence,
         "media": media,
+        "telemetry": telemetry,
     }
 
 

@@ -55,6 +55,7 @@ function detail(over: Partial<Detail["compliance"]> = {}): Detail {
     },
     evidence_counts: { moisture_readings: 3 },
     media: [],
+    telemetry: null,
   };
 }
 

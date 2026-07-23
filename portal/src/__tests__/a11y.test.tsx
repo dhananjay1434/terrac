@@ -91,6 +91,7 @@ const DETAIL: Detail = {
       verification_remarks: null,
     },
   ],
+  telemetry: null,
 };
 
 const AXE_OPTS = {

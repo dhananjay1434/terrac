@@ -14,9 +14,11 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
+import json
+
 import server
 from db import get_session
-from models import Base, Batch, DeviceKey, MediaFile, PortalUser
+from models import Base, Batch, DeviceKey, MediaFile, PortalUser, PyrolysisTelemetry
 from portal.auth import hash_password
 from server import app
 
@@ -195,6 +197,73 @@ async def test_media_streams_bytes_with_auth(read_client):
             fpath.unlink()
         except OSError:
             pass
+
+
+async def test_batch_detail_returns_temperature_series(read_client):
+    ac, Session, auth = read_client
+    b = _mk_batch(1)
+    async with Session() as s:
+        s.add(b)
+        await s.commit()
+        bu = str(b.batch_uuid)
+        s.add(
+            PyrolysisTelemetry(
+                telemetry_uuid=str(_uuid.uuid4()),
+                batch_uuid=bu,
+                payload_json=json.dumps(
+                    {
+                        "temperature_readings": [600.0, 650.0, 700.0],
+                        "min_temp": 600.0,
+                        "max_temp": 700.0,
+                        "burn_start_timestamp": "2026-07-01T10:00:00Z",
+                        "burn_end_timestamp": "2026-07-01T12:00:00Z",
+                    }
+                ),
+            )
+        )
+        await s.commit()
+
+    detail = await ac.get(f"/api/v1/portal/batches/{bu}", headers=auth)
+    assert detail.status_code == 200
+    tel = detail.json()["telemetry"]
+    assert tel["temperature_readings"] == [600.0, 650.0, 700.0]
+    assert tel["min_temp"] == 600.0
+    assert tel["max_temp"] == 700.0
+
+
+async def test_batch_detail_telemetry_null_when_absent(read_client):
+    ac, Session, auth = read_client
+    b = _mk_batch(2)
+    async with Session() as s:
+        s.add(b)
+        await s.commit()
+        bu = str(b.batch_uuid)
+
+    detail = await ac.get(f"/api/v1/portal/batches/{bu}", headers=auth)
+    assert detail.status_code == 200
+    assert detail.json()["telemetry"] is None
+
+
+async def test_batch_detail_telemetry_corrupt_payload_degrades_gracefully(read_client):
+    ac, Session, auth = read_client
+    b = _mk_batch(3)
+    async with Session() as s:
+        s.add(b)
+        await s.commit()
+        bu = str(b.batch_uuid)
+        s.add(
+            PyrolysisTelemetry(
+                telemetry_uuid=str(_uuid.uuid4()),
+                batch_uuid=bu,
+                payload_json="{not valid json",
+            )
+        )
+        await s.commit()
+
+    detail = await ac.get(f"/api/v1/portal/batches/{bu}", headers=auth)
+    assert detail.status_code == 200
+    tel = detail.json()["telemetry"]
+    assert tel is None or tel["temperature_readings"] == []
 
 
 async def test_media_content_type_video(read_client):
