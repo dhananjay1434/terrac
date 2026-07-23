@@ -11,7 +11,14 @@ from typing import Any, Dict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Batch, MoistureReading, CompositePileSample, TransportEvent, MediaFile
+from models import (
+    Batch,
+    CreditIssuance,
+    MoistureReading,
+    CompositePileSample,
+    TransportEvent,
+    MediaFile,
+)
 from jsonsafe import _safe_json
 from settings import log
 
@@ -48,6 +55,29 @@ async def export_batch_common(batch: Batch, session: AsyncSession) -> Dict[str, 
             select(MediaFile).where(MediaFile.batch_uuid == batch.batch_uuid)
         )
     ).scalars().all()
+
+    # PR-1: trace the export to its ledger serial when one exists — a batch
+    # can be exported (non-provisional + signed) before it has an issuance
+    # record, so this is optional/absent, not required.
+    issuance_row = (
+        await session.execute(
+            select(CreditIssuance).where(CreditIssuance.batch_uuid == batch.batch_uuid)
+        )
+    ).scalar_one_or_none()
+    issuance = (
+        {
+            "serial": issuance_row.serial,
+            "vintage": issuance_row.vintage,
+            "status": issuance_row.status,
+            "t_co2e_frozen": issuance_row.t_co2e_frozen,
+            "issued_at": issuance_row.issued_at.isoformat()
+            if issuance_row.issued_at
+            else None,
+            "registry_submission_ref": issuance_row.registry_submission_ref,
+        }
+        if issuance_row is not None
+        else None
+    )
 
     return {
         "batch_uuid": str(batch.batch_uuid),
@@ -92,6 +122,7 @@ async def export_batch_common(batch: Batch, session: AsyncSession) -> Dict[str, 
         },
         "status": batch.status,
         "provisional": batch.provisional,
+        "issuance": issuance,
         # Stamped in the route so tests can assert equality deterministically.
         "exported_at": None,
     }

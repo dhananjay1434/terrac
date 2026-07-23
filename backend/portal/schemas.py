@@ -255,3 +255,29 @@ class FarmerListResponse(BaseModel):
     total: int
     page: int
     size: int
+
+
+class IssuanceRetireInput(BaseModel):
+    """PR-1 — optional registry-submission reference recorded at retire."""
+
+    model_config = ConfigDict(extra="forbid")
+    registry_submission_ref: Optional[str] = Field(None, max_length=255)
+
+
+class IssuanceOut(BaseModel):
+    issuance_uuid: str
+    batch_uuid: str
+    serial: Optional[str] = None
+    vintage: Optional[int] = None
+    t_co2e_frozen: Optional[float] = None
+    methodology_version: Optional[str] = None
+    status: str
+    verified_by_user_id: Optional[int] = None
+    issued_at: Optional[str] = None
+    registry_submission_ref: Optional[str] = None
+    created_at: str
+
+
+class IssuanceListResponse(BaseModel):
+    issuances: list[IssuanceOut]
+    next_cursor: Optional[str] = None

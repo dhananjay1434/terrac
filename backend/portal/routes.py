@@ -1422,6 +1422,13 @@ async def portal_annual_verification(
 
 @router.post("/batches/{batch_uuid}/issue")
 async def issue_credit(
+    # PR-1: this flat, no-serial/no-lifecycle path predates the
+    # CreditIssuance ledger (portal/issuance_routes.py's
+    # `/batches/{batch_uuid}/issuance/issue`) and lacks its serial number,
+    # vintage, and enforced independent-verification precondition. Left
+    # working as-is (existing callers/tests depend on it) but the ledger
+    # path is the authoritative one going forward; this endpoint is a
+    # deprecation candidate once callers migrate.
     batch_uuid: str,
     user: PortalUser = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_session),

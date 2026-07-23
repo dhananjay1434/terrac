@@ -924,3 +924,40 @@ class FarmerConsent(Base):
     holding_photo_media_id: Mapped[str] = mapped_column(String(64), nullable=True)
     signed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     exclusivity_ack: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class CreditIssuance(Base):
+    """PR-1 — credit issuance ledger. A registry credit as a serialized,
+    issue-exactly-once unit traceable to one physical batch, with a lifecycle
+    (services/issuance_state.py) that is immutable once 'issued'.
+
+    Unlike media/offline-first tables, issuance is a PORTAL action taken on an
+    already-synced, signed, non-provisional batch — so batch_uuid is a real FK
+    (the offline-first no-FK rationale used elsewhere does not apply here).
+    """
+
+    __tablename__ = "credit_issuances"
+    __table_args__ = (
+        UniqueConstraint("batch_uuid", name="uq_credit_issuances_batch_uuid"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    issuance_uuid: Mapped[str] = mapped_column(
+        String(36), unique=True, nullable=False, index=True
+    )
+    batch_uuid: Mapped[str] = mapped_column(
+        String(36), ForeignKey("batches.batch_uuid"), nullable=False, index=True
+    )
+    serial: Mapped[str] = mapped_column(String(128), unique=True, nullable=True)
+    vintage: Mapped[int] = mapped_column(Integer, nullable=True)
+    t_co2e_frozen: Mapped[float] = mapped_column(Float, nullable=True)
+    methodology_version: Mapped[str] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    verified_by_user_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    registry_submission_ref: Mapped[str] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
