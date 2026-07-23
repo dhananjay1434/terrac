@@ -480,7 +480,15 @@ Do NOT flip defaults blindly. Make the ON-path tested + documented for staged ro
 3. **CHECKPOINT:** app suite green.
 
 ### PR-7 DoD
-- [ ] ON-path tested; rollout documented; defaults stay OFF until field-calibrated (honest).
+- [x] ON-path tested; rollout documented; defaults stay OFF until field-calibrated (honest).
+
+**DONE — 2026-07-23.** Extracted `shouldRejectForBlur`/`geofenceWarningFor`
+(pure, `enforced` as an explicit param) from `secure_capture_service.dart`'s
+capture() pipeline so the ON-path — previously unexercised by any test,
+since the dart-define consts are compile-time — is proven correct (7 new
+tests). `docs/CAPTURE_GATE_ROLLOUT.md`: calibration procedure + OFF→canary→
+full rollout order + exact dart-defines. No default flipped, no threshold
+invented. App-only; flutter suite 398 passed, 0 failed.
 
 **COMMIT:** `test+docs: capture-integrity gate on-path coverage + rollout runbook`
 
