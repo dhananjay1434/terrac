@@ -27,6 +27,13 @@ boto3==1.35.99
 # are imported defensively in observability.py so their absence never bricks boot.
 prometheus-client==0.21.1
 sentry-sdk[fastapi]==2.20.0
-# Part 1.1 — source-parcel boundary geometry validation, area computation, and overlap checks
+# Part 1.1 — source-parcel boundary geometry validation, area computation, and overlap checks.
+# numpy is an unpinned TRANSITIVE dep of shapely+pyproj; both these versions ship
+# wheels compiled against the NumPy 1.x C-ABI. A fresh install otherwise resolves
+# numpy 2.x, whose ABI break ("numpy.core.multiarray failed to import" /
+# "_ARRAY_API not found") crashes shapely at import → server won't boot. Pin
+# numpy<2 to match the shapely/pyproj build ABI. (Alternative: bump shapely>=2.0.4
+# + a numpy-2 pyproj — deferred; this is the minimal, lowest-risk fix.)
+numpy==1.26.4
 shapely==2.0.2
 pyproj==3.6.1
