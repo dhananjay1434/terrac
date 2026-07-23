@@ -41,6 +41,42 @@ void main() {
     // Volume field and submit button are not shown before connecting.
     expect(find.bySemanticsIdentifier('density-volume-input'), findsNothing);
   });
+
+  testWidgets(
+    'PR-6.2 — submit is disabled until the calibration video is captured',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            yieldScaleProvider.overrideWith(
+              (ref) => _MockYieldScaleNotifier(
+                const YieldScaleState(stableKg: 12.5),
+              ),
+            ),
+          ],
+          child: const MaterialApp(home: DensityCalibrationScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('CONNECT WEIGHT SCALE'));
+      await tester.pumpAndSettle();
+
+      // Stabilized state shows the video and submit buttons.
+      expect(
+        find.bySemanticsIdentifier('density-video-capture-btn'),
+        findsOneWidget,
+      );
+      final submitFinder = find.bySemanticsIdentifier('density-submit-btn');
+      expect(submitFinder, findsOneWidget);
+
+      // Video capture needs a real camera (same documented
+      // CameraController-testing limitation as elsewhere) — without one,
+      // tapping submit must be a no-op: no result renders.
+      await tester.tap(submitFinder, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsIdentifier('density-result'), findsNothing);
+    },
+  );
 }
 
 class _MockYieldScaleNotifier extends YieldScaleNotifier {

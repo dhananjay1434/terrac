@@ -106,6 +106,32 @@ async def _create_day_start_audit(
     assert resp.status_code == 201, resp.text
 
 
+async def _create_density_test(
+    client, test_uuid: str, device_id: str = DEVICE, project_id: str = "proj-density-r6"
+):
+    from tests.remediation.crypto_utils import sign_request
+
+    payload = {
+        "test_uuid": test_uuid,
+        "project_id": project_id,
+        "mass_kg": 50.0,
+        "volume_l": 200.0,
+    }
+    op_id = f"density-create-{test_uuid}"
+    resp = await client.post(
+        "/api/v1/density-tests",
+        content=json.dumps(payload).encode("utf-8"),
+        headers={
+            "X-Idempotency-Key": op_id,
+            "X-Device-Id": device_id,
+            "X-Signature": sign_request(
+                device_id, "", "POST", "/api/v1/density-tests", op_id, payload
+            ),
+        },
+    )
+    assert resp.status_code == 201, resp.text
+
+
 async def _create_dispatch(client, dispatch_uuid: str, device_id: str = DEVICE):
     from tests.remediation.crypto_utils import sign_request
 
@@ -192,6 +218,42 @@ async def test_foreign_device_day_start_audit_upload_403(client):
     resp = await client.post("/api/v1/media", files=files, headers=headers)
     assert resp.status_code == 403
     assert resp.json()["detail"] == "not_your_day_start_audit"
+
+
+async def test_density_test_media_upload_happy_path(client):
+    test_uuid = str(uuid.uuid4())
+    await _create_density_test(client, test_uuid)
+    content = b"density-video-bytes"
+    sha = _sha256_hex(content)
+    headers = _media_headers_v2(
+        device_id=DEVICE,
+        op_id="dens-media-op-1",
+        declared_sha256=sha,
+        subject_type="density_test",
+        subject_uuid=test_uuid,
+    )
+    files = {"file": ("density.mp4", io.BytesIO(content), "video/mp4")}
+    resp = await client.post("/api/v1/media", files=files, headers=headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["server_sha256"] == sha
+
+
+async def test_foreign_device_density_test_upload_403(client):
+    test_uuid = str(uuid.uuid4())
+    await _create_density_test(client, test_uuid, device_id=DEVICE)
+    content = b"someone-elses-density-video"
+    sha = _sha256_hex(content)
+    headers = _media_headers_v2(
+        device_id=OTHER_DEVICE,
+        op_id="foreign-dens-media-op-1",
+        declared_sha256=sha,
+        subject_type="density_test",
+        subject_uuid=test_uuid,
+    )
+    files = {"file": ("x.mp4", io.BytesIO(content), "video/mp4")}
+    resp = await client.post("/api/v1/media", files=files, headers=headers)
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "not_your_density_test"
 
 
 async def test_batch_media_backcompat_unchanged(client):

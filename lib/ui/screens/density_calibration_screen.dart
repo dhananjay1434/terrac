@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../data/capture_types.dart';
+import '../../data/local/database_provider.dart';
+import '../../data/local/pyrolysis_writer.dart';
 import '../../providers/yield_scale_notifier.dart';
 import '../../services/ble_permission_gate.dart';
 import '../../services/density_service.dart';
+import '../../services/secure_capture_service.dart';
 import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
 import '../design/tokens.dart';
+import 'secure_camera_screen.dart';
 
 /// Deferred R3 — bulk-density calibration capture (feeds Part 4 F's
 /// volume→mass yield fallback with a REAL captured density instead of
@@ -29,10 +34,17 @@ class _DensityCalibrationScreenState
     extends ConsumerState<DensityCalibrationScreen> {
   static const _projectId = String.fromEnvironment('DMRV_PROJECT_ID');
 
+  // PR-6.2 — generated up front (not at submit time) so the SAME test_uuid
+  // scopes both the required calibration video and the submitted density
+  // test record — the video's subject_uuid IS this test's identity.
+  final String _testUuid = const Uuid().v4();
+
   final _volume = TextEditingController();
   bool _permRequested = false;
   String? _permError;
   bool _submitting = false;
+  bool _capturingVideo = false;
+  String? _videoMediaId;
   DensityTestResult? _result;
 
   @override
@@ -54,6 +66,38 @@ class _DensityCalibrationScreenState
 
   double? get _volumeL => double.tryParse(_volume.text.trim());
 
+  /// PR-6.2 — a video of the weighing is required (mirrors the incumbent:
+  /// numbers alone are more spoofable than a video of the act). Uses
+  /// [_testUuid] as the media subject so it's tied to this exact submission.
+  Future<void> _captureCalibrationVideo() async {
+    if (_capturingVideo) return;
+    setState(() => _capturingVideo = true);
+    try {
+      final result = await Navigator.of(
+        context,
+      ).push<SecureVideoCaptureResult>(
+        MaterialPageRoute<SecureVideoCaptureResult>(
+          builder: (_) =>
+              const SecureCameraScreen(captureMode: SecureCaptureMode.video),
+        ),
+      );
+      if (result == null || !mounted) return;
+      final db = await ref.read(appDatabaseProvider.future);
+      final mediaId = await db.insertEntityMediaWithOutbox(
+        subjectType: 'density_test',
+        subjectUuid: _testUuid,
+        captureType: CaptureType.densityVideo,
+        sandboxPath: result.sandboxPath,
+        sha256Hash: result.sha256Hash,
+        isMockLocation: result.isMocked,
+      );
+      if (!mounted) return;
+      setState(() => _videoMediaId = mediaId);
+    } finally {
+      if (mounted) setState(() => _capturingVideo = false);
+    }
+  }
+
   Future<void> _submit(double massKg) async {
     final volumeL = _volumeL;
     if (volumeL == null || volumeL <= 0) {
@@ -74,10 +118,18 @@ class _DensityCalibrationScreenState
       );
       return;
     }
+    if (_videoMediaId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Record the calibration video before submitting.'),
+        ),
+      );
+      return;
+    }
     setState(() => _submitting = true);
     try {
       final result = await DensityService.submitDensityTest(
-        testUuid: const Uuid().v4(),
+        testUuid: _testUuid,
         projectId: _projectId,
         massKg: massKg,
         volumeL: volumeL,
@@ -159,10 +211,25 @@ class _DensityCalibrationScreenState
                       _densityPreview(t, s.stableKg!),
                       SizedBox(height: t.gapL),
                       DmrvButton(
+                        label: _videoMediaId != null
+                            ? '✓ CALIBRATION VIDEO RECORDED'
+                            : 'RECORD CALIBRATION VIDEO (REQUIRED)',
+                        testId: 'density-video-capture-btn',
+                        icon: _videoMediaId != null
+                            ? Icons.check_circle
+                            : Icons.videocam,
+                        variant: _videoMediaId != null
+                            ? DmrvButtonVariant.success
+                            : DmrvButtonVariant.neutral,
+                        onPressed:
+                            _capturingVideo ? null : _captureCalibrationVideo,
+                      ),
+                      SizedBox(height: t.gapL),
+                      DmrvButton(
                         label: _submitting ? 'SUBMITTING…' : 'SUBMIT DENSITY TEST',
                         testId: 'density-submit-btn',
                         variant: DmrvButtonVariant.primary,
-                        onPressed: _submitting
+                        onPressed: (_submitting || _videoMediaId == null)
                             ? null
                             : () => _submit(s.stableKg!),
                       ),

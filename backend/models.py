@@ -791,6 +791,11 @@ class BulkDensityTest(Base):
     mass_kg: Mapped[float] = mapped_column(Float, nullable=True)
     volume_l: Mapped[float] = mapped_column(Float, nullable=True)
     valid_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    # PR-6.2 prerequisite: NULL for legacy rows (grandfather) and for rows
+    # created via the admin/portal channel; set by the device-signed create
+    # endpoint (routers/density.py) so density_video media can be
+    # ownership-checked (mirrors Dispatch.device_id).
+    device_id: Mapped[str] = mapped_column(String(255), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

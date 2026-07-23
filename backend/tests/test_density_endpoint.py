@@ -20,6 +20,7 @@ from tests.remediation.crypto_utils import sign_request
 pytestmark = pytest.mark.asyncio
 
 DEVICE = "test-device-reg"
+OTHER_DEVICE = "test-device-1"
 
 
 def _signed_headers(device_id: str, path: str, op: str, payload: dict) -> dict:
@@ -72,6 +73,20 @@ async def test_server_computes_density_from_mass_and_volume(client, session_fact
         # Deferred R3 scope: no explicit expiry UX yet — always NULL, which
         # the C10 gate already treats as fail-closed (not in-date).
         assert row.valid_until is None
+        # PR-6.2 prerequisite: device_id is now persisted so density_video
+        # media can be ownership-checked.
+        assert row.device_id == DEVICE
+
+
+async def test_foreign_device_reposting_same_test_uuid_is_403(client):
+    tu = str(uuid.uuid4())
+    r1 = await _post(client, DEVICE, "/api/v1/density-tests", "dens-owner-1", _payload(tu))
+    assert r1.status_code == 201
+
+    r2 = await _post(
+        client, OTHER_DEVICE, "/api/v1/density-tests", "dens-owner-2", _payload(tu)
+    )
+    assert r2.status_code == 403
 
 
 async def test_client_supplied_density_is_ignored_if_present(client):

@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
-from models import Batch, DayStartAudit, Dispatch, Farmer
+from models import Batch, BulkDensityTest, DayStartAudit, Dispatch, Farmer
 from credit_engine import recompute_batch_credit
 
 async def _assert_batch_ownership(
@@ -120,6 +120,33 @@ async def _assert_day_start_ownership(
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="not_your_day_start_audit"
+        )
+
+
+async def _assert_density_test_ownership(
+    session: AsyncSession, test_uuid_str: str, device_id: str
+) -> None:
+    """PR-6.2 — reject media targeting a density test owned by a DIFFERENT
+    device. `BulkDensityTest.device_id` is populated at creation for
+    device-signed submissions (routers/density.py) but NULL for legacy/
+    admin-created rows — mirrors `_assert_dispatch_ownership`'s "populated
+    means check it, absent means inert" pattern exactly."""
+    try:
+        tuid = str(uuid.UUID(test_uuid_str))
+    except (ValueError, AttributeError, TypeError):
+        return
+    test = (
+        await session.execute(
+            select(BulkDensityTest).where(BulkDensityTest.test_uuid == tuid)
+        )
+    ).scalar_one_or_none()
+    if (
+        test is not None
+        and test.device_id is not None
+        and test.device_id != device_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="not_your_density_test"
         )
 
 

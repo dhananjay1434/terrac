@@ -38,12 +38,17 @@ bool canEndBurn({
   required Set<String> capturedStages,
   required double? flameHeightM,
   required String? ignitionEnergyType,
+  required bool quenchVideoCaptured,
 }) {
   if (ending) return false;
-  
+
   if (isOpenKiln) {
     if (!kOpenFlameStages.every(capturedStages.contains)) return false;
     if (flameHeightM == null) return false;
+    // PR-6.1: quench is permanence-critical — the video (previously
+    // optional, additive-only evidence) now gates for open kilns, which
+    // are the only kiln type with a quench stage at all.
+    if (!quenchVideoCaptured) return false;
   } else {
     if (!kSmokeStages.every(capturedStages.contains)) return false;
     if (ignitionEnergyType == null || ignitionEnergyType.trim().isEmpty) {
@@ -207,9 +212,10 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
   bool _isCapturingQuenchVideo = false;
   bool _quenchVideoCaptured = false;
 
-  /// V8 Part 4 (O) — optional short video of the quench (in addition to,
-  /// never instead of, the required `quenching` still — this does not touch
-  /// `canEndBurn`'s gating set).
+  /// V8 Part 4 (O) introduced this as optional additive evidence; PR-6.1
+  /// makes it REQUIRED (gates `canEndBurn`) for open kilns — quench is the
+  /// permanence-critical moment, in addition to (never instead of) the
+  /// required `quenching` still.
   Future<void> _captureQuenchVideo() async {
     if (_isCapturingQuenchVideo) return;
     setState(() => _isCapturingQuenchVideo = true);
@@ -480,6 +486,7 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                               _flameHeightCtrl.text.trim(),
                             ),
                             ignitionEnergyType: _ignitionType,
+                            quenchVideoCaptured: _quenchVideoCaptured,
                           )
                           ? _endBurn
                           : null,
@@ -533,12 +540,13 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
               captured,
             ),
             SizedBox(height: t.gapS),
-            // V8 Part 4 (O) — optional quench video, additive evidence only;
-            // does not gate `canEndBurn`.
+            // PR-6.1 — quench video is now REQUIRED for open kilns (gates
+            // `canEndBurn`); quench is the permanence-critical moment, so a
+            // video is stronger evidence than the still photo alone.
             DmrvButton(
               label: _quenchVideoCaptured
                   ? '✓ QUENCH VIDEO RECORDED'
-                  : '+ RECORD QUENCH VIDEO (OPTIONAL)',
+                  : '+ RECORD QUENCH VIDEO (REQUIRED)',
               testId: 'capture-quenching-video-btn',
               icon: _quenchVideoCaptured ? Icons.check_circle : Icons.videocam,
               variant: _quenchVideoCaptured

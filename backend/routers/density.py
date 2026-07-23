@@ -48,6 +48,8 @@ async def submit_density_test(
         )
     ).scalar_one_or_none()
     if existing is not None:
+        if existing.device_id is not None and existing.device_id != device_id:
+            raise HTTPException(status_code=403, detail="not_your_density_test")
         # Idempotent re-POST of the same test_uuid: a no-op, not a second row
         # (the outbox/direct-call retry contract every entity endpoint here
         # follows). Return the already-stored, server-computed density.
@@ -74,6 +76,7 @@ async def submit_density_test(
         performed_at=performed_at or datetime.now(timezone.utc),
         mass_kg=payload.mass_kg,
         volume_l=payload.volume_l,
+        device_id=device_id,
         # Deferred R3 scope: no field-capture UX yet for setting an explicit
         # calibration expiry — valid_until stays NULL (the production_
         # requires_valid_density gate treats NULL as "not in date", the same
