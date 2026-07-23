@@ -195,3 +195,97 @@ async def test_media_streams_bytes_with_auth(read_client):
             fpath.unlink()
         except OSError:
             pass
+
+
+async def test_media_content_type_video(read_client):
+    ac, Session, auth = read_client
+    op = "op-media-video-1"
+    upload_root = server.UPLOAD_DIR / "dev-A"
+    upload_root.mkdir(parents=True, exist_ok=True)
+    fpath = upload_root / f"{op}.bin"
+    fpath.write_bytes(b"FAKEVIDEOBYTES")
+    bu = str(_uuid.uuid4())
+    try:
+        async with Session() as s:
+            s.add(
+                MediaFile(
+                    batch_uuid=bu,
+                    operation_id=op,
+                    file_path=str(fpath),
+                    sha256_hash="a" * 64,
+                    filename="quenching.mp4",
+                )
+            )
+            await s.commit()
+
+        r = await ac.get(f"/api/v1/portal/media/{op}", headers=auth)
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "video/mp4"
+    finally:
+        try:
+            fpath.unlink()
+        except OSError:
+            pass
+
+
+async def test_media_content_type_video_by_capture_type(read_client):
+    ac, Session, auth = read_client
+    op = "op-media-video-2"
+    upload_root = server.UPLOAD_DIR / "dev-A"
+    upload_root.mkdir(parents=True, exist_ok=True)
+    fpath = upload_root / f"{op}.bin"
+    fpath.write_bytes(b"FAKEVIDEOBYTES")
+    bu = str(_uuid.uuid4())
+    try:
+        async with Session() as s:
+            s.add(
+                MediaFile(
+                    batch_uuid=bu,
+                    operation_id=op,
+                    file_path=str(fpath),
+                    sha256_hash="a" * 64,
+                    filename=None,
+                    capture_type="quenching_video",
+                )
+            )
+            await s.commit()
+
+        r = await ac.get(f"/api/v1/portal/media/{op}", headers=auth)
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "video/mp4"
+    finally:
+        try:
+            fpath.unlink()
+        except OSError:
+            pass
+
+
+async def test_media_content_type_photo(read_client):
+    ac, Session, auth = read_client
+    op = "op-media-photo-1"
+    upload_root = server.UPLOAD_DIR / "dev-A"
+    upload_root.mkdir(parents=True, exist_ok=True)
+    fpath = upload_root / f"{op}.bin"
+    fpath.write_bytes(b"FAKEJPEGBYTES")
+    bu = str(_uuid.uuid4())
+    try:
+        async with Session() as s:
+            s.add(
+                MediaFile(
+                    batch_uuid=bu,
+                    operation_id=op,
+                    file_path=str(fpath),
+                    sha256_hash="a" * 64,
+                    filename="batch_photo.jpg",
+                )
+            )
+            await s.commit()
+
+        r = await ac.get(f"/api/v1/portal/media/{op}", headers=auth)
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "image/jpeg"
+    finally:
+        try:
+            fpath.unlink()
+        except OSError:
+            pass

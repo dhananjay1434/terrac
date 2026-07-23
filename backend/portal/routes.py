@@ -1192,9 +1192,19 @@ async def get_media(
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="media_missing")
     filename = row.filename or f"{operation_id}.bin"
+    lower_name = (row.filename or "").lower()
+    is_video = lower_name.endswith((".mp4", ".mov", ".webm")) or (
+        row.capture_type or ""
+    ).endswith("_video")
+    if is_video:
+        media_type = "video/mp4"
+    elif lower_name.endswith((".jpg", ".jpeg")):
+        media_type = "image/jpeg"
+    else:
+        media_type = "application/octet-stream"
     return StreamingResponse(
         stream,
-        media_type="application/octet-stream",
+        media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
