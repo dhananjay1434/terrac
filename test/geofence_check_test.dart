@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dmrv_app/services/geofence_check.dart';
+import 'package:dmrv_app/services/secure_capture_service.dart' show geofenceWarningFor;
 
 /// V8 Part 4 (E) — on-device geofence-warning pure math. A 1km x 1km square
 /// roughly centered near the equator (where 1 degree ~= 111.32km) so meter
@@ -53,6 +54,65 @@ void main() {
     test('bufferMeters <= 0 disables the buffer (exact containment only)', () {
       expect(
         isPointNearPolygon(0.00905, 0.0045, square, bufferMeters: 0),
+        isFalse,
+      );
+    });
+  });
+
+  // PR-7 — the geofence ON-path. kGeofenceCaptureEnforced is a compile-time
+  // dart-define const defaulting false, so the actual capture() wiring
+  // can't be exercised at test-run time; geofenceWarningFor takes
+  // `enforced` explicitly so the ON decision is provably correct even
+  // though it ships OFF today. isPointNearPolygon itself is covered above.
+  group('geofenceWarningFor — ON path (PR-7)', () {
+    test('warns when enforced, ring supplied, and point is far outside', () {
+      expect(
+        geofenceWarningFor(
+          enforced: true,
+          parcelBoundaryRing: square,
+          longitude: 0.05,
+          latitude: 0.0045,
+          bufferMeters: 10.0,
+        ),
+        isTrue,
+      );
+    });
+
+    test('does not warn when enforced but the point is inside', () {
+      expect(
+        geofenceWarningFor(
+          enforced: true,
+          parcelBoundaryRing: square,
+          longitude: 0.0045,
+          latitude: 0.0045,
+          bufferMeters: 10.0,
+        ),
+        isFalse,
+      );
+    });
+
+    test('never warns when unenforced, even far outside', () {
+      expect(
+        geofenceWarningFor(
+          enforced: false,
+          parcelBoundaryRing: square,
+          longitude: 0.05,
+          latitude: 0.0045,
+          bufferMeters: 10.0,
+        ),
+        isFalse,
+      );
+    });
+
+    test('never warns when no ring is supplied, even when enforced', () {
+      expect(
+        geofenceWarningFor(
+          enforced: true,
+          parcelBoundaryRing: null,
+          longitude: 0.05,
+          latitude: 0.0045,
+          bufferMeters: 10.0,
+        ),
         isFalse,
       );
     });

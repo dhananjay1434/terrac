@@ -187,6 +187,39 @@ const bool kGeofenceCaptureEnforced = bool.fromEnvironment(
   defaultValue: false,
 );
 
+/// PR-7 — the blur-gate DECISION, extracted pure so the ON-path (which the
+/// dart-define consts above can't exercise in a normal `flutter test` run —
+/// they're compile-time and default false) is unit-testable by passing
+/// `enforced` explicitly. `capture()` below calls this with the real
+/// [kBlurGateEnforced] const; tests call it with `enforced: true`.
+bool shouldRejectForBlur({
+  required bool enforced,
+  required double variance,
+  required double threshold,
+}) {
+  return enforced && variance < threshold;
+}
+
+/// PR-7 — the geofence-warning DECISION, extracted pure for the same reason
+/// as [shouldRejectForBlur]. `isPointNearPolygon` itself is already
+/// thoroughly tested (geofence_check_test.dart); this covers the
+/// enforcement + "ring supplied at all" wiring around it.
+bool geofenceWarningFor({
+  required bool enforced,
+  required List<List<double>>? parcelBoundaryRing,
+  required double longitude,
+  required double latitude,
+  required double bufferMeters,
+}) {
+  if (!enforced || parcelBoundaryRing == null) return false;
+  return !isPointNearPolygon(
+    longitude,
+    latitude,
+    parcelBoundaryRing,
+    bufferMeters: bufferMeters,
+  );
+}
+
 class SecureCaptureService {
   SecureCaptureService(this._locationService);
   final ILocationService _locationService;
@@ -295,7 +328,11 @@ class SecureCaptureService {
     final encoded = reencoded.jpegBytes;
     final blurVariance = reencoded.blurVariance;
 
-    if (kBlurGateEnforced && blurVariance < kBlurVarianceThreshold) {
+    if (shouldRejectForBlur(
+      enforced: kBlurGateEnforced,
+      variance: blurVariance,
+      threshold: kBlurVarianceThreshold,
+    )) {
       // Reject BEFORE anything is written to the sandbox — no orphan file,
       // no wasted GPS fix. The plugin's own temp copy is cleaned up below
       // exactly like the size-cap rejection path.
@@ -366,15 +403,13 @@ class SecureCaptureService {
     final telemetry = await _getDeviceOrientationSnapshot();
 
     // V8 Part 4 (E) — geofence-to-parcel warning (non-blocking; see doc).
-    var geofenceWarning = false;
-    if (kGeofenceCaptureEnforced && parcelBoundaryRing != null) {
-      geofenceWarning = !isPointNearPolygon(
-        pos.longitude,
-        pos.latitude,
-        parcelBoundaryRing,
-        bufferMeters: kGeofenceBufferMeters,
-      );
-    }
+    final geofenceWarning = geofenceWarningFor(
+      enforced: kGeofenceCaptureEnforced,
+      parcelBoundaryRing: parcelBoundaryRing,
+      longitude: pos.longitude,
+      latitude: pos.latitude,
+      bufferMeters: kGeofenceBufferMeters,
+    );
 
     return SecureCaptureResult(
       sandboxPath: sandboxPath,

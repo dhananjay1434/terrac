@@ -36,4 +36,35 @@ void main() {
       );
     });
   });
+
+  // PR-7 — the blur-gate ON-path. kBlurGateEnforced is a compile-time
+  // dart-define const defaulting false, so it can't be flipped at test-run
+  // time; shouldRejectForBlur takes `enforced` explicitly so the ON
+  // decision itself is provably correct even though it ships OFF today.
+  group('shouldRejectForBlur — ON path (PR-7)', () {
+    test('rejects a below-threshold frame when enforced', () {
+      expect(
+        shouldRejectForBlur(enforced: true, variance: 10.0, threshold: 60.0),
+        isTrue,
+      );
+    });
+
+    test('accepts an at-or-above-threshold frame when enforced', () {
+      expect(
+        shouldRejectForBlur(enforced: true, variance: 60.0, threshold: 60.0),
+        isFalse,
+      );
+      expect(
+        shouldRejectForBlur(enforced: true, variance: 200.0, threshold: 60.0),
+        isFalse,
+      );
+    });
+
+    test('never rejects when unenforced, no matter how blurry', () {
+      expect(
+        shouldRejectForBlur(enforced: false, variance: 0.0, threshold: 60.0),
+        isFalse,
+      );
+    });
+  });
 }
