@@ -450,8 +450,17 @@ video at both. We already have `SecureCaptureMode.video` and the `quenching_vide
 3. **CHECKPOINT:** app suite green.
 
 ### PR-6 DoD
-- [ ] Quench and density each require their video; pure gates updated + tested.
-- [ ] Reused existing video capture + capture types; no new capture stack.
+- [x] Quench and density each require their video; pure gates updated + tested.
+- [x] Reused existing video capture + capture types; no new capture stack.
+
+**DONE — 2026-07-23.** `canEndBurn` gates open kilns on `quenchVideoCaptured`;
+`density_calibration_screen.dart` blocks submit until a `density_video` is
+captured. **Correction vs the plan (found mid-Part, mirrors PR-5.1a):**
+`BulkDensityTest` had no `device_id` column at all — added one (additive
+migration), persisted it in `routers/density.py`, added
+`_assert_density_test_ownership`, and extended the media rail with
+`density_test` as a fourth subject_type. Backend 718 passed, flutter 391
+passed, 0 failed either.
 
 **COMMIT:** `feat(app): require quench + density-test video evidence`
 
