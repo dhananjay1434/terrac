@@ -321,8 +321,13 @@ add that fetch. Do NOT hardcode a species list in React (rule 6).
 5. **CHECKPOINT:** `cd portal && npm test -- --run && npx tsc --noEmit && npm run build` all green.
 
 ### DoD
-- [ ] Registration form has a constrained feedstock dropdown (no free text) + client-count input.
-- [ ] Table shows feedstock + clients. Backend validation error surfaced. Portal suite + tsc + build green.
+- [x] Registration form has a constrained feedstock dropdown (no free text) + client-count input.
+- [x] Table shows feedstock + clients. Backend validation error surfaced. Portal suite + tsc + build green.
+
+**DONE — 2026-07-24.** `listRegistryConfigs()` added to `api.ts`; dropdown options
+are the union of every registry config's `corg_table` keys (minus `Default`);
+disables itself with a hint when none exist. 422 surfaced inline. 11 tests
+(5 new). Portal suite 156 passed, tsc clean, build clean.
 
 **COMMIT:** `feat(portal): feedstock dropdown + client count on project registration`
 
