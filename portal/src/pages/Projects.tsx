@@ -13,7 +13,10 @@ import {
 } from "../api";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
-import ParcelMap from "../components/ParcelMap/ParcelMap";
+import Button from "../ui/Button/Button";
+import Card from "../ui/Card/Card";
+import ProjectForm from "./Projects/ProjectForm";
+import ParcelForm from "./Projects/ParcelForm";
 
 const PAGE_SIZE = 25;
 
@@ -268,161 +271,40 @@ export default function Projects() {
       <h1 className="page-title">Projects & Source Parcels</h1>
 
       {/* Project Registration Form */}
-      <form className="card" style={{ marginBottom: 20 }} onSubmit={submit}>
-        <span className="micro">Register project</span>
-        <div className="filters" style={{ marginTop: 10 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label className="micro" htmlFor="project-id-input">
-              Project ID
-            </label>
-            <input
-              id="project-id-input"
-              aria-label="Project ID"
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-            />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label className="micro" htmlFor="project-name-input">
-              Name
-            </label>
-            <input
-              id="project-name-input"
-              aria-label="Project name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label className="micro" htmlFor="project-feedstock-select">
-              Feedstock
-            </label>
-            <select
-              id="project-feedstock-select"
-              aria-label="Feedstock"
-              value={selectedFeedstock}
-              disabled={feedstockOptions.length === 0}
-              onChange={(e) => setSelectedFeedstock(e.target.value)}
-            >
-              <option value="">
-                {feedstockOptions.length === 0
-                  ? "-- Create a registry config first --"
-                  : "-- Select feedstock --"}
-              </option>
-              {feedstockOptions.map((species) => (
-                <option key={species} value={species}>
-                  {species}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label className="micro" htmlFor="project-client-target-input">
-              Client Target (Optional)
-            </label>
-            <input
-              id="project-client-target-input"
-              aria-label="Client Target"
-              type="number"
-              min={0}
-              step={1}
-              value={clientTarget}
-              placeholder="e.g. 25"
-              onChange={(e) => setClientTarget(e.target.value)}
-            />
-          </div>
-          <button
-            className="primary"
-            type="submit"
-            disabled={submitting}
-            style={{ alignSelf: "flex-end" }}
-          >
-            Save
-          </button>
-        </div>
-        {formMsg && (
-          <div style={{ marginTop: 12 }}>
-            <div className={`chip ${formMsg.ok ? "ok" : "err"}`}>{formMsg.text}</div>
-          </div>
-        )}
-      </form>
+      <ProjectForm
+        projectId={projectId}
+        onProjectIdChange={setProjectId}
+        name={name}
+        onNameChange={setName}
+        feedstockOptions={feedstockOptions}
+        selectedFeedstock={selectedFeedstock}
+        onFeedstockChange={setSelectedFeedstock}
+        clientTarget={clientTarget}
+        onClientTargetChange={setClientTarget}
+        submitting={submitting}
+        formMsg={formMsg}
+        onSubmit={submit}
+      />
 
       {/* Source Parcel Boundary Registration Form (Part 1.5) */}
-      <form className="card" style={{ marginBottom: 20 }} onSubmit={submitParcel}>
-        <span className="micro">Register Source Parcel Boundary (Leaflet / OSM)</span>
-        <div className="filters" style={{ marginTop: 10, marginBottom: 12 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label className="micro" htmlFor="parcel-project-select">
-              Select Project
-            </label>
-            <select
-              id="parcel-project-select"
-              aria-label="Select Project"
-              value={parcelProjectId}
-              onChange={(e) => setParcelProjectId(e.target.value)}
-            >
-              <option value="">-- Choose Project --</option>
-              {rows.map((p) => (
-                <option key={p.project_id} value={p.project_id}>
-                  {p.name} ({p.project_id})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label className="micro" htmlFor="parcel-name-input">
-              Parcel Name
-            </label>
-            <input
-              id="parcel-name-input"
-              aria-label="Parcel Name"
-              value={parcelName}
-              placeholder="e.g. North Harvest Parcel A"
-              onChange={(e) => setParcelName(e.target.value)}
-            />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label className="micro" htmlFor="declared-acres-input">
-              Declared Acres (Optional)
-            </label>
-            <input
-              id="declared-acres-input"
-              aria-label="Declared Acres"
-              type="number"
-              step="any"
-              value={declaredAcres}
-              placeholder="e.g. 5.5"
-              onChange={(e) => setDeclaredAcres(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <ParcelMap
-          existingParcels={parcels}
-          onPolygonCreated={(geojson) => setDrawnGeoJson(geojson)}
-          selectedGeoJson={drawnGeoJson}
-        />
-
-        <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
-          <button
-            className="primary"
-            type="submit"
-            disabled={parcelSubmitting || !drawnGeoJson}
-          >
-            Register Boundary
-          </button>
-        </div>
-
-        {parcelMsg && (
-          <div style={{ marginTop: 12 }}>
-            <div className={`chip ${parcelMsg.ok ? "ok" : "err"}`}>{parcelMsg.text}</div>
-          </div>
-        )}
-      </form>
+      <ParcelForm
+        projects={rows}
+        parcelProjectId={parcelProjectId}
+        onParcelProjectIdChange={setParcelProjectId}
+        parcelName={parcelName}
+        onParcelNameChange={setParcelName}
+        declaredAcres={declaredAcres}
+        onDeclaredAcresChange={setDeclaredAcres}
+        existingParcels={parcels}
+        drawnGeoJson={drawnGeoJson}
+        onPolygonCreated={(geojson) => setDrawnGeoJson(geojson)}
+        parcelSubmitting={parcelSubmitting}
+        parcelMsg={parcelMsg}
+        onSubmit={submitParcel}
+      />
 
       {err && (
-        <div
-          className="card"
+        <Card
           style={{
             borderColor: "var(--status-error-fg)",
             marginBottom: 16,
@@ -434,14 +316,14 @@ export default function Projects() {
           <span className="err" style={{ margin: 0 }}>
             {err}
           </span>
-          <button
-            className="neutral"
-            type="button"
+          <Button
+            variant="neutral"
+            size="sm"
             onClick={() => fetchPage(currentBefore)}
           >
             Retry
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
       {/* Projects Table */}
@@ -460,27 +342,27 @@ export default function Projects() {
       />
 
       <nav className="pager" aria-label="Projects pagination" style={{ marginBottom: 24 }}>
-        <button
-          className="neutral"
-          type="button"
+        <Button
+          variant="neutral"
+          size="sm"
           onClick={goPrev}
           disabled={loading || prevStack.length === 0}
         >
           ‹ Previous
-        </button>
+        </Button>
         <span className="micro pager-status" aria-live="polite">
           Page {pageIndex}
           {rows.length > 0 &&
             ` · ${rows.length} row${rows.length === 1 ? "" : "s"}`}
         </span>
-        <button
-          className="neutral"
-          type="button"
+        <Button
+          variant="neutral"
+          size="sm"
           onClick={goNext}
           disabled={loading || !nextCursor}
         >
           Next ›
-        </button>
+        </Button>
       </nav>
 
       {/* Source Parcels Table */}
