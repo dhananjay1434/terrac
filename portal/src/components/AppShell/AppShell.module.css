@@ -32,7 +32,7 @@
   font-size: var(--fs-12);
   font-weight: var(--fw-medium);
   text-align: center;
-  padding: 2px 8px;
+  padding: var(--space-1) 8px;
   min-height: 4px;
 }
 
@@ -112,14 +112,14 @@
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   padding: 12px 8px;
   flex: 1;
 }
 .railFooter {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   padding: 12px 8px;
   border-top: var(--border-hair);
 }

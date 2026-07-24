@@ -56,7 +56,7 @@
 }
 .metaLine {
   color: var(--text-tertiary);
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 .metaLine a.gpsLink {
   color: var(--text-tertiary);
