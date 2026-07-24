@@ -201,4 +201,21 @@ describe("BatchDetail page", () => {
     await screen.findByText("ISSUABLE");
     expect(screen.queryByTestId("activity-empty")).not.toBeInTheDocument();
   });
+
+  it("reskin: admin issue/export actions render as Buttons and the burn telemetry section renders as a Card", async () => {
+    mockRole.mockReturnValue("admin");
+    mockGet.mockResolvedValue(detail());
+    const { container } = renderPage();
+    expect(
+      await screen.findByRole("button", { name: "Issue credit" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Export CSI" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Export Rainbow" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Burn telemetry")).toBeInTheDocument();
+    expect(container.querySelector('section[class*="card"]')).not.toBeNull();
+  });
 });
