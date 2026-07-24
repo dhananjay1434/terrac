@@ -1,0 +1,12 @@
+.band {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 720px) {
+  .band {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
