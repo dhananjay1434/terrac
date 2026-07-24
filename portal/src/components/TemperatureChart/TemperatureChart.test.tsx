@@ -34,4 +34,21 @@ describe("TemperatureChart", () => {
     const points = poly!.getAttribute("points") ?? "";
     expect(points).not.toMatch(/NaN/);
   });
+
+  it("renders exactly one point-marker circle per reading", () => {
+    const { container } = render(
+      <TemperatureChart readings={[600, 620, 650, 700]} minTemp={600} maxTemp={700} />,
+    );
+    expect(container.querySelectorAll("circle").length).toBe(4);
+  });
+
+  it("renders hi, mid, and lo axis tick labels", () => {
+    const { container } = render(
+      <TemperatureChart readings={[600, 650, 700]} minTemp={600} maxTemp={700} />,
+    );
+    const labels = Array.from(container.querySelectorAll("text")).map(
+      (el) => el.textContent,
+    );
+    expect(labels).toEqual(["700°C", "650°C", "600°C"]);
+  });
 });

@@ -22,11 +22,26 @@ export default function TemperatureChart({
   const lo = minTemp ?? Math.min(...readings);
   const hi = maxTemp ?? Math.max(...readings);
   const flat = hi === lo;
+  const mid = Math.round((hi + lo) / 2);
+
+  const gridlines = [50, 100, 150].map((y) => (
+    <line
+      key={y}
+      x1={0}
+      y1={y}
+      x2={600}
+      y2={y}
+      stroke="var(--border-subtle)"
+      strokeWidth={1}
+      opacity={0.4}
+    />
+  ));
 
   if (readings.length === 1) {
     const y = flat ? 100 : 100;
     return (
       <svg viewBox="0 0 600 200" width="100%" height="200" role="img" aria-label="Burn temperature">
+        {gridlines}
         <circle cx={300} cy={y} r={4} fill="var(--accent, currentColor)" />
         <text x="4" y="16" className="micro">{hi}°C</text>
       </svg>
@@ -34,23 +49,29 @@ export default function TemperatureChart({
   }
 
   const n = readings.length;
-  const points = readings
-    .map((t, i) => {
-      const x = (i / (n - 1)) * 600;
-      const y = flat ? 100 : 200 - ((t - lo) / (hi - lo)) * 200;
-      return `${x},${y}`;
-    })
-    .join(" ");
+  const coords = readings.map((t, i) => {
+    const x = (i / (n - 1)) * 600;
+    const y = flat ? 100 : 200 - ((t - lo) / (hi - lo)) * 200;
+    return { x, y, t };
+  });
+  const points = coords.map(({ x, y }) => `${x},${y}`).join(" ");
 
   return (
     <svg viewBox="0 0 600 200" width="100%" height="200" role="img" aria-label="Burn temperature">
+      {gridlines}
       <polyline
         points={points}
         fill="none"
         stroke="var(--accent, currentColor)"
         strokeWidth={2}
       />
+      {coords.map(({ x, y, t }, i) => (
+        <circle key={i} cx={x} cy={y} r={2.5} fill="var(--accent, currentColor)">
+          <title>{t}°C</title>
+        </circle>
+      ))}
       <text x="4" y="16" className="micro">{hi}°C</text>
+      <text x="4" y="104" className="micro">{mid}°C</text>
       <text x="4" y="196" className="micro">{lo}°C</text>
     </svg>
   );
