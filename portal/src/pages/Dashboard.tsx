@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCreditTimeseries, type CreditTimeseries } from "../api";
 import KpiRow from "./Dashboard/KpiRow";
+import CreditsOverTime from "./Dashboard/CreditsOverTime";
 
 export default function Dashboard() {
   const [data, setData] = useState<CreditTimeseries | null>(null);
@@ -36,6 +37,12 @@ export default function Dashboard() {
       <h1 className="page-title">Dashboard</h1>
       <KpiRow
         totals={data?.totals ?? null}
+        loading={loading}
+        error={error}
+        onRetry={fetchTotals}
+      />
+      <CreditsOverTime
+        buckets={data?.buckets ?? null}
         loading={loading}
         error={error}
         onRetry={fetchTotals}
