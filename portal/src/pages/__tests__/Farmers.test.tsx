@@ -118,4 +118,15 @@ describe("Farmers page", () => {
     expect(screen.getByText(/XXXXXX3210/)).toBeInTheDocument();
     expect(mockGet).toHaveBeenCalledWith("f-1");
   });
+
+  it("keeps the search input, submit button, and pager controls accessible", async () => {
+    mockList.mockResolvedValue({ items: [ROW], total: 1, page: 1, size: 25 });
+    renderPage();
+    await screen.findByText("Asha Devi");
+
+    expect(screen.getByLabelText(/Search farmers/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "‹ Previous" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next ›" })).toBeInTheDocument();
+  });
 });
