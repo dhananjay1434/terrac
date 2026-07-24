@@ -9,12 +9,23 @@
   /* ── primitives: brand + semantic hues (Stripe/Mercury-calibrated) ── */
   --indigo-600: #635bff;   /* THE brand accent. 4.70:1 on white — AA pass */
   --indigo-50:  #f3f2ff;
+  --indigo-200: #d4d1ff;
+  --indigo-900: #35318c;
   --green-700:  #067647;   /* semantic "verified/issuable" ONLY. 5.69:1 */
   --green-50:   #ecfdf3;
+  --green-200:  #a6f4c5;
+  --green-500:  #12b76a;
+  --green-900:  #054f31;
   --amber-700:  #b54708;   /* "provisional/missing". 5.43:1 */
   --amber-50:   #fffaeb;
+  --amber-200:  #fedf89;
+  --amber-500:  #f79009;
+  --amber-900:  #7a2e0e;
   --red-700:    #d92d20;   /* errors. 4.83:1 */
   --red-50:     #fef3f2;
+  --red-200:    #fecdca;
+  --red-500:    #f04438;
+  --red-900:    #7a271a;
   /* ── semantic layer ───────────────────────────────────────────── */
   --surface-page: var(--basalt-50);
   --surface-card: #ffffff;

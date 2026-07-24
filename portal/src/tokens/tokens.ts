@@ -20,6 +20,17 @@ export const color = {
   statusWarnBg: "var(--status-warning-bg)",
   statusErrFg: "var(--status-error-fg)",
   statusErrBg: "var(--status-error-bg)",
+  green200: "var(--green-200)",
+  green500: "var(--green-500)",
+  green900: "var(--green-900)",
+  amber200: "var(--amber-200)",
+  amber500: "var(--amber-500)",
+  amber900: "var(--amber-900)",
+  red200: "var(--red-200)",
+  red500: "var(--red-500)",
+  red900: "var(--red-900)",
+  indigo200: "var(--indigo-200)",
+  indigo900: "var(--indigo-900)",
 } as const;
 
 export const space = {
