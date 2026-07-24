@@ -81,7 +81,7 @@
   gap: 12px;
 }
 .confirm {
-  padding: 10px 18px;
+  padding: 10px var(--space-4);
   border: 0;
   border-radius: var(--r-md);
   background: var(--ember-600);

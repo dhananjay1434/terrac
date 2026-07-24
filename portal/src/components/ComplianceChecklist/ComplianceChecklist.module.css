@@ -27,7 +27,7 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 14px 18px;
+  padding: 14px var(--space-4);
   border: 0;
   background: transparent;
   font: inherit;
@@ -48,7 +48,7 @@
   transform: rotate(180deg);
 }
 .content {
-  padding: 0 18px 14px;
+  padding: 0 var(--space-4) 14px;
 }
 .row {
   border-radius: var(--r-sm);
@@ -94,7 +94,7 @@
   .miniNav {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-1);
     position: sticky;
     top: calc(var(--topbar-h) + 12px);
   }

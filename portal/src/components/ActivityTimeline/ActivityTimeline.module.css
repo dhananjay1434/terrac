@@ -28,7 +28,7 @@
 .dot {
   width: 8px;
   height: 8px;
-  margin-top: 5px;
+  margin-top: var(--space-1);
   flex: none;
   border-radius: 50%;
   background: var(--indigo-600);
@@ -47,5 +47,5 @@
 .metaText {
   font-size: var(--fs-12);
   color: var(--text-secondary);
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
