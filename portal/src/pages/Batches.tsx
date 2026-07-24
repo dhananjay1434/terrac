@@ -10,6 +10,10 @@ import StatusDot from "../components/StatusDot/StatusDot";
 import EmptyState from "../components/EmptyState/EmptyState";
 import StatTile from "../components/StatTile/StatTile";
 import InfoTip from "../components/InfoTip/InfoTip";
+import StatBand from "../ui/StatBand/StatBand";
+import StatusPill from "../ui/StatusPill/StatusPill";
+import Card from "../ui/Card/Card";
+import Button from "../ui/Button/Button";
 
 function shortId(uuid: string) {
   return uuid.slice(0, 8);
@@ -229,9 +233,9 @@ export default function Batches() {
       header: "Blockers",
       render: (b) =>
         b.reason_count > 0 ? (
-          <span className="chip warn">
+          <StatusPill status="warning">
             {b.reason_count} reason{b.reason_count === 1 ? "" : "s"}
-          </span>
+          </StatusPill>
         ) : (
           <span className="text-tertiary">—</span>
         ),
@@ -253,7 +257,7 @@ export default function Batches() {
       <h1 className="page-title">Batches</h1>
 
       {summary && (
-        <div className="stat-band">
+        <StatBand>
           <StatTile label="Issued" value={String(summary.by_status["ISSUED"] ?? 0)} />
           <StatTile
             label="Received / in review"
@@ -267,7 +271,7 @@ export default function Batches() {
             )}
             hint="this page"
           />
-        </div>
+        </StatBand>
       )}
 
       <Tabs.Root
@@ -304,8 +308,7 @@ export default function Batches() {
       />
 
       {err && (
-        <div
-          className="card"
+        <Card
           style={{
             borderColor: "var(--status-error-fg)",
             marginBottom: 16,
@@ -317,14 +320,14 @@ export default function Batches() {
           <span className="err" style={{ margin: 0 }}>
             {err}
           </span>
-          <button
-            className="neutral"
-            type="button"
+          <Button
+            variant="neutral"
+            size="sm"
             onClick={() => fetchPage(currentBefore)}
           >
             Retry
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
       <DataTable
@@ -349,27 +352,27 @@ export default function Batches() {
       />
 
       <nav className="pager" aria-label="Batches pagination">
-        <button
-          className="neutral"
-          type="button"
+        <Button
+          variant="neutral"
+          size="sm"
           onClick={goPrev}
           disabled={loading || prevStack.length === 0}
         >
           ‹ Previous
-        </button>
+        </Button>
         <span className="micro pager-status" aria-live="polite">
           Page {pageIndex}
           {rows.length > 0 &&
             ` · ${rows.length} row${rows.length === 1 ? "" : "s"}`}
         </span>
-        <button
-          className="neutral"
-          type="button"
+        <Button
+          variant="neutral"
+          size="sm"
           onClick={goNext}
           disabled={loading || !nextCursor}
         >
           Next ›
-        </button>
+        </Button>
       </nav>
     </div>
   );
