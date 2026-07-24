@@ -47,4 +47,14 @@ describe("Login page", () => {
     ).toBeInTheDocument();
     expect(mockLogin).toHaveBeenCalledWith("a@b.c", "wrong");
   });
+
+  it("renders the heading, both fields, and the submit button (reskin structural check)", () => {
+    renderPage();
+    expect(
+      screen.getByRole("heading", { name: "Sign in to TerraCipher" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  });
 });

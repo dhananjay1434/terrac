@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { login, ApiError } from "../api";
 import { setSession } from "../auth";
+import Card from "../ui/Card/Card";
+import Button from "../ui/Button/Button";
 
 export default function Login() {
   const nav = useNavigate();
@@ -46,7 +48,7 @@ export default function Login() {
         className="registry-grid"
         style={{ maxWidth: 800, width: "100%", alignItems: "stretch" }}
       >
-        <form className="login card" style={{ width: "100%" }} onSubmit={submit}>
+        <Card as="form" className="login" style={{ width: "100%" }} onSubmit={submit}>
           <h1>Sign in to TerraCipher</h1>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", textAlign: "left" }}>
             <label className="micro" htmlFor="email">Email</label>
@@ -86,13 +88,13 @@ export default function Login() {
               </button>
             </div>
           </div>
-          <button className="primary" type="submit" disabled={busy} style={{ marginTop: 8 }}>
+          <Button type="submit" disabled={busy} style={{ marginTop: 8 }}>
             {busy ? "Signing in…" : "Sign in"}
-          </button>
+          </Button>
           {err && <div className="err">{err}</div>}
-        </form>
-        <aside
-          className="card"
+        </Card>
+        <Card
+          as="aside"
           style={{
             background: "var(--basalt-950)",
             color: "var(--basalt-50)",
@@ -113,7 +115,7 @@ export default function Login() {
             Global Artisan C-Sink and Rainbow Biochar Standard methodologies
             (C0–C10).
           </div>
-        </aside>
+        </Card>
       </div>
     </div>
   );
