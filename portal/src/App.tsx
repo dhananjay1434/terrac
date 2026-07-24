@@ -5,6 +5,7 @@ import AppShell from "./components/AppShell/AppShell";
 import ErrorBoundary from "./ui/ErrorBoundary/ErrorBoundary";
 
 const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Batches = lazy(() => import("./pages/Batches"));
 const BatchDetail = lazy(() => import("./pages/BatchDetail"));
 const LabScan = lazy(() => import("./pages/LabScan"));
@@ -28,6 +29,16 @@ export default function App() {
       <Suspense fallback={<div className="wrap">Loading…</div>}>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <Shell>
+                  <Dashboard />
+                </Shell>
+              </RequireAuth>
+            }
+          />
           <Route
             path="/batches"
             element={

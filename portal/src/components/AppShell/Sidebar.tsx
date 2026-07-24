@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
+  LayoutDashboard,
   Layers,
   FlaskConical,
   Archive,
@@ -15,6 +16,7 @@ import Logo from "@ui/Logo/Logo";
 import styles from "./AppShell.module.css";
 
 const NAV = [
+  { to: "/dashboard", label: "Dashboard", match: "/dashboard", Icon: LayoutDashboard },
   { to: "/batches", label: "Batches", match: "/batches", Icon: Layers },
   { to: "/lab/scan", label: "Lab", match: "/lab", Icon: FlaskConical },
   { to: "/registry", label: "Registry", match: "/registry", Icon: Archive },
