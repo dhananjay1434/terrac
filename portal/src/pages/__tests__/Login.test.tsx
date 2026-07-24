@@ -1,9 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Login from "../Login";
 import { login, ApiError } from "../../api";
 
+const mockNav = vi.fn();
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router-dom")>();
+  return { ...actual, useNavigate: () => mockNav };
+});
 vi.mock("../../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api")>();
   return { ...actual, login: vi.fn() };
@@ -56,5 +61,14 @@ describe("Login page", () => {
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  it("navigates to the Dashboard (not Batches) after a successful login", async () => {
+    mockLogin.mockResolvedValue({ token: "tok", role: "verifier", expires_at: "x" });
+    renderPage();
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "a@b.c" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => expect(mockNav).toHaveBeenCalledWith("/dashboard"));
   });
 });

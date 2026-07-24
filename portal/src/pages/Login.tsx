@@ -26,7 +26,7 @@ export default function Login() {
     try {
       const r = await login(email, password);
       setSession(r.token, r.role);
-      nav("/batches");
+      nav("/dashboard");
     } catch (e) {
       setErr(
         e instanceof ApiError && e.status === 401
