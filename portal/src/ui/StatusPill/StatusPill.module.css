@@ -12,14 +12,17 @@
 .success {
   background: var(--status-success-bg);
   color: var(--status-success-fg);
+  border: 1px solid var(--green-200);
 }
 .warning {
   background: var(--status-warning-bg);
   color: var(--status-warning-fg);
+  border: 1px solid var(--amber-200);
 }
 .error {
   background: var(--status-error-bg);
   color: var(--status-error-fg);
+  border: 1px solid var(--red-200);
 }
 .inert {
   background: var(--surface-sunken);

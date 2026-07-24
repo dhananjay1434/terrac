@@ -18,4 +18,10 @@ describe("StatusPill", () => {
     const results = await axe(container, AXE_OPTS);
     expect(results.violations).toEqual([]);
   });
+
+  it("still applies the success variant class (bordered-pill regression guard)", () => {
+    const { container } = render(<StatusPill status="success">Verified</StatusPill>);
+    const pill = container.firstElementChild as HTMLElement;
+    expect(pill.className).toContain("success");
+  });
 });
