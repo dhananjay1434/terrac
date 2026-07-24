@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { listBatches, login, downloadExport, AuthError } from "../api";
+import { listBatches, login, downloadExport, getCreditTimeseries, AuthError } from "../api";
 import { setSession, getToken } from "../auth";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -74,6 +74,70 @@ describe("api client", () => {
     expect(createObjURL).toHaveBeenCalledOnce();
     expect(clickSpy).toHaveBeenCalledOnce();
     expect(revokeObjURL).toHaveBeenCalledOnce();
+  });
+
+  it("getCreditTimeseries passes from/to as query params and parses the shape", async () => {
+    const body = {
+      bucket: "month",
+      from: "2026-01-01T00:00:00Z",
+      to: "2026-06-01T00:00:00Z",
+      buckets: [
+        { period: "2026-01", issued_credit_t_co2e: 1.5, issued_count: 1, provisional_count: 0 },
+      ],
+      totals: {
+        issued_credit_t_co2e: 1.5,
+        issued_count: 1,
+        provisional_count: 0,
+        provisional_credit_t_co2e: 0,
+      },
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse(body));
+
+    const out = await getCreditTimeseries({
+      from: "2026-01-01T00:00:00Z",
+      to: "2026-06-01T00:00:00Z",
+    });
+
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain("/api/v1/portal/metrics/credit-timeseries");
+    expect(url).toContain(`from=${encodeURIComponent("2026-01-01T00:00:00Z")}`);
+    expect(url).toContain(`to=${encodeURIComponent("2026-06-01T00:00:00Z")}`);
+    expect(out).toEqual(body);
+  });
+
+  it("getCreditTimeseries with no params sends no from/to query string", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({
+        bucket: "month",
+        from: "x",
+        to: "y",
+        buckets: [],
+        totals: {
+          issued_credit_t_co2e: 0,
+          issued_count: 0,
+          provisional_count: 0,
+          provisional_credit_t_co2e: 0,
+        },
+      }),
+    );
+
+    await getCreditTimeseries();
+
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).not.toContain("from=");
+    expect(url).not.toContain("to=");
+  });
+
+  it("getCreditTimeseries throws AuthError on 401", async () => {
+    setSession("tok-123", "verifier");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ detail: "invalid_session" }, 401),
+    );
+
+    await expect(getCreditTimeseries()).rejects.toBeInstanceOf(AuthError);
+    expect(getToken()).toBeNull();
   });
 });
 

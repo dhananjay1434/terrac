@@ -78,12 +78,53 @@ export interface BatchTelemetry {
   burn_end_timestamp: string | null;
 }
 
+// V8 Part D.1b — allow-listed, signed LCA component breakdown (null until the
+// batch's audit is computed). Every field is optional: the backend only
+// includes a key when it was present in the stored audit.
+export interface LcaBreakdown {
+  dry_mass_t?: number;
+  gross_c_sink_t_co2e?: number;
+  cremain_t?: number;
+  safety_deduction_kg?: number;
+  transport_penalty_kg?: number;
+  ch4_penalty_kg?: number;
+  net_credit_t_co2e?: number;
+  provisional?: boolean;
+  corg_assumed?: boolean;
+}
+
 export interface BatchDetail {
   batch: BatchRow;
   compliance: Compliance;
   evidence_counts: Record<string, number>;
   media: MediaItem[];
   telemetry: BatchTelemetry | null;
+  // Optional: existing fixtures/mocks built before this field existed must
+  // still type-check; real API responses always include it (null until the
+  // batch's audit is computed).
+  lca_breakdown?: LcaBreakdown | null;
+}
+
+// V8 Part D.1a — org-scoped monthly credit time-series (v1 supports
+// bucket="month" only; there is no server-side "week" support yet).
+export interface CreditBucket {
+  period: string;
+  issued_credit_t_co2e: number;
+  issued_count: number;
+  provisional_count: number;
+}
+
+export interface CreditTimeseries {
+  bucket: "month";
+  from: string;
+  to: string;
+  buckets: CreditBucket[];
+  totals: {
+    issued_credit_t_co2e: number;
+    issued_count: number;
+    provisional_count: number;
+    provisional_credit_t_co2e: number;
+  };
 }
 
 export interface ProjectRow {
@@ -204,6 +245,20 @@ export function getSummary(): Promise<{
   reasons_histogram: Record<string, number>;
 }> {
   return req("/api/v1/portal/summary");
+}
+
+// V8 Part D.2 — typed client for the Part D.1a credit-timeseries aggregate.
+// v1 is month-only server-side, so there is no "bucket" param to pass here.
+export function getCreditTimeseries(
+  params: { from?: string; to?: string } = {},
+): Promise<CreditTimeseries> {
+  const qs = new URLSearchParams();
+  if (params.from) qs.set("from", params.from);
+  if (params.to) qs.set("to", params.to);
+  const query = qs.toString();
+  return req(
+    `/api/v1/portal/metrics/credit-timeseries${query ? `?${query}` : ""}`,
+  );
 }
 
 // --- P2.5 registry (admin) + token mint ---
