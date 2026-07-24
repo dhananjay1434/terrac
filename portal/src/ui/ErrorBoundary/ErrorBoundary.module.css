@@ -1,0 +1,16 @@
+.wrap {
+  max-width: 420px;
+  margin: var(--space-8) auto;
+  padding: var(--space-5);
+  background: var(--surface-card);
+  border: var(--border-hair);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.message {
+  margin: 0 0 var(--space-4);
+  color: var(--text-primary);
+  font-size: var(--fs-14);
+}
