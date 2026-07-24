@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsQR from "jsqr";
 import { parseBatchQr } from "../lab";
+import Button from "../ui/Button/Button";
+import Card from "../ui/Card/Card";
 
 const RECENT_KEY = "tc_recent_scans";
 const BARE_UUID_RE =
@@ -120,7 +122,7 @@ export default function LabScan() {
     <div className="wrap">
       <h1 className="page-title">Scan batch card</h1>
       <span className="micro">Point at the QR on the composite-sample card</span>
-      <div className="card" style={{ marginTop: 12, overflow: "hidden", position: "relative" }}>
+      <Card style={{ marginTop: 12, overflow: "hidden", position: "relative" }}>
         <video
           ref={videoRef}
           style={{ width: "100%", borderRadius: 10, background: "var(--basalt-950)" }}
@@ -142,7 +144,7 @@ export default function LabScan() {
             pointerEvents: "none",
           }}
         />
-      </div>
+      </Card>
       {err && <div className="err">{err}</div>}
       <div className="filters" style={{ marginTop: 16 }}>
         <input
@@ -154,8 +156,7 @@ export default function LabScan() {
             setManualErr(null);
           }}
         />
-        <button
-          className="primary"
+        <Button
           onClick={() => {
             const id = resolveManual(manual);
             if (!id) {
@@ -167,26 +168,27 @@ export default function LabScan() {
           }}
         >
           Open
-        </button>
+        </Button>
       </div>
       {manualErr && <div className="err">{manualErr}</div>}
       {recent.length > 0 && (
-        <section className="card" style={{ marginTop: 16 }}>
+        <Card as="section" style={{ marginTop: 16 }}>
           <span className="micro">Recently scanned</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
             {recent.map((u) => (
-              <button
+              <Button
                 key={u}
-                type="button"
-                className="neutral mono"
+                variant="neutral"
+                size="sm"
+                className="mono"
                 aria-label={`Open batch ${u}`}
                 onClick={() => nav(`/lab/${u}`)}
               >
                 {u.slice(0, 8)}…
-              </button>
+              </Button>
             ))}
           </div>
-        </section>
+        </Card>
       )}
     </div>
   );

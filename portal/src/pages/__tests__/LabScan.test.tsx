@@ -75,4 +75,20 @@ describe("LabScan page", () => {
     ).toEqual([]);
     expect(screen.getByText("Not a valid batch code.")).toBeInTheDocument();
   });
+
+  it("renders the manual-entry Open button and a recent-scan entry as real <button> elements after reskinning", () => {
+    localStorage.setItem(
+      "tc_recent_scans",
+      JSON.stringify(["dddd1111-2222-3333-4444-555566667777"]),
+    );
+    renderPage();
+    expect(screen.getByRole("button", { name: "Open" }).tagName).toBe(
+      "BUTTON",
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "Open batch dddd1111-2222-3333-4444-555566667777",
+      }).tagName,
+    ).toBe("BUTTON");
+  });
 });
