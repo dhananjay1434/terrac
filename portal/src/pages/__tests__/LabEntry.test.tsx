@@ -41,4 +41,21 @@ describe("LabEntry page", () => {
     expect(screen.getByText("Rules checked on submit")).toBeInTheDocument();
     expect(screen.getByText("Lab results")).toBeInTheDocument();
   });
+
+  it("renders the Submit results button and keeps the attached-file confirmation after reskinning", () => {
+    renderPage();
+    expect(
+      screen.getByRole("button", { name: "Submit results" }),
+    ).toBeInTheDocument();
+
+    const file = new File([new Uint8Array([1, 2, 3])], "cert2.pdf", {
+      type: "application/pdf",
+    });
+    fireEvent.change(screen.getByLabelText("Certificate PDF (optional)"), {
+      target: { files: [file] },
+    });
+    const el = screen.getByTestId("cert-attached");
+    expect(el.textContent).toContain("cert2.pdf");
+    expect(el.textContent).toContain("attached");
+  });
 });

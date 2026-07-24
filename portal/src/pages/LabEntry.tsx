@@ -4,6 +4,9 @@ import { submitLabResults, uploadLabCertificate, AuthError } from "../api";
 import { validateLabForm, type LabForm } from "../lab";
 import { GROUP_LABEL } from "../compliance";
 import InfoTip from "../components/InfoTip/InfoTip";
+import Button from "../ui/Button/Button";
+import Card from "../ui/Card/Card";
+import StatusPill from "../ui/StatusPill/StatusPill";
 
 const EMPTY: LabForm = {
   lab_h_corg: "",
@@ -105,16 +108,16 @@ export default function LabEntry() {
             accept="application/pdf"
             onChange={(e) => setCert(e.target.files?.[0] ?? null)}
           />
-          <button className="primary" type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy}>
             {busy ? "Submitting…" : "Submit results"}
-          </button>
+          </Button>
           {errors.map((er) => (
             <div className="err" key={er}>
               ⚠ {er}
             </div>
           ))}
         </form>
-        <aside className="card">
+        <Card as="aside">
           <span className="micro">{GROUP_LABEL.lab}</span>
           <div style={{ marginTop: 10, fontSize: 13, fontWeight: 600 }}>
             Rules checked on submit
@@ -134,12 +137,12 @@ export default function LabEntry() {
           </ul>
           {cert && (
             <div style={{ marginTop: 14 }} data-testid="cert-attached">
-              <span className="chip ok">
+              <StatusPill status="success">
                 ✓ {cert.name} attached ({fmtBytes(cert.size)})
-              </span>
+              </StatusPill>
             </div>
           )}
-        </aside>
+        </Card>
       </div>
     </div>
   );
