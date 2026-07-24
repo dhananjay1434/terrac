@@ -72,6 +72,33 @@ code, .mono {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+.kv {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4) var(--space-5);
+}
+.kv dd {
+  margin-top: var(--space-1);
+  font-weight: var(--fw-medium);
+}
+.kv dd ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-weight: var(--fw-regular);
+}
+.kv-divider {
+  grid-column: 1 / -1;
+  margin-top: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--basalt-100);
+}
+[data-theme="dark"] .kv-divider {
+  border-top-color: var(--basalt-800);
+}
 
 .amber-tag {
   color: var(--status-warning-fg);

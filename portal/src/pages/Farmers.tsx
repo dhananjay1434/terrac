@@ -215,71 +215,79 @@ export default function Farmers() {
                   <dt className="micro">Consent</dt>
                   <dd>{selected.consent_status ?? "—"}</dd>
                 </div>
+
+                {/* Deferred R1 — entity-scoped media presence. Text-only status,
+                    not a gallery: media rows aren't fetched by this page yet
+                    (would need a new farmer-media list endpoint call), so this
+                    shows only what's already on the farmer/consent/document
+                    records themselves — honest "captured"/"not captured", never
+                    a fabricated thumbnail for media that hasn't arrived. */}
+                <div className="kv-divider" aria-hidden="true" />
+
+                <div>
+                  <dt className="micro">Signature</dt>
+                  <dd className={selected.signature_media_id ? "" : "text-tertiary"}>
+                    {selected.signature_media_id ? "Captured" : "Not captured"}
+                  </dd>
+                </div>
+
+                <div>
+                  <dt className="micro">Identity documents (last-4 only)</dt>
+                  <dd>
+                    {selected.documents.length === 0 ? (
+                      <span className="text-tertiary">None</span>
+                    ) : (
+                      <ul>
+                        {selected.documents.map((d) => (
+                          <li key={d.id}>
+                            {d.doc_type}: ••••{d.last4}
+                            {d.media_id ? " · photo captured" : " · photo not captured"}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </dd>
+                </div>
+
+                <div>
+                  <dt className="micro">Payment methods (masked)</dt>
+                  <dd>
+                    {selected.payments.length === 0 ? (
+                      <span className="text-tertiary">None</span>
+                    ) : (
+                      <ul>
+                        {selected.payments.map((p) => (
+                          <li key={p.id}>
+                            {p.rail}:{" "}
+                            {p.masked_account ?? p.masked_upi_id ?? p.masked_mfs_id ?? "—"}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </dd>
+                </div>
+
+                <div>
+                  <dt className="micro">FPIC consent</dt>
+                  <dd>
+                    {selected.consents.length === 0 ? (
+                      <span className="text-tertiary">None recorded</span>
+                    ) : (
+                      <ul>
+                        {selected.consents.map((c) => (
+                          <li key={c.id}>
+                            signed {fmtDate(c.signed_at)} · exclusivity{" "}
+                            {c.exclusivity_ack ? "acknowledged" : "not acknowledged"} ·{" "}
+                            consent PDF {c.signed_pdf_media_id ? "captured" : "not captured"} ·{" "}
+                            holding photo{" "}
+                            {c.holding_photo_media_id ? "captured" : "not captured"}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </dd>
+                </div>
               </dl>
-
-              {/* Deferred R1 — entity-scoped media presence. Text-only status,
-                  not a gallery: media rows aren't fetched by this page yet
-                  (would need a new farmer-media list endpoint call), so this
-                  shows only what's already on the farmer/consent/document
-                  records themselves — honest "captured"/"not captured", never
-                  a fabricated thumbnail for media that hasn't arrived. */}
-              <span className="micro" style={{ display: "block", marginTop: 12 }}>
-                Signature
-              </span>
-              <span className={selected.signature_media_id ? "" : "text-tertiary"}>
-                {selected.signature_media_id ? "Captured" : "Not captured"}
-              </span>
-
-              <span className="micro" style={{ display: "block", marginTop: 12 }}>
-                Identity documents (last-4 only)
-              </span>
-              {selected.documents.length === 0 ? (
-                <span className="text-tertiary">None</span>
-              ) : (
-                <ul>
-                  {selected.documents.map((d) => (
-                    <li key={d.id}>
-                      {d.doc_type}: ••••{d.last4}
-                      {d.media_id ? " · photo captured" : " · photo not captured"}
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <span className="micro" style={{ display: "block", marginTop: 12 }}>
-                Payment methods (masked)
-              </span>
-              {selected.payments.length === 0 ? (
-                <span className="text-tertiary">None</span>
-              ) : (
-                <ul>
-                  {selected.payments.map((p) => (
-                    <li key={p.id}>
-                      {p.rail}:{" "}
-                      {p.masked_account ?? p.masked_upi_id ?? p.masked_mfs_id ?? "—"}
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <span className="micro" style={{ display: "block", marginTop: 12 }}>
-                FPIC consent
-              </span>
-              {selected.consents.length === 0 ? (
-                <span className="text-tertiary">None recorded</span>
-              ) : (
-                <ul>
-                  {selected.consents.map((c) => (
-                    <li key={c.id}>
-                      signed {fmtDate(c.signed_at)} · exclusivity{" "}
-                      {c.exclusivity_ack ? "acknowledged" : "not acknowledged"} ·{" "}
-                      consent PDF {c.signed_pdf_media_id ? "captured" : "not captured"} ·{" "}
-                      holding photo{" "}
-                      {c.holding_photo_media_id ? "captured" : "not captured"}
-                    </li>
-                  ))}
-                </ul>
-              )}
             </>
           )}
         </Card>
