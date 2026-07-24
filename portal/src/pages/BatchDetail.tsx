@@ -18,6 +18,7 @@ import SealedVerdict from "../components/SealedVerdict/SealedVerdict";
 import CopyButton from "../components/CopyButton/CopyButton";
 import ProvenanceTile from "../components/ProvenanceTile/ProvenanceTile";
 import LcaBreakdown from "../components/LcaBreakdown/LcaBreakdown";
+import LcaFormula from "../components/LcaFormula/LcaFormula";
 import TemperatureChart from "../components/TemperatureChart/TemperatureChart";
 import StatTile from "../components/StatTile/StatTile";
 import { fmtCredit } from "../format";
@@ -251,6 +252,7 @@ export default function BatchDetail() {
           wetYieldKg={d.batch.wet_yield_kg}
           netCreditTCo2e={d.batch.net_credit_t_co2e}
         />
+        <LcaFormula breakdown={d.lca_breakdown} />
         <ProvenanceTile
           batchUuid={d.batch.batch_uuid}
           deviceId={d.batch.device_id}
