@@ -91,4 +91,11 @@ describe("LabScan page", () => {
       }).tagName,
     ).toBe("BUTTON");
   });
+
+  it("shows a starting-camera placeholder until the video reports playing", () => {
+    renderPage();
+    expect(screen.getByText("Starting camera…")).toBeInTheDocument();
+    fireEvent.playing(document.querySelector("video")!);
+    expect(screen.queryByText("Starting camera…")).not.toBeInTheDocument();
+  });
 });

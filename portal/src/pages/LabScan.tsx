@@ -49,6 +49,10 @@ export default function LabScan() {
   const [manual, setManual] = useState("");
   const [manualErr, setManualErr] = useState<string | null>(null);
   const [recent] = useState<string[]>(() => readRecent());
+  // Presentational only — the camera/QR pipeline below never reads this; it
+  // just lets the frame show "starting…" instead of a blank black box while
+  // getUserMedia resolves.
+  const [cameraReady, setCameraReady] = useState(false);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -122,13 +126,48 @@ export default function LabScan() {
     <div className="wrap">
       <h1 className="page-title">Scan batch card</h1>
       <span className="micro">Point at the QR on the composite-sample card</span>
-      <Card style={{ marginTop: 12, overflow: "hidden", position: "relative" }}>
+      <Card
+        style={{
+          marginTop: 12,
+          overflow: "hidden",
+          position: "relative",
+          maxWidth: 480,
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
+      >
         <video
           ref={videoRef}
-          style={{ width: "100%", borderRadius: 10, background: "var(--basalt-950)" }}
+          onPlaying={() => setCameraReady(true)}
+          style={{
+            width: "100%",
+            aspectRatio: "1 / 1",
+            objectFit: "cover",
+            borderRadius: "var(--r-lg)",
+            background: "var(--basalt-950)",
+            display: "block",
+          }}
           muted
           playsInline
         />
+        {!cameraReady && !err && (
+          <div
+            aria-hidden
+            className="micro"
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "grid",
+              placeItems: "center",
+              color: "var(--basalt-400)",
+            }}
+          >
+            Starting camera…
+          </div>
+        )}
+        {/* Corner-bracket scan frame — same viewfinder, drawn as four L-shaped
+            corners instead of one solid square, so it reads as a scanner
+            reticle rather than a slab outline sitting on top of the feed. */}
         <div
           aria-hidden
           style={{
@@ -136,14 +175,35 @@ export default function LabScan() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: "52%",
+            width: "56%",
             aspectRatio: "1 / 1",
-            maxHeight: "70%",
-            border: "2px solid rgba(255, 255, 255, 0.9)",
-            borderRadius: "var(--r-lg)",
             pointerEvents: "none",
           }}
-        />
+        >
+          {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map(
+            (corner) => {
+              const vertical = corner.startsWith("top") ? "top" : "bottom";
+              const horizontal = corner.endsWith("left") ? "left" : "right";
+              return (
+                <div
+                  key={corner}
+                  style={{
+                    position: "absolute",
+                    [vertical]: 0,
+                    [horizontal]: 0,
+                    width: 28,
+                    height: 28,
+                    borderTop: vertical === "top" ? "3px solid rgba(255,255,255,0.9)" : undefined,
+                    borderBottom: vertical === "bottom" ? "3px solid rgba(255,255,255,0.9)" : undefined,
+                    borderLeft: horizontal === "left" ? "3px solid rgba(255,255,255,0.9)" : undefined,
+                    borderRight: horizontal === "right" ? "3px solid rgba(255,255,255,0.9)" : undefined,
+                    borderRadius: "var(--r-sm)",
+                  }}
+                />
+              );
+            },
+          )}
+        </div>
       </Card>
       {err && <div className="err">{err}</div>}
       <div className="filters" style={{ marginTop: 16 }}>
