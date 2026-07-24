@@ -277,4 +277,27 @@ describe("Projects page", () => {
 
     await screen.findByText("A project with that ID already exists");
   });
+
+  it("reskin: pager renders as Buttons and the form error renders as a StatusPill", async () => {
+    mockCreate.mockRejectedValue(new ApiError(409, "project_already_exists"));
+    renderPage();
+    await screen.findByText("No projects yet");
+
+    expect(screen.getByRole("button", { name: /previous/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Project ID"), {
+      target: { value: "proj-dup" },
+    });
+    fireEvent.change(screen.getByLabelText("Project name"), {
+      target: { value: "Dup" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Save" })[0]);
+
+    const message = await screen.findByText(
+      "A project with that ID already exists",
+    );
+    // StatusPill wraps the text in its own <span>, sibling to the status icon.
+    expect(message.parentElement?.querySelector("svg")).toBeInTheDocument();
+  });
 });
