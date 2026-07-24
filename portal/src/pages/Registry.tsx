@@ -11,6 +11,9 @@ import {
 import { kilnQrPayload } from "../qr";
 import { useNavigate } from "react-router-dom";
 import InfoTip from "../components/InfoTip/InfoTip";
+import Button from "../ui/Button/Button";
+import Card from "../ui/Card/Card";
+import StatusPill from "../ui/StatusPill/StatusPill";
 
 // A tiny generic form: field defs -> values -> POST. Keeps this admin page
 // compact without a form library.
@@ -36,8 +39,8 @@ function Form({
     return () => clearTimeout(t);
   }, [msg]);
   return (
-    <form
-      className="card"
+    <Card
+      as="form"
       style={{ marginBottom: 14 }}
       onSubmit={async (e) => {
         e.preventDefault();
@@ -82,16 +85,16 @@ function Form({
             </div>
           );
         })}
-        <button className="primary" type="submit" disabled={busy} style={{ alignSelf: "flex-end" }}>
+        <Button type="submit" disabled={busy} style={{ alignSelf: "flex-end" }}>
           Save
-        </button>
+        </Button>
       </div>
       {msg && (
         <div style={{ marginTop: 12 }}>
-          <div className={`chip ${msg.ok ? "ok" : "err"}`}>{msg.text}</div>
+          <StatusPill status={msg.ok ? "success" : "error"}>{msg.text}</StatusPill>
         </div>
       )}
-    </form>
+    </Card>
   );
 }
 
@@ -170,7 +173,7 @@ export default function Registry() {
           />
 
           {kilns.length > 0 && (
-            <section className="card" style={{ marginBottom: 14 }}>
+            <Card as="section" style={{ marginBottom: 14 }}>
               <span className="micro">Kiln cards (print &amp; mount)</span>
               <div className="media-grid" style={{ marginTop: 12 }}>
                 {kilns.map((k) => (
@@ -189,7 +192,7 @@ export default function Registry() {
                   </div>
                 ))}
               </div>
-            </section>
+            </Card>
           )}
 
           <div className="registry-grid">
@@ -246,11 +249,10 @@ export default function Registry() {
                 }).then(() => undefined)
               }
             />
-            <section className="card" style={{ marginBottom: 14 }}>
+            <Card as="section" style={{ marginBottom: 14 }}>
               <span className="micro">Enrollment token</span>
               <div className="filters" style={{ marginTop: 10 }}>
-                <button
-                  className="primary"
+                <Button
                   onClick={async () => {
                     try {
                       setToken(await mintToken({ expires_in_days: 7 }));
@@ -260,7 +262,7 @@ export default function Registry() {
                   }}
                 >
                   Mint enrollment token
-                </button>
+                </Button>
               </div>
               {token && (
                 <div style={{ marginTop: 12 }}>
@@ -281,7 +283,7 @@ export default function Registry() {
                   </div>
                 </div>
               )}
-            </section>
+            </Card>
           </div>
         </Tabs.Content>
 

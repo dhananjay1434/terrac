@@ -93,4 +93,23 @@ describe("Registry page", () => {
     const dateInput = within(supervisorForm).getByLabelText("Visit date");
     expect(dateInput).toHaveAttribute("type", "date");
   });
+
+  it("renders the kiln form's Save button and a status message after submit, on the reskinned primitives", async () => {
+    renderPage();
+
+    const kilnForm = screen
+      .getByText("Register kiln (C8)")
+      .closest("form")!;
+    const saveButton = within(kilnForm).getByRole("button", { name: "Save" });
+    expect(saveButton.tagName).toBe("BUTTON");
+
+    fireEvent.change(within(kilnForm).getByLabelText("Kiln ID"), {
+      target: { value: "kiln-42" },
+    });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("✓ Saved")).toBeInTheDocument();
+    });
+  });
 });
