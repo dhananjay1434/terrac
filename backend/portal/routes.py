@@ -1026,6 +1026,41 @@ def _parse_dt(s: str) -> datetime:
         raise HTTPException(status_code=400, detail="invalid_datetime")
 
 
+# Explicit allow-list of safe, non-sensitive numeric/flag fields from the
+# signed LCA audit JSON. NEVER **-splat the parsed audit dict here — that
+# would silently leak any sensitive section added to the audit later (e.g.
+# audit_signature, transport_events, integrity_signals).
+def parse_lca_breakdown(json_str: "str | None") -> "dict | None":
+    if not json_str:
+        return None
+    try:
+        parsed = json.loads(json_str)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    result: dict = {}
+    if "dry_mass_t" in parsed:
+        result["dry_mass_t"] = parsed["dry_mass_t"]
+    if "gross_c_sink_t_co2e" in parsed:
+        result["gross_c_sink_t_co2e"] = parsed["gross_c_sink_t_co2e"]
+    if "cremain_t" in parsed:
+        result["cremain_t"] = parsed["cremain_t"]
+    if "safety_deduction_kg" in parsed:
+        result["safety_deduction_kg"] = parsed["safety_deduction_kg"]
+    if "transport_penalty_kg" in parsed:
+        result["transport_penalty_kg"] = parsed["transport_penalty_kg"]
+    if "ch4_penalty_kg" in parsed:
+        result["ch4_penalty_kg"] = parsed["ch4_penalty_kg"]
+    if "net_credit_t_co2e" in parsed:
+        result["net_credit_t_co2e"] = parsed["net_credit_t_co2e"]
+    if "provisional" in parsed:
+        result["provisional"] = parsed["provisional"]
+    if "corg_assumed" in parsed:
+        result["corg_assumed"] = parsed["corg_assumed"]
+    return result
+
+
 @router.get("/batches/{batch_uuid}")
 async def batch_detail(
     batch_uuid: str,
@@ -1114,6 +1149,7 @@ async def batch_detail(
     return {
         "batch": _batch_row(batch),
         "compliance": compliance_view(batch),
+        "lca_breakdown": parse_lca_breakdown(batch.lca_audit_json),
         "evidence_counts": evidence,
         "media": media,
         "telemetry": telemetry,
