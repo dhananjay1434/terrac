@@ -1,8 +1,9 @@
 .value {
-  font-size: var(--fs-24);
-  font-weight: var(--fw-semibold);
+  font-size: var(--fs-32);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
   margin-top: var(--space-1);
+  letter-spacing: -0.02em;
 }
 .hint {
   font-size: var(--fs-12);
