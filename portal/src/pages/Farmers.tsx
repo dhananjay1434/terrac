@@ -9,6 +9,8 @@ import {
 } from "../api";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
+import Button from "../ui/Button/Button";
+import Card from "../ui/Card/Card";
 
 const PAGE_SIZE = 25;
 
@@ -108,14 +110,13 @@ export default function Farmers() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <button className="primary" type="submit" style={{ alignSelf: "flex-end" }}>
+        <Button type="submit" style={{ alignSelf: "flex-end" }}>
           Search
-        </button>
+        </Button>
       </form>
 
       {err && (
-        <div
-          className="card"
+        <Card
           style={{
             borderColor: "var(--status-error-fg)",
             marginBottom: 16,
@@ -127,10 +128,10 @@ export default function Farmers() {
           <span className="err" style={{ margin: 0 }}>
             {err}
           </span>
-          <button className="neutral" type="button" onClick={() => fetchPage(page, search)}>
+          <Button variant="neutral" size="sm" type="button" onClick={() => fetchPage(page, search)}>
             Retry
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
       <DataTable
@@ -148,29 +149,31 @@ export default function Farmers() {
       />
 
       <nav className="pager" aria-label="Farmers pagination">
-        <button
-          className="neutral"
+        <Button
+          variant="neutral"
+          size="sm"
           type="button"
           onClick={() => goTo(page - 1)}
           disabled={loading || page <= 1}
         >
           ‹ Previous
-        </button>
+        </Button>
         <span className="micro pager-status" aria-live="polite">
           Page {page} of {lastPage} · {total} total
         </span>
-        <button
-          className="neutral"
+        <Button
+          variant="neutral"
+          size="sm"
           type="button"
           onClick={() => goTo(page + 1)}
           disabled={loading || page >= lastPage}
         >
           Next ›
-        </button>
+        </Button>
       </nav>
 
       {(detailLoading || selected) && (
-        <section className="card" style={{ marginTop: 18 }} aria-label="Farmer detail">
+        <Card as="section" style={{ marginTop: 18 }} aria-label="Farmer detail">
           {detailLoading && <span className="micro">Loading…</span>}
           {selected && (
             <>
@@ -279,7 +282,7 @@ export default function Farmers() {
               )}
             </>
           )}
-        </section>
+        </Card>
       )}
     </div>
   );
