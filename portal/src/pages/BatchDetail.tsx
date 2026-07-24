@@ -21,6 +21,8 @@ import LcaBreakdown from "../components/LcaBreakdown/LcaBreakdown";
 import TemperatureChart from "../components/TemperatureChart/TemperatureChart";
 import StatTile from "../components/StatTile/StatTile";
 import { fmtCredit } from "../format";
+import Button from "../ui/Button/Button";
+import Card from "../ui/Card/Card";
 
 export const STEP_ORDER = [
   "batch_photo", "flame_curtain", "quenching", "flame_height",
@@ -182,8 +184,7 @@ export default function BatchDetail() {
             <div className="seal">✓ CREDIT ISSUED</div>
           ) : (
             getRole() === "admin" && (
-              <button
-                className="primary"
+              <Button
                 style={{ marginTop: 16 }}
                 disabled={!d.compliance.issuable || issuing}
                 onClick={() => setConfirmOpen(true)}
@@ -193,7 +194,7 @@ export default function BatchDetail() {
                   : d.compliance.issuable
                     ? "Issue credit"
                     : "Not yet issuable"}
-              </button>
+              </Button>
             )
           )}
           {getRole() === "admin" && d.compliance.issuable && (
@@ -201,20 +202,22 @@ export default function BatchDetail() {
               className="export-row"
               style={{ marginTop: 12, display: "flex", gap: 8 }}
             >
-              <button
-                className="neutral"
+              <Button
+                variant="neutral"
+                size="sm"
                 disabled={exporting !== null}
                 onClick={() => exportAs("csi")}
               >
                 {exporting === "csi" ? "Exporting…" : "Export CSI"}
-              </button>
-              <button
-                className="neutral"
+              </Button>
+              <Button
+                variant="neutral"
+                size="sm"
                 disabled={exporting !== null}
                 onClick={() => exportAs("rainbow")}
               >
                 {exporting === "rainbow" ? "Exporting…" : "Export Rainbow"}
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -258,7 +261,7 @@ export default function BatchDetail() {
 
       <ComplianceChecklist checklist={d.compliance.checklist} />
 
-      <section className="card" style={{ marginTop: 14 }}>
+      <Card as="section" style={{ marginTop: 14 }}>
         <span className="micro">Burn telemetry</span>
         <TemperatureChart
           readings={d.telemetry?.temperature_readings ?? []}
@@ -273,7 +276,7 @@ export default function BatchDetail() {
               require app-side series capture (out of scope). */}
           <StatTile label="Post-burn yield" value={`${d.batch.wet_yield_kg} kg`} />
         </div>
-      </section>
+      </Card>
 
       <EvidenceGallery media={d.media} />
 
