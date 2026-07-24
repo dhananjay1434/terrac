@@ -158,4 +158,13 @@ describe("Dispatch page", () => {
 
     await screen.findByText("A facility with that UUID already exists");
   });
+
+  it("renders the reskinned facility form and flagged-weight pill", async () => {
+    mockListDispatch.mockResolvedValue({ dispatches: [FLAGGED_ROW], next_cursor: null });
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    await screen.findByText(/Flagged \(30\.0%\)/);
+    expect(screen.getByRole("button", { name: "Next ›" })).toBeInTheDocument();
+  });
 });

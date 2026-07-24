@@ -13,6 +13,9 @@ import {
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
 import StatusDot from "../components/StatusDot/StatusDot";
+import StatusPill from "../ui/StatusPill/StatusPill";
+import Card from "../ui/Card/Card";
+import Button from "../ui/Button/Button";
 
 const PAGE_SIZE = 25;
 
@@ -189,11 +192,11 @@ export default function Dispatch() {
         d.weight_flagged == null ? (
           <span className="text-tertiary">—</span>
         ) : d.weight_flagged ? (
-          <span className="chip warn">
+          <StatusPill status="warning">
             Flagged ({d.weight_delta_pct?.toFixed(1)}%)
-          </span>
+          </StatusPill>
         ) : (
-          <span className="chip ok">OK</span>
+          <StatusPill status="success">OK</StatusPill>
         ),
     },
     { key: "driver", header: "Driver", render: (d) => d.driver_name ?? "—" },
@@ -205,7 +208,7 @@ export default function Dispatch() {
     <div className="wrap">
       <h1 className="page-title">Dispatch</h1>
 
-      <section className="card" style={{ marginBottom: 14 }}>
+      <Card as="section" style={{ marginBottom: 14 }}>
         <span className="micro">Register facility</span>
         <form className="filters" style={{ marginTop: 10 }} onSubmit={submitFacility}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -246,20 +249,19 @@ export default function Dispatch() {
               <option value="industrial">Industrial</option>
             </select>
           </div>
-          <button
-            className="primary"
+          <Button
             type="submit"
             disabled={facilitySubmitting}
             style={{ alignSelf: "flex-end" }}
           >
             Save
-          </button>
+          </Button>
         </form>
         {facilityMsg && (
           <div style={{ marginTop: 12 }}>
-            <div className={`chip ${facilityMsg.ok ? "ok" : "err"}`}>
+            <StatusPill status={facilityMsg.ok ? "success" : "error"}>
               {facilityMsg.text}
-            </div>
+            </StatusPill>
           </div>
         )}
         {facilities.length > 0 && (
@@ -268,7 +270,7 @@ export default function Dispatch() {
             registered.
           </div>
         )}
-      </section>
+      </Card>
 
       <Tabs.Root value={view} onValueChange={(v) => setView(v as ViewKey)}>
         <Tabs.List
@@ -291,8 +293,7 @@ export default function Dispatch() {
       </Tabs.Root>
 
       {err && (
-        <div
-          className="card"
+        <Card
           style={{
             borderColor: "var(--status-error-fg)",
             marginBottom: 16,
@@ -304,14 +305,14 @@ export default function Dispatch() {
           <span className="err" style={{ margin: 0 }}>
             {err}
           </span>
-          <button
-            className="neutral"
-            type="button"
+          <Button
+            variant="neutral"
+            size="sm"
             onClick={() => fetchPage(currentBefore)}
           >
             Retry
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
       <DataTable
@@ -328,27 +329,27 @@ export default function Dispatch() {
       />
 
       <nav className="pager" aria-label="Dispatch pagination">
-        <button
-          className="neutral"
-          type="button"
+        <Button
+          variant="neutral"
+          size="sm"
           onClick={goPrev}
           disabled={loading || prevStack.length === 0}
         >
           ‹ Previous
-        </button>
+        </Button>
         <span className="micro pager-status" aria-live="polite">
           Page {pageIndex}
           {rows.length > 0 &&
             ` · ${rows.length} row${rows.length === 1 ? "" : "s"}`}
         </span>
-        <button
-          className="neutral"
-          type="button"
+        <Button
+          variant="neutral"
+          size="sm"
           onClick={goNext}
           disabled={loading || !nextCursor}
         >
           Next ›
-        </button>
+        </Button>
       </nav>
     </div>
   );
