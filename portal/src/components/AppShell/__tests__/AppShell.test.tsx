@@ -146,9 +146,13 @@ describe("AppShell", () => {
     expect(screen.queryByRole("button", { name: "Account menu" })).not.toBeInTheDocument();
   });
 
-  it("renders the brand wordmark and mark from config", () => {
+  it("renders the brand wordmark and the logo mark", () => {
     renderShell();
     expect(screen.getAllByText(brand.wordmark).length).toBeGreaterThan(0);
-    expect(screen.getByText(brand.mark)).toBeInTheDocument();
+    // The "TC" text mark was replaced by the Logo SVG (role img, labeled with
+    // the wordmark); assert the mark renders as that accessible image.
+    expect(
+      screen.getByRole("img", { name: brand.wordmark }),
+    ).toBeInTheDocument();
   });
 });

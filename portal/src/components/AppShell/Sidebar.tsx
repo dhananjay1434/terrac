@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { brand } from "@config/brand";
+import Logo from "@ui/Logo/Logo";
 import styles from "./AppShell.module.css";
 
 const NAV = [
@@ -47,7 +48,7 @@ export default function Sidebar({
       aria-label="Primary"
     >
       <div className={styles.lockup}>
-        <div className={styles.mark}>{brand.mark}</div>
+        <Logo size={32} title={brand.wordmark} />
         {!collapsed && <span className={styles.wordmark}>{brand.wordmark}</span>}
       </div>
       <nav className={styles.nav} aria-label="Primary navigation">

@@ -90,18 +90,6 @@
   height: var(--topbar-h);
   border-bottom: var(--border-hair);
 }
-.mark {
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border-radius: var(--r-md);
-  background: var(--indigo-600);
-  color: var(--basalt-0);
-  font-weight: var(--fw-bold);
-  font-size: var(--fs-13);
-  display: grid;
-  place-items: center;
-}
 .wordmark {
   font-weight: var(--fw-semibold);
   font-size: var(--fs-14);

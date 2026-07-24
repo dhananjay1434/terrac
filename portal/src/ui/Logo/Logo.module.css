@@ -1,0 +1,12 @@
+.logo {
+  display: block;
+  flex: none;
+}
+.disc {
+  fill: var(--indigo-600);
+}
+/* Always white on the indigo disc — intentionally theme-independent so the
+   mark is identical in light, dark, and on the indigo login panel. */
+.fg {
+  fill: #ffffff;
+}

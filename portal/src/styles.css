@@ -13,9 +13,6 @@
   background: var(--basalt-900);
   color: var(--text-primary);
 }
-[data-theme="dark"] .mark {
-  color: var(--basalt-0);
-}
 [data-theme="dark"] button.primary {
   color: var(--basalt-0);
 }
@@ -102,16 +99,6 @@ code, .mono {
 
 .amber-tag {
   color: var(--status-warning-fg);
-}
-.mark {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--r-md);
-  background: var(--indigo-600);
-  display: grid;
-  place-items: center;
-  color: #fff;
-  font-weight: var(--fw-bold);
 }
 .wrap {
   max-width: var(--content-max);

@@ -5,6 +5,7 @@ import { login, ApiError } from "../api";
 import { setSession } from "../auth";
 import Card from "../ui/Card/Card";
 import Button from "../ui/Button/Button";
+import Logo from "../ui/Logo/Logo";
 
 export default function Login() {
   const nav = useNavigate();
@@ -106,7 +107,7 @@ export default function Login() {
             padding: 32,
           }}
         >
-          <div className="mark">TC</div>
+          <Logo size={48} aria-hidden />
           <div style={{ fontSize: 22, fontWeight: "var(--fw-bold)", letterSpacing: "-0.02em" }}>
             TerraCipher
           </div>
