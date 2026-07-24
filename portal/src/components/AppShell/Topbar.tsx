@@ -5,6 +5,7 @@ import { Menu, Sun, Moon, HelpCircle, CircleUser } from "lucide-react";
 import { logout } from "../../api";
 import { clearSession } from "../../auth";
 import { getTheme, setTheme, type Theme } from "../../theme";
+import { brand } from "@config/brand";
 import styles from "./AppShell.module.css";
 
 const RECENT_SCANS_KEY = "tc_recent_scans";
@@ -66,7 +67,7 @@ export default function Topbar({
         className={styles.topbarWordmark}
         data-desktop-only={!collapsed}
       >
-        TerraCipher
+        {brand.wordmark}
       </span>
       <div className={styles.topbarRight}>
         <button

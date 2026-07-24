@@ -5,6 +5,7 @@ import AppShell from "../AppShell";
 import App from "../../../App";
 import { logout } from "../../../api";
 import { clearSession } from "../../../auth";
+import { brand } from "@config/brand";
 
 vi.mock("../../../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../api")>();
@@ -143,5 +144,11 @@ describe("AppShell", () => {
     );
     expect(screen.queryByRole("link", { name: /batches/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Account menu" })).not.toBeInTheDocument();
+  });
+
+  it("renders the brand wordmark and mark from config", () => {
+    renderShell();
+    expect(screen.getAllByText(brand.wordmark).length).toBeGreaterThan(0);
+    expect(screen.getByText(brand.mark)).toBeInTheDocument();
   });
 });

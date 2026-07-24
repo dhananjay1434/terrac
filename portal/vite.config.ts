@@ -12,6 +12,7 @@ export default defineConfig({
       "@tokens": fileURLToPath(new URL("./src/tokens", import.meta.url)),
       "@ui": fileURLToPath(new URL("./src/ui", import.meta.url)),
       "@lib": fileURLToPath(new URL("./src/lib", import.meta.url)),
+      "@config": fileURLToPath(new URL("./src/config", import.meta.url)),
     },
   },
   build: { outDir: "dist", sourcemap: false },

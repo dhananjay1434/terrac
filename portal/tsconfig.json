@@ -20,7 +20,8 @@
     "paths": {
       "@tokens/*": ["tokens/*"],
       "@ui/*": ["ui/*"],
-      "@lib/*": ["lib/*"]
+      "@lib/*": ["lib/*"],
+      "@config/*": ["config/*"]
     }
   },
   "include": ["src"]
