@@ -1,0 +1,27 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+
+.success {
+  background: var(--status-success-bg);
+  color: var(--status-success-fg);
+}
+.warning {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
+}
+.error {
+  background: var(--status-error-bg);
+  color: var(--status-error-fg);
+}
+.inert {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
