@@ -118,7 +118,7 @@ input {
   border-radius: var(--r-md);
   font: inherit;
   font-size: var(--fs-13);
-  background: #fff;
+  background: var(--surface-card);
   color: var(--text-primary);
 }
 select {
@@ -127,7 +127,7 @@ select {
   border-radius: var(--r-md);
   font: inherit;
   font-size: var(--fs-13);
-  background: #fff;
+  background: var(--surface-card);
 }
 input:focus, select:focus {
   border-color: var(--border-strong);
