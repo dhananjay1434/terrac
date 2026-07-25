@@ -71,12 +71,49 @@ def _day_labels(dt_from: datetime, dt_to: datetime) -> list[str]:
     return labels
 
 
+def _week_start(dt: datetime) -> datetime:
+    """Monday 00:00 of the ISO week containing `dt` (weekday(): Mon=0). Matches
+    Postgres date_trunc('week', ...) and the SQLite date(..., '-6 days',
+    'weekday 1') idiom used in the query, so the Python components rollup keys
+    line up exactly with the SQL GROUP BY keys."""
+    monday = (dt - timedelta(days=dt.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    return monday
+
+
+def _week_labels(dt_from: datetime, dt_to: datetime) -> list[str]:
+    """Full ordered list of week-start "YYYY-MM-DD" (Monday) labels spanning
+    [dt_from, dt_to], stepping week-by-week. A week is keyed by its Monday date
+    — dense and naturally sortable, and the granularity where artisanal batch
+    cadence reads as a contiguous series rather than sparse daily spikes."""
+    labels: list[str] = []
+    current = _week_start(dt_from)
+    end = _week_start(dt_to)
+    while current <= end:
+        labels.append(current.strftime("%Y-%m-%d"))
+        current += timedelta(days=7)
+    return labels
+
+
+# Period-key derivation in Python, one per bucket type. MUST stay in lockstep
+# with the SQL period_key expressions below (same calendar boundaries, same
+# string format) — the components rollup re-buckets each batch's received_at
+# through this and looks the result up against the SQL-grouped rows.
+def _period_of(bucket: str):
+    if bucket == "day":
+        return lambda dt: dt.strftime("%Y-%m-%d")
+    if bucket == "week":
+        return lambda dt: _week_start(dt).strftime("%Y-%m-%d")
+    return lambda dt: dt.strftime("%Y-%m")
+
+
 async def credit_timeseries(
     session: AsyncSession,
     user: PortalUser,
     dt_from: datetime,
     dt_to: datetime,
-    bucket: Literal["month", "day"] = "month",
+    bucket: Literal["month", "week", "day"] = "month",
 ) -> dict:
     dialect = session.get_bind().dialect.name
     if dialect == "postgresql":
@@ -87,20 +124,31 @@ async def credit_timeseries(
                 func.date_trunc("day", func.timezone("UTC", Batch.received_at)),
                 "YYYY-MM-DD",
             )
-            period_format = "%Y-%m-%d"
+        elif bucket == "week":
+            # date_trunc('week') → Monday 00:00 of the week (ISO, Mon-start).
+            period_key = func.to_char(
+                func.date_trunc("week", func.timezone("UTC", Batch.received_at)),
+                "YYYY-MM-DD",
+            )
         else:
             period_key = func.to_char(
                 func.date_trunc("month", func.timezone("UTC", Batch.received_at)),
                 "YYYY-MM",
             )
-            period_format = "%Y-%m"
     else:
         if bucket == "day":
             period_key = func.strftime("%Y-%m-%d", Batch.received_at)
-            period_format = "%Y-%m-%d"
+        elif bucket == "week":
+            # SQLite has no week-truncate; date(ts, '-6 days', 'weekday 1')
+            # yields the Monday of ts's week (weekday 1 = next Monday; the
+            # -6-day shift makes an on-Monday date resolve to itself).
+            period_key = func.strftime(
+                "%Y-%m-%d", func.date(Batch.received_at, "-6 days", "weekday 1")
+            )
         else:
             period_key = func.strftime("%Y-%m", Batch.received_at)
-            period_format = "%Y-%m"
+
+    period_of = _period_of(bucket)
 
     issued_sum = func.coalesce(
         func.sum(case((Batch.provisional.is_(False), Batch.net_credit_t_co2e), else_=0.0)),
@@ -132,6 +180,8 @@ async def credit_timeseries(
     # Select label generator based on bucket type
     if bucket == "day":
         label_generator = _day_labels(dt_from, dt_to)
+    elif bucket == "week":
+        label_generator = _week_labels(dt_from, dt_to)
     else:
         label_generator = _month_labels(dt_from, dt_to)
 
@@ -172,7 +222,7 @@ async def credit_timeseries(
         comp = _parse_components(row.lca_audit_json)
         if comp is None:
             continue
-        period = row.received_at.strftime(period_format)
+        period = period_of(row.received_at)
         acc = components_by_period.setdefault(
             period,
             {

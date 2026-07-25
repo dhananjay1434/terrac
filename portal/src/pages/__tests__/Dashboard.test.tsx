@@ -88,7 +88,7 @@ describe("Dashboard page", () => {
     expect(await screen.findByText("7.500")).toBeInTheDocument();
   });
 
-  it("requests a ~6-month window, not the backend's full 12-month default", async () => {
+  it("defaults to weekly granularity over a ~13-week (91-day) window", async () => {
     mockTimeseries.mockResolvedValue(EMPTY_TIMESERIES);
     mockQuality.mockResolvedValue(EMPTY_QUALITY);
     mockSummary.mockResolvedValue({ by_status: {}, provisional: 0, reasons_histogram: {} });
@@ -101,11 +101,11 @@ describe("Dashboard page", () => {
     const lastCall = calls[calls.length - 1];
     expect(lastCall).toBeDefined();
     const [params] = lastCall;
+    expect(params!.bucket).toBe("week");
     const from = new Date(params!.from!);
     const to = new Date(params!.to!);
-    const monthsSpan =
-      (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
-    expect(monthsSpan).toBe(6);
+    const daysSpan = Math.round((to.getTime() - from.getTime()) / 86_400_000);
+    expect(daysSpan).toBe(91);
   });
 
   it("renders the Batch Quality & Operations section alongside the credit KPIs", async () => {
@@ -136,30 +136,33 @@ describe("Dashboard page", () => {
     expect(await screen.findByText("What's blocking issuance")).toBeInTheDocument();
   });
 
-  it("BucketToggle present and clicking it changes fetched bucket parameter", async () => {
+  it("granularity toggle present; default Week, clicking Day changes fetched bucket + window", async () => {
     mockTimeseries.mockResolvedValue(EMPTY_TIMESERIES);
     mockQuality.mockResolvedValue(EMPTY_QUALITY);
     mockSummary.mockResolvedValue({ by_status: {}, provisional: 0, reasons_histogram: {} });
     renderPage();
 
-    // Verify the toggle renders with Month selected by default
-    const monthBtn = await screen.findByRole("button", { name: "Month" });
+    // Default granularity is Week.
+    const weekBtn = await screen.findByRole("button", { name: "Week" });
     const dayBtn = screen.getByRole("button", { name: "Day" });
-    expect(monthBtn).toHaveAttribute("aria-selected", "true");
+    expect(weekBtn).toHaveAttribute("aria-selected", "true");
     expect(dayBtn).toHaveAttribute("aria-selected", "false");
 
-    // Click the Day button
     fireEvent.click(dayBtn);
 
-    // Wait for the API call to be made with bucket="day"
+    // Day view fetches bucket=day over a ~30-day window (finer granularity ⇒
+    // shorter, denser window).
     await waitFor(() => {
       const calls = mockTimeseries.mock.calls;
       const lastCall = calls[calls.length - 1];
       expect(lastCall[0]?.bucket).toBe("day");
+      const from = new Date(lastCall[0]!.from!);
+      const to = new Date(lastCall[0]!.to!);
+      const daysSpan = Math.round((to.getTime() - from.getTime()) / 86_400_000);
+      expect(daysSpan).toBe(30);
     });
 
-    // Verify the toggle now shows Day selected
-    expect(monthBtn).toHaveAttribute("aria-selected", "false");
+    expect(weekBtn).toHaveAttribute("aria-selected", "false");
     expect(dayBtn).toHaveAttribute("aria-selected", "true");
   });
 });

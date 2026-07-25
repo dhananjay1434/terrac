@@ -184,6 +184,39 @@ describe("DivergingStackedBarChart", () => {
     expect(segmentRects.length).toBe(4);
   });
 
+  it("caps x-axis labels so they never collide (≤ ~10 on a 720px chart)", () => {
+    // 60 daily buckets would collide if every one were labeled. The component
+    // must thin labels to at most WIDTH/72 ≈ 10, while still drawing all bars.
+    const many: DivergingBar[] = Array.from({ length: 60 }, (_, i) => ({
+      label: `Day ${i + 1}`,
+      above: [{ label: "Net credit", value: (i % 5) + 1, color: "#0a0" }],
+      below: [{ label: "Safety", value: 1, color: "#a00" }],
+      tooltip: [],
+    }));
+    const { container } = render(<DivergingStackedBarChart data={many} />);
+    const textLabels = container.querySelectorAll("text");
+    expect(textLabels.length).toBeGreaterThan(0);
+    expect(textLabels.length).toBeLessThanOrEqual(10);
+  });
+
+  it("renders a per-bar note (e.g. provisional vs empty) in the tooltip", () => {
+    const withNote: DivergingBar[] = [
+      {
+        label: "Wk 1",
+        above: [{ label: "Net credit", value: 0, color: "#0a0" }],
+        below: [],
+        tooltip: [{ label: "Net credit", value: 0, bold: true }],
+        note: "3 provisional (pipeline) — not yet issued",
+      },
+    ];
+    const { container } = render(<DivergingStackedBarChart data={withNote} />);
+    const hit = container.querySelector('rect[data-hit-area="true"]')!;
+    fireEvent.mouseEnter(hit);
+    expect(
+      screen.getByText("3 provisional (pipeline) — not yet issued"),
+    ).toBeInTheDocument();
+  });
+
   it("has no axe violations", async () => {
     const { container } = render(<DivergingStackedBarChart data={DATA} ariaLabel="Credits over time" />);
     const results = await axe(container);

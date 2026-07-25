@@ -259,11 +259,12 @@ export function getSummary(): Promise<{
 }
 
 // V8 Part D.2 — typed client for the Part D.1a credit-timeseries aggregate.
-// Supports month and day bucketing.
+// Supports month, week, and day bucketing.
+export type CreditBucketGranularity = "month" | "week" | "day";
 export interface CreditTimeseriesParams {
   from?: string;
   to?: string;
-  bucket?: "month" | "day";
+  bucket?: CreditBucketGranularity;
 }
 
 export function getCreditTimeseries(

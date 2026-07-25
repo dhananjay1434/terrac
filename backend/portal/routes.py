@@ -1032,12 +1032,12 @@ def _parse_dt(s: str) -> datetime:
 async def credit_timeseries(
     _user: PortalUser = Depends(require_role()),
     session: AsyncSession = Depends(get_session),
-    bucket: str = Query("month", pattern="^(month|day)$"),
+    bucket: str = Query("month", pattern="^(month|week|day)$"),
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = Query(None),
 ):
-    """V8 Part D.1a — org-scoped monthly or daily credit time-series.
-    Supports bucket=month (default) or bucket=day."""
+    """V8 Part D.1a — org-scoped credit time-series.
+    Supports bucket=month (default), bucket=week, or bucket=day."""
     dt_to = _parse_dt(to) if to else datetime.now(timezone.utc)
     dt_from = _parse_dt(from_) if from_ else dt_to - timedelta(days=365)
 

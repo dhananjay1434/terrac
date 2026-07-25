@@ -308,14 +308,15 @@ async def test_timeseries_buckets_zero_fill_and_org_isolation(
 
 
 async def test_unsupported_bucket_is_422(client, registered_device, session_factory):
-    """FastAPI's pattern validation returns 422 for invalid bucket values."""
+    """FastAPI's pattern validation returns 422 for invalid bucket values.
+    (month/week/day are all valid; "year" is not.)"""
     await _seed_projects(session_factory)
     headers = await _login(
         client, session_factory, email="orga-week@metrics.test", org_id="org-metrics-a"
     )
     resp = await client.get(
         "/api/v1/portal/metrics/credit-timeseries",
-        params={"bucket": "week", "from": WINDOW_FROM, "to": WINDOW_TO},
+        params={"bucket": "year", "from": WINDOW_FROM, "to": WINDOW_TO},
         headers=headers,
     )
     # FastAPI's pattern validation returns 422 (Unprocessable Entity), not 400
@@ -512,6 +513,82 @@ async def test_credit_timeseries_daily_bucketing(
     totals = body["totals"]
     assert totals["issued_credit_t_co2e"] == pytest.approx(
         batch_day1.net_credit_t_co2e + batch_day7.net_credit_t_co2e + batch_day14.net_credit_t_co2e
+    )
+    assert totals["issued_count"] == 3
+    assert totals["provisional_count"] == 0
+
+
+async def test_credit_timeseries_weekly_bucketing(
+    client, registered_device, session_factory
+):
+    """Weekly bucketing support: bucket=week groups by ISO week (Monday-start),
+    keyed by the week's Monday date "YYYY-MM-DD", with zero-fill for empty weeks.
+
+    Scenario: 3 batches exactly 7 days apart (2026-07-01, -08, -15) → 3 distinct
+    consecutive weeks regardless of which weekday the window starts on.
+    - Every period key is a Monday (weekday()==0), format YYYY-MM-DD.
+    - Consecutive week keys differ by exactly 7 days (contiguous, no gaps).
+    - Exactly 3 weeks carry the batch credit; any other weeks zero-fill.
+    - Totals reconcile to the sum of the 3 batches.
+    """
+    from datetime import datetime as _dt
+
+    from portal import metrics
+
+    await _seed_projects(session_factory)
+
+    async with session_factory() as session:
+        user = PortalUser(
+            email="orga-weekly-func@metrics.test",
+            password_hash=hash_password("correct-horse-battery-staple"),
+            role="org_admin",
+            org_id="org-metrics-a",
+            disabled=False,
+        )
+        session.add(user)
+        await session.commit()
+
+    window_from = datetime(2026, 7, 1, 0, 0, 0, tzinfo=timezone.utc)
+    window_to = datetime(2026, 7, 21, 23, 59, 59, tzinfo=timezone.utc)
+
+    b1 = await _make_issued_batch(
+        client, session_factory, "dm-proj-a", datetime(2026, 7, 1, 12, 0, 0, tzinfo=timezone.utc)
+    )
+    b2 = await _make_issued_batch(
+        client, session_factory, "dm-proj-a", datetime(2026, 7, 8, 12, 0, 0, tzinfo=timezone.utc)
+    )
+    b3 = await _make_issued_batch(
+        client, session_factory, "dm-proj-a", datetime(2026, 7, 15, 12, 0, 0, tzinfo=timezone.utc)
+    )
+    assert b1.net_credit_t_co2e and b2.net_credit_t_co2e and b3.net_credit_t_co2e
+
+    async with session_factory() as session:
+        body = await metrics.credit_timeseries(
+            session, user, window_from, window_to, bucket="week"
+        )
+
+    assert body["bucket"] == "week"
+    periods = [b["period"] for b in body["buckets"]]
+
+    # Every key is a Monday in YYYY-MM-DD form.
+    for p in periods:
+        assert len(p) == 10 and p[4] == "-" and p[7] == "-"
+        assert _dt.strptime(p, "%Y-%m-%d").weekday() == 0, f"{p} is not a Monday"
+
+    # Weeks are contiguous: each key is exactly 7 days after the previous.
+    for prev, nxt in zip(periods, periods[1:]):
+        d0 = _dt.strptime(prev, "%Y-%m-%d")
+        d1 = _dt.strptime(nxt, "%Y-%m-%d")
+        assert (d1 - d0).days == 7
+
+    # Exactly 3 weeks carry credit (one batch each); the rest zero-fill.
+    nonzero = [b for b in body["buckets"] if b["issued_count"] > 0]
+    assert len(nonzero) == 3
+    assert all(b["issued_count"] == 1 for b in nonzero)
+
+    totals = body["totals"]
+    assert totals["issued_credit_t_co2e"] == pytest.approx(
+        b1.net_credit_t_co2e + b2.net_credit_t_co2e + b3.net_credit_t_co2e
     )
     assert totals["issued_count"] == 3
     assert totals["provisional_count"] == 0

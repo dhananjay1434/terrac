@@ -4,6 +4,7 @@ import {
   getQualityMetrics,
   getSummary,
   type CreditTimeseries,
+  type CreditBucketGranularity,
   type QualityMetrics,
 } from "../api";
 import KpiRow from "./Dashboard/KpiRow";
@@ -12,6 +13,7 @@ import PyrolysisQualityCard from "./Dashboard/PyrolysisQualityCard";
 import PermanenceQualityCard from "./Dashboard/PermanenceQualityCard";
 import IssuanceBlockerCard from "./Dashboard/IssuanceBlockerCard";
 import BucketToggle from "../ui/BucketToggle/BucketToggle";
+import { GRANULARITY_OPTIONS, windowFor } from "../config/chartRange";
 
 export default function Dashboard() {
   const [data, setData] = useState<CreditTimeseries | null>(null);
@@ -26,7 +28,13 @@ export default function Dashboard() {
   const [reasonsLoading, setReasonsLoading] = useState(true);
   const [reasonsError, setReasonsError] = useState(false);
 
-  const [bucket, setBucket] = useState<"month" | "day">("month");
+  // Granularity drives BOTH the SQL bucket AND the time window (Stripe/Grafana
+  // convention: finer granularity → shorter, denser, more-recent window). This
+  // keeps bars contiguous at every level instead of scattering a handful of
+  // daily spikes across a mostly-empty 6-month axis. Default "week" is the
+  // sweet spot where artisanal batch cadence reads as a full, continuous
+  // series. See config/chartRange for the window mapping.
+  const [bucket, setBucket] = useState<CreditBucketGranularity>("week");
 
   // INV-6: the credit KPIs/chart come from ONE metrics endpoint — never also
   // call getSummary for that figure, since its counts answer a different
@@ -37,13 +45,7 @@ export default function Dashboard() {
     setLoading(true);
     setError(false);
     try {
-      // Request a 7-month window (not the backend's 12-month default) so the
-      // chart shows real, data-dense months rather than being diluted by a
-      // long run of true-but-empty history before this org had any batches.
-      // Still 100% honest zero-fill within the window — never fabricated.
-      const to = new Date();
-      const from = new Date(to);
-      from.setMonth(from.getMonth() - 6);
+      const { from, to } = windowFor(bucket);
       const d = await getCreditTimeseries({
         from: from.toISOString(),
         to: to.toISOString(),
@@ -102,9 +104,13 @@ export default function Dashboard() {
         error={error}
         onRetry={fetchTotals}
       />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <span />
-        <BucketToggle selected={bucket} onSelect={setBucket} />
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 8 }}>
+        <BucketToggle
+          options={GRANULARITY_OPTIONS}
+          selected={bucket}
+          onSelect={setBucket}
+          ariaLabel="Chart granularity"
+        />
       </div>
       <CreditsOverTime
         buckets={data?.buckets ?? null}

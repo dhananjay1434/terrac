@@ -15,6 +15,10 @@ export type DivergingBar = {
   above: StackSegment[];
   below: StackSegment[];
   tooltip: { label: string; value: number; bold?: boolean }[];
+  /** Optional muted status line shown under the tooltip header — e.g. to
+   * distinguish a provisional-pipeline period from a genuinely empty one,
+   * both of which have zero issued credit and would otherwise look identical. */
+  note?: string;
 };
 
 export interface DivergingStackedBarChartProps {
@@ -27,16 +31,17 @@ export interface DivergingStackedBarChartProps {
 
 const WIDTH = 720;
 const LABEL_RESERVE = 24;
+// Min horizontal px budget per x-axis label. A short date like "May 15" is
+// ~40px at 12px font; 72px leaves comfortable air so adjacent labels never
+// collide (the "Jan 25Feb 3Feb 12" run-together bug). Ticks are decoupled
+// from bars — every bucket still draws a bar, but at most WIDTH/72 (~10 on a
+// 720px chart) get a text label.
+const PX_PER_LABEL = 72;
 
-/**
- * Compute max labels dynamically based on data density.
- * - Sparse (≤ 12 bars, monthly): show all labels (every bar)
- * - Dense (> 12 bars, daily): show ~20 labels (every 7-10 days)
- * Formula: denser data can fit more labels due to higher bar density
- */
+/** Max x-axis labels that fit without colliding: ~1 per PX_PER_LABEL, capped
+ * at the bar count (never more labels than bars). */
 function computeMaxLabels(count: number): number {
-  if (count <= 12) return count; // Monthly: show every month
-  return Math.max(20, Math.ceil(count / 9)); // Daily: ~every 9th bar (~every 9 days)
+  return Math.min(count, Math.max(2, Math.floor(WIDTH / PX_PER_LABEL)));
 }
 
 /** Picks an evenly-spaced subset of indices, capped at maxLabels. */
@@ -234,9 +239,29 @@ export default function DivergingStackedBarChart({
             </text>
           );
         })}
+        {/* Our own hover/focus indicator, drawn in SVG so it's reliable
+            across browsers. Replaces the browser's DEFAULT focus outline on
+            the hit-area rects (which rendered as a stray tall black line at
+            the chart's right edge, since app :focus-visible CSS doesn't apply
+            to SVG <rect>). The hit rects set outline:none via .hitArea. */}
+        {hovered !== null && (
+          <rect
+            x={hovered * barSlot}
+            y={0}
+            width={barSlot}
+            height={plotHeight}
+            fill="var(--indigo-600)"
+            opacity={0.08}
+            stroke="var(--indigo-600)"
+            strokeOpacity={0.5}
+            strokeWidth={1}
+            pointerEvents="none"
+          />
+        )}
         {data.map((_, i) => (
           <rect
             key={`hit-${i}`}
+            className={styles.hitArea}
             data-hit-area="true"
             x={i * barSlot}
             y={0}
@@ -263,6 +288,9 @@ export default function DivergingStackedBarChart({
           }
         >
           <div className={styles.tooltipHeader}>{hoveredBar.label}</div>
+          {hoveredBar.note && (
+            <div className={styles.tooltipNote}>{hoveredBar.note}</div>
+          )}
           {hoveredBar.tooltip.map((row, i) => (
             <div key={i} className={row.bold ? styles.tooltipRowBold : styles.tooltipRow}>
               <span>{row.label}</span>

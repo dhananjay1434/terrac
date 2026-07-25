@@ -37,8 +37,19 @@ function toDivergingBar(b: CreditBucket): DivergingBar {
     ch4_t_co2e: 0,
     gross_t_co2e: 0,
   };
+  // Distinguish the two zero-credit period types the tooltip would otherwise
+  // render identically: a period with provisional (pipeline) batches awaiting
+  // corroboration vs. a genuinely empty period. Honest — never invents credit.
+  let note: string | undefined;
+  if (b.issued_count === 0) {
+    note =
+      b.provisional_count > 0
+        ? `${b.provisional_count} provisional (pipeline) — not yet issued`
+        : "No credits issued this period";
+  }
   return {
     label: formatPeriod(b.period),
+    note,
     above: [{ label: "Net credit", value: b.issued_credit_t_co2e, color: indigoTone(0) }],
     below: [
       { label: "Safety margin", value: c.safety_t_co2e, color: indigoTone(1) },

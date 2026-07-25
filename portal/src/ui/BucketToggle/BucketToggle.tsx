@@ -1,57 +1,67 @@
 import { useRef } from "react";
 import styles from "./BucketToggle.module.css";
 
-export interface BucketToggleProps {
-  selected: "month" | "day";
-  onSelect: (bucket: "month" | "day") => void;
+export interface BucketToggleOption<V extends string = string> {
+  value: V;
+  label: string;
 }
 
-/** Segmented control for toggling between month and day bucket views.
- * Simple two-button pattern with keyboard navigation support (arrow keys). */
-export default function BucketToggle({ selected, onSelect }: BucketToggleProps) {
-  const monthBtnRef = useRef<HTMLButtonElement>(null);
-  const dayBtnRef = useRef<HTMLButtonElement>(null);
+export interface BucketToggleProps<V extends string = string> {
+  options: BucketToggleOption<V>[];
+  selected: V;
+  onSelect: (value: V) => void;
+  /** Accessible group label (e.g. "Chart granularity"). */
+  ariaLabel?: string;
+}
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+/**
+ * Generic segmented control — a horizontal row of mutually-exclusive options.
+ * Options are caller-supplied (never hardcoded here), so the same control
+ * drives 2-way or N-way choices. Roving-focus arrow-key navigation, and
+ * selecting an option moves focus to it (standard segmented-control a11y).
+ */
+export default function BucketToggle<V extends string = string>({
+  options,
+  selected,
+  onSelect,
+  ariaLabel,
+}: BucketToggleProps<V>) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const move = (from: number, delta: number) => {
+    const next = (from + delta + options.length) % options.length;
+    refs.current[next]?.focus();
+    onSelect(options[next].value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, i: number) => {
     if (e.key === "ArrowRight" || e.key === "ArrowDown") {
       e.preventDefault();
-      const otherOption = selected === "month" ? "day" : "month";
-      const otherRef = selected === "month" ? dayBtnRef : monthBtnRef;
-      otherRef.current?.focus();
-      onSelect(otherOption);
+      move(i, 1);
     } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
       e.preventDefault();
-      const otherOption = selected === "month" ? "day" : "month";
-      const otherRef = selected === "month" ? dayBtnRef : monthBtnRef;
-      otherRef.current?.focus();
-      onSelect(otherOption);
+      move(i, -1);
     }
   };
 
   return (
-    <div className={styles.toggle}>
-      <button
-        ref={monthBtnRef}
-        className={styles.option}
-        data-selected={selected === "month"}
-        aria-selected={selected === "month"}
-        aria-pressed={selected === "month"}
-        onClick={() => onSelect("month")}
-        onKeyDown={handleKeyDown}
-      >
-        Month
-      </button>
-      <button
-        ref={dayBtnRef}
-        className={styles.option}
-        data-selected={selected === "day"}
-        aria-selected={selected === "day"}
-        aria-pressed={selected === "day"}
-        onClick={() => onSelect("day")}
-        onKeyDown={handleKeyDown}
-      >
-        Day
-      </button>
+    <div className={styles.toggle} role="group" aria-label={ariaLabel}>
+      {options.map((opt, i) => (
+        <button
+          key={opt.value}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          className={styles.option}
+          data-selected={selected === opt.value}
+          aria-selected={selected === opt.value}
+          aria-pressed={selected === opt.value}
+          onClick={() => onSelect(opt.value)}
+          onKeyDown={(e) => handleKeyDown(e, i)}
+        >
+          {opt.label}
+        </button>
+      ))}
     </div>
   );
 }
