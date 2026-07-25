@@ -130,6 +130,60 @@ describe("DivergingStackedBarChart", () => {
     expect(belowHeights[0]).toBeGreaterThan(50);
   });
 
+  it("gives each below-zero category its own lane so a small-but-real category isn't dwarfed by a bigger one", () => {
+    // Safety margin (10) dwarfs transport (0.1) by 100x in real methodology
+    // data — each category must still get its own visible lane, scaled
+    // against its own max, not one shared scale dominated by safety.
+    const MULTI_CATEGORY: DivergingBar[] = [
+      {
+        label: "A",
+        above: [{ label: "Net credit", value: 50, color: "#0a0" }],
+        below: [
+          { label: "Safety", value: 10, color: "#a00" },
+          { label: "Transport", value: 0.1, color: "#a50" },
+        ],
+        tooltip: [],
+      },
+    ];
+    const { container } = render(<DivergingStackedBarChart data={MULTI_CATEGORY} height={240} />);
+    const belowRects = Array.from(container.querySelectorAll('rect[data-side="below"]'));
+    expect(belowRects.length).toBe(2);
+    const heights = belowRects.map((r) => Number(r.getAttribute("height")));
+    // Both are the sole (and thus max) occurrence of their label, so each
+    // fills its own lane fully — heights should be close to equal despite
+    // the 100x gap in raw value.
+    expect(heights[0]).toBeCloseTo(heights[1], 5);
+    expect(heights[0]).toBeGreaterThan(30);
+  });
+
+  it("never fabricates a visible segment for a category that is genuinely zero", () => {
+    const ALWAYS_ZERO_CH4: DivergingBar[] = [
+      {
+        label: "A",
+        above: [{ label: "Net credit", value: 50, color: "#0a0" }],
+        below: [
+          { label: "Safety", value: 5, color: "#a00" },
+          { label: "CH4", value: 0, color: "#a50" },
+        ],
+        tooltip: [],
+      },
+      {
+        label: "B",
+        above: [{ label: "Net credit", value: 40, color: "#0a0" }],
+        below: [
+          { label: "Safety", value: 4, color: "#a00" },
+          { label: "CH4", value: 0, color: "#a50" },
+        ],
+        tooltip: [],
+      },
+    ];
+    const { container } = render(<DivergingStackedBarChart data={ALWAYS_ZERO_CH4} height={240} />);
+    // 2 bars x (1 above + 1 non-zero below) = 4 segment rects total, never a
+    // rect for the always-zero CH4 category regardless of lane math.
+    const segmentRects = container.querySelectorAll('rect:not([data-hit-area="true"])');
+    expect(segmentRects.length).toBe(4);
+  });
+
   it("has no axe violations", async () => {
     const { container } = render(<DivergingStackedBarChart data={DATA} ariaLabel="Credits over time" />);
     const results = await axe(container);
