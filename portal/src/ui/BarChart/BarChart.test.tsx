@@ -71,6 +71,30 @@ describe("BarChart", () => {
     expect(container.querySelectorAll("rect").length).toBe(24);
   });
 
+  it("truncates long category labels so they don't visually overlap", () => {
+    const longLabels = [
+      { label: "missing_annual_methane", value: 3 },
+      { label: "wet_yield_uncorroborated", value: 3 },
+      { label: "missing_composite_sample", value: 2 },
+      { label: "missing_buyer_identity", value: 2 },
+      { label: "min_temp_uncorroborated", value: 1 },
+    ];
+    const { container } = render(<BarChart data={longLabels} />);
+    const texts = Array.from(container.querySelectorAll("text"));
+    // Every rendered label must be shorter than its raw source label — proof
+    // truncation actually kicked in for long snake_case category names —
+    // and the full name always survives in the bar's <title> for hover.
+    for (const t of texts) {
+      const original = longLabels.find((d) => d.label.startsWith(t.textContent!.replace("…", "")));
+      expect(original).toBeTruthy();
+      expect(t.textContent!.length).toBeLessThan(original!.label.length + 1);
+    }
+    const titles = Array.from(container.querySelectorAll("rect title")).map(
+      (el) => el.textContent,
+    );
+    expect(titles.some((t) => t?.startsWith("missing_annual_methane:"))).toBe(true);
+  });
+
   it("has no axe violations", async () => {
     const { container } = render(
       <BarChart data={DATA} ariaLabel="Monthly emissions" />,

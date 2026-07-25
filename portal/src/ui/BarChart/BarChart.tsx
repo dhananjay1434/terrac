@@ -42,6 +42,18 @@ function pickLabelIndices(count: number, maxLabels: number): Set<number> {
   return indices;
 }
 
+// Rough average glyph width (px) for the `.micro` 12px label font — used only
+// to decide how many characters fit in a slot before truncating. The full
+// label always stays available in the bar's <title> tooltip.
+const APPROX_CHAR_WIDTH = 6;
+
+/** Truncates a label with an ellipsis if it wouldn't fit its slot width. */
+function truncateLabel(label: string, slotWidth: number): string {
+  const maxChars = Math.max(3, Math.floor(slotWidth / APPROX_CHAR_WIDTH));
+  if (label.length <= maxChars) return label;
+  return `${label.slice(0, maxChars - 1)}…`;
+}
+
 export default function BarChart({
   data,
   height = 200,
@@ -74,6 +86,10 @@ export default function BarChart({
   const chartHeight = height - 20; // reserve space for x-axis labels
   const { slotWidth, barWidth } = computeLayout(data.length, WIDTH);
   const labelIndices = pickLabelIndices(data.length, MAX_X_LABELS);
+  // Shown labels are spaced `step` slots apart — that's the real horizontal
+  // room each one has before it would collide with the next shown label.
+  const labelStep = Math.max(1, Math.ceil(data.length / MAX_X_LABELS));
+  const labelBudget = slotWidth * labelStep * 0.9;
 
   const gridlines = Array.from({ length: GRIDLINE_COUNT }, (_, i) => {
     const y = (chartHeight / (GRIDLINE_COUNT - 1)) * i;
@@ -133,7 +149,7 @@ export default function BarChart({
             textAnchor="middle"
             className={`micro ${styles.axisLabel}`}
           >
-            {d.label}
+            {truncateLabel(d.label, labelBudget)}
           </text>
         );
       })}
