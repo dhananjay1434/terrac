@@ -1,0 +1,66 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--fs-14);
+  color: var(--text-primary);
+}
+
+.value {
+  font-size: var(--fs-14);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.suffix {
+  font-size: var(--fs-12);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+}
+
+.track {
+  height: 8px;
+  border-radius: var(--r-pill, 999px);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: inherit;
+  /* Rest of the field: desaturated indigo. */
+  background: var(--indigo-400);
+  transition: width var(--duration-fast) var(--ease-expressive);
+}
+
+/* Strict leader: saturated brand indigo, so the eye lands on the top blocker. */
+.fill[data-top="true"] {
+  background: var(--indigo-600);
+}
+
+.empty {
+  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  padding: var(--space-4) 0;
+  text-align: center;
+}

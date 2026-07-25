@@ -311,29 +311,30 @@ async def main() -> None:
             return buid, batch.provisional, batch.net_credit_t_co2e, reasons
 
     # 6 months back through this month, BATCHES_PER_MONTH batches/month:
-    # 4 issued + 2 varied-provisional (was 2 + 1) — more, honestly-modest
-    # batches per month rather than one implausibly oversized batch, so the
-    # monthly credit total is legible without inflating any single batch
-    # past what the moisture-corroboration rule can support.
-    provisional_variants = [
-        "no_lab",
-        "no_telemetry",
-        "no_yield",
-        "no_application",
-        "few_moisture",
-        "no_composite",
-    ]
+    # 4 issued + 2 provisional. The 2 provisional slots/month draw from a
+    # deliberately SKEWED sequence (not an even round-robin) so the
+    # "what's blocking issuance" breakdown shows a realistic descending
+    # ranking — a few dominant blockers, a long thin tail — instead of a
+    # flat wall of equal bars. Still real data through the real pipeline;
+    # only the mix of which evidence stream is withheld is weighted.
     issued_slots = BATCHES_PER_MONTH - 2
+    # 12 provisional batches (2/mo × 6mo), weighted: no_lab is the most common
+    # blocker, no_application next, tapering to a single of the rarest.
+    provisional_sequence = [
+        "no_lab", "no_application", "no_lab", "no_telemetry",
+        "no_application", "no_lab", "few_moisture", "no_yield",
+        "no_telemetry", "no_composite", "no_application", "no_lab",
+    ]
     results = []
     idx = 0
+    prov_idx = 0
     for months_ago in range(5, -1, -1):
         for slot in range(BATCHES_PER_MONTH):
             if slot < issued_slots:
                 variant = "issued"
             else:
-                variant = provisional_variants[
-                    (months_ago * 2 + (slot - issued_slots)) % len(provisional_variants)
-                ]
+                variant = provisional_sequence[prov_idx % len(provisional_sequence)]
+                prov_idx += 1
             day = 5 + slot * 4
             r = await _seed_batch(idx=idx, months_ago=months_ago, day_in_month=day, variant=variant)
             results.append((months_ago, variant, *r))
