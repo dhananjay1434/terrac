@@ -45,10 +45,10 @@ const EMPTY_QUALITY = {
     h_corg: null,
     permanence_pct: null,
     distribution: [
-      { label: "<80%", count: 0 },
-      { label: "80-90%", count: 0 },
-      { label: "90-95%", count: 0 },
-      { label: "95-100%", count: 0 },
+      { label: "<70%", count: 0 },
+      { label: "70-75%", count: 0 },
+      { label: "75-80%", count: 0 },
+      { label: "80%+", count: 0 },
     ],
   },
 };

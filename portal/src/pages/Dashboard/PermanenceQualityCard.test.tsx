@@ -10,10 +10,10 @@ const POPULATED: QualityMetrics["permanence"] = {
   h_corg: { min: 0.2, max: 0.4, avg: 0.3 },
   permanence_pct: { min: 85, max: 98, avg: 92 },
   distribution: [
-    { label: "<80%", count: 0 },
-    { label: "80-90%", count: 1 },
-    { label: "90-95%", count: 2 },
-    { label: "95-100%", count: 1 },
+    { label: "<70%", count: 0 },
+    { label: "70-75%", count: 1 },
+    { label: "75-80%", count: 2 },
+    { label: "80%+", count: 1 },
   ],
 };
 
@@ -23,10 +23,10 @@ const EMPTY: QualityMetrics["permanence"] = {
   h_corg: null,
   permanence_pct: null,
   distribution: [
-    { label: "<80%", count: 0 },
-    { label: "80-90%", count: 0 },
-    { label: "90-95%", count: 0 },
-    { label: "95-100%", count: 0 },
+    { label: "<70%", count: 0 },
+    { label: "70-75%", count: 0 },
+    { label: "75-80%", count: 0 },
+    { label: "80%+", count: 0 },
   ],
 };
 

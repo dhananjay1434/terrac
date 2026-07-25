@@ -202,7 +202,12 @@ async def main() -> None:
                 received_at=received_at,
             )
             if variant != "no_lab":
-                batch.lab_h_corg = 0.30
+                # Vary lab H:Corg so the permanence distribution spans both
+                # stability tiers instead of piling every batch into one bar:
+                # most batches top-tier (H:Corg < 0.4 → ~83% permanence),
+                # roughly 1 in 4 lower-tier (>= 0.4 → 70%). Real inputs through
+                # the real LCA — just a realistic spread of lab readings.
+                batch.lab_h_corg = 0.42 if idx % 4 == 0 else 0.30
                 batch.organic_carbon_pct = 0.60
             s.add(batch)
 

@@ -24,7 +24,13 @@ from models import Batch, PortalUser, PyrolysisTelemetry
 # Informational pyrolysis-range indicator, adjustable, NOT a credit gate.
 PYROLYSIS_THRESHOLD_C = 450.0
 
-_DISTRIBUTION_LABELS = ["<80%", "80-90%", "90-95%", "95-100%"]
+# Buckets sized to the ACHIEVABLE permanence range of the CSI 100-year decay
+# model, not a generic 0-100% ramp. The model yields ~82.6% for the top
+# stability tier (H:Corg < 0.4) and 70% for the lower tier — nothing above
+# ~83% is reachable, so the old 90-95%/95-100% buckets were structurally
+# dead-on-arrival. These boundaries keep every bucket in the real range and
+# separate the two tiers ("80%+" = top-tier durable, "70-75%" = lower tier).
+_DISTRIBUTION_LABELS = ["<70%", "70-75%", "75-80%", "80%+"]
 
 
 def _parse_audit(json_str: "str | None") -> "dict | None":
@@ -83,13 +89,13 @@ def _stats(values: list[float]) -> "dict | None":
 
 
 def _bucket_label(pct: float) -> str:
+    if pct < 70.0:
+        return "<70%"
+    if pct < 75.0:
+        return "70-75%"
     if pct < 80.0:
-        return "<80%"
-    if pct < 90.0:
-        return "80-90%"
-    if pct < 95.0:
-        return "90-95%"
-    return "95-100%"
+        return "75-80%"
+    return "80%+"
 
 
 async def _compute_permanence(session: AsyncSession, user: PortalUser) -> dict:

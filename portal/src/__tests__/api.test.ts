@@ -155,10 +155,10 @@ describe("api client", () => {
         h_corg: { min: 0.3, max: 0.3, avg: 0.3 },
         permanence_pct: { min: 92, max: 92, avg: 92 },
         distribution: [
-          { label: "<80%", count: 0 },
-          { label: "80-90%", count: 0 },
-          { label: "90-95%", count: 1 },
-          { label: "95-100%", count: 0 },
+          { label: "<70%", count: 0 },
+          { label: "70-75%", count: 0 },
+          { label: "75-80%", count: 1 },
+          { label: "80%+", count: 0 },
         ],
       },
     };
