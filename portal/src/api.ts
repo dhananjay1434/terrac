@@ -261,6 +261,35 @@ export function getCreditTimeseries(
   );
 }
 
+// Part 1F.2 — typed client for the Part 1F.1 quality-metrics endpoint.
+// Pure analytics, never credit-affecting — see PHASE_1F_ARTISANAL_INTELLIGENCE.
+export interface StatTriple {
+  min: number;
+  max: number;
+  avg: number;
+}
+
+export interface QualityMetrics {
+  pyrolysis: {
+    n: number;
+    excluded: number;
+    threshold_c: number;
+    peak_temp_c: StatTriple | null;
+    pct_above_threshold: StatTriple | null;
+  };
+  permanence: {
+    n: number;
+    excluded: number;
+    h_corg: StatTriple | null;
+    permanence_pct: StatTriple | null;
+    distribution: { label: string; count: number }[];
+  };
+}
+
+export function getQualityMetrics(): Promise<QualityMetrics> {
+  return req("/api/v1/portal/metrics/quality");
+}
+
 // --- P2.5 registry (admin) + token mint ---
 export function registryPost(
   kind:

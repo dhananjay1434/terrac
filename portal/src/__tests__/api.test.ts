@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { listBatches, login, downloadExport, getCreditTimeseries, AuthError } from "../api";
+import { listBatches, login, downloadExport, getCreditTimeseries, getQualityMetrics, AuthError } from "../api";
 import { setSession, getToken } from "../auth";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -137,6 +137,50 @@ describe("api client", () => {
     );
 
     await expect(getCreditTimeseries()).rejects.toBeInstanceOf(AuthError);
+    expect(getToken()).toBeNull();
+  });
+
+  it("getQualityMetrics calls the quality endpoint and parses the shape", async () => {
+    const body = {
+      pyrolysis: {
+        n: 2,
+        excluded: 1,
+        threshold_c: 450,
+        peak_temp_c: { min: 600, max: 700, avg: 650 },
+        pct_above_threshold: { min: 90, max: 100, avg: 95 },
+      },
+      permanence: {
+        n: 1,
+        excluded: 0,
+        h_corg: { min: 0.3, max: 0.3, avg: 0.3 },
+        permanence_pct: { min: 92, max: 92, avg: 92 },
+        distribution: [
+          { label: "<80%", count: 0 },
+          { label: "80-90%", count: 0 },
+          { label: "90-95%", count: 1 },
+          { label: "95-100%", count: 0 },
+        ],
+      },
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse(body));
+
+    const out = await getQualityMetrics();
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      "/api/v1/portal/metrics/quality",
+    );
+    expect(out).toEqual(body);
+  });
+
+  it("getQualityMetrics throws AuthError on 401", async () => {
+    setSession("tok-123", "verifier");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ detail: "invalid_session" }, 401),
+    );
+
+    await expect(getQualityMetrics()).rejects.toBeInstanceOf(AuthError);
     expect(getToken()).toBeNull();
   });
 });
