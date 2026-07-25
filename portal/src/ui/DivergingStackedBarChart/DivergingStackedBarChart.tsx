@@ -85,8 +85,15 @@ export default function DivergingStackedBarChart({
   const zeroY = plotHeight / 2;
   const maxAbove = Math.max(...data.map((d) => d.above.reduce((s, seg) => s + seg.value, 0)), 0);
   const maxBelow = Math.max(...data.map((d) => d.below.reduce((s, seg) => s + seg.value, 0)), 0);
-  const maxMag = Math.max(maxAbove, maxBelow, 1);
-  const pixelsPerUnit = zeroY / maxMag;
+  // Above and below scale INDEPENDENTLY (each half fills its own half-height
+  // based on its own max), not off one shared magnitude. Net credit and its
+  // deductions differ by 1-2 orders of magnitude in the real methodology
+  // (a compliant batch's safety/transport/CH4 penalties are meant to be
+  // small) — a single shared scale would render deductions as an invisible
+  // sliver. The exact figures are always in the tooltip; only the relative
+  // above-vs-below visual proportion is a chart convention, not a data claim.
+  const pixelsPerUnitAbove = zeroY / Math.max(maxAbove, 1);
+  const pixelsPerUnitBelow = (plotHeight - zeroY) / Math.max(maxBelow, 1);
 
   const barSlot = WIDTH / data.length;
   // Denser packing (was 0.6) reads as a fuller, richer chart when there are
@@ -139,19 +146,15 @@ export default function DivergingStackedBarChart({
         />
         {data.map((bar, i) => {
           const x = i * barSlot + (barSlot - barWidth) / 2;
-          const aboveRects = stackSegments(bar.above, zeroY, pixelsPerUnit, "up");
-          const belowRects = stackSegments(bar.below, zeroY, pixelsPerUnit, "down");
+          const aboveRects = stackSegments(bar.above, zeroY, pixelsPerUnitAbove, "up");
+          const belowRects = stackSegments(bar.below, zeroY, pixelsPerUnitBelow, "down");
           return (
             <g key={`${bar.label}-${i}`}>
-              {[...aboveRects, ...belowRects].map((r, si) => (
-                <rect
-                  key={si}
-                  x={x}
-                  y={r.y}
-                  width={barWidth}
-                  height={r.height}
-                  fill={r.color}
-                />
+              {aboveRects.map((r, si) => (
+                <rect key={`above-${si}`} data-side="above" x={x} y={r.y} width={barWidth} height={r.height} fill={r.color} />
+              ))}
+              {belowRects.map((r, si) => (
+                <rect key={`below-${si}`} data-side="below" x={x} y={r.y} width={barWidth} height={r.height} fill={r.color} />
               ))}
             </g>
           );

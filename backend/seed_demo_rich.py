@@ -19,11 +19,25 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 import os
 import uuid as _uuid
 from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
+
+
+# Multiplier on the base batch size (below) — bumped so demo credits and
+# every LCA deduction (safety margin, transport) are legible on the
+# dashboard chart, not near-zero slivers. Purely a fictional-scale input;
+# the credit engine itself is never touched or bypassed. Kept moderate
+# (not e.g. 300x) because the real C2 moisture-corroboration rule requires
+# 1 photographed reading per 100kg of biomass (corroboration.py:214) — an
+# implausibly large single batch would need thousands of reading rows to
+# stay honestly compliant. The rest of the visual boost comes from more
+# batches/month (BATCHES_PER_MONTH below), not one oversized batch.
+DEMO_SCALE = 50.0
+BATCHES_PER_MONTH = 6  # was 3 (2 issued + 1 provisional-variant)
 
 
 async def main() -> None:
@@ -163,9 +177,12 @@ async def main() -> None:
         harvest_ts = received_at - timedelta(days=2)
 
         # Gentle, deterministic variation so credits differ month to month —
-        # never random (reproducible), never so wild it looks fake.
-        wet_yield_kg = 85.0 + (idx * 7) % 40
-        biomass_kg = 480.0 + (idx * 11) % 60
+        # never random (reproducible), never so wild it looks fake. Scaled by
+        # DEMO_SCALE (a larger fictional cooperative-scale batch) so credits
+        # and every LCA deduction land in a visually legible range on the
+        # dashboard chart — real formula, real pipeline, just bigger inputs.
+        wet_yield_kg = (85.0 + (idx * 7) % 40) * DEMO_SCALE
+        biomass_kg = (480.0 + (idx * 11) % 60) * DEMO_SCALE
         moisture = 10.0 + (idx % 6)
 
         async with Session() as s:
@@ -248,7 +265,12 @@ async def main() -> None:
                     )
                 )
 
-            moisture_count = 3 if variant == "few_moisture" else 10
+            # Rainbow C2 rule: >= 1 photographed reading per 100kg biomass,
+            # floor 10 (corroboration.py:214) — compute the real requirement
+            # rather than a fixed count, so scaled-up batches stay honestly
+            # compliant instead of silently falling back to provisional.
+            required_readings = max(10, math.ceil(biomass_kg / 100.0))
+            moisture_count = max(3, required_readings // 3) if variant == "few_moisture" else required_readings
             for i in range(1, moisture_count + 1):
                 s.add(
                     MoistureReading(
@@ -288,7 +310,11 @@ async def main() -> None:
             reasons = json.loads(batch.provisional_reasons or "[]")
             return buid, batch.provisional, batch.net_credit_t_co2e, reasons
 
-    # 6 months back through this month, 3 batches/month: 2 issued + 1 varied-provisional
+    # 6 months back through this month, BATCHES_PER_MONTH batches/month:
+    # 4 issued + 2 varied-provisional (was 2 + 1) — more, honestly-modest
+    # batches per month rather than one implausibly oversized batch, so the
+    # monthly credit total is legible without inflating any single batch
+    # past what the moisture-corroboration rule can support.
     provisional_variants = [
         "no_lab",
         "no_telemetry",
@@ -297,12 +323,18 @@ async def main() -> None:
         "few_moisture",
         "no_composite",
     ]
+    issued_slots = BATCHES_PER_MONTH - 2
     results = []
     idx = 0
     for months_ago in range(5, -1, -1):
-        for slot in range(3):
-            variant = "issued" if slot < 2 else provisional_variants[months_ago % len(provisional_variants)]
-            day = 5 + slot * 8
+        for slot in range(BATCHES_PER_MONTH):
+            if slot < issued_slots:
+                variant = "issued"
+            else:
+                variant = provisional_variants[
+                    (months_ago * 2 + (slot - issued_slots)) % len(provisional_variants)
+                ]
+            day = 5 + slot * 4
             r = await _seed_batch(idx=idx, months_ago=months_ago, day_in_month=day, variant=variant)
             results.append((months_ago, variant, *r))
             idx += 1

@@ -91,6 +91,45 @@ describe("DivergingStackedBarChart", () => {
     expect(screen.getByText("Nothing yet")).toBeInTheDocument();
   });
 
+  it("scales the below-zero half independently of the above-zero half", () => {
+    // Net credit (100 vs 10) dwarfs the deduction (1 vs 1) in real methodology
+    // data — a single shared scale would render the deduction as an
+    // invisible sliver. Each half must fill its own half-height based on its
+    // own max, so a below-value equal to the below-max reads as tall as an
+    // above-value equal to the above-max, even though the raw numbers differ
+    // by two orders of magnitude.
+    const SKEWED: DivergingBar[] = [
+      {
+        label: "A",
+        above: [{ label: "Net credit", value: 100, color: "#0a0" }],
+        below: [{ label: "Safety", value: 1, color: "#a00" }],
+        tooltip: [],
+      },
+      {
+        label: "B",
+        above: [{ label: "Net credit", value: 10, color: "#0a0" }],
+        below: [{ label: "Safety", value: 1, color: "#a00" }],
+        tooltip: [],
+      },
+    ];
+    const { container } = render(<DivergingStackedBarChart data={SKEWED} height={240} />);
+    const aboveHeights = Array.from(container.querySelectorAll('rect[data-side="above"]')).map(
+      (r) => Number(r.getAttribute("height")),
+    );
+    const belowHeights = Array.from(container.querySelectorAll('rect[data-side="below"]')).map(
+      (r) => Number(r.getAttribute("height")),
+    );
+    // Bar A's above segment (value 100, the above-max) towers over bar B's
+    // (value 10) under a shared scale — but both below segments (value 1,
+    // the below-max in both bars) render at the SAME height as each other,
+    // proving the below half uses its own independent scale.
+    expect(aboveHeights[0]).toBeGreaterThan(aboveHeights[1] * 5);
+    expect(belowHeights[0]).toBeCloseTo(belowHeights[1], 5);
+    // And that shared below height should be substantial (near-full half
+    // height), not a 2px sliver dictated by the above half's scale.
+    expect(belowHeights[0]).toBeGreaterThan(50);
+  });
+
   it("has no axe violations", async () => {
     const { container } = render(<DivergingStackedBarChart data={DATA} ariaLabel="Credits over time" />);
     const results = await axe(container);
