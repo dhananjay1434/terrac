@@ -183,6 +183,39 @@ describe("api client", () => {
     await expect(getQualityMetrics()).rejects.toBeInstanceOf(AuthError);
     expect(getToken()).toBeNull();
   });
+
+  it("getCreditTimeseries round-trips a bucket's LCA deduction components", async () => {
+    const body = {
+      bucket: "month",
+      from: "2026-01-01T00:00:00Z",
+      to: "2026-01-31T00:00:00Z",
+      buckets: [
+        {
+          period: "2026-01",
+          issued_credit_t_co2e: 5,
+          issued_count: 1,
+          provisional_count: 0,
+          components: {
+            safety_t_co2e: 0.1,
+            transport_t_co2e: 0.05,
+            ch4_t_co2e: 0.02,
+            gross_t_co2e: 5.17,
+          },
+        },
+      ],
+      totals: {
+        issued_credit_t_co2e: 5,
+        issued_count: 1,
+        provisional_count: 0,
+        provisional_credit_t_co2e: 0,
+      },
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(body));
+
+    const out = await getCreditTimeseries();
+
+    expect(out.buckets[0].components).toEqual(body.buckets[0].components);
+  });
 });
 
 import { groupMedia } from "../pages/BatchDetail";

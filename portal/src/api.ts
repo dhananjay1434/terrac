@@ -107,11 +107,22 @@ export interface BatchDetail {
 
 // V8 Part D.1a — org-scoped monthly credit time-series (v1 supports
 // bucket="month" only; there is no server-side "week" support yet).
+export interface CreditBucketComponents {
+  safety_t_co2e: number;
+  transport_t_co2e: number;
+  ch4_t_co2e: number;
+  gross_t_co2e: number;
+}
+
 export interface CreditBucket {
   period: string;
   issued_credit_t_co2e: number;
   issued_count: number;
   provisional_count: number;
+  // Part 1E.1 — per-bucket LCA deduction components (issued-only, tCO2e).
+  // Optional so existing fixtures built before this field existed still
+  // type-check; real API responses always include it.
+  components?: CreditBucketComponents;
 }
 
 export interface CreditTimeseries {
