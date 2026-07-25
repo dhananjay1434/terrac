@@ -95,6 +95,23 @@ describe("BarChart", () => {
     expect(titles.some((t) => t?.startsWith("missing_annual_methane:"))).toBe(true);
   });
 
+  it("prints each value above its bar when showValues is set (incl. an explicit 0)", () => {
+    render(<BarChart data={DATA} showValues />);
+    // Value labels appear for every bucket, including the zero bucket — so a
+    // distribution reads as exact counts, not 'one tall bar + slivers'.
+    expect(screen.getByText("10")).toBeInTheDocument();
+    expect(screen.getByText("25")).toBeInTheDocument();
+    expect(screen.getByText("40")).toBeInTheDocument();
+    // "0" is a value label, not an axis label (axis labels are Jan..Apr).
+    expect(screen.getByText("0")).toBeInTheDocument();
+  });
+
+  it("does NOT print value labels by default", () => {
+    render(<BarChart data={DATA} />);
+    // No value label for the zero bucket when showValues is off.
+    expect(screen.queryByText("0")).not.toBeInTheDocument();
+  });
+
   it("has no axe violations", async () => {
     const { container } = render(
       <BarChart data={DATA} ariaLabel="Monthly emissions" />,

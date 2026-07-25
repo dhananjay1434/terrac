@@ -1,3 +1,8 @@
 .axisLabel {
   fill: var(--text-tertiary, currentColor);
 }
+
+.valueLabel {
+  fill: var(--text-secondary, currentColor);
+  font-weight: var(--fw-bold);
+}

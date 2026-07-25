@@ -17,6 +17,10 @@ export interface BarChartProps {
   formatValue?: (n: number) => string;
   emptyLabel?: string;
   ariaLabel?: string;
+  /** Print each bar's value directly above it. For a distribution/histogram
+   * this is the difference between "a tall bar and three slivers" and knowing
+   * the exact count per bucket (incl. an explicit 0 for empty buckets). */
+  showValues?: boolean;
 }
 
 const WIDTH = 600;
@@ -60,6 +64,7 @@ export default function BarChart({
   formatValue,
   emptyLabel,
   ariaLabel,
+  showValues = false,
 }: BarChartProps) {
   const label = ariaLabel ?? "bar chart";
 
@@ -138,6 +143,28 @@ export default function BarChart({
           </rect>
         );
       })}
+      {showValues &&
+        data.map((d, i) => {
+          const rawBarHeight = (d.value / max) * chartHeight;
+          const barHeight = Math.max(rawBarHeight, 2);
+          const barTop = chartHeight - barHeight;
+          // Sit the value just above the bar; clamp so the tallest bar's
+          // label never clips past the top edge (the max*1.1 headroom leaves
+          // room, this is belt-and-suspenders).
+          const labelY = Math.max(barTop - 5, 10);
+          const cx = i * slotWidth + slotWidth / 2;
+          return (
+            <text
+              key={`value-${d.label}-${i}`}
+              x={cx}
+              y={labelY}
+              textAnchor="middle"
+              className={`micro ${styles.valueLabel}`}
+            >
+              {format(d.value)}
+            </text>
+          );
+        })}
       {data.map((d, i) => {
         if (!labelIndices.has(i)) return null;
         const x = i * slotWidth + slotWidth / 2;

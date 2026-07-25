@@ -65,6 +65,7 @@ export default function PermanenceQualityCard({
                   label: d.label,
                   value: d.count,
                 }))}
+                showValues
                 ariaLabel="Permanence distribution"
                 emptyLabel="No lab results yet"
               />
