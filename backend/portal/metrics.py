@@ -11,7 +11,8 @@ are kept as two separate, explicitly-labeled sums — never folded together.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Literal
 
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,22 +59,48 @@ def _month_labels(dt_from: datetime, dt_to: datetime) -> list[str]:
     return labels
 
 
+def _day_labels(dt_from: datetime, dt_to: datetime) -> list[str]:
+    """Full ordered list of "YYYY-MM-DD" labels spanning [dt_from, dt_to], stepping
+    day-by-day."""
+    labels: list[str] = []
+    current = dt_from.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = dt_to.replace(hour=0, minute=0, second=0, microsecond=0)
+    while current <= end:
+        labels.append(current.strftime("%Y-%m-%d"))
+        current += timedelta(days=1)
+    return labels
+
+
 async def credit_timeseries(
     session: AsyncSession,
     user: PortalUser,
     dt_from: datetime,
     dt_to: datetime,
+    bucket: Literal["month", "day"] = "month",
 ) -> dict:
     dialect = session.get_bind().dialect.name
     if dialect == "postgresql":
         # Postgres branch is NOT exercised by the SQLite test suite —
         # sanity-check against a real Postgres instance before deploy.
-        period_key = func.to_char(
-            func.date_trunc("month", func.timezone("UTC", Batch.received_at)),
-            "YYYY-MM",
-        )
+        if bucket == "day":
+            period_key = func.to_char(
+                func.date_trunc("day", func.timezone("UTC", Batch.received_at)),
+                "YYYY-MM-DD",
+            )
+            period_format = "%Y-%m-%d"
+        else:
+            period_key = func.to_char(
+                func.date_trunc("month", func.timezone("UTC", Batch.received_at)),
+                "YYYY-MM",
+            )
+            period_format = "%Y-%m"
     else:
-        period_key = func.strftime("%Y-%m", Batch.received_at)
+        if bucket == "day":
+            period_key = func.strftime("%Y-%m-%d", Batch.received_at)
+            period_format = "%Y-%m-%d"
+        else:
+            period_key = func.strftime("%Y-%m", Batch.received_at)
+            period_format = "%Y-%m"
 
     issued_sum = func.coalesce(
         func.sum(case((Batch.provisional.is_(False), Batch.net_credit_t_co2e), else_=0.0)),
@@ -102,8 +129,14 @@ async def credit_timeseries(
     rows = (await session.execute(stmt)).all()
     by_period = {r.period: r for r in rows}
 
+    # Select label generator based on bucket type
+    if bucket == "day":
+        label_generator = _day_labels(dt_from, dt_to)
+    else:
+        label_generator = _month_labels(dt_from, dt_to)
+
     buckets = []
-    for label in _month_labels(dt_from, dt_to):
+    for label in label_generator:
         row = by_period.get(label)
         if row is None:
             buckets.append(
@@ -139,7 +172,7 @@ async def credit_timeseries(
         comp = _parse_components(row.lca_audit_json)
         if comp is None:
             continue
-        period = row.received_at.strftime("%Y-%m")
+        period = row.received_at.strftime(period_format)
         acc = components_by_period.setdefault(
             period,
             {
@@ -154,9 +187,9 @@ async def credit_timeseries(
         acc["ch4_t_co2e"] += (comp.get("ch4_penalty_kg") or 0) / 1000
         acc["gross_t_co2e"] += (comp.get("cremain_t") or 0) * 44 / 12
 
-    for bucket in buckets:
+    for bucket_item in buckets:
         acc = components_by_period.get(
-            bucket["period"],
+            bucket_item["period"],
             {
                 "safety_t_co2e": 0.0,
                 "transport_t_co2e": 0.0,
@@ -164,7 +197,7 @@ async def credit_timeseries(
                 "gross_t_co2e": 0.0,
             },
         )
-        bucket["components"] = {k: round(v, 6) for k, v in acc.items()}
+        bucket_item["components"] = {k: round(v, 6) for k, v in acc.items()}
 
     totals = {
         "issued_credit_t_co2e": sum(b["issued_credit_t_co2e"] for b in buckets),
@@ -174,7 +207,7 @@ async def credit_timeseries(
     }
 
     return {
-        "bucket": "month",
+        "bucket": bucket,
         "from": dt_from.isoformat(),
         "to": dt_to.isoformat(),
         "buckets": buckets,

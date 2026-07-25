@@ -216,6 +216,55 @@ describe("api client", () => {
 
     expect(out.buckets[0].components).toEqual(body.buckets[0].components);
   });
+
+  it("getCreditTimeseries passes bucket param in URL", async () => {
+    const body = {
+      bucket: "day",
+      from: "2026-01-01T00:00:00Z",
+      to: "2026-01-05T00:00:00Z",
+      buckets: [
+        { period: "2026-01-01", issued_credit_t_co2e: 0.5, issued_count: 1, provisional_count: 0 },
+        { period: "2026-01-02", issued_credit_t_co2e: 0.3, issued_count: 1, provisional_count: 0 },
+      ],
+      totals: {
+        issued_credit_t_co2e: 0.8,
+        issued_count: 2,
+        provisional_count: 0,
+        provisional_credit_t_co2e: 0,
+      },
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse(body));
+
+    await getCreditTimeseries({ bucket: "day" });
+
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain("bucket=day");
+  });
+
+  it("getCreditTimeseries defaults to bucket=month when not provided", async () => {
+    const body = {
+      bucket: "month",
+      from: "2026-01-01T00:00:00Z",
+      to: "2026-06-01T00:00:00Z",
+      buckets: [],
+      totals: {
+        issued_credit_t_co2e: 0,
+        issued_count: 0,
+        provisional_count: 0,
+        provisional_credit_t_co2e: 0,
+      },
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse(body));
+
+    await getCreditTimeseries();
+
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain("bucket=month");
+  });
 });
 
 import { groupMedia } from "../pages/BatchDetail";

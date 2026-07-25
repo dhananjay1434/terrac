@@ -259,13 +259,20 @@ export function getSummary(): Promise<{
 }
 
 // V8 Part D.2 — typed client for the Part D.1a credit-timeseries aggregate.
-// v1 is month-only server-side, so there is no "bucket" param to pass here.
+// Supports month and day bucketing.
+export interface CreditTimeseriesParams {
+  from?: string;
+  to?: string;
+  bucket?: "month" | "day";
+}
+
 export function getCreditTimeseries(
-  params: { from?: string; to?: string } = {},
+  params: CreditTimeseriesParams = {},
 ): Promise<CreditTimeseries> {
   const qs = new URLSearchParams();
   if (params.from) qs.set("from", params.from);
   if (params.to) qs.set("to", params.to);
+  qs.set("bucket", params.bucket || "month");
   const query = qs.toString();
   return req(
     `/api/v1/portal/metrics/credit-timeseries${query ? `?${query}` : ""}`,

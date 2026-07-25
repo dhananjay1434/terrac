@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Dashboard from "../Dashboard";
 import { getCreditTimeseries, getQualityMetrics, getSummary } from "../../api";
@@ -134,5 +134,32 @@ describe("Dashboard page", () => {
     expect(screen.getByText("Pyrolysis quality")).toBeInTheDocument();
     expect(screen.getByText("Permanence quality")).toBeInTheDocument();
     expect(await screen.findByText("What's blocking issuance")).toBeInTheDocument();
+  });
+
+  it("BucketToggle present and clicking it changes fetched bucket parameter", async () => {
+    mockTimeseries.mockResolvedValue(EMPTY_TIMESERIES);
+    mockQuality.mockResolvedValue(EMPTY_QUALITY);
+    mockSummary.mockResolvedValue({ by_status: {}, provisional: 0, reasons_histogram: {} });
+    renderPage();
+
+    // Verify the toggle renders with Month selected by default
+    const monthBtn = await screen.findByRole("button", { name: "Month" });
+    const dayBtn = screen.getByRole("button", { name: "Day" });
+    expect(monthBtn).toHaveAttribute("aria-selected", "true");
+    expect(dayBtn).toHaveAttribute("aria-selected", "false");
+
+    // Click the Day button
+    fireEvent.click(dayBtn);
+
+    // Wait for the API call to be made with bucket="day"
+    await waitFor(() => {
+      const calls = mockTimeseries.mock.calls;
+      const lastCall = calls[calls.length - 1];
+      expect(lastCall[0]?.bucket).toBe("day");
+    });
+
+    // Verify the toggle now shows Day selected
+    expect(monthBtn).toHaveAttribute("aria-selected", "false");
+    expect(dayBtn).toHaveAttribute("aria-selected", "true");
   });
 });

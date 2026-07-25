@@ -1032,15 +1032,12 @@ def _parse_dt(s: str) -> datetime:
 async def credit_timeseries(
     _user: PortalUser = Depends(require_role()),
     session: AsyncSession = Depends(get_session),
-    bucket: str = Query("month"),
+    bucket: str = Query("month", pattern="^(month|day)$"),
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = Query(None),
 ):
-    """V8 Part D.1a — org-scoped monthly credit time-series. v1 supports
-    bucket=month only; week is deferred to a future part."""
-    if bucket != "month":
-        raise HTTPException(status_code=400, detail="unsupported_bucket")
-
+    """V8 Part D.1a — org-scoped monthly or daily credit time-series.
+    Supports bucket=month (default) or bucket=day."""
     dt_to = _parse_dt(to) if to else datetime.now(timezone.utc)
     dt_from = _parse_dt(from_) if from_ else dt_to - timedelta(days=365)
 
@@ -1048,7 +1045,7 @@ async def credit_timeseries(
     if months_between > 60:
         raise HTTPException(status_code=400, detail="window_too_large")
 
-    return await metrics.credit_timeseries(session, _user, dt_from, dt_to)
+    return await metrics.credit_timeseries(session, _user, dt_from, dt_to, bucket=bucket)
 
 
 @router.get("/metrics/quality")

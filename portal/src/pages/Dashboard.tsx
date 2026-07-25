@@ -11,6 +11,7 @@ import CreditsOverTime from "./Dashboard/CreditsOverTime";
 import PyrolysisQualityCard from "./Dashboard/PyrolysisQualityCard";
 import PermanenceQualityCard from "./Dashboard/PermanenceQualityCard";
 import IssuanceBlockerCard from "./Dashboard/IssuanceBlockerCard";
+import BucketToggle from "../ui/BucketToggle/BucketToggle";
 
 export default function Dashboard() {
   const [data, setData] = useState<CreditTimeseries | null>(null);
@@ -24,6 +25,8 @@ export default function Dashboard() {
   const [reasons, setReasons] = useState<Record<string, number> | null>(null);
   const [reasonsLoading, setReasonsLoading] = useState(true);
   const [reasonsError, setReasonsError] = useState(false);
+
+  const [bucket, setBucket] = useState<"month" | "day">("month");
 
   // INV-6: the credit KPIs/chart come from ONE metrics endpoint — never also
   // call getSummary for that figure, since its counts answer a different
@@ -44,6 +47,7 @@ export default function Dashboard() {
       const d = await getCreditTimeseries({
         from: from.toISOString(),
         to: to.toISOString(),
+        bucket,
       });
       setData(d);
     } catch {
@@ -51,7 +55,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [bucket]);
 
   const fetchQuality = useCallback(async () => {
     setQualityLoading(true);
@@ -98,6 +102,10 @@ export default function Dashboard() {
         error={error}
         onRetry={fetchTotals}
       />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span />
+        <BucketToggle selected={bucket} onSelect={setBucket} />
+      </div>
       <CreditsOverTime
         buckets={data?.buckets ?? null}
         loading={loading}
