@@ -52,7 +52,7 @@ function stackSegments(
   let offset = 0;
   for (const seg of segments) {
     if (seg.value <= 0) continue;
-    const h = Math.max(seg.value * pixelsPerUnit, 1);
+    const h = Math.max(seg.value * pixelsPerUnit, 2);
     const y = direction === "up" ? zeroY - offset - h : zeroY + offset;
     rects.push({ y, height: h, color: seg.color, label: seg.label, value: seg.value });
     offset += h;
@@ -89,7 +89,9 @@ export default function DivergingStackedBarChart({
   const pixelsPerUnit = zeroY / maxMag;
 
   const barSlot = WIDTH / data.length;
-  const barWidth = barSlot * 0.6;
+  // Denser packing (was 0.6) reads as a fuller, richer chart when there are
+  // few bars — still leaves a clear gap so adjacent bars never touch.
+  const barWidth = barSlot * 0.72;
   const labelIndices = pickLabelIndices(data.length, MAX_X_LABELS);
 
   const hoveredBar = hovered !== null ? data[hovered] : null;
@@ -101,6 +103,32 @@ export default function DivergingStackedBarChart({
           hit-areas, and ARIA forbids nesting interactive controls inside an
           "img"-roled element. */}
       <svg viewBox={`0 0 ${WIDTH} ${height}`} width="100%" height={height} role="group" aria-label={label}>
+        {/* Faint reference gridlines above and below zero, for chart texture
+            — purely decorative, carry no additional data. */}
+        {[0.5, 1].map((frac) => (
+          <line
+            key={`grid-above-${frac}`}
+            x1={0}
+            y1={zeroY - zeroY * frac}
+            x2={WIDTH}
+            y2={zeroY - zeroY * frac}
+            stroke="var(--border-subtle)"
+            strokeWidth={1}
+            opacity={0.35}
+          />
+        ))}
+        {[0.5, 1].map((frac) => (
+          <line
+            key={`grid-below-${frac}`}
+            x1={0}
+            y1={zeroY + (plotHeight - zeroY) * frac}
+            x2={WIDTH}
+            y2={zeroY + (plotHeight - zeroY) * frac}
+            stroke="var(--border-subtle)"
+            strokeWidth={1}
+            opacity={0.35}
+          />
+        ))}
         <line
           x1={0}
           y1={zeroY}

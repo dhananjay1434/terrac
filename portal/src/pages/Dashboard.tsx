@@ -34,7 +34,17 @@ export default function Dashboard() {
     setLoading(true);
     setError(false);
     try {
-      const d = await getCreditTimeseries({});
+      // Request a 7-month window (not the backend's 12-month default) so the
+      // chart shows real, data-dense months rather than being diluted by a
+      // long run of true-but-empty history before this org had any batches.
+      // Still 100% honest zero-fill within the window — never fabricated.
+      const to = new Date();
+      const from = new Date(to);
+      from.setMonth(from.getMonth() - 6);
+      const d = await getCreditTimeseries({
+        from: from.toISOString(),
+        to: to.toISOString(),
+      });
       setData(d);
     } catch {
       setError(true);

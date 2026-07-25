@@ -88,6 +88,26 @@ describe("Dashboard page", () => {
     expect(await screen.findByText("7.500")).toBeInTheDocument();
   });
 
+  it("requests a ~6-month window, not the backend's full 12-month default", async () => {
+    mockTimeseries.mockResolvedValue(EMPTY_TIMESERIES);
+    mockQuality.mockResolvedValue(EMPTY_QUALITY);
+    mockSummary.mockResolvedValue({ by_status: {}, provisional: 0, reasons_histogram: {} });
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Dashboard" });
+    // This file doesn't reset mocks between tests, so check the LAST call
+    // rather than assuming a call count.
+    const calls = mockTimeseries.mock.calls;
+    const lastCall = calls[calls.length - 1];
+    expect(lastCall).toBeDefined();
+    const [params] = lastCall;
+    const from = new Date(params!.from!);
+    const to = new Date(params!.to!);
+    const monthsSpan =
+      (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+    expect(monthsSpan).toBe(6);
+  });
+
   it("renders the Batch Quality & Operations section alongside the credit KPIs", async () => {
     mockTimeseries.mockResolvedValue({
       ...EMPTY_TIMESERIES,
