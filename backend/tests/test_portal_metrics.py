@@ -337,3 +337,65 @@ async def test_window_over_60_months_is_400(client, registered_device, session_f
     )
     assert resp.status_code == 400
     assert resp.json()["detail"] == "window_too_large"
+
+
+async def test_bucket_components_reconcile_and_exclude_provisional(
+    client, registered_device, session_factory
+):
+    """Part 1E.1: each bucket gains a `components` breakdown (safety/
+    transport/ch4/gross, all tCO2e) summed over the SAME issued-only set as
+    issued_credit_t_co2e.
+
+    INV-4: gross - (safety + transport + ch4) reconciles to issued_credit
+    within a loose tolerance (catches unit/sign blunders, not float noise).
+    INV-3: a provisional batch's audit values must NOT leak into components —
+    the bucket's components must reflect only the issued batch's contribution.
+    """
+    await _seed_projects(session_factory)
+    headers = await _login(
+        client, session_factory, email="orga-components@metrics.test", org_id="org-metrics-a"
+    )
+
+    issued_may = await _make_issued_batch(client, session_factory, "dm-proj-a", MAY)
+    prov_may = await _make_provisional_batch(client, session_factory, "dm-proj-a", MAY)
+
+    resp = await client.get(
+        "/api/v1/portal/metrics/credit-timeseries",
+        params={"bucket": "month", "from": WINDOW_FROM, "to": WINDOW_TO},
+        headers=headers,
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    by_period = {b["period"]: b for b in body["buckets"]}
+
+    may = by_period["2026-05"]
+    comp = may["components"]
+    for key in ("safety_t_co2e", "transport_t_co2e", "ch4_t_co2e", "gross_t_co2e"):
+        assert key in comp
+        assert comp[key] is not None
+
+    # INV-4: unit reconciliation against the SAME issued_credit_t_co2e.
+    assert abs(
+        comp["gross_t_co2e"]
+        - (comp["safety_t_co2e"] + comp["transport_t_co2e"] + comp["ch4_t_co2e"])
+        - may["issued_credit_t_co2e"]
+    ) < 0.05
+
+    # INV-3: components reflect ONLY the issued batch, never the provisional
+    # one — confirmed by the same reconciliation holding against the single
+    # issued batch's own net_credit_t_co2e (would fail if prov leaked in,
+    # since prov_may.net_credit_t_co2e != 0.0).
+    assert prov_may.net_credit_t_co2e != 0.0
+    assert comp["gross_t_co2e"] - (
+        comp["safety_t_co2e"] + comp["transport_t_co2e"] + comp["ch4_t_co2e"]
+    ) == pytest.approx(issued_may.net_credit_t_co2e, abs=0.05)
+
+    # A month with zero qualifying batches still gets all-zero components
+    # (INV-5, consistent with the existing zero-fill).
+    june = by_period["2026-06"]
+    assert june["components"] == {
+        "safety_t_co2e": 0.0,
+        "transport_t_co2e": 0.0,
+        "ch4_t_co2e": 0.0,
+        "gross_t_co2e": 0.0,
+    }
