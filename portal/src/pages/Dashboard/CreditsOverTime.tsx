@@ -6,6 +6,7 @@ import Skeleton from "../../components/Skeleton/Skeleton";
 import DivergingStackedBarChart, {
   type DivergingBar,
 } from "../../ui/DivergingStackedBarChart/DivergingStackedBarChart";
+import { indigoTone } from "../../config/chartPalette";
 
 // "YYYY-MM" -> "Mon YYYY" (e.g. "2026-01" -> "Jan 2026"). Local-only helper —
 // the period labels are already UTC month keys from the backend, so this is
@@ -18,9 +19,10 @@ function formatPeriod(period: string): string {
 
 // Our real CSI methodology's terms — NEVER BlueLayer's labels ("E biomass" /
 // "E production"), which we do not compute. See PHASE_1E blueprint: Net
-// credit (green, above zero) vs. Safety margin / Transport / Pyrolysis (CH4)
-// (stacked below zero, a graduated amber/neutral ramp — deductions, not the
-// removal itself).
+// credit (above zero) vs. Safety margin / Transport / Pyrolysis (CH4)
+// (stacked below zero) — deductions, not the removal itself. Colors are
+// tones of our one brand hue (indigoTone — see config/chartPalette), never
+// hardcoded inline.
 function toDivergingBar(b: CreditBucket): DivergingBar {
   const c = b.components ?? {
     safety_t_co2e: 0,
@@ -30,11 +32,11 @@ function toDivergingBar(b: CreditBucket): DivergingBar {
   };
   return {
     label: formatPeriod(b.period),
-    above: [{ label: "Net credit", value: b.issued_credit_t_co2e, color: "var(--green-700)" }],
+    above: [{ label: "Net credit", value: b.issued_credit_t_co2e, color: indigoTone(0) }],
     below: [
-      { label: "Safety margin", value: c.safety_t_co2e, color: "var(--amber-500)" },
-      { label: "Transport", value: c.transport_t_co2e, color: "var(--amber-200)" },
-      { label: "Pyrolysis (CH₄)", value: c.ch4_t_co2e, color: "var(--basalt-400)" },
+      { label: "Safety margin", value: c.safety_t_co2e, color: indigoTone(1) },
+      { label: "Transport", value: c.transport_t_co2e, color: indigoTone(2) },
+      { label: "Pyrolysis (CH₄)", value: c.ch4_t_co2e, color: indigoTone(3) },
     ],
     tooltip: [
       { label: "Net credit", value: b.issued_credit_t_co2e, bold: true },
