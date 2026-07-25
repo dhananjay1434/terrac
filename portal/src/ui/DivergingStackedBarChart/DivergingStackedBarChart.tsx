@@ -27,7 +27,17 @@ export interface DivergingStackedBarChartProps {
 
 const WIDTH = 720;
 const LABEL_RESERVE = 24;
-const MAX_X_LABELS = 8;
+
+/**
+ * Compute max labels dynamically based on data density.
+ * - Sparse (≤ 12 bars, monthly): show all labels (every bar)
+ * - Dense (> 12 bars, daily): show ~20 labels (every 7-10 days)
+ * Formula: denser data can fit more labels due to higher bar density
+ */
+function computeMaxLabels(count: number): number {
+  if (count <= 12) return count; // Monthly: show every month
+  return Math.max(20, Math.ceil(count / 9)); // Daily: ~every 9th bar (~every 9 days)
+}
 
 /** Picks an evenly-spaced subset of indices, capped at maxLabels. */
 function pickLabelIndices(count: number, maxLabels: number): Set<number> {
@@ -149,7 +159,7 @@ export default function DivergingStackedBarChart({
   // formula approaches 1.0 as data.length grows, minimizing gaps in dense views.
   // For monthly: 0.65 (clear gaps). For daily: 0.92 (nearly touching, BlueLayer-style).
   const barWidth = barSlot * Math.min(0.92, 0.4 + data.length / 200);
-  const labelIndices = pickLabelIndices(data.length, MAX_X_LABELS);
+  const labelIndices = pickLabelIndices(data.length, computeMaxLabels(data.length));
 
   const hoveredBar = hovered !== null ? data[hovered] : null;
   const tooltipFromRight = hovered !== null && hovered >= data.length - 2;
