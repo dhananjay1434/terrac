@@ -8,11 +8,18 @@ import DivergingStackedBarChart, {
 } from "../../ui/DivergingStackedBarChart/DivergingStackedBarChart";
 import { indigoTone } from "../../config/chartPalette";
 
-// "YYYY-MM" -> "Mon YYYY" (e.g. "2026-01" -> "Jan 2026"). Local-only helper —
-// the period labels are already UTC month keys from the backend, so this is
-// pure display formatting, not a timezone conversion.
+// Period formatter: detects daily (YYYY-MM-DD) vs monthly (YYYY-MM) format.
+// Daily: "May 15", Monthly: "Jan 2026". Pure display formatting, not timezone conversion.
 function formatPeriod(period: string): string {
-  const [year, month] = period.split("-").map(Number);
+  const parts = period.split("-").map(Number);
+  if (parts.length === 3) {
+    // Daily: YYYY-MM-DD -> "May 15" format
+    const [year, month, day] = parts;
+    const d = new Date(Date.UTC(year, month - 1, day));
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  }
+  // Monthly: YYYY-MM -> "Jan 2026" format
+  const [year, month] = parts;
   const d = new Date(Date.UTC(year, month - 1, 1));
   return d.toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" });
 }

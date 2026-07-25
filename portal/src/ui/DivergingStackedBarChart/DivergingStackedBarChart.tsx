@@ -144,9 +144,11 @@ export default function DivergingStackedBarChart({
   const ppuBelowByLabel = pixelsPerUnitByLabel(data, "below", plotHeight - zeroY);
 
   const barSlot = WIDTH / data.length;
-  // Denser packing (was 0.6) reads as a fuller, richer chart when there are
-  // few bars — still leaves a clear gap so adjacent bars never touch.
-  const barWidth = barSlot * 0.72;
+  // Bar width scales with data density: for monthly (6 bars), use wider bars
+  // with visible gaps; for daily (180+ bars), nearly fill each slot. This
+  // formula approaches 1.0 as data.length grows, minimizing gaps in dense views.
+  // For monthly: 0.65 (clear gaps). For daily: 0.92 (nearly touching, BlueLayer-style).
+  const barWidth = barSlot * Math.min(0.92, 0.4 + data.length / 200);
   const labelIndices = pickLabelIndices(data.length, MAX_X_LABELS);
 
   const hoveredBar = hovered !== null ? data[hovered] : null;
