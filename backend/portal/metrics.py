@@ -10,6 +10,7 @@ are kept as two separate, explicitly-labeled sums — never folded together.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 
 from sqlalchemy import select, func, case
@@ -17,6 +18,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import tenancy
 from models import Batch, PortalUser
+
+
+def _parse_components(json_str: "str | None") -> "dict | None":
+    """Local, minimal allow-list parse of the signed LCA audit JSON — kept
+    separate from portal.routes.parse_lca_breakdown to avoid a circular
+    import (routes.py imports this module). Extracts only the four numeric
+    fields needed for the per-bucket deduction breakdown; never returns
+    sensitive sections (audit_signature, transport_events, integrity_signals)
+    and never **-splats the parsed dict."""
+    if not json_str:
+        return None
+    try:
+        parsed = json.loads(json_str)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    return {
+        "cremain_t": parsed.get("cremain_t"),
+        "safety_deduction_kg": parsed.get("safety_deduction_kg"),
+        "transport_penalty_kg": parsed.get("transport_penalty_kg"),
+        "ch4_penalty_kg": parsed.get("ch4_penalty_kg"),
+    }
 
 
 def _month_labels(dt_from: datetime, dt_to: datetime) -> list[str]:
@@ -99,6 +123,48 @@ async def credit_timeseries(
                     "provisional_count": int(row[4]),
                 }
             )
+
+    # parse-on-read of lca_audit_json; O(batches in window). Fine at current
+    # scale; revisit with a component-column or rollup approach at industrial
+    # volume.
+    raw_stmt = tenancy.scope_batches_by_org(
+        select(Batch.received_at, Batch.provisional, Batch.lca_audit_json), user
+    ).where(Batch.received_at >= dt_from, Batch.received_at <= dt_to)
+    raw_rows = (await session.execute(raw_stmt)).all()
+
+    components_by_period: dict[str, dict[str, float]] = {}
+    for row in raw_rows:
+        if row.provisional:
+            continue  # INV-3: provisional batches contribute nothing.
+        comp = _parse_components(row.lca_audit_json)
+        if comp is None:
+            continue
+        period = row.received_at.strftime("%Y-%m")
+        acc = components_by_period.setdefault(
+            period,
+            {
+                "safety_t_co2e": 0.0,
+                "transport_t_co2e": 0.0,
+                "ch4_t_co2e": 0.0,
+                "gross_t_co2e": 0.0,
+            },
+        )
+        acc["safety_t_co2e"] += (comp.get("safety_deduction_kg") or 0) / 1000
+        acc["transport_t_co2e"] += (comp.get("transport_penalty_kg") or 0) / 1000
+        acc["ch4_t_co2e"] += (comp.get("ch4_penalty_kg") or 0) / 1000
+        acc["gross_t_co2e"] += (comp.get("cremain_t") or 0) * 44 / 12
+
+    for bucket in buckets:
+        acc = components_by_period.get(
+            bucket["period"],
+            {
+                "safety_t_co2e": 0.0,
+                "transport_t_co2e": 0.0,
+                "ch4_t_co2e": 0.0,
+                "gross_t_co2e": 0.0,
+            },
+        )
+        bucket["components"] = {k: round(v, 6) for k, v in acc.items()}
 
     totals = {
         "issued_credit_t_co2e": sum(b["issued_credit_t_co2e"] for b in buckets),
