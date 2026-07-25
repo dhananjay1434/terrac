@@ -1,0 +1,27 @@
+.tooltip {
+  position: absolute;
+  z-index: 10;
+  background: var(--basalt-950);
+  color: var(--basalt-0);
+  border-radius: var(--r-md);
+  padding: var(--space-2);
+  font-size: var(--fs-12);
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.tooltipHeader {
+  font-weight: var(--fw-bold);
+  margin-bottom: var(--space-1);
+}
+.tooltipRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.tooltipRowBold {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-weight: var(--fw-bold);
+}
