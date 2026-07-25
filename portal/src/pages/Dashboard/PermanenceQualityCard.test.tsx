@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { axe } from "jest-axe";
 import PermanenceQualityCard from "./PermanenceQualityCard";
 import type { QualityMetrics } from "../../api";
@@ -8,12 +8,12 @@ const POPULATED: QualityMetrics["permanence"] = {
   n: 4,
   excluded: 2,
   h_corg: { min: 0.2, max: 0.4, avg: 0.3 },
-  permanence_pct: { min: 85, max: 98, avg: 92 },
+  permanence_pct: { min: 70, max: 82.6, avg: 79 },
   distribution: [
     { label: "<70%", count: 0 },
     { label: "70-75%", count: 1 },
-    { label: "75-80%", count: 2 },
-    { label: "80%+", count: 1 },
+    { label: "75-80%", count: 0 },
+    { label: "80%+", count: 3 },
   ],
 };
 
@@ -31,8 +31,8 @@ const EMPTY: QualityMetrics["permanence"] = {
 };
 
 describe("PermanenceQualityCard", () => {
-  it("renders stats and distribution bars when data is present", () => {
-    const { container } = render(
+  it("renders stats and a durability-tier breakdown when data is present", () => {
+    render(
       <PermanenceQualityCard
         data={POPULATED}
         loading={false}
@@ -40,16 +40,23 @@ describe("PermanenceQualityCard", () => {
         onRetry={() => {}}
       />,
     );
-    expect(screen.getByText("92%")).toBeInTheDocument();
+    expect(screen.getByText("79%")).toBeInTheDocument();
     expect(screen.getByText("0.30")).toBeInTheDocument();
-    expect(container.querySelectorAll("rect").length).toBe(4);
+    // Two-tier split (not a 4-bucket histogram): 3 top-tier, 1 lower-tier.
+    const list = screen.getByRole("list", { name: /durability tier/i });
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Top-tier durable (~83%)");
+    expect(rows[0]).toHaveTextContent("3");
+    expect(rows[1]).toHaveTextContent("Lower-tier (~70%)");
+    expect(rows[1]).toHaveTextContent("1");
     expect(
       screen.getByText("2 batches lack a lab H/Corg"),
     ).toBeInTheDocument();
   });
 
   it("renders an honest no-data message when n is 0, without a fabricated 0% tile or chart", () => {
-    const { container } = render(
+    render(
       <PermanenceQualityCard
         data={EMPTY}
         loading={false}
@@ -59,11 +66,11 @@ describe("PermanenceQualityCard", () => {
     );
     expect(screen.getByText("No lab permanence data yet")).toBeInTheDocument();
     expect(screen.queryByText("0%")).not.toBeInTheDocument();
-    expect(container.querySelectorAll("rect").length).toBe(0);
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
   it("renders the no-data message when data is null", () => {
-    const { container } = render(
+    render(
       <PermanenceQualityCard
         data={null}
         loading={false}
@@ -72,7 +79,7 @@ describe("PermanenceQualityCard", () => {
       />,
     );
     expect(screen.getByText("No lab permanence data yet")).toBeInTheDocument();
-    expect(container.querySelectorAll("rect").length).toBe(0);
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
   it("renders only a skeleton while loading", () => {
@@ -84,7 +91,7 @@ describe("PermanenceQualityCard", () => {
         onRetry={() => {}}
       />,
     );
-    expect(screen.queryByText("92%")).not.toBeInTheDocument();
+    expect(screen.queryByText("79%")).not.toBeInTheDocument();
     expect(
       screen.queryByText("No lab permanence data yet"),
     ).not.toBeInTheDocument();

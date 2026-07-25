@@ -4,7 +4,16 @@ import Button from "../../ui/Button/Button";
 import StatBand from "../../ui/StatBand/StatBand";
 import StatTile from "../../components/StatTile/StatTile";
 import Skeleton from "../../components/Skeleton/Skeleton";
-import BarChart from "../../ui/BarChart/BarChart";
+import HorizontalBarList from "../../ui/HorizontalBarList/HorizontalBarList";
+
+// The CSI 100-year decay model yields one of two permanence outcomes: the
+// top stability tier (H:Corg < 0.4 → ~83% retention) or the lower tier
+// (H:Corg ≥ 0.4 → 70%). It is a two-outcome QUALITY split, not a continuous
+// spread — so we show the durability-tier breakdown (which reads as a clear
+// story) rather than a 4-bucket histogram that is structurally mostly empty.
+// The "80%+" distribution bucket is exactly the top tier; everything below
+// it is the lower tier.
+const TOP_TIER_BUCKET = "80%+";
 
 /**
  * Read-only analytics — never credit-affecting. A batch missing a lab H/Corg
@@ -59,16 +68,30 @@ export default function PermanenceQualityCard({
                 hint="lower = more durable"
               />
             </StatBand>
-            <div style={{ marginTop: 12 }}>
-              <BarChart
-                data={data.distribution.map((d) => ({
-                  label: d.label,
-                  value: d.count,
-                }))}
-                showValues
-                ariaLabel="Permanence distribution"
-                emptyLabel="No lab results yet"
-              />
+            <div style={{ marginTop: 16 }}>
+              {(() => {
+                const topTier =
+                  data.distribution.find((d) => d.label === TOP_TIER_BUCKET)?.count ?? 0;
+                const lowerTier = data.n - topTier;
+                return (
+                  <HorizontalBarList
+                    items={[
+                      {
+                        label: "Top-tier durable (~83%)",
+                        value: topTier,
+                        hint: "H:Corg < 0.4 · ~83% retained at 100 yr",
+                      },
+                      {
+                        label: "Lower-tier (~70%)",
+                        value: lowerTier,
+                        hint: "H:Corg ≥ 0.4 · 70% retained at 100 yr",
+                      },
+                    ]}
+                    valueSuffix="batches"
+                    ariaLabel="Permanence by durability tier"
+                  />
+                );
+              })()}
             </div>
             {data.excluded > 0 && (
               <div className="micro" style={{ marginTop: 8 }}>
