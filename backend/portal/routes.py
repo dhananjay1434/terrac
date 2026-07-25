@@ -75,6 +75,7 @@ from services.registry import (
 )
 from routers.devices import _hash_enroll_token
 from . import metrics
+from . import metrics_quality
 from .auth import (
     create_session,
     require_role,
@@ -1048,6 +1049,16 @@ async def credit_timeseries(
         raise HTTPException(status_code=400, detail="window_too_large")
 
     return await metrics.credit_timeseries(session, _user, dt_from, dt_to)
+
+
+@router.get("/metrics/quality")
+async def quality_metrics_route(
+    _user: PortalUser = Depends(require_role()),
+    session: AsyncSession = Depends(get_session),
+):
+    """Part 1F.1 -- org-scoped, read-only pyrolysis + permanence quality
+    metrics. Never credit-affecting."""
+    return await metrics_quality.quality_metrics(session, _user)
 
 
 # Explicit allow-list of safe, non-sensitive numeric/flag fields from the
