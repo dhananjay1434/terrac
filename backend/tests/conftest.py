@@ -71,6 +71,14 @@ def _ed25519_sign(canonical: bytes) -> str:
     return _b64u(_TEST_PRIV.sign(canonical))
 
 
+def pytest_configure(config):
+    # M0.3: register the `slow` marker so the fast gate can `-m "not slow"`.
+    config.addinivalue_line(
+        "markers",
+        "slow: long-running (subprocess/seed) tests, excluded from the fast gate",
+    )
+
+
 @pytest_asyncio.fixture(scope="function")
 async def test_engine():
     """Per-test database engine.
