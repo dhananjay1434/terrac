@@ -1,0 +1,33 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.maxBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  border: var(--border-hair);
+  color: var(--text-secondary);
+}
+/* Compliance tie-in: badge goes semantic-green once the sustained-temp gate
+   passes. The chart is a gate visual, not decoration. */
+.maxBadge[data-gate="pass"] {
+  background: var(--status-success-bg);
+  color: var(--status-success-fg);
+  border-color: var(--status-success-fg);
+}
+.gapNote {
+  font-size: var(--fs-12);
+  color: var(--status-warning-fg);
+}
