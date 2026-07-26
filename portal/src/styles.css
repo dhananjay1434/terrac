@@ -148,12 +148,14 @@ input:focus, select:focus {
   outline: none;
 }
 /* Keyboard focus needs a visible ring; the bare border change above is too
-   faint (gray→gray) to satisfy a keyboard user. :focus-visible only fires for
-   keyboard/AT focus, so mouse clicks stay clean while Tab gets a branded ring. */
-input:focus-visible, select:focus-visible {
-  border-color: var(--action-primary-bg);
-  box-shadow: 0 0 0 3px var(--surface-brand-subtle);
-  outline: none;
+   faint. :focus-visible fires only for keyboard/AT focus, so mouse clicks
+   stay quiet. Uses outline (not box-shadow) so the existing
+   [data-theme="dark"] :focus-visible outline-color remap applies for free. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--indigo-600);
+  outline-offset: 2px;
 }
 .err {
   color: var(--status-error-fg);

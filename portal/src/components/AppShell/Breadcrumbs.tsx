@@ -3,9 +3,13 @@ import type { ReactNode } from "react";
 import styles from "./AppShell.module.css";
 
 const LABELS: Record<string, string> = {
+  "/dashboard": "Dashboard",
   "/batches": "Batches",
   "/lab/scan": "Lab / Scan",
   "/registry": "Registry",
+  "/projects": "Projects",
+  "/farmers": "Farmers",
+  "/dispatch": "Dispatch",
 };
 
 /**
@@ -33,5 +37,6 @@ export default function Breadcrumbs() {
     );
   }
 
+  if (!crumb) return null;
   return <div className={styles.crumbs}>{crumb}</div>;
 }

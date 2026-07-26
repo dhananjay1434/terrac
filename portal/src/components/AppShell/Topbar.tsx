@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Menu, Sun, Moon, HelpCircle, CircleUser } from "lucide-react";
+import { Menu, Sun, Moon, CircleUser } from "lucide-react";
 import { logout } from "../../api";
-import { clearSession } from "../../auth";
+import { getRole, clearSession } from "../../auth";
 import { getTheme, setTheme, type Theme } from "../../theme";
 import { brand } from "@config/brand";
 import styles from "./AppShell.module.css";
@@ -81,9 +81,6 @@ export default function Topbar({
         >
           {theme === "dark" ? <Sun size={16} aria-hidden /> : <Moon size={16} aria-hidden />}
         </button>
-        <button type="button" className={styles.iconBtn} aria-label="Help" title="Help">
-          <HelpCircle size={16} aria-hidden />
-        </button>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button
@@ -100,6 +97,9 @@ export default function Topbar({
               align="end"
               sideOffset={4}
             >
+              <DropdownMenu.Label className={styles.menuLabel}>
+                Signed in · {getRole() ?? "unknown"}
+              </DropdownMenu.Label>
               <DropdownMenu.Item
                 className={styles.menuItem}
                 disabled={signingOut}

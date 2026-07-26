@@ -78,7 +78,12 @@ export default function Sidebar({
           type="button"
           onClick={onToggle}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title="⌘\"
+          title={
+            typeof navigator !== "undefined" &&
+            navigator.platform.toLowerCase().includes("mac")
+              ? "⌘\\"
+              : "Ctrl+\\"
+          }
         >
           {collapsed ? (
             <PanelLeft size={16} aria-hidden />
