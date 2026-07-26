@@ -12,6 +12,7 @@ import {
   type SourceParcel,
 } from "../api";
 import { fmtDate } from "../format";
+import { getRole } from "../auth";
 import StatusDot, { type StatusDotVariant } from "../components/StatusDot/StatusDot";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
@@ -267,11 +268,11 @@ export default function Projects() {
   ];
 
   const parcelColumns: ColumnDef<SourceParcel>[] = [
-    { key: "parcel_uuid", header: "Parcel UUID", mono: true, render: (p) => p.parcel_uuid.slice(0, 8) + "..." },
-    { key: "name", header: "Parcel Name", render: (p) => p.name },
+    { key: "parcel_uuid", header: "Parcel UUID", mono: true, render: (p) => p.parcel_uuid.slice(0, 8) + "…" },
+    { key: "name", header: "Parcel name", render: (p) => p.name },
     { key: "project_id", header: "Project ID", mono: true, render: (p) => p.project_id },
     { key: "area", header: "Area (m²)", render: (p) => `${p.area_m2.toLocaleString()} m²` },
-    { key: "acres", header: "Declared (Acres)", render: (p) => p.declared_area_acres ? `${p.declared_area_acres} acres` : "—" },
+    { key: "acres", header: "Declared (acres)", render: (p) => p.declared_area_acres ? `${p.declared_area_acres} acres` : "—" },
     {
       key: "status",
       header: "Status",
@@ -285,11 +286,15 @@ export default function Projects() {
     { key: "created", header: "Created", render: (p) => fmtDate(p.created_at) },
   ];
 
+  const isAdmin = getRole() === "admin";
+
   return (
     <div className="wrap">
-      <h1 className="page-title">Projects & Source Parcels</h1>
+      <h1 className="page-title">Projects & source parcels</h1>
 
-      {/* Project Registration Form */}
+      {/* Project & parcel registration is admin-only — verifiers read the
+          tables below but never see write controls they can't authorize. */}
+      {isAdmin && (
       <ProjectForm
         projectId={projectId}
         onProjectIdChange={setProjectId}
@@ -304,8 +309,10 @@ export default function Projects() {
         formMsg={formMsg}
         onSubmit={submit}
       />
+      )}
 
       {/* Source Parcel Boundary Registration Form (Part 1.5) */}
+      {isAdmin && (
       <ParcelForm
         projects={rows}
         parcelProjectId={parcelProjectId}
@@ -321,13 +328,14 @@ export default function Projects() {
         parcelMsg={parcelMsg}
         onSubmit={submitParcel}
       />
+      )}
 
       {err && (
         <CardError message={err} onRetry={() => fetchPage(currentBefore)} />
       )}
 
       {/* Projects Table */}
-      <h2 className="section-title">Registered Projects</h2>
+      <h2 className="section-title">Registered projects</h2>
       <DataTable
         columns={columns}
         rows={rows}
@@ -366,7 +374,7 @@ export default function Projects() {
       </nav>
 
       {/* Source Parcels Table */}
-      <h2 className="section-title">Source Parcels</h2>
+      <h2 className="section-title">Source parcels</h2>
       <DataTable
         columns={parcelColumns}
         rows={parcels}

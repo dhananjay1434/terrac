@@ -69,6 +69,8 @@ function renderPage() {
 describe("Projects page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Registration forms are admin-only; most tests exercise them.
+    localStorage.setItem("dmrv.portal.role", "admin");
     mockList.mockResolvedValue({ projects: [], next_cursor: null });
     mockListParcels.mockResolvedValue({ parcels: [], next_cursor: null });
     mockListRegistryConfigs.mockResolvedValue({
@@ -299,5 +301,18 @@ describe("Projects page", () => {
     );
     // StatusPill wraps the text in its own <span>, sibling to the status icon.
     expect(message.parentElement?.querySelector("svg")).toBeInTheDocument();
+  });
+
+  it("hides both registration forms from non-admin roles", async () => {
+    localStorage.setItem("dmrv.portal.role", "verifier");
+    mockList.mockResolvedValue({ projects: [ROW], next_cursor: null });
+    renderPage();
+    await screen.findByText("proj-1");
+    // Verifiers still see the tables, but no write controls.
+    expect(screen.queryByLabelText("Project ID")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Register Boundary" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Registered projects")).toBeInTheDocument();
   });
 });
