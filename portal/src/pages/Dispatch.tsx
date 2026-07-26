@@ -10,7 +10,8 @@ import {
   type DispatchRow,
   type FacilityRow,
 } from "../api";
-import { fmtDate } from "../format";
+import { fmtDate, fmtPct } from "../format";
+import { getRole } from "../auth";
 import CardError from "../ui/CardError/CardError";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
@@ -51,6 +52,7 @@ export default function Dispatch() {
     null,
   );
   const [facilitySubmitting, setFacilitySubmitting] = useState(false);
+  const [showFacilityForm, setShowFacilityForm] = useState(false);
 
   const fetchPage = useCallback(
     async (before: string | null) => {
@@ -181,8 +183,18 @@ export default function Dispatch() {
       header: "Weight (source → facility)",
       align: "right",
       mono: true,
-      render: (d) =>
-        `${d.weight_source_kg ?? "—"} → ${d.weight_facility_kg ?? "—"} kg`,
+      render: (d) => (
+        <>
+          {d.weight_source_kg ?? "—"} → {d.weight_facility_kg ?? "—"} kg
+          {d.weight_delta_pct != null && !d.weight_flagged && (
+            <span className="micro">
+              {" "}
+              ({d.weight_delta_pct > 0 ? "+" : ""}
+              {fmtPct(d.weight_delta_pct)})
+            </span>
+          )}
+        </>
+      ),
     },
     {
       key: "flag",
@@ -207,7 +219,13 @@ export default function Dispatch() {
     <div className="wrap">
       <h1 className="page-title">Dispatch</h1>
 
-      <Card as="section" style={{ marginBottom: 14 }}>
+      {getRole() === "admin" && (
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <Button variant="neutral" size="sm" onClick={() => setShowFacilityForm((s) => !s)}>
+            {showFacilityForm ? "Hide facility form" : "Register facility…"}
+          </Button>
+          {showFacilityForm && (
+      <Card as="section" style={{ marginTop: "var(--space-3)" }}>
         <span className="micro">Register facility</span>
         <form className="filters" style={{ marginTop: 10 }} onSubmit={submitFacility}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -270,6 +288,9 @@ export default function Dispatch() {
           </div>
         )}
       </Card>
+          )}
+        </div>
+      )}
 
       <Tabs.Root value={view} onValueChange={(v) => setView(v as ViewKey)}>
         <Tabs.List

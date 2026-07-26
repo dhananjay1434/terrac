@@ -80,7 +80,13 @@ describe("Dispatch page", () => {
     vi.clearAllMocks();
     mockListDispatch.mockResolvedValue({ dispatches: [], next_cursor: null });
     mockListFacilities.mockResolvedValue({ facilities: [], next_cursor: null });
+    // The facility form is admin-only; most tests exercise it, so default to admin.
+    localStorage.setItem("dmrv.portal.role", "admin");
   });
+
+  function openFacilityForm() {
+    fireEvent.click(screen.getByRole("button", { name: /Register facility/ }));
+  }
 
   it("lists dispatches", async () => {
     mockListDispatch.mockResolvedValue({ dispatches: [DRAFT_ROW], next_cursor: null });
@@ -118,6 +124,7 @@ describe("Dispatch page", () => {
   it("registers a facility", async () => {
     mockCreateFacility.mockResolvedValue(FACILITY_ROW);
     renderPage();
+    openFacilityForm();
 
     fireEvent.change(screen.getByLabelText("Facility UUID"), {
       target: { value: "facility-uuid-1" },
@@ -139,6 +146,7 @@ describe("Dispatch page", () => {
 
   it("rejects an empty facility submission client-side", async () => {
     renderPage();
+    openFacilityForm();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByText("Facility UUID and name are required");
     expect(mockCreateFacility).not.toHaveBeenCalled();
@@ -147,6 +155,7 @@ describe("Dispatch page", () => {
   it("surfaces a duplicate-facility conflict", async () => {
     mockCreateFacility.mockRejectedValue(new ApiError(409, "facility_already_exists"));
     renderPage();
+    openFacilityForm();
 
     fireEvent.change(screen.getByLabelText("Facility UUID"), {
       target: { value: "dup-uuid" },
@@ -162,9 +171,37 @@ describe("Dispatch page", () => {
   it("renders the reskinned facility form and flagged-weight pill", async () => {
     mockListDispatch.mockResolvedValue({ dispatches: [FLAGGED_ROW], next_cursor: null });
     renderPage();
+    openFacilityForm();
 
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
     await screen.findByText(/Flagged \(30\.0%\)/);
     expect(screen.getByRole("button", { name: "Next ›" })).toBeInTheDocument();
+  });
+
+  it("hides the facility form entirely from non-admin roles", async () => {
+    localStorage.setItem("dmrv.portal.role", "verifier");
+    renderPage();
+    await screen.findByText("No dispatches found");
+    expect(
+      screen.queryByRole("button", { name: /Register facility/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+
+  it("shows a reconciliation delta on unflagged rows without a pill", async () => {
+    const okRow: DispatchRow = {
+      ...DRAFT_ROW,
+      dispatch_uuid: "dispatch-uuid-cccc3333",
+      status: "received",
+      weight_facility_kg: 97,
+      weight_delta_pct: -3,
+      weight_flagged: false,
+      received_at: "2026-07-22T12:00:00Z",
+    };
+    mockListDispatch.mockResolvedValue({ dispatches: [okRow], next_cursor: null });
+    renderPage();
+    await screen.findByText("Ramesh");
+    expect(screen.getByText(/\(-3%\)/)).toBeInTheDocument();
+    expect(screen.getByText("OK")).toBeInTheDocument();
   });
 });
