@@ -145,6 +145,16 @@
   --status-warning-bg: #431a03;
   --status-error-fg: #fca5a5;
   --status-error-bg: #450a0a;
+  /* The single-value status aliases are used directly by StatusDot,
+     SealedVerdict, ComplianceChecklist, VerificationChain and ConfirmModal.
+     They MUST remap in dark too — otherwise they keep the light-mode dark
+     inks (e.g. green-700 on a near-black card ≈ 2:1) and the verdict stamp,
+     status dots and checklist voices become unreadable at night. Mirror the
+     already-lifted -fg values. */
+  --status-success: var(--status-success-fg);
+  --status-warning: var(--status-warning-fg);
+  --status-error: var(--status-error-fg);
+  --status-inert: var(--basalt-400);
   --action-primary-bg: var(--indigo-600);
   --action-primary-hover: #8b85ff;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);

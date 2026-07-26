@@ -147,6 +147,14 @@ input:focus, select:focus {
   border-color: var(--border-strong);
   outline: none;
 }
+/* Keyboard focus needs a visible ring; the bare border change above is too
+   faint (gray→gray) to satisfy a keyboard user. :focus-visible only fires for
+   keyboard/AT focus, so mouse clicks stay clean while Tab gets a branded ring. */
+input:focus-visible, select:focus-visible {
+  border-color: var(--action-primary-bg);
+  box-shadow: 0 0 0 3px var(--surface-brand-subtle);
+  outline: none;
+}
 .err {
   color: var(--status-error-fg);
   font-size: var(--fs-13);

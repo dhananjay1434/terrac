@@ -206,6 +206,11 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  /* Anchor the utility cluster (theme / help / account) to the right on
+     EVERY breakpoint. The wordmark's margin-right:auto used to do this, but
+     it's display:none on desktop, which stranded these controls at the far
+     left — where no one looks for account/sign-out (Jakob's Law). */
+  margin-left: auto;
 }
 .iconBtn {
   display: grid;
