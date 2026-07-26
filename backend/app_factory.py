@@ -116,9 +116,11 @@ def create_app() -> FastAPI:
     # Portal
     from portal.routes import router as portal_router
     from portal.issuance_routes import router as portal_issuance_router
+    from portal.hierarchy_routes import router as portal_hierarchy_router  # M1.5
 
     application.include_router(portal_router)
     application.include_router(portal_issuance_router)
+    application.include_router(portal_hierarchy_router)  # M1.5
 
     return application
 

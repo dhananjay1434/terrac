@@ -10,3 +10,23 @@ export interface BatchRowV2 extends BatchRow {
   network_id: string | null;
   site_id: string | null;
 }
+
+/** M1.5 — shape of GET /api/v1/portal/hierarchy (fetched via api2.ts in M2.6). */
+export interface HierarchyKiln {
+  kiln_id: string;
+  kiln_code: string | null;
+  sensor_profile: string;
+}
+export interface HierarchySite {
+  site_id: string;
+  name: string;
+  kilns: HierarchyKiln[];
+}
+export interface HierarchyNetwork {
+  network_id: string;
+  name: string;
+  sites: HierarchySite[];
+}
+export interface HierarchyResponse {
+  networks: HierarchyNetwork[];
+}
