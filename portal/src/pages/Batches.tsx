@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Copy, Check, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import CopyButton from "../components/CopyButton/CopyButton";
 import { listBatches, getSummary, AuthError, type BatchRow } from "../api";
 import { fmtCredit, fmtDate } from "../format";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
@@ -44,24 +45,6 @@ function viewFromFilters(status: string, provisional: string): ViewKey | null {
 // so memory is O(PAGE_SIZE) regardless of how many batches exist in total.
 const PAGE_SIZE = 25;
 
-function CopyId({ uuid }: { uuid: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      className="linkbtn"
-      type="button"
-      aria-label="Copy batch id"
-      onClick={(e) => {
-        e.stopPropagation();
-        navigator.clipboard.writeText(uuid);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }}
-    >
-      {copied ? <Check size={12} aria-hidden /> : <Copy size={12} aria-hidden />}
-    </button>
-  );
-}
 
 export default function Batches() {
   const nav = useNavigate();
@@ -193,7 +176,10 @@ export default function Batches() {
       mono: true,
       render: (b) => (
         <span>
-          {shortId(b.batch_uuid)} <CopyId uuid={b.batch_uuid} />
+          {shortId(b.batch_uuid)}{" "}
+          <span onClick={(e) => e.stopPropagation()}>
+            <CopyButton value={b.batch_uuid} label="Copy batch id" />
+          </span>
         </span>
       ),
     },

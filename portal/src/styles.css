@@ -337,6 +337,12 @@ a.back {
   color: var(--text-primary);
   margin: 12px 0 16px;
 }
+.section-title {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2);
+}
 .seal {
   display: inline-block;
   margin-top: 16px;

@@ -119,7 +119,7 @@ export default function Dashboard() {
         onRetry={fetchTotals}
       />
 
-      <h2 className="page-title" style={{ fontSize: "var(--fs-20)", marginTop: 32 }}>
+      <h2 className="section-title" style={{ marginTop: "var(--space-6)" }}>
         Batch Quality & Operations
       </h2>
       <div className="micro" style={{ marginBottom: 12 }}>

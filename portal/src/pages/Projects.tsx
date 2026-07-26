@@ -306,7 +306,7 @@ export default function Projects() {
       )}
 
       {/* Projects Table */}
-      <h2 style={{ fontSize: 16, marginBottom: 8 }}>Registered Projects</h2>
+      <h2 className="section-title">Registered Projects</h2>
       <DataTable
         columns={columns}
         rows={rows}
@@ -345,7 +345,7 @@ export default function Projects() {
       </nav>
 
       {/* Source Parcels Table */}
-      <h2 style={{ fontSize: 16, marginBottom: 8 }}>Source Parcels</h2>
+      <h2 className="section-title">Source Parcels</h2>
       <DataTable
         columns={parcelColumns}
         rows={parcels}
