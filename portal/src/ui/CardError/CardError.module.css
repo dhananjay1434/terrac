@@ -1,0 +1,12 @@
+.card {
+  border-color: var(--status-error-fg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.message {
+  color: var(--status-error-fg);
+  font-size: var(--fs-13);
+}
