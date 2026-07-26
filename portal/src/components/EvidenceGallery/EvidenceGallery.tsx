@@ -7,6 +7,7 @@ import { groupMedia, STEP_TITLES } from "../../pages/BatchDetail";
 import CopyButton from "../CopyButton/CopyButton";
 import Skeleton from "../Skeleton/Skeleton";
 import EvidenceLightbox from "../EvidenceLightbox/EvidenceLightbox";
+import { fmtDateTime } from "../../format";
 import styles from "./EvidenceGallery.module.css";
 
 type Filter = "all" | "photos" | "videos" | "certificates";
@@ -215,9 +216,7 @@ function GalleryThumb({
           <CopyButton value={item.sha256_hash} label="Copy SHA-256" />
         </div>
         <div className={styles.metaLine}>
-          {item.uploaded_at
-            ? item.uploaded_at.slice(0, 16).replace("T", " ")
-            : "—"}
+          {fmtDateTime(item.uploaded_at)}
         </div>
         <div className={styles.metaLine}>
           {item.exif_lat !== null && item.exif_lon !== null ? (

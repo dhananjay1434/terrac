@@ -7,6 +7,7 @@ import {
   type FarmerRow,
   type FarmerDetail,
 } from "../api";
+import { fmtDate } from "../format";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
 import Button from "../ui/Button/Button";
@@ -14,9 +15,6 @@ import Card from "../ui/Card/Card";
 
 const PAGE_SIZE = 25;
 
-function fmtDate(iso: string | null) {
-  return iso ? iso.slice(0, 10) : "—";
-}
 
 export default function Farmers() {
   const nav = useNavigate();

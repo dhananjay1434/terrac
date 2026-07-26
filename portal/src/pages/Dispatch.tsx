@@ -10,6 +10,7 @@ import {
   type DispatchRow,
   type FacilityRow,
 } from "../api";
+import { fmtDate } from "../format";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
 import StatusDot from "../components/StatusDot/StatusDot";
@@ -27,9 +28,6 @@ const VIEWS = {
 } as const;
 type ViewKey = keyof typeof VIEWS;
 
-function fmtDate(iso: string | null) {
-  return iso ? iso.slice(0, 10) : "—";
-}
 
 export default function Dispatch() {
   const nav = useNavigate();

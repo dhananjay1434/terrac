@@ -1,4 +1,5 @@
 import CopyButton from "../CopyButton/CopyButton";
+import { fmtDateTime } from "../../format";
 import styles from "./ProvenanceTile.module.css";
 
 /**
@@ -28,13 +29,9 @@ export default function ProvenanceTile({
     ["Project", projectId ?? "—"],
     [
       "Received",
-      receivedAt ? (
-        <span className="tabular">
-          {receivedAt.slice(0, 16).replace("T", " ")}
-        </span>
-      ) : (
-        "—"
-      ),
+      <span key="received" className="tabular">
+        {fmtDateTime(receivedAt)}
+      </span>,
     ],
     ["Methodology", "—"],
   ];

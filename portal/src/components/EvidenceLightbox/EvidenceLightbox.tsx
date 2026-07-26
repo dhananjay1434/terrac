@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { fetchMediaUrl, type MediaItem } from "../../api";
 import { isVideo } from "../EvidenceGallery/EvidenceGallery";
 import CopyButton from "../CopyButton/CopyButton";
+import { fmtDateTime } from "../../format";
 import styles from "./EvidenceLightbox.module.css";
 
 /**
@@ -92,9 +93,7 @@ export default function EvidenceLightbox({
             <div className={styles.row}>
               <dt>Captured</dt>
               <dd className="tabular">
-                {item.uploaded_at
-                  ? item.uploaded_at.slice(0, 16).replace("T", " ")
-                  : "—"}
+                {fmtDateTime(item.uploaded_at)}
               </dd>
             </div>
             <div className={styles.row}>

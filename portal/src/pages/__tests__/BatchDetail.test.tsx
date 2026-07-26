@@ -96,7 +96,7 @@ describe("BatchDetail page", () => {
     // figure panel adds another rendering, so assert at least one exists.
     expect(screen.getAllByText("100 kg").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("p1").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("2026-07-01").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("01 Jul 2026").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows PROVISIONAL with blocker count when not issuable", async () => {

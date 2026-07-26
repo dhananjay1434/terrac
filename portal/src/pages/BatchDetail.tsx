@@ -21,7 +21,7 @@ import LcaBreakdown from "../components/LcaBreakdown/LcaBreakdown";
 import LcaFormula from "../components/LcaFormula/LcaFormula";
 import TemperatureChart from "../components/TemperatureChart/TemperatureChart";
 import StatTile from "../components/StatTile/StatTile";
-import { fmtCredit } from "../format";
+import { fmtCredit, fmtDate, fmtKg } from "../format";
 import Button from "../ui/Button/Button";
 import Card from "../ui/Card/Card";
 
@@ -145,9 +145,7 @@ export default function BatchDetail() {
   const chainNodes = [
     {
       label: "Received",
-      sublabel: d.batch.received_at
-        ? d.batch.received_at.slice(0, 10)
-        : undefined,
+      sublabel: d.batch.received_at ? fmtDate(d.batch.received_at) : undefined,
       state: d.batch.received_at ? ("done" as const) : ("pending" as const),
     },
     {
@@ -231,7 +229,7 @@ export default function BatchDetail() {
           <dl className="hero-facts">
             <div className="hero-fact">
               <dt className="micro">Wet yield</dt>
-              <dd className="tabular">{d.batch.wet_yield_kg} kg</dd>
+              <dd className="tabular">{fmtKg(d.batch.wet_yield_kg)}</dd>
             </div>
             <div className="hero-fact">
               <dt className="micro">Project</dt>
@@ -240,7 +238,7 @@ export default function BatchDetail() {
             <div className="hero-fact">
               <dt className="micro">Received</dt>
               <dd className="tabular">
-                {d.batch.received_at?.slice(0, 10) ?? "—"}
+                {fmtDate(d.batch.received_at)}
               </dd>
             </div>
           </dl>
@@ -276,7 +274,7 @@ export default function BatchDetail() {
           {/* Weight is a single post-burn measurement, not a time series —
               shown as a stat, not a curve. A weight-vs-time curve would
               require app-side series capture (out of scope). */}
-          <StatTile label="Post-burn yield" value={`${d.batch.wet_yield_kg} kg`} />
+          <StatTile label="Post-burn yield" value={fmtKg(d.batch.wet_yield_kg)} />
         </div>
       </Card>
 

@@ -15,6 +15,6 @@ describe("ProvenanceTile", () => {
     expect(screen.getByText("dev-1")).toBeInTheDocument();
     expect(screen.getByText("Methodology")).toBeInTheDocument();
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("2026-07-01 10:00")).toBeInTheDocument();
+    expect(screen.getByText("01 Jul 2026, 10:00 UTC")).toBeInTheDocument();
   });
 });

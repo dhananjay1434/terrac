@@ -11,6 +11,7 @@ import {
   type ProjectRow,
   type SourceParcel,
 } from "../api";
+import { fmtDate } from "../format";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
 import Button from "../ui/Button/Button";
@@ -20,9 +21,6 @@ import ParcelForm from "./Projects/ParcelForm";
 
 const PAGE_SIZE = 25;
 
-function fmtDate(iso: string | null) {
-  return iso ? iso.slice(0, 10) : "—";
-}
 
 export default function Projects() {
   const nav = useNavigate();

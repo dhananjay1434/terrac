@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import * as Tabs from "@radix-ui/react-tabs";
 import { Copy, Check, ChevronRight } from "lucide-react";
 import { listBatches, getSummary, AuthError, type BatchRow } from "../api";
-import { fmtCredit } from "../format";
+import { fmtCredit, fmtDate } from "../format";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import FilterBar, { type FilterPatch } from "../components/FilterBar/FilterBar";
 import StatusDot from "../components/StatusDot/StatusDot";
@@ -17,9 +17,6 @@ import Button from "../ui/Button/Button";
 
 function shortId(uuid: string) {
   return uuid.slice(0, 8);
-}
-function fmtDate(iso: string | null) {
-  return iso ? iso.slice(0, 10) : "—";
 }
 
 // Saved views: each maps to a fixed server-filter combo. "blocking"
