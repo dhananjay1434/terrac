@@ -1,6 +1,6 @@
 .tooltip {
   position: absolute;
-  z-index: 10;
+  z-index: var(--z-tooltip);
   background: var(--basalt-950);
   color: var(--basalt-0);
   border-radius: var(--r-md);

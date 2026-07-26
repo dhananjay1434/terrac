@@ -128,7 +128,7 @@ export default function LabScan() {
       <span className="micro">Point at the QR on the composite-sample card</span>
       <Card
         style={{
-          marginTop: 12,
+          marginTop: "var(--space-3)",
           overflow: "hidden",
           position: "relative",
           maxWidth: 480,
@@ -206,7 +206,7 @@ export default function LabScan() {
         </div>
       </Card>
       {err && <div className="err">{err}</div>}
-      <div className="filters" style={{ marginTop: 16 }}>
+      <div className="filters" style={{ marginTop: "var(--space-4)" }}>
         <input
           placeholder="or paste batch UUID"
           aria-label="Batch UUID"
@@ -232,9 +232,9 @@ export default function LabScan() {
       </div>
       {manualErr && <div className="err">{manualErr}</div>}
       {recent.length > 0 && (
-        <Card as="section" style={{ marginTop: 16 }}>
+        <Card as="section" style={{ marginTop: "var(--space-4)" }}>
           <span className="micro">Recently scanned</span>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
             {recent.map((u) => (
               <Button
                 key={u}

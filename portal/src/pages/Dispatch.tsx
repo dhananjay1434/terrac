@@ -227,8 +227,8 @@ export default function Dispatch() {
           {showFacilityForm && (
       <Card as="section" style={{ marginTop: "var(--space-3)" }}>
         <span className="micro">Register facility</span>
-        <form className="filters" style={{ marginTop: 10 }} onSubmit={submitFacility}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <form className="filters" style={{ marginTop: "var(--space-3)" }} onSubmit={submitFacility}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
             <label className="micro" htmlFor="facility-uuid-input">
               Facility UUID
             </label>
@@ -239,7 +239,7 @@ export default function Dispatch() {
               onChange={(e) => setFacilityUuid(e.target.value)}
             />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
             <label className="micro" htmlFor="facility-name-input">
               Name
             </label>
@@ -250,7 +250,7 @@ export default function Dispatch() {
               onChange={(e) => setFacilityName(e.target.value)}
             />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
             <label className="micro" htmlFor="facility-type-select">
               Type
             </label>
@@ -275,14 +275,14 @@ export default function Dispatch() {
           </Button>
         </form>
         {facilityMsg && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: "var(--space-3)" }}>
             <StatusPill status={facilityMsg.ok ? "success" : "error"}>
               {facilityMsg.text}
             </StatusPill>
           </div>
         )}
         {facilities.length > 0 && (
-          <div className="micro text-secondary" style={{ marginTop: 10 }}>
+          <div className="micro text-secondary" style={{ marginTop: "var(--space-3)" }}>
             {facilities.length} facilit{facilities.length === 1 ? "y" : "ies"}{" "}
             registered.
           </div>
@@ -295,7 +295,7 @@ export default function Dispatch() {
       <Tabs.Root value={view} onValueChange={(v) => setView(v as ViewKey)}>
         <Tabs.List
           aria-label="Dispatch status"
-          style={{ display: "flex", gap: 4, marginBottom: 12 }}
+          style={{ display: "flex", gap: "var(--space-1)", marginBottom: "var(--space-3)" }}
         >
           {(Object.keys(VIEWS) as ViewKey[]).map((k) => (
             <Tabs.Trigger

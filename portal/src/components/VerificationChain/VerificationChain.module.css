@@ -2,9 +2,9 @@
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 16px;
-  margin: 0 0 14px;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-4);
+  margin: 0 0 var(--space-4);
   background: var(--surface-card);
   border: var(--border-hair);
   border-radius: var(--r-lg);
@@ -12,7 +12,7 @@
 .node {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex: 1;
   min-width: 0;
 }

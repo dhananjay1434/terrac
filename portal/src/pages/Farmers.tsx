@@ -126,8 +126,8 @@ export default function Farmers() {
     <div className="wrap">
       <h1 className="page-title">Farmers</h1>
 
-      <form className="filters" style={{ marginBottom: 14 }} onSubmit={runSearch}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <form className="filters" style={{ marginBottom: "var(--space-4)" }} onSubmit={runSearch}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
           <label className="micro" htmlFor="farmer-search">
             Search name or mobile
           </label>
@@ -186,7 +186,7 @@ export default function Farmers() {
       </nav>
 
       {(detailLoading || selected) && (
-        <Card as="section" ref={detailRef} style={{ marginTop: 18 }} aria-label="Farmer detail">
+        <Card as="section" ref={detailRef} style={{ marginTop: "var(--space-4)" }} aria-label="Farmer detail">
           {detailLoading && <Skeleton variant="card" />}
           {selected && (
             <>
@@ -211,7 +211,7 @@ export default function Farmers() {
                 </button>
               </div>
 
-              <dl className="kv" style={{ marginTop: 10 }}>
+              <dl className="kv" style={{ marginTop: "var(--space-3)" }}>
                 <div>
                   <dt className="micro">Village</dt>
                   <dd>{selected.village ?? "—"}</dd>

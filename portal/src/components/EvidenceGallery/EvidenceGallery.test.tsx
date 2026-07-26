@@ -204,4 +204,10 @@ describe("EvidenceGallery — reviewer verdict (V8 Part 4 K)", () => {
       await cellFor("h1").findByText("Save failed — retry"),
     ).toBeInTheDocument();
   });
+
+  it("shows an em-dash, not 'no GPS', for an item without coordinates (P8.3)", () => {
+    render(<EvidenceGallery media={ITEMS} />);
+    expect(cellFor("h1").getAllByText("—").length).toBeGreaterThan(0);
+    expect(cellFor("h1").queryByText("no GPS")).not.toBeInTheDocument();
+  });
 });

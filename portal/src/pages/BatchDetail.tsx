@@ -124,8 +124,8 @@ export default function BatchDetail() {
 
   if (err) {
     return (
-      <div className="wrap err" style={{ textAlign: "center", paddingTop: 60 }}>
-        <div className="text-primary" style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>{err}</div>
+      <div className="wrap err" style={{ textAlign: "center", paddingTop: "var(--space-8)" }}>
+        <div className="text-primary" style={{ fontSize: 18, fontWeight: 600, marginBottom: "var(--space-4)" }}>{err}</div>
         <div
           style={{
             display: "flex",
@@ -214,7 +214,7 @@ export default function BatchDetail() {
           )}
           {!issued && getRole() === "admin" && (
             <Button
-              style={{ marginTop: 16 }}
+              style={{ marginTop: "var(--space-4)" }}
               disabled={!d.compliance.issuable || issuing}
               onClick={() => setConfirmOpen(true)}
             >
@@ -228,7 +228,7 @@ export default function BatchDetail() {
           {getRole() === "admin" && d.compliance.issuable && (
             <div
               className="export-row"
-              style={{ marginTop: 12, display: "flex", gap: 8 }}
+              style={{ marginTop: "var(--space-3)", display: "flex", gap: "var(--space-2)" }}
             >
               <Button
                 variant="neutral"
@@ -290,14 +290,14 @@ export default function BatchDetail() {
 
       <ComplianceChecklist checklist={d.compliance.checklist} />
 
-      <Card as="section" style={{ marginTop: 14 }}>
+      <Card as="section" style={{ marginTop: "var(--space-4)" }}>
         <span className="micro">Burn telemetry</span>
         <TemperatureChart
           readings={d.telemetry?.temperature_readings ?? []}
           minTemp={d.telemetry?.min_temp ?? null}
           maxTemp={d.telemetry?.max_temp ?? null}
         />
-        <div className="tiles" style={{ marginTop: 12 }}>
+        <div className="tiles" style={{ marginTop: "var(--space-3)" }}>
           <StatTile label="Min temp" value={d.telemetry?.min_temp != null ? `${d.telemetry.min_temp}°C` : "—"} />
           <StatTile label="Max temp" value={d.telemetry?.max_temp != null ? `${d.telemetry.max_temp}°C` : "—"} />
           {/* Weight is a single post-burn measurement, not a time series —

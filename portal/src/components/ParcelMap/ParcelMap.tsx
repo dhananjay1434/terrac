@@ -183,7 +183,7 @@ export default function ParcelMap({
         <div ref={mapRef} className={styles.map} data-testid="parcel-leaflet-map" />
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
         <label className="micro" htmlFor="geojson-textarea">
           Boundary GeoJSON (draw above or paste GeoJSON here)
         </label>

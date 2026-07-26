@@ -46,7 +46,7 @@ function Form({
     <Card
       as="form"
       className="no-print"
-      style={{ marginBottom: 14 }}
+      style={{ marginBottom: "var(--space-4)" }}
       onSubmit={async (e) => {
         e.preventDefault();
         const missing = fields.some(
@@ -70,11 +70,11 @@ function Form({
       }}
     >
       <span className="micro">{title}</span>
-      <div className="filters" style={{ marginTop: 10 }}>
+      <div className="filters" style={{ marginTop: "var(--space-3)" }}>
         {fields.map((f) => {
           const id = `${scope}-${f.key}`;
           return (
-            <div key={f.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div key={f.key} style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
               <label className="micro" htmlFor={id}>
                 {f.label}
               </label>
@@ -115,7 +115,7 @@ function Form({
         </Button>
       </div>
       {msg && (
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: "var(--space-3)" }}>
           <StatusPill status={msg.ok ? "success" : "error"}>{msg.text}</StatusPill>
         </div>
       )}
@@ -168,12 +168,12 @@ export default function Registry() {
     <div className="wrap">
       <h1 className="page-title">Registry</h1>
       {!isAdmin && (
-        <p className="micro text-secondary" style={{ marginBottom: 14 }}>
+        <p className="micro text-secondary" style={{ marginBottom: "var(--space-4)" }}>
           Read-only — equipment and training records are registered by admins.
         </p>
       )}
       <Tabs.Root value={tab} onValueChange={setTab}>
-        <Tabs.List aria-label="Registry sections" style={{ display: "flex", gap: 4, marginBottom: 14 }}>
+        <Tabs.List aria-label="Registry sections" style={{ display: "flex", gap: "var(--space-1)", marginBottom: "var(--space-4)" }}>
           <Tabs.Trigger value="kilns" className={`linkbtn ${tab === "kilns" ? "active" : ""}`}>
             Kilns
           </Tabs.Trigger>
@@ -206,11 +206,11 @@ export default function Registry() {
           )}
 
           {kilns.length > 0 && (
-            <Card as="section" style={{ marginBottom: 14 }}>
+            <Card as="section" style={{ marginBottom: "var(--space-4)" }}>
               <span className="micro">Kiln cards (print &amp; mount)</span>
-              <div className="media-grid" style={{ marginTop: 12 }}>
+              <div className="media-grid" style={{ marginTop: "var(--space-3)" }}>
                 {kilns.map((k) => (
-                  <div className="media-cell" key={k.kiln_id} style={{ padding: 10 }}>
+                  <div className="media-cell" key={k.kiln_id} style={{ padding: "var(--space-3)" }}>
                     <QRCodeSVG
                       value={kilnQrPayload({
                         kiln_id: k.kiln_id,
@@ -285,9 +285,9 @@ export default function Registry() {
                 }).then(() => undefined)
               }
             />
-            <Card as="section" style={{ marginBottom: 14 }}>
+            <Card as="section" style={{ marginBottom: "var(--space-4)" }}>
               <span className="micro">Enrollment token</span>
-              <div className="filters" style={{ marginTop: 10 }}>
+              <div className="filters" style={{ marginTop: "var(--space-3)" }}>
                 <Button
                   onClick={async () => {
                     try {
@@ -301,7 +301,7 @@ export default function Registry() {
                 </Button>
               </div>
               {token && (
-                <div style={{ marginTop: 12 }}>
+                <div style={{ marginTop: "var(--space-3)" }}>
                   <div className="token-well">
                     <code style={{ fontSize: 12, wordBreak: "break-all" }}>{token.token}</code>
                     <button
@@ -311,10 +311,10 @@ export default function Registry() {
                       Copy
                     </button>
                   </div>
-                  <div className="micro text-secondary" style={{ marginTop: 8 }}>
+                  <div className="micro text-secondary" style={{ marginTop: "var(--space-2)" }}>
                     Shown once — store it now.
                   </div>
-                  <div style={{ marginTop: 16 }}>
+                  <div style={{ marginTop: "var(--space-4)" }}>
                     <QRCodeSVG value={token.qr_payload} size={130} />
                   </div>
                 </div>

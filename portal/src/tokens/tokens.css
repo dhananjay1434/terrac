@@ -47,10 +47,10 @@
   /* ── shape / elevation (layered — cards read lifted) ──────────── */
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.10);
   --shadow-md: 0 2px 4px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.08);
-  --duration-fast: 150ms;
-  --duration-standard: 250ms;
-  --ease-productive: cubic-bezier(0.2, 0, 0, 1);
-  --ease-expressive: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: var(--dur-micro);
+  --duration-standard: var(--dur-trans);
+  --ease-productive: var(--ease-out);
+  --ease-expressive: var(--ease-out);
 
   /* === extended neutral steps (cool, indigo-tinted at the dark end) === */
   --basalt-0:   #ffffff;

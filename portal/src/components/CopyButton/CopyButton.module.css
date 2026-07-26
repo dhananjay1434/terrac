@@ -1,0 +1,10 @@
+/* Hit-slop so the 12px copy glyph meets a ~28px tap target (WCAG 2.5.5)
+   without enlarging its visual box or disturbing inline layout. */
+.btn {
+  position: relative;
+}
+.btn::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}

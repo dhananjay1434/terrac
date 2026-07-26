@@ -163,7 +163,7 @@ export default function LabEntry() {
         </form>
         <Card as="aside">
           <span className="micro">{GROUP_LABEL.lab}</span>
-          <div style={{ marginTop: 10, fontSize: 13, fontWeight: 600 }}>
+          <div style={{ marginTop: "var(--space-3)", fontSize: 13, fontWeight: 600 }}>
             Rules checked on submit
           </div>
           <ul
@@ -180,7 +180,7 @@ export default function LabEntry() {
             <li>Dry bulk density in kg/m³</li>
           </ul>
           {cert && (
-            <div style={{ marginTop: 14 }} data-testid="cert-attached">
+            <div style={{ marginTop: "var(--space-4)" }} data-testid="cert-attached">
               <StatusPill status="success">
                 ✓ {cert.name} attached ({fmtBytes(cert.size)})
               </StatusPill>

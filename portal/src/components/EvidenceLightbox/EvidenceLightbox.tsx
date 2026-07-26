@@ -118,7 +118,7 @@ export default function EvidenceLightbox({
                     />
                   </>
                 ) : (
-                  "no GPS"
+                  "—"
                 )}
               </dd>
             </div>

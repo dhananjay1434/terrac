@@ -6,7 +6,7 @@
 [data-theme="dark"] input {
   color-scheme: dark;
 }
-/* inputs/selects/media-cells hardcode #fff backgrounds — remap them in dark */
+/* inputs/selects/media-cells hardcode white backgrounds — remap them in dark */
 [data-theme="dark"] input,
 [data-theme="dark"] select,
 [data-theme="dark"] .media-cell {
@@ -27,6 +27,17 @@
 [data-theme="dark"] .link-indigo,
 [data-theme="dark"] :focus-visible {
   color: var(--indigo-400);
+}
+::selection {
+  background: var(--indigo-200);
+  color: var(--basalt-950);
+}
+[data-theme="dark"] ::selection {
+  background: var(--indigo-900);
+  color: var(--basalt-0);
+}
+[data-theme="dark"] {
+  scrollbar-color: var(--basalt-600) transparent;
 }
 [data-theme="dark"] :focus-visible {
   outline-color: var(--indigo-400);
@@ -102,7 +113,7 @@ code, .mono {
 .wrap {
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: var(--space-6) 24px 60px;
+  padding: var(--space-6) var(--space-5) var(--space-8);
 }
 .card {
   background: var(--surface-card);
@@ -112,7 +123,7 @@ code, .mono {
   padding: var(--space-5);
 }
 button.primary {
-  padding: 10px 18px;
+  padding: var(--space-2) var(--space-4);
   border: 0;
   border-radius: var(--r-md);
   background: var(--action-primary-bg);
@@ -126,7 +137,7 @@ button.primary:hover:not(:disabled) {
   background: var(--action-primary-hover);
 }
 input {
-  padding: 10px 12px;
+  padding: var(--space-2) var(--space-3);
   border: var(--border-hair);
   border-radius: var(--r-md);
   font: inherit;
@@ -135,7 +146,7 @@ input {
   color: var(--text-primary);
 }
 select {
-  padding: 9px 12px;
+  padding: var(--space-2) var(--space-3);
   border: var(--border-hair);
   border-radius: var(--r-md);
   font: inherit;
@@ -159,31 +170,31 @@ textarea:focus-visible {
 .err {
   color: var(--status-error-fg);
   font-size: var(--fs-13);
-  margin-top: 10px;
+  margin-top: var(--space-2);
 }
 /* login */
 .login-wrap {
   min-height: 100%;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: var(--space-5);
 }
 .login {
   width: 360px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 .login h1 {
   font-size: var(--fs-20);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 /* table */
 .filters {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 table {
   width: 100%;
@@ -226,8 +237,8 @@ tbody tr:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  margin-top: 12px;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
 }
 .pager-status {
   color: var(--text-secondary);
@@ -284,7 +295,7 @@ tbody tr:hover {
   text-align: right;
 }
 .credit-label {
-  margin-top: 12px;
+  margin-top: var(--space-3);
   color: var(--text-secondary);
   font-size: var(--fs-13);
 }
@@ -302,18 +313,18 @@ tbody tr:hover {
 .tile .v {
   font-size: var(--fs-24);
   font-weight: var(--fw-bold);
-  margin-top: 8px;
+  margin-top: var(--space-2);
 }
 .crit-list {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .crit {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
 }
 .crit-label {
   font-size: var(--fs-13);
@@ -322,7 +333,7 @@ tbody tr:hover {
   margin-left: auto;
 }
 .cap {
-  padding: 6px 8px;
+  padding: var(--space-2) var(--space-2);
   font-size: var(--fs-12);
   color: var(--text-secondary);
   overflow: hidden;
@@ -339,7 +350,7 @@ a.back {
   font-size: var(--fs-20);
   font-weight: var(--fw-bold);
   color: var(--text-primary);
-  margin: 12px 0 16px;
+  margin: var(--space-3) 0 var(--space-4);
 }
 .section-title {
   font-size: var(--fs-16);
@@ -359,14 +370,14 @@ button.primary:disabled {
 .evidence-group {
   background: var(--surface-page);
   border-radius: var(--r-md);
-  padding: 12px;
-  margin-bottom: 12px;
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 .evidence-group-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 .evidence-group-head h3 {
   font-size: var(--fs-12);
@@ -378,7 +389,7 @@ button.primary:disabled {
 .media-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 .media-cell {
   background: var(--surface-card);
@@ -396,7 +407,7 @@ button.primary:disabled {
   object-fit: cover;
 }
 .forensic-meta {
-  padding: 8px;
+  padding: var(--space-2);
   font-size: var(--fs-12);
   line-height: 1.4;
   color: var(--text-primary);
@@ -410,7 +421,7 @@ button.primary:disabled {
 }
 .chip {
   display: inline-block;
-  padding: 2px 6px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--r-sm);
   font-size: var(--fs-12);
   font-weight: var(--fw-medium);
@@ -430,7 +441,7 @@ button.primary:disabled {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: var(--overlay-scrim);
-  z-index: 100;
+  z-index: var(--z-overlay);
   display: grid;
   place-items: center;
 }
@@ -440,7 +451,7 @@ button.primary:disabled {
   max-width: 420px;
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-md);
-  padding: 24px;
+  padding: var(--space-5);
   animation: modalIn var(--duration-standard) var(--ease-productive);
 }
 @keyframes modalIn {
@@ -456,12 +467,12 @@ button.primary:disabled {
   color: var(--text-secondary);
   font-size: var(--fs-14);
   line-height: 1.5;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 
@@ -469,7 +480,7 @@ button.primary:disabled {
 .skeleton {
   background: var(--border-subtle);
   border-radius: var(--r-sm);
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: pulse var(--dur-pulse) ease-in-out infinite;
 }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: .5; } 100% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
@@ -489,7 +500,7 @@ button.primary:disabled {
   color: var(--text-tertiary);
   font-size: var(--fs-13);
   font-weight: var(--fw-medium);
-  padding: 6px 12px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--r-md);
   transition: all var(--duration-fast) var(--ease-productive);
 }
@@ -511,7 +522,7 @@ button.primary:disabled {
 }
 .select-wrap select {
   appearance: none;
-  padding-right: 28px;
+  padding-right: var(--space-5);
 }
 .select-wrap::after {
   content: "";
@@ -537,7 +548,7 @@ button.primary:disabled {
 .registry-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--space-4);
   align-items: start;
 }
 @media (max-width: 900px) {
@@ -547,11 +558,11 @@ button.primary:disabled {
   font-family: var(--font-mono);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
-  padding: 10px;
+  padding: var(--space-2);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-4);
 }
 /* Print: BatchDetail becomes a clean A4 evidence pack; kiln cards stay 8cm.
    Status is never color-only in print — StatusDot/verdict labels carry text. */
@@ -584,7 +595,7 @@ button.primary:disabled {
     display: none !important;
   }
   body {
-    background: #fff;
+    background: var(--basalt-0);
   }
   .wrap {
     max-width: none;
@@ -626,7 +637,7 @@ button.primary:disabled {
   border: var(--border-hair);
   color: var(--text-primary);
   border-radius: var(--r-md);
-  padding: 6px 12px;
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   font-size: var(--fs-13);
   font-weight: var(--fw-medium);

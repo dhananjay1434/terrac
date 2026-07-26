@@ -94,12 +94,12 @@ export default function CreditsOverTime({
       : null;
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card" style={{ marginTop: "var(--space-4)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-3)" }}>
         <div>
           <span className="micro">Credits issued and deductions over time</span>
           {caption && (
-            <div className="micro" style={{ marginTop: 2 }}>
+            <div className="micro" style={{ marginTop: "var(--space-1)" }}>
               {caption}
             </div>
           )}
@@ -111,7 +111,7 @@ export default function CreditsOverTime({
           ariaLabel="Chart granularity"
         />
       </div>
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: "var(--space-3)" }}>
         {loading && <Skeleton variant="card" />}
         {!loading && error && (
           <CardError message="Failed to load credits over time." onRetry={onRetry} />

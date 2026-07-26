@@ -6,6 +6,7 @@ import { setSession } from "../auth";
 import Card from "../ui/Card/Card";
 import Button from "../ui/Button/Button";
 import Logo from "../ui/Logo/Logo";
+import styles from "./Login.module.css";
 
 export default function Login() {
   const nav = useNavigate();
@@ -51,7 +52,7 @@ export default function Login() {
       >
         <Card as="form" className="login" style={{ width: "100%" }} onSubmit={submit}>
           <h1>Sign in to TerraCipher</h1>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", textAlign: "left" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)", width: "100%", textAlign: "left" }}>
             <label className="micro" htmlFor="email">Email</label>
             <input
               id="email"
@@ -62,34 +63,28 @@ export default function Login() {
               autoComplete="username"
             />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", textAlign: "left" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)", width: "100%", textAlign: "left" }}>
             <label className="micro" htmlFor="password">Password</label>
             <div style={{ position: "relative", display: "flex" }}>
               <input
                 id="password"
                 type={showPw ? "text" : "password"}
                 value={password}
-                style={{ ...invalidStyle, flex: 1, paddingRight: 40 }}
+                style={{ ...invalidStyle, flex: 1, paddingRight: "var(--space-7)" }}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
               />
               <button
                 type="button"
-                className="linkbtn"
+                className={`linkbtn ${styles.pwToggle}`}
                 aria-label={showPw ? "Hide password" : "Show password"}
                 onClick={() => setShowPw((s) => !s)}
-                style={{
-                  position: "absolute",
-                  right: 4,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                }}
               >
                 {showPw ? <EyeOff size={14} aria-hidden /> : <Eye size={14} aria-hidden />}
               </button>
             </div>
           </div>
-          <Button type="submit" disabled={busy} style={{ marginTop: 8 }}>
+          <Button type="submit" disabled={busy} style={{ marginTop: "var(--space-2)" }}>
             {busy ? "Signing in…" : "Sign in"}
           </Button>
           {err && <div className="err">{err}</div>}
@@ -103,8 +98,8 @@ export default function Login() {
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
-            gap: 12,
-            padding: 32,
+            gap: "var(--space-3)",
+            padding: "var(--space-6)",
           }}
         >
           <Logo size={48} aria-hidden />

@@ -46,12 +46,12 @@ export default function IssuanceBlockerCard({
         : "No blockers — all batches issuable";
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card" style={{ marginTop: "var(--space-4)" }}>
       <span className="micro">What&apos;s blocking issuance</span>
-      <div className="micro" style={{ marginTop: 2 }}>
+      <div className="micro" style={{ marginTop: "var(--space-1)" }}>
         compliance gates unmet on provisional batches
       </div>
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: "var(--space-3)" }}>
         {loading && <Skeleton variant="card" />}
         {!loading && error && (
           <CardError message="Failed to load issuance blockers." onRetry={onRetry} />

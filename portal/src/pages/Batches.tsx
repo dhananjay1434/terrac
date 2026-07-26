@@ -254,7 +254,7 @@ export default function Batches() {
       >
         <Tabs.List
           aria-label="Saved views"
-          style={{ display: "flex", gap: 4, marginBottom: 12 }}
+          style={{ display: "flex", gap: "var(--space-1)", marginBottom: "var(--space-3)" }}
         >
           {(Object.keys(VIEWS) as ViewKey[]).map((k) => (
             <Tabs.Trigger

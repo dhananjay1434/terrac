@@ -349,7 +349,7 @@ export default function Projects() {
         }
       />
 
-      <nav className="pager" aria-label="Projects pagination" style={{ marginBottom: 24 }}>
+      <nav className="pager" aria-label="Projects pagination" style={{ marginBottom: "var(--space-5)" }}>
         <Button
           variant="neutral"
           size="sm"

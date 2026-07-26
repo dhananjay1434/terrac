@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
+import styles from "./CopyButton.module.css";
 
 /**
  * Ghost copy-to-clipboard button. Swaps to a check icon briefly after a
@@ -19,7 +20,7 @@ export default function CopyButton({
     <>
       <button
         type="button"
-        className="linkbtn"
+        className={`linkbtn ${styles.btn}`}
         aria-label={label}
         onClick={(e) => {
           e.stopPropagation();

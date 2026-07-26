@@ -4,12 +4,12 @@
   border-radius: var(--r-md);
   border: 1px solid var(--border-subtle);
   background: var(--surface-sunken);
-  padding: 2px;
+  padding: var(--space-1);
 }
 
 .option {
   flex: 1;
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
   border: none;
   background: transparent;
   color: var(--text-secondary);

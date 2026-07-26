@@ -117,7 +117,7 @@ export default function Dashboard() {
       <h2 className="section-title" style={{ marginTop: "var(--space-6)" }}>
         Batch Quality & Operations
       </h2>
-      <div className="micro" style={{ marginBottom: 12 }}>
+      <div className="micro" style={{ marginBottom: "var(--space-3)" }}>
         Read-only analytics — never affects issued credits.
       </div>
       <PyrolysisQualityCard
@@ -126,7 +126,7 @@ export default function Dashboard() {
         error={qualityError}
         onRetry={fetchQuality}
       />
-      <div style={{ marginTop: 16 }}>
+      <div style={{ marginTop: "var(--space-4)" }}>
         <PermanenceQualityCard
           data={quality?.permanence ?? null}
           loading={qualityLoading}
@@ -134,7 +134,7 @@ export default function Dashboard() {
           onRetry={fetchQuality}
         />
       </div>
-      <div style={{ marginTop: 16 }}>
+      <div style={{ marginTop: "var(--space-4)" }}>
         <IssuanceBlockerCard
           reasons={reasons}
           provisionalCount={provisionalCount}

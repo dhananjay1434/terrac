@@ -1,7 +1,7 @@
 .skeleton {
   background: var(--basalt-100);
   border-radius: var(--r-sm);
-  animation: pulse 1.5s var(--ease-out) infinite;
+  animation: pulse var(--dur-pulse) var(--ease-out) infinite;
 }
 [data-theme="dark"] .skeleton {
   background: var(--basalt-800);

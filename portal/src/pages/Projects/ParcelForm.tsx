@@ -40,10 +40,10 @@ export default function ParcelForm({
   onSubmit,
 }: ParcelFormProps) {
   return (
-    <Card as="form" style={{ marginBottom: 20 }} onSubmit={onSubmit}>
+    <Card as="form" style={{ marginBottom: "var(--space-5)" }} onSubmit={onSubmit}>
       <span className="micro">Register Source Parcel Boundary (Leaflet / OSM)</span>
-      <div className="filters" style={{ marginTop: 10, marginBottom: 12 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div className="filters" style={{ marginTop: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
           <label className="micro" htmlFor="parcel-project-select">
             Select Project
           </label>
@@ -61,7 +61,7 @@ export default function ParcelForm({
             ))}
           </select>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
           <label className="micro" htmlFor="parcel-name-input">
             Parcel Name
           </label>
@@ -73,7 +73,7 @@ export default function ParcelForm({
             onChange={(e) => onParcelNameChange(e.target.value)}
           />
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
           <label className="micro" htmlFor="declared-acres-input">
             Declared Acres (Optional)
           </label>
@@ -95,14 +95,14 @@ export default function ParcelForm({
         selectedGeoJson={drawnGeoJson}
       />
 
-      <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ marginTop: "var(--space-3)", display: "flex", justifyContent: "flex-end" }}>
         <Button type="submit" disabled={parcelSubmitting || !drawnGeoJson}>
           Register Boundary
         </Button>
       </div>
 
       {parcelMsg && (
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: "var(--space-3)" }}>
           <StatusPill status={parcelMsg.ok ? "success" : "error"}>{parcelMsg.text}</StatusPill>
         </div>
       )}

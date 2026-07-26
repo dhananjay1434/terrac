@@ -32,10 +32,10 @@ export default function PermanenceQualityCard({
   return (
     <div className="card">
       <span className="micro">Permanence quality</span>
-      <div className="micro" style={{ marginTop: 2 }}>
+      <div className="micro" style={{ marginTop: "var(--space-1)" }}>
         H/Corg ratio → 100-year carbon durability
       </div>
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: "var(--space-3)" }}>
         {loading && <Skeleton variant="card" />}
         {!loading && error && (
           <CardError message="Failed to load permanence quality." onRetry={onRetry} />
@@ -53,7 +53,7 @@ export default function PermanenceQualityCard({
                 hint="lower = more durable"
               />
             </div>
-            <div style={{ marginTop: 16 }}>
+            <div style={{ marginTop: "var(--space-4)" }}>
               {(() => {
                 const topTier =
                   data.distribution.find((d) => d.label === TOP_TIER_BUCKET)?.count ?? 0;
@@ -79,7 +79,7 @@ export default function PermanenceQualityCard({
               })()}
             </div>
             {data.excluded > 0 && (
-              <div className="micro" style={{ marginTop: 8 }}>
+              <div className="micro" style={{ marginTop: "var(--space-2)" }}>
                 {data.excluded} batches lack a lab H/Corg
               </div>
             )}

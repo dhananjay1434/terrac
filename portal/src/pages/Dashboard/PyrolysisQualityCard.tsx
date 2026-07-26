@@ -22,10 +22,10 @@ export default function PyrolysisQualityCard({
   return (
     <div className="card">
       <span className="micro">Pyrolysis quality</span>
-      <div className="micro" style={{ marginTop: 2 }}>
+      <div className="micro" style={{ marginTop: "var(--space-1)" }}>
         burn temperature drives char permanence
       </div>
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: "var(--space-3)" }}>
         {loading && <Skeleton variant="card" />}
         {!loading && error && (
           <CardError message="Failed to load pyrolysis quality." onRetry={onRetry} />
@@ -45,7 +45,7 @@ export default function PyrolysisQualityCard({
               />
             </div>
             {data.excluded > 0 && (
-              <div className="micro" style={{ marginTop: 8 }}>
+              <div className="micro" style={{ marginTop: "var(--space-2)" }}>
                 {data.excluded} batches lack telemetry
               </div>
             )}

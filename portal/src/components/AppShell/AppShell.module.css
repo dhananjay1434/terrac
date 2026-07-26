@@ -7,7 +7,7 @@
   position: absolute;
   left: -9999px;
   z-index: var(--z-skiplink);
-  padding: 8px 14px;
+  padding: var(--space-2) var(--space-4);
   background: var(--surface-card);
   color: var(--text-primary);
   border: var(--border-hair);
@@ -32,7 +32,7 @@
   font-size: var(--fs-12);
   font-weight: var(--fw-medium);
   text-align: center;
-  padding: var(--space-1) 8px;
+  padding: var(--space-1) var(--space-2);
   min-height: 4px;
 }
 
@@ -85,8 +85,8 @@
 .lockup {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--space-2);
+  padding: var(--space-3);
   height: var(--topbar-h);
   border-bottom: var(--border-hair);
 }
@@ -101,21 +101,21 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: 12px 8px;
+  padding: var(--space-3) var(--space-2);
   flex: 1;
 }
 .railFooter {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: 12px 8px;
+  padding: var(--space-3) var(--space-2);
   border-top: var(--border-hair);
 }
 .navItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2);
   border: 0;
   border-radius: var(--r-md);
   background: transparent;
@@ -157,8 +157,8 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 16px;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
   background: var(--surface-card);
   border-bottom: var(--border-hair);
   position: sticky;
@@ -189,7 +189,7 @@
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 6px;
+  padding: var(--space-2);
   border-radius: var(--r-md);
 }
 .hamburger:hover {
@@ -205,7 +205,7 @@
 .topbarRight {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   /* Anchor the utility cluster (theme / help / account) to the right on
      EVERY breakpoint. The wordmark's margin-right:auto used to do this, but
      it's display:none on desktop, which stranded these controls at the far
@@ -215,8 +215,8 @@
 .iconBtn {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: var(--control-h-md);
+  height: var(--control-h-md);
   border: 0;
   border-radius: var(--r-md);
   background: transparent;
@@ -234,14 +234,14 @@
   border: var(--border-hair);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-modal);
-  padding: 4px;
+  padding: var(--space-1);
   z-index: var(--z-dropdown);
 }
 .menuItem {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 8px 10px;
+  padding: var(--space-2) var(--space-2);
   border: 0;
   border-radius: var(--r-sm);
   background: transparent;
@@ -269,7 +269,7 @@
 
 /* ── breadcrumbs + main ─────────────────────────────────────────── */
 .crumbs {
-  padding: 12px 24px 0;
+  padding: var(--space-3) var(--space-5) 0;
   font-size: var(--fs-12);
   color: var(--text-tertiary);
   min-height: 12px;

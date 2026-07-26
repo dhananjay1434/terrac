@@ -1,6 +1,7 @@
 .trigger {
   display: inline-grid;
   place-items: center;
+  position: relative;
   width: 16px;
   height: 16px;
   border: 0;
@@ -9,7 +10,13 @@
   color: var(--text-tertiary);
   cursor: pointer;
   vertical-align: middle;
-  margin-left: 4px;
+  margin-left: var(--space-1);
+}
+/* Extend the tap target to ~28px without changing the visual box (WCAG 2.5.5). */
+.trigger::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
 }
 .trigger:hover {
   color: var(--text-primary);
@@ -23,5 +30,5 @@
   padding: var(--space-2) var(--space-3);
   font-size: var(--fs-12);
   color: var(--text-primary);
-  z-index: 30;
+  z-index: var(--z-tooltip);
 }

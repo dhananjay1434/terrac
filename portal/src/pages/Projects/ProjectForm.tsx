@@ -35,10 +35,10 @@ export default function ProjectForm({
   onSubmit,
 }: ProjectFormProps) {
   return (
-    <Card as="form" style={{ marginBottom: 20 }} onSubmit={onSubmit}>
+    <Card as="form" style={{ marginBottom: "var(--space-5)" }} onSubmit={onSubmit}>
       <span className="micro">Register project</span>
-      <div className="filters" style={{ marginTop: 10 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div className="filters" style={{ marginTop: "var(--space-3)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
           <label className="micro" htmlFor="project-id-input">
             Project ID
           </label>
@@ -49,7 +49,7 @@ export default function ProjectForm({
             onChange={(e) => onProjectIdChange(e.target.value)}
           />
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
           <label className="micro" htmlFor="project-name-input">
             Name
           </label>
@@ -60,7 +60,7 @@ export default function ProjectForm({
             onChange={(e) => onNameChange(e.target.value)}
           />
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
           <label className="micro" htmlFor="project-feedstock-select">
             Feedstock
           </label>
@@ -83,7 +83,7 @@ export default function ProjectForm({
             ))}
           </select>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
           <label className="micro" htmlFor="project-client-target-input">
             Client Target (Optional)
           </label>
@@ -103,7 +103,7 @@ export default function ProjectForm({
         </Button>
       </div>
       {formMsg && (
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: "var(--space-3)" }}>
           <StatusPill status={formMsg.ok ? "success" : "error"}>{formMsg.text}</StatusPill>
         </div>
       )}

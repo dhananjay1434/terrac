@@ -3,12 +3,12 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 .tabs {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .remarks {
   font-size: var(--fs-12);
@@ -45,7 +45,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--space-1);
   color: var(--text-tertiary);
   background: var(--surface-sunken);
 }
@@ -73,17 +73,17 @@
   color: var(--indigo-600);
 }
 .chipRow {
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .verdictRow {
   display: flex;
-  gap: 6px;
-  margin-top: 6px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 .verdictBtn {
   flex: 1;
   font-size: var(--fs-12);
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
   background: transparent;

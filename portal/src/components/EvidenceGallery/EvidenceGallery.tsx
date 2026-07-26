@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ImageOff } from "lucide-react";
 import { fetchMediaUrl, verifyMedia, type MediaItem } from "../../api";
 import { getRole } from "../../auth";
 // Canonical grouping + titles live in BatchDetail (with passing tests) — read,
@@ -226,18 +227,7 @@ function GalleryThumb({
           )
         ) : failed ? (
           <span className={styles.fallback}>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden
-            >
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-              <line x1="1" y1="1" x2="23" y2="23"></line>
-            </svg>
+            <ImageOff size={16} aria-hidden />
             <span className={styles.fallbackLabel}>Preview unavailable</span>
           </span>
         ) : (
@@ -265,7 +255,7 @@ function GalleryThumb({
               {item.exif_lat.toFixed(5)}, {item.exif_lon.toFixed(5)}
             </a>
           ) : (
-            "no GPS"
+            "—"
           )}
         </div>
         <div className={styles.chipRow}>
@@ -324,7 +314,7 @@ export default function EvidenceGallery({
   const groups = groupMedia(filtered);
 
   return (
-    <section className="card" style={{ marginTop: 14 }} id="evidence-media">
+    <section className="card" style={{ marginTop: "var(--space-4)" }} id="evidence-media">
       <div className={styles.head}>
         <span className="micro">Evidence media</span>
         <div role="tablist" aria-label="Evidence filter" className={styles.tabs}>
