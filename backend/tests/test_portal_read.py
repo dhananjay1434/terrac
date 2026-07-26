@@ -358,3 +358,27 @@ async def test_media_content_type_photo(read_client):
             fpath.unlink()
         except OSError:
             pass
+
+
+async def test_batch_row_exposes_hierarchy_keys(read_client):
+    """M1.4 — batch list/detail serializer carries the additive hierarchy_v2 keys
+    (batch_code, network_id, site_id), nullable and non-breaking."""
+    ac, Session, auth = read_client
+    async with Session() as s:
+        s.add(_mk_batch(1))  # no lineage → all three None
+        coded = _mk_batch(2)
+        coded.batch_code = "IN01A001P03S2K07B23072601"
+        coded.network_id = "NET-1"
+        coded.site_id = "FAC-1"
+        s.add(coded)
+        await s.commit()
+
+    body = (await ac.get("/api/v1/portal/batches", headers=auth)).json()
+    for row in body["batches"]:
+        assert "batch_code" in row and "network_id" in row and "site_id" in row
+
+    by_code = {r["batch_code"]: r for r in body["batches"]}
+    assert by_code["IN01A001P03S2K07B23072601"]["network_id"] == "NET-1"
+    assert by_code["IN01A001P03S2K07B23072601"]["site_id"] == "FAC-1"
+    assert None in by_code  # the uncoded batch
+    assert by_code[None]["network_id"] is None and by_code[None]["site_id"] is None

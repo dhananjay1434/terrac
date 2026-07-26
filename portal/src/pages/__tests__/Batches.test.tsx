@@ -251,4 +251,20 @@ describe("Batches page", () => {
     expect(screen.getByRole("button", { name: /previous/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
   });
+
+  it("shows batch_code when present, falls back to short-uuid when absent (M1.4)", async () => {
+    mockList.mockResolvedValue({
+      batches: [
+        { ...FIXTURE[0], batch_code: "IN01A001P03S2K07B23072601" } as BatchRow,
+        FIXTURE[1], // no batch_code → short-uuid fallback
+      ],
+      next_cursor: null,
+    });
+    renderPage();
+    expect(
+      await screen.findByText("IN01A001P03S2K07B23072601"),
+    ).toBeInTheDocument();
+    // the second batch has no code → its short uuid is shown
+    expect(screen.getByText("bbbb1111")).toBeInTheDocument();
+  });
 });

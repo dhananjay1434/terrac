@@ -4,6 +4,7 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { ChevronRight } from "lucide-react";
 import CopyButton from "../components/CopyButton/CopyButton";
 import { listBatches, getSummary, AuthError, type BatchRow } from "../api";
+import type { BatchRowV2 } from "../apiV2types";
 import { fmtCredit, fmtDate } from "../format";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import FilterBar, { type FilterPatch } from "../components/FilterBar/FilterBar";
@@ -174,14 +175,20 @@ export default function Batches() {
       key: "batch",
       header: "Batch",
       mono: true,
-      render: (b) => (
-        <span>
-          {shortId(b.batch_uuid)}{" "}
-          <span onClick={(e) => e.stopPropagation()}>
-            <CopyButton value={b.batch_uuid} label="Copy batch id" />
+      render: (b) => {
+        // M1.4: batch_code is an additive hierarchy_v2 field not yet in the
+        // frozen api.ts BatchRow — cast at this render boundary (apiV2types.ts)
+        // until the typed v2 client lands in M2.6. Falls back to short-UUID.
+        const label = (b as BatchRowV2).batch_code ?? shortId(b.batch_uuid);
+        return (
+          <span>
+            {label}{" "}
+            <span onClick={(e) => e.stopPropagation()}>
+              <CopyButton value={b.batch_uuid} label="Copy batch id" />
+            </span>
           </span>
-        </span>
-      ),
+        );
+      },
     },
     { key: "device", header: "Device", render: (b) => b.device_id ?? "—" },
     {

@@ -978,6 +978,11 @@ def _batch_row(b: Batch) -> dict:
         "net_credit_t_co2e": b.net_credit_t_co2e,
         "wet_yield_kg": b.wet_yield_kg,
         "received_at": b.received_at.isoformat() if b.received_at else None,
+        # M1.4 (hierarchy_v2): additive display code + hierarchy links (nullable;
+        # adding keys is non-breaking — removing/renaming is forbidden).
+        "batch_code": b.batch_code,
+        "network_id": b.network_id,
+        "site_id": b.site_id,
     }
 
 
