@@ -58,4 +58,22 @@ describe("LabEntry page", () => {
     expect(el.textContent).toContain("cert2.pdf");
     expect(el.textContent).toContain("attached");
   });
+
+  it("renders a validation message under the specific field it belongs to", () => {
+    renderPage();
+    const moisture = screen.getByLabelText(
+      "Biochar moisture samples (≥3, comma sep.)",
+    );
+    // One sample fails the ≥3 rule.
+    fireEvent.change(moisture, { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit results" }));
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Provide at least 3 biochar moisture samples.",
+    );
+    // The failing input is wired to its message for assistive tech.
+    expect(moisture).toHaveAttribute("aria-invalid", "true");
+    expect(moisture).toHaveAttribute("aria-describedby", alert.id);
+  });
 });

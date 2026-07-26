@@ -193,10 +193,10 @@ export default function LabScan() {
                     [horizontal]: 0,
                     width: 28,
                     height: 28,
-                    borderTop: vertical === "top" ? "3px solid rgba(255,255,255,0.9)" : undefined,
-                    borderBottom: vertical === "bottom" ? "3px solid rgba(255,255,255,0.9)" : undefined,
-                    borderLeft: horizontal === "left" ? "3px solid rgba(255,255,255,0.9)" : undefined,
-                    borderRight: horizontal === "right" ? "3px solid rgba(255,255,255,0.9)" : undefined,
+                    borderTop: vertical === "top" ? "3px solid var(--scan-reticle)" : undefined,
+                    borderBottom: vertical === "bottom" ? "3px solid var(--scan-reticle)" : undefined,
+                    borderLeft: horizontal === "left" ? "3px solid var(--scan-reticle)" : undefined,
+                    borderRight: horizontal === "right" ? "3px solid var(--scan-reticle)" : undefined,
                     borderRadius: "var(--r-sm)",
                   }}
                 />
