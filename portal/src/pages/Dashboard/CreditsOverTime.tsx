@@ -1,7 +1,6 @@
 import type { CreditBucket } from "../../api";
 import { fmtCredit } from "../../format";
-import Card from "../../ui/Card/Card";
-import Button from "../../ui/Button/Button";
+import CardError from "../../ui/CardError/CardError";
 import Skeleton from "../../components/Skeleton/Skeleton";
 import DivergingStackedBarChart, {
   type DivergingBar,
@@ -100,21 +99,7 @@ export default function CreditsOverTime({
       <div style={{ marginTop: 12 }}>
         {loading && <Skeleton variant="card" />}
         {!loading && error && (
-          <Card
-            style={{
-              borderColor: "var(--status-error-fg)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span className="err" style={{ margin: 0 }}>
-              Failed to load credits over time.
-            </span>
-            <Button variant="neutral" size="sm" onClick={onRetry}>
-              Retry
-            </Button>
-          </Card>
+          <CardError message="Failed to load credits over time." onRetry={onRetry} />
         )}
         {!loading && !error && (
           <DivergingStackedBarChart

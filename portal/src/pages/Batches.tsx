@@ -12,7 +12,7 @@ import StatTile from "../components/StatTile/StatTile";
 import InfoTip from "../components/InfoTip/InfoTip";
 import StatBand from "../ui/StatBand/StatBand";
 import StatusPill from "../ui/StatusPill/StatusPill";
-import Card from "../ui/Card/Card";
+import CardError from "../ui/CardError/CardError";
 import Button from "../ui/Button/Button";
 
 function shortId(uuid: string) {
@@ -305,26 +305,7 @@ export default function Batches() {
       />
 
       {err && (
-        <Card
-          style={{
-            borderColor: "var(--status-error-fg)",
-            marginBottom: 16,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span className="err" style={{ margin: 0 }}>
-            {err}
-          </span>
-          <Button
-            variant="neutral"
-            size="sm"
-            onClick={() => fetchPage(currentBefore)}
-          >
-            Retry
-          </Button>
-        </Card>
+        <CardError message={err} onRetry={() => fetchPage(currentBefore)} />
       )}
 
       <DataTable

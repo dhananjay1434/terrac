@@ -8,6 +8,7 @@ import {
   type FarmerDetail,
 } from "../api";
 import { fmtDate } from "../format";
+import CardError from "../ui/CardError/CardError";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
 import Button from "../ui/Button/Button";
@@ -114,22 +115,7 @@ export default function Farmers() {
       </form>
 
       {err && (
-        <Card
-          style={{
-            borderColor: "var(--status-error-fg)",
-            marginBottom: 16,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span className="err" style={{ margin: 0 }}>
-            {err}
-          </span>
-          <Button variant="neutral" size="sm" type="button" onClick={() => fetchPage(page, search)}>
-            Retry
-          </Button>
-        </Card>
+        <CardError message={err} onRetry={() => fetchPage(page, search)} />
       )}
 
       <DataTable

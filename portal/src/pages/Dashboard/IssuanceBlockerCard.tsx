@@ -1,5 +1,4 @@
-import Card from "../../ui/Card/Card";
-import Button from "../../ui/Button/Button";
+import CardError from "../../ui/CardError/CardError";
 import Skeleton from "../../components/Skeleton/Skeleton";
 import HorizontalBarList from "../../ui/HorizontalBarList/HorizontalBarList";
 import { humanizeReason } from "../../config/blockerReasons";
@@ -43,21 +42,7 @@ export default function IssuanceBlockerCard({
       <div style={{ marginTop: 12 }}>
         {loading && <Skeleton variant="card" />}
         {!loading && error && (
-          <Card
-            style={{
-              borderColor: "var(--status-error-fg)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span className="err" style={{ margin: 0 }}>
-              Failed to load issuance blockers.
-            </span>
-            <Button variant="neutral" size="sm" onClick={onRetry}>
-              Retry
-            </Button>
-          </Card>
+          <CardError message="Failed to load issuance blockers." onRetry={onRetry} />
         )}
         {!loading && !error && (
           <HorizontalBarList

@@ -15,7 +15,7 @@ import { fmtDate } from "../format";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
 import Button from "../ui/Button/Button";
-import Card from "../ui/Card/Card";
+import CardError from "../ui/CardError/CardError";
 import ProjectForm from "./Projects/ProjectForm";
 import ParcelForm from "./Projects/ParcelForm";
 
@@ -302,26 +302,7 @@ export default function Projects() {
       />
 
       {err && (
-        <Card
-          style={{
-            borderColor: "var(--status-error-fg)",
-            marginBottom: 16,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span className="err" style={{ margin: 0 }}>
-            {err}
-          </span>
-          <Button
-            variant="neutral"
-            size="sm"
-            onClick={() => fetchPage(currentBefore)}
-          >
-            Retry
-          </Button>
-        </Card>
+        <CardError message={err} onRetry={() => fetchPage(currentBefore)} />
       )}
 
       {/* Projects Table */}

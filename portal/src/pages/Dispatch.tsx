@@ -11,6 +11,7 @@ import {
   type FacilityRow,
 } from "../api";
 import { fmtDate } from "../format";
+import CardError from "../ui/CardError/CardError";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
 import StatusDot from "../components/StatusDot/StatusDot";
@@ -291,26 +292,7 @@ export default function Dispatch() {
       </Tabs.Root>
 
       {err && (
-        <Card
-          style={{
-            borderColor: "var(--status-error-fg)",
-            marginBottom: 16,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span className="err" style={{ margin: 0 }}>
-            {err}
-          </span>
-          <Button
-            variant="neutral"
-            size="sm"
-            onClick={() => fetchPage(currentBefore)}
-          >
-            Retry
-          </Button>
-        </Card>
+        <CardError message={err} onRetry={() => fetchPage(currentBefore)} />
       )}
 
       <DataTable

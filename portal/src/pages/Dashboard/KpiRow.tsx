@@ -1,7 +1,6 @@
 import type { CreditTimeseries } from "../../api";
 import { fmtCredit } from "../../format";
-import Card from "../../ui/Card/Card";
-import Button from "../../ui/Button/Button";
+import CardError from "../../ui/CardError/CardError";
 import StatBand from "../../ui/StatBand/StatBand";
 import StatTile from "../../components/StatTile/StatTile";
 import Skeleton from "../../components/Skeleton/Skeleton";
@@ -35,22 +34,7 @@ export default function KpiRow({
 
   if (error) {
     return (
-      <Card
-        style={{
-          borderColor: "var(--status-error-fg)",
-          marginBottom: 16,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <span className="err" style={{ margin: 0 }}>
-          Failed to load credit totals.
-        </span>
-        <Button variant="neutral" size="sm" onClick={onRetry}>
-          Retry
-        </Button>
-      </Card>
+      <CardError message="Failed to load credit totals." onRetry={onRetry} />
     );
   }
 

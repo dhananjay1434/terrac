@@ -1,6 +1,5 @@
 import type { QualityMetrics } from "../../api";
-import Card from "../../ui/Card/Card";
-import Button from "../../ui/Button/Button";
+import CardError from "../../ui/CardError/CardError";
 import StatBand from "../../ui/StatBand/StatBand";
 import StatTile from "../../components/StatTile/StatTile";
 import Skeleton from "../../components/Skeleton/Skeleton";
@@ -29,21 +28,7 @@ export default function PyrolysisQualityCard({
       <div style={{ marginTop: 12 }}>
         {loading && <Skeleton variant="card" />}
         {!loading && error && (
-          <Card
-            style={{
-              borderColor: "var(--status-error-fg)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span className="err" style={{ margin: 0 }}>
-              Failed to load pyrolysis quality.
-            </span>
-            <Button variant="neutral" size="sm" onClick={onRetry}>
-              Retry
-            </Button>
-          </Card>
+          <CardError message="Failed to load pyrolysis quality." onRetry={onRetry} />
         )}
         {!loading && !error && data && data.n > 0 && (
           <>
