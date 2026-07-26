@@ -163,6 +163,12 @@ class Kiln(Base):
     """
 
     __tablename__ = "kilns"
+    __table_args__ = (
+        CheckConstraint(
+            "sensor_profile IN ('none', 'load_only', 'thermal_only', 'full')",
+            name="ck_kilns_sensor_profile",
+        ),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     kiln_id: Mapped[str] = mapped_column(
         String(128), unique=True, nullable=False, index=True
@@ -171,6 +177,14 @@ class Kiln(Base):
     weight_kg: Mapped[float] = mapped_column(Float, nullable=True)
     lifetime_years: Mapped[float] = mapped_column(Float, nullable=True)
     kiln_type: Mapped[str] = mapped_column(String(16), nullable=True)
+    # M1 (hierarchy_v2): site link + display code + DECLARED sensor profile. The
+    # profile is a display/ops hint only — the REAL tier is always derived from
+    # what actually streams (Global Rule 10). DEFAULT 'none' => zero setup.
+    site_id: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
+    kiln_code: Mapped[str] = mapped_column(String(16), nullable=True)
+    sensor_profile: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="none", default="none"
+    )
     payload_json: Mapped[str] = mapped_column(Text, nullable=True)
     registered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -431,6 +445,14 @@ class Batch(Base):
     operation_id: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True
     )
+    # M1 (hierarchy_v2): human-readable provenance code + hierarchy links. All
+    # nullable/additive — NULL until lineage is mapped (audit A3); the portal
+    # falls back to short-UUID. batch_code is UNIQUE so it can never collide.
+    batch_code: Mapped[str] = mapped_column(
+        String(40), unique=True, nullable=True, index=True
+    )
+    network_id: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
+    site_id: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
 
     # Payload fields
     feedstock_species: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -665,10 +687,34 @@ class Facility(Base):
     facility_type: Mapped[str] = mapped_column(String(16), nullable=False)  # artisanal|industrial
     state: Mapped[str] = mapped_column(String(128), nullable=True)
     district: Mapped[str] = mapped_column(String(128), nullable=True)
+    # M1 (hierarchy_v2): network link + display site code — nullable/additive.
+    network_id: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
+    site_code: Mapped[str] = mapped_column(String(16), nullable=True)
     latitude: Mapped[float] = mapped_column(Float, nullable=True)
     longitude: Mapped[float] = mapped_column(Float, nullable=True)
     registry_config_id: Mapped[str] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class Network(Base):
+    """M1 (hierarchy_v2) — a network groups sites (facilities) under an org.
+
+    Additive identity layer: nothing references it with a FK yet, and every link
+    to it (Facility.network_id, Batch.network_id) is nullable, so existing rows
+    and the Tier-0 flow are completely unaffected.
+    """
+
+    __tablename__ = "networks"
+
+    network_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    org_id: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    country_code: Mapped[str] = mapped_column(String(4), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
