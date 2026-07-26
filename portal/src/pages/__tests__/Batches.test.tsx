@@ -247,7 +247,7 @@ describe("Batches page", () => {
   it("reskin: blockers render as a StatusPill and pager/retry render as Buttons", async () => {
     renderPage();
     await screen.findByText("dev-1");
-    expect(screen.getByText("2 reasons")).toBeInTheDocument();
+    expect(screen.getByText("2 blockers")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /previous/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
   });

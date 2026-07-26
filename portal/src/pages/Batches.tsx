@@ -217,7 +217,7 @@ export default function Batches() {
       render: (b) =>
         b.reason_count > 0 ? (
           <StatusPill status="warning">
-            {b.reason_count} reason{b.reason_count === 1 ? "" : "s"}
+            {b.reason_count} blocker{b.reason_count === 1 ? "" : "s"}
           </StatusPill>
         ) : (
           <span className="text-tertiary">—</span>
@@ -239,23 +239,14 @@ export default function Batches() {
     <div className="wrap">
       <h1 className="page-title">Batches</h1>
 
-      {summary && (
-        <StatBand>
-          <StatTile label="Issued" value={String(summary.by_status["ISSUED"] ?? 0)} />
-          <StatTile
-            label="Received / in review"
-            value={String(summary.by_status["RECEIVED"] ?? 0)}
-          />
-          <StatTile label="Provisional" value={String(summary.provisional)} />
-          <StatTile
-            label="Credit"
-            value={fmtCredit(
-              rows.reduce((sum, b) => sum + b.net_credit_t_co2e, 0),
-            )}
-            hint="this page"
-          />
-        </StatBand>
-      )}
+      <StatBand>
+        <StatTile label="Issued" value={summary ? String(summary.by_status["ISSUED"] ?? 0) : "—"} />
+        <StatTile
+          label="Received / in review"
+          value={summary ? String(summary.by_status["RECEIVED"] ?? 0) : "—"}
+        />
+        <StatTile label="Provisional" value={summary ? String(summary.provisional) : "—"} />
+      </StatBand>
 
       <Tabs.Root
         value={view ?? NO_VIEW}

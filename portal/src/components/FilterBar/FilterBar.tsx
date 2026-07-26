@@ -41,8 +41,8 @@ export default function FilterBar({
           onChange={(e) => onChange({ kind: "status", value: e.target.value })}
         >
           <option value="">All statuses</option>
-          <option value="RECEIVED">RECEIVED</option>
-          <option value="ISSUED">ISSUED</option>
+          <option value="RECEIVED">Received</option>
+          <option value="ISSUED">Issued</option>
         </select>
       </span>
       <span className="select-wrap">
