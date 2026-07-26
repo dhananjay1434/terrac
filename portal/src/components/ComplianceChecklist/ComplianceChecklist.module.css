@@ -87,6 +87,18 @@
 .blocking { color: var(--status-error); font-weight: var(--fw-bold); }
 .inert { color: var(--status-inert); }
 
+.printTitle {
+  display: none;
+}
+@media print {
+  .printTitle {
+    display: block;
+    margin: 0 0 var(--space-2);
+    font-size: var(--fs-13);
+    font-weight: var(--fw-semibold);
+  }
+}
+
 .miniNav {
   display: none;
 }

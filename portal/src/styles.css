@@ -561,6 +561,18 @@ button.primary:disabled {
   margin: 12mm;
 }
 @media print {
+  .thumb-print-keep,
+  .thumb-print-keep img,
+  .thumb-print-keep video {
+    display: block !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .media-grid {
+    grid-template-columns: repeat(2, 8cm);
+    gap: var(--space-4);
+  }
   .top,
   .filters,
   button,
@@ -593,6 +605,19 @@ button.primary:disabled {
   .mono,
   .tabular {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+}
+
+/* Print-only header (audit PR3). Needs !important because the print block
+   hides all <header> elements. */
+.print-only {
+  display: none;
+}
+@media print {
+  .print-only {
+    display: block !important;
+    margin-bottom: var(--space-4);
+    font-size: var(--fs-12);
   }
 }
 

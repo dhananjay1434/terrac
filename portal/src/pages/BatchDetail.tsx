@@ -21,7 +21,7 @@ import LcaBreakdown from "../components/LcaBreakdown/LcaBreakdown";
 import LcaFormula from "../components/LcaFormula/LcaFormula";
 import TemperatureChart from "../components/TemperatureChart/TemperatureChart";
 import StatTile from "../components/StatTile/StatTile";
-import { fmtCredit, fmtDate, fmtKg } from "../format";
+import { fmtCredit, fmtDate, fmtKg, fmtDateTime } from "../format";
 import Button from "../ui/Button/Button";
 import Card from "../ui/Card/Card";
 
@@ -166,6 +166,13 @@ export default function BatchDetail() {
 
   return (
     <div className="wrap">
+      <header className="print-only" aria-hidden>
+        <div className="mono">{d.batch.batch_uuid}</div>
+        <div>
+          {d.compliance.issuable ? "ISSUABLE" : "PROVISIONAL"} · net credit{" "}
+          {fmtCredit(d.batch.net_credit_t_co2e)} tCO₂e · printed {fmtDateTime(new Date().toISOString())}
+        </div>
+      </header>
       <VerificationChain nodes={chainNodes} />
       <div className="hero">
         <div className="hero-verdict">

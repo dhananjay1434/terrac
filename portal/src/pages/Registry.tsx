@@ -41,6 +41,7 @@ function Form({
   return (
     <Card
       as="form"
+      className="no-print"
       style={{ marginBottom: 14 }}
       onSubmit={async (e) => {
         e.preventDefault();

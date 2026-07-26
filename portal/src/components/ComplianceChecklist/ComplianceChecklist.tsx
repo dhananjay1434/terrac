@@ -55,6 +55,7 @@ export default function ComplianceChecklist({
               className={`card ${styles.item}`}
               data-testid={`group-${g.group}`}
             >
+              <h3 className={styles.printTitle}>{g.label}</h3>
               <Accordion.Header className={styles.header}>
                 <Accordion.Trigger className={styles.trigger}>
                   <span className="micro">{g.label}</span>

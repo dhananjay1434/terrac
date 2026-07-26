@@ -166,7 +166,7 @@ function GalleryThumb({
     <div className="media-cell">
       <button
         type="button"
-        className={styles.thumbBtn}
+        className={`${styles.thumbBtn} thumb-print-keep`}
         onClick={onOpen}
         aria-label={`Open evidence ${item.sha256_hash.slice(0, 12)}`}
       >
