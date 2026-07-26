@@ -42,7 +42,7 @@ export default function TemperatureChart({
     return (
       <svg viewBox="0 0 600 200" width="100%" height="200" role="img" aria-label="Burn temperature">
         {gridlines}
-        <circle cx={300} cy={y} r={4} fill="var(--accent, currentColor)" />
+        <circle cx={300} cy={y} r={4} fill="var(--indigo-600)" />
         <text x="4" y="16" className="micro">{hi}°C</text>
       </svg>
     );
@@ -62,11 +62,11 @@ export default function TemperatureChart({
       <polyline
         points={points}
         fill="none"
-        stroke="var(--accent, currentColor)"
+        stroke="var(--indigo-600)"
         strokeWidth={2}
       />
       {coords.map(({ x, y, t }, i) => (
-        <circle key={i} cx={x} cy={y} r={2.5} fill="var(--accent, currentColor)">
+        <circle key={i} cx={x} cy={y} r={2.5} fill="var(--indigo-600)">
           <title>{t}°C</title>
         </circle>
       ))}

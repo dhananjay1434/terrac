@@ -40,7 +40,7 @@
 
 .track {
   height: 8px;
-  border-radius: var(--r-pill, 999px);
+  border-radius: var(--r-pill);
   background: var(--surface-sunken);
   overflow: hidden;
 }

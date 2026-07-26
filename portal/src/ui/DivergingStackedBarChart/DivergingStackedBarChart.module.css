@@ -8,7 +8,7 @@
   font-size: var(--fs-12);
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
 .tooltipHeader {
   font-weight: var(--fw-bold);

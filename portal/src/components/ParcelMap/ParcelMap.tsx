@@ -122,7 +122,7 @@ export default function ParcelMap({
         const parsed = JSON.parse(parcel.boundary_geojson);
         L.geoJSON(parsed, {
           style: {
-            color: "#3b82f6",
+            color: getComputedStyle(document.documentElement).getPropertyValue("--indigo-600").trim() || "#635bff",
             weight: 2,
             fillOpacity: 0.2,
           },
@@ -196,7 +196,7 @@ export default function ParcelMap({
           placeholder='{"type": "Polygon", "coordinates": [[[lon, lat], ...]]}'
         />
         {parseError && (
-          <span className="chip err" style={{ fontSize: 11, alignSelf: "flex-start" }}>
+          <span className="chip err" style={{ fontSize: "var(--fs-12)", alignSelf: "flex-start" }}>
             {parseError}
           </span>
         )}

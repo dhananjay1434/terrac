@@ -118,7 +118,7 @@ button.primary {
   border-radius: var(--r-md);
   background: var(--action-primary-bg);
   transition: background var(--duration-fast) var(--ease-expressive);
-  color: #fff;
+  color: var(--basalt-0);
   font: inherit;
   font-weight: var(--fw-semibold);
   cursor: pointer;
@@ -428,7 +428,7 @@ button.primary:disabled {
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(15, 17, 21, 0.4);
+  background: var(--overlay-scrim);
   z-index: 100;
   display: grid;
   place-items: center;
