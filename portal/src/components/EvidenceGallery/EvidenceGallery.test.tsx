@@ -164,4 +164,44 @@ describe("EvidenceGallery — reviewer verdict (V8 Part 4 K)", () => {
       remarks: "kiln ID not visible",
     });
   });
+
+  it("collapses an already-reviewed item to 'Change verdict', not Approve/Reject", () => {
+    const reviewed = [
+      media({
+        operation_id: "o1",
+        sha256_hash: "h1",
+        capture_type: "0",
+        verification_status: "approved",
+      }),
+    ];
+    render(<EvidenceGallery media={reviewed} />);
+    expect(
+      cellFor("h1").getByRole("button", { name: "Change verdict" }),
+    ).toBeInTheDocument();
+    expect(
+      cellFor("h1").queryByRole("button", { name: "Approve" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides every verdict control once the batch is locked (issued)", () => {
+    render(<EvidenceGallery media={ITEMS} locked />);
+    expect(
+      cellFor("h1").queryByRole("button", { name: "Approve" }),
+    ).not.toBeInTheDocument();
+    expect(
+      cellFor("h1").queryByRole("button", { name: "Change verdict" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("surfaces an error pill when saving the verdict fails", async () => {
+    const { verifyMedia } = await import("../../api");
+    vi.mocked(verifyMedia).mockRejectedValue(new Error("network down"));
+    render(<EvidenceGallery media={ITEMS} />);
+
+    fireEvent.click(cellFor("h1").getByRole("button", { name: "Approve" }));
+
+    expect(
+      await cellFor("h1").findByText("Save failed — retry"),
+    ).toBeInTheDocument();
+  });
 });

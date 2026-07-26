@@ -40,10 +40,10 @@ export default function TemperatureChart({
   if (readings.length === 1) {
     const y = flat ? 100 : 100;
     return (
-      <svg viewBox="0 0 600 200" width="100%" height="200" role="img" aria-label="Burn temperature">
+      <svg viewBox="0 0 600 200" width="100%" height="200" preserveAspectRatio="none" role="img" aria-label="Burn temperature">
         {gridlines}
         <circle cx={300} cy={y} r={4} fill="var(--indigo-600)" />
-        <text x="4" y="16" className="micro">{hi}°C</text>
+        <text x="4" y="16" fill="var(--text-tertiary)" fontSize="var(--fs-12)">{hi}°C</text>
       </svg>
     );
   }
@@ -51,13 +51,13 @@ export default function TemperatureChart({
   const n = readings.length;
   const coords = readings.map((t, i) => {
     const x = (i / (n - 1)) * 600;
-    const y = flat ? 100 : 200 - ((t - lo) / (hi - lo)) * 200;
+    const y = flat ? 100 : 192 - ((t - lo) / (hi - lo)) * 184;
     return { x, y, t };
   });
   const points = coords.map(({ x, y }) => `${x},${y}`).join(" ");
 
   return (
-    <svg viewBox="0 0 600 200" width="100%" height="200" role="img" aria-label="Burn temperature">
+    <svg viewBox="0 0 600 200" width="100%" height="200" preserveAspectRatio="none" role="img" aria-label="Burn temperature">
       {gridlines}
       <polyline
         points={points}
@@ -70,9 +70,9 @@ export default function TemperatureChart({
           <title>{t}°C</title>
         </circle>
       ))}
-      <text x="4" y="16" className="micro">{hi}°C</text>
-      <text x="4" y="104" className="micro">{mid}°C</text>
-      <text x="4" y="196" className="micro">{lo}°C</text>
+      <text x="4" y="16" fill="var(--text-tertiary)" fontSize="var(--fs-12)">{hi}°C</text>
+      <text x="4" y="104" fill="var(--text-tertiary)" fontSize="var(--fs-12)">{mid}°C</text>
+      <text x="4" y="196" fill="var(--text-tertiary)" fontSize="var(--fs-12)">{lo}°C</text>
     </svg>
   );
 }

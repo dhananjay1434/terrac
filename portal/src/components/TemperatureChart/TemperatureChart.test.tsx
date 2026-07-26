@@ -51,4 +51,30 @@ describe("TemperatureChart", () => {
     );
     expect(labels).toEqual(["700°C", "650°C", "600°C"]);
   });
+
+  it("keeps polyline points inside the 8px-padded plot area (P6.3)", () => {
+    const { container } = render(
+      <TemperatureChart readings={[600, 700]} minTemp={600} maxTemp={700} />,
+    );
+    const points = container.querySelector("polyline")!.getAttribute("points")!;
+    const ys = points.split(" ").map((p) => Number(p.split(",")[1]));
+    expect(ys).toContain(8);
+    expect(ys).toContain(192);
+    for (const y of ys) {
+      expect(y).toBeGreaterThanOrEqual(8);
+      expect(y).toBeLessThanOrEqual(192);
+    }
+  });
+
+  it("styles axis labels with an SVG fill attribute so they scale (P6.3)", () => {
+    const { container } = render(
+      <TemperatureChart readings={[600, 650, 700]} minTemp={600} maxTemp={700} />,
+    );
+    const texts = Array.from(container.querySelectorAll("text"));
+    expect(texts.length).toBe(3);
+    for (const t of texts) {
+      expect(t.getAttribute("fill")).toBe("var(--text-tertiary)");
+      expect(t.getAttribute("class")).toBeNull();
+    }
+  });
 });

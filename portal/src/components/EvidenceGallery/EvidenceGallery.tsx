@@ -48,23 +48,33 @@ function titleOf(stage: string) {
  * without a native `window.prompt` (untestable, poor a11y). */
 function VerdictControls({
   item,
+  locked = false,
   onVerified,
 }: {
   item: MediaItem;
+  locked?: boolean;
   onVerified(status: string, remarks: string | null): void;
 }) {
   const role = getRole();
   const [rejecting, setRejecting] = useState(false);
+  const [overriding, setOverriding] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   if (role !== "verifier" && role !== "admin") return null;
+  // Once the batch is issued its evidence verdicts are frozen — no controls.
+  if (locked) return null;
 
   async function approve() {
     setBusy(true);
+    setErr(null);
     try {
       const res = await verifyMedia(item.operation_id, { status: "approved" });
       onVerified(res.verification_status ?? "approved", res.verification_remarks);
+      setOverriding(false);
+    } catch {
+      setErr("Save failed — retry");
     } finally {
       setBusy(false);
     }
@@ -72,6 +82,7 @@ function VerdictControls({
 
   async function confirmReject() {
     setBusy(true);
+    setErr(null);
     try {
       const res = await verifyMedia(item.operation_id, {
         status: "rejected",
@@ -80,9 +91,29 @@ function VerdictControls({
       onVerified(res.verification_status ?? "rejected", res.verification_remarks);
       setRejecting(false);
       setReason("");
+      setOverriding(false);
+    } catch {
+      setErr("Save failed — retry");
     } finally {
       setBusy(false);
     }
+  }
+
+  // Already reviewed and not currently changing it → collapse to a single
+  // "Change verdict" affordance so the decision reads as settled.
+  if (item.verification_status && !overriding && !rejecting) {
+    return (
+      <div className={styles.verdictRow}>
+        <button
+          type="button"
+          className="linkbtn"
+          onClick={() => setOverriding(true)}
+        >
+          Change verdict
+        </button>
+        {err && <StatusPill status="error">{err}</StatusPill>}
+      </div>
+    );
   }
 
   if (rejecting) {
@@ -111,6 +142,7 @@ function VerdictControls({
             Cancel
           </button>
         </div>
+        {err && <StatusPill status="error">{err}</StatusPill>}
       </div>
     );
   }
@@ -133,16 +165,19 @@ function VerdictControls({
       >
         Reject
       </button>
+      {err && <StatusPill status="error">{err}</StatusPill>}
     </div>
   );
 }
 
 function GalleryThumb({
   item,
+  locked,
   onOpen,
   onVerified,
 }: {
   item: MediaItem;
+  locked?: boolean;
   onOpen(): void;
   onVerified(status: string, remarks: string | null): void;
 }) {
@@ -249,7 +284,7 @@ function GalleryThumb({
         {item.verification_status === "rejected" && item.verification_remarks && (
           <div className={styles.remarks}>{item.verification_remarks}</div>
         )}
-        <VerdictControls item={item} onVerified={onVerified} />
+        <VerdictControls item={item} locked={locked} onVerified={onVerified} />
       </div>
     </div>
   );
@@ -260,7 +295,13 @@ function GalleryThumb({
  * STEP_ORDER via groupMedia), client-side filter tabs, forensic metadata per
  * cell, and a lightbox on click. Dead thumbnails keep their metadata visible.
  */
-export default function EvidenceGallery({ media }: { media: MediaItem[] }) {
+export default function EvidenceGallery({
+  media,
+  locked = false,
+}: {
+  media: MediaItem[];
+  locked?: boolean;
+}) {
   const [filter, setFilter] = useState<Filter>("all");
   const [lightbox, setLightbox] = useState<number | null>(null);
   // Local verdict overrides so Approve/Reject reflect immediately without
@@ -314,6 +355,7 @@ export default function EvidenceGallery({ media }: { media: MediaItem[] }) {
               <GalleryThumb
                 key={m.sha256_hash}
                 item={m}
+                locked={locked}
                 onOpen={() => setLightbox(filtered.indexOf(m))}
                 onVerified={(status, remarks) =>
                   setOverrides((o) => ({

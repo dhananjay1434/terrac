@@ -86,13 +86,12 @@ describe("ConfirmModal", () => {
     expect(screen.getByText("✓ Matches")).toBeInTheDocument();
   });
 
-  it("offers a copy button for the confirmation token", () => {
-    const writeText = vi.fn();
-    Object.assign(navigator, { clipboard: { writeText } });
+  it("does not offer a copy button — the token must be typed by hand", () => {
     renderModal();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Copy confirmation token" }),
-    );
-    expect(writeText).toHaveBeenCalledWith("ISSUE-abc123");
+    expect(
+      screen.queryByRole("button", { name: "Copy confirmation token" }),
+    ).not.toBeInTheDocument();
+    // The token is still shown so the user can read it and type it back.
+    expect(screen.getByText("ISSUE-abc123")).toBeInTheDocument();
   });
 });

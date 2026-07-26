@@ -23,7 +23,6 @@
 /* indigo used as TEXT/link (not a large fill) needs the lighter dark-mode tint
    to keep ≥4.5:1 on the dark card surface — --indigo-600 itself is only ~3.5:1
    on --basalt-900, fine for large fills/icons, not for body text or links. */
-[data-theme="dark"] .seal,
 [data-theme="dark"] .forensic-meta a,
 [data-theme="dark"] .link-indigo,
 [data-theme="dark"] :focus-visible {
@@ -291,9 +290,14 @@ tbody tr:hover {
 }
 .tiles {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--space-3);
   margin-bottom: var(--space-5);
+}
+@media (max-width: 720px) {
+  .tiles {
+    grid-template-columns: 1fr;
+  }
 }
 .tile .v {
   font-size: var(--fs-24);
@@ -342,17 +346,6 @@ a.back {
   font-weight: var(--fw-semibold);
   color: var(--text-primary);
   margin: 0 0 var(--space-2);
-}
-.seal {
-  display: inline-block;
-  margin-top: 16px;
-  padding: 8px 16px;
-  border-radius: var(--r-sm);
-  background: var(--surface-brand-subtle);
-  color: var(--indigo-600);
-  font-weight: var(--fw-bold);
-  font-size: var(--fs-13);
-  letter-spacing: 0.06em;
 }
 button.primary:disabled {
   background: var(--surface-sunken);

@@ -6,6 +6,7 @@ import { isVideo } from "../EvidenceGallery/EvidenceGallery";
 import CopyButton from "../CopyButton/CopyButton";
 import { fmtDateTime } from "../../format";
 import Button from "../../ui/Button/Button";
+import Skeleton from "../Skeleton/Skeleton";
 import StatusPill from "../../ui/StatusPill/StatusPill";
 import styles from "./EvidenceLightbox.module.css";
 
@@ -28,9 +29,11 @@ export default function EvidenceLightbox({
 }) {
   const item = index !== null ? items[index] : null;
   const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     setUrl(null);
+    setFailed(false);
     if (!item) return;
     let live = true;
     let objUrl: string | null = null;
@@ -39,7 +42,7 @@ export default function EvidenceLightbox({
         objUrl = u;
         if (live) setUrl(u);
       })
-      .catch(() => {});
+      .catch(() => live && setFailed(true));
     return () => {
       live = false;
       if (objUrl) URL.revokeObjectURL?.(objUrl);
@@ -62,6 +65,7 @@ export default function EvidenceLightbox({
         <Dialog.Content
           className={styles.content}
           onKeyDown={onKeyDown}
+          aria-keyshortcuts="ArrowLeft ArrowRight"
           aria-describedby={undefined}
         >
           <Dialog.Title className={styles.title}>
@@ -80,8 +84,10 @@ export default function EvidenceLightbox({
               ) : (
                 <img src={url} alt={item.filename ?? item.operation_id} />
               )
+            ) : failed ? (
+              <span className={styles.unavailable}>Media unavailable</span>
             ) : (
-              <span className={styles.unavailable}>media unavailable</span>
+              <Skeleton variant="card" />
             )}
           </div>
           <dl className={styles.meta}>
@@ -150,11 +156,12 @@ export default function EvidenceLightbox({
               Next <ChevronRight size={14} aria-hidden />
             </Button>
             <Dialog.Close asChild>
-              <Button variant="primary">
+              <Button variant="neutral">
                 Close
               </Button>
             </Dialog.Close>
           </div>
+          <span className="micro">← → to navigate</span>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

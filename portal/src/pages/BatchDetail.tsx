@@ -5,6 +5,7 @@ import {
   issueCredit,
   downloadExport,
   AuthError,
+  ApiError,
   type BatchDetail as Detail,
   type MediaItem,
 } from "../api";
@@ -21,6 +22,7 @@ import LcaBreakdown from "../components/LcaBreakdown/LcaBreakdown";
 import LcaFormula from "../components/LcaFormula/LcaFormula";
 import TemperatureChart from "../components/TemperatureChart/TemperatureChart";
 import StatTile from "../components/StatTile/StatTile";
+import Skeleton from "../components/Skeleton/Skeleton";
 import { fmtCredit, fmtDate, fmtKg, fmtDateTime } from "../format";
 import Button from "../ui/Button/Button";
 import Card from "../ui/Card/Card";
@@ -73,11 +75,14 @@ export default function BatchDetail() {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   function reload() {
+    setErr(null);
     getBatch(uuid)
       .then(setD)
       .catch((e) => {
         if (e instanceof AuthError) nav("/login");
-        else setErr("Batch not found.");
+        else if (e instanceof ApiError && e.status === 404)
+          setErr("Batch not found.");
+        else setErr("Couldn't load batch.");
       });
   }
   useEffect(() => {
@@ -120,21 +125,33 @@ export default function BatchDetail() {
   if (err) {
     return (
       <div className="wrap err" style={{ textAlign: "center", paddingTop: 60 }}>
-        <div className="text-primary" style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Batch not found</div>
-        <Link to="/batches" className="link-indigo">← All batches</Link>
+        <div className="text-primary" style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>{err}</div>
+        <div
+          style={{
+            display: "flex",
+            gap: "var(--space-3)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Link to="/batches" className="link-indigo">← All batches</Link>
+          <Button variant="neutral" size="sm" onClick={reload}>
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }
   if (!d) {
     return (
-      <div className="wrap">
-        <div className="skeleton" style={{ height: 180, borderRadius: "var(--r-lg)", marginBottom: 18 }}></div>
-        <div className="tiles" style={{ marginBottom: 14 }}>
-          <div className="skeleton" style={{ height: 72 }}></div>
-          <div className="skeleton" style={{ height: 72 }}></div>
-        </div>
-        <div className="skeleton" style={{ height: 200, marginBottom: 14 }}></div>
-        <div className="skeleton" style={{ height: 300 }}></div>
+      <div
+        className="wrap"
+        style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}
+      >
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
       </div>
     );
   }
@@ -178,7 +195,7 @@ export default function BatchDetail() {
         <div className="hero-verdict">
           <SealedVerdict
             size="lg"
-            verdict={d.compliance.issuable ? "ISSUABLE" : "PROVISIONAL"}
+            verdict={issued ? "ISSUED" : d.compliance.issuable ? "ISSUABLE" : "PROVISIONAL"}
             reasonCount={d.compliance.reasons.length}
           />
           <div className="credit-label">
@@ -186,22 +203,27 @@ export default function BatchDetail() {
             <CopyButton value={d.batch.batch_uuid} label="Copy batch id" /> ·
             device {d.batch.device_id ?? "—"}
           </div>
-          {issued ? (
-            <div className="seal">✓ CREDIT ISSUED</div>
-          ) : (
-            getRole() === "admin" && (
-              <Button
-                style={{ marginTop: 16 }}
-                disabled={!d.compliance.issuable || issuing}
-                onClick={() => setConfirmOpen(true)}
-              >
-                {issuing
-                  ? "Issuing…"
-                  : d.compliance.issuable
-                    ? "Issue credit"
-                    : "Not yet issuable"}
-              </Button>
-            )
+          {d.media.length > 0 && (
+            <a
+              className="link-indigo"
+              style={{ fontSize: "var(--fs-13)" }}
+              href="#evidence-media"
+            >
+              Review evidence ↓
+            </a>
+          )}
+          {!issued && getRole() === "admin" && (
+            <Button
+              style={{ marginTop: 16 }}
+              disabled={!d.compliance.issuable || issuing}
+              onClick={() => setConfirmOpen(true)}
+            >
+              {issuing
+                ? "Issuing…"
+                : d.compliance.issuable
+                  ? "Issue credit"
+                  : "Not yet issuable"}
+            </Button>
           )}
           {getRole() === "admin" && d.compliance.issuable && (
             <div
@@ -285,7 +307,7 @@ export default function BatchDetail() {
         </div>
       </Card>
 
-      <EvidenceGallery media={d.media} />
+      <EvidenceGallery media={d.media} locked={d.batch.status === "ISSUED"} />
 
       <ConfirmModal
         open={confirmOpen}
@@ -299,12 +321,10 @@ export default function BatchDetail() {
             value: `${fmtCredit(d.batch.net_credit_t_co2e)} tCO₂e`,
             mono: true,
           },
-          { label: "Methodology", value: "—" },
         ]}
         warning="This is irreversible. The credit is recorded permanently in the registry and cannot be undone."
         confirmToken={`ISSUE-${d.batch.batch_uuid.slice(0, 6)}`}
         confirmLabel="Issue permanently"
-        danger
         onConfirm={issue}
       />
     </div>

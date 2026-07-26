@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import BatchDetail from "../BatchDetail";
-import { getBatch, issueCredit, type BatchDetail as Detail } from "../../api";
+import { getBatch, issueCredit, ApiError, type BatchDetail as Detail } from "../../api";
 import { getRole } from "../../auth";
 
 vi.mock("../../api", async (importOriginal) => {
@@ -108,6 +108,21 @@ describe("BatchDetail page", () => {
     expect(screen.getByText("2 blockers")).toBeInTheDocument();
   });
 
+  it("shows the ISSUED verdict and no issue action once the batch is issued", async () => {
+    mockRole.mockReturnValue("admin");
+    const d = detail();
+    d.batch.status = "ISSUED";
+    mockGet.mockResolvedValue(d);
+    renderPage();
+    expect(await screen.findByText("ISSUED")).toBeInTheDocument();
+    expect(screen.getByText("Credit issued")).toBeInTheDocument();
+    // The redundant "✓ CREDIT ISSUED" chip is gone — the stamp carries it.
+    expect(screen.queryByText(/CREDIT ISSUED/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Issue credit" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("copy button copies the full batch uuid", async () => {
     const writeText = vi.fn();
     Object.assign(navigator, { clipboard: { writeText } });
@@ -142,7 +157,10 @@ describe("BatchDetail page", () => {
   it("renders skeletons while getBatch is unresolved", () => {
     mockGet.mockReturnValue(new Promise(() => {}));
     const { container } = renderPage();
-    expect(container.querySelectorAll(".skeleton").length).toBeGreaterThan(0);
+    // P6.7: loading state is now the shared Skeleton primitive (aria-hidden).
+    expect(
+      container.querySelectorAll('[aria-hidden="true"]').length,
+    ).toBeGreaterThan(0);
   });
 
   it("renders the grouped checklist and evidence gallery from one fixture", async () => {
@@ -178,6 +196,15 @@ describe("BatchDetail page", () => {
     mockIssue.mockResolvedValue({ status: "ISSUED", net_credit_t_co2e: 1.234 });
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Issue credit" }));
+
+    // P6.2: the placeholder "Methodology —" preview row is gone; the modal now
+    // shows 3 real rows. ("Methodology" still appears elsewhere on the page, so
+    // scope the assertion to the dialog.)
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.queryByText("Methodology")).not.toBeInTheDocument();
+    expect(dialog.getByText("Batch ID")).toBeInTheDocument();
+    expect(dialog.getByText("Kiln / Device")).toBeInTheDocument();
+    expect(dialog.getByText("Credits")).toBeInTheDocument();
 
     // Dynamic token includes the partial batch uuid.
     expect(screen.getByText(`ISSUE-${UUID.slice(0, 6)}`)).toBeInTheDocument();
@@ -217,5 +244,45 @@ describe("BatchDetail page", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Burn telemetry")).toBeInTheDocument();
     expect(container.querySelector('section[class*="card"]')).not.toBeNull();
+  });
+
+  it("shows 'Batch not found.' on a 404 (P6.7)", async () => {
+    mockGet.mockRejectedValue(new ApiError(404, "not_found"));
+    renderPage();
+    expect(await screen.findByText("Batch not found.")).toBeInTheDocument();
+  });
+
+  it("shows a generic error + working Retry on a 500 (P6.7)", async () => {
+    mockGet.mockRejectedValue(new ApiError(500, "boom"));
+    renderPage();
+    expect(await screen.findByText("Couldn't load batch.")).toBeInTheDocument();
+    const retry = screen.getByRole("button", { name: "Retry" });
+    const callsBefore = mockGet.mock.calls.length;
+    mockGet.mockResolvedValue(detail());
+    fireEvent.click(retry);
+    expect(await screen.findByText("ISSUABLE")).toBeInTheDocument();
+    expect(mockGet.mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+
+  it("links to the evidence section when the batch has media (P6.7)", async () => {
+    const d = detail();
+    d.media = [
+      {
+        operation_id: "op1",
+        filename: null,
+        sha256_hash: "f00dfeedface1234",
+        uploaded_at: "2026-07-01T10:00:00Z",
+        capture_type: "flame_curtain",
+        capture_type_verified: true,
+        exif_lat: null,
+        exif_lon: null,
+        verification_status: null,
+        verification_remarks: null,
+      },
+    ];
+    mockGet.mockResolvedValue(d);
+    renderPage();
+    const link = await screen.findByRole("link", { name: /Review evidence/ });
+    expect(link).toHaveAttribute("href", "#evidence-media");
   });
 });

@@ -9,6 +9,13 @@ describe("SealedVerdict", () => {
     expect(screen.queryByText(/blocker/)).not.toBeInTheDocument();
   });
 
+  it("renders ISSUED with its own caption and no blocker count", () => {
+    render(<SealedVerdict verdict="ISSUED" reasonCount={0} />);
+    expect(screen.getByText("ISSUED")).toBeInTheDocument();
+    expect(screen.getByText("Credit issued")).toBeInTheDocument();
+    expect(screen.queryByText(/blocker/)).not.toBeInTheDocument();
+  });
+
   it("renders PROVISIONAL with the blocker count", () => {
     render(<SealedVerdict verdict="PROVISIONAL" reasonCount={2} />);
     expect(screen.getByText("PROVISIONAL")).toBeInTheDocument();

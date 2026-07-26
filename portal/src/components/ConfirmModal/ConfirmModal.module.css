@@ -14,17 +14,18 @@
   background: var(--surface-card);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-modal);
+  border: var(--border-hair);
   padding: 24px;
   z-index: 100;
 }
 .title {
-  margin: 0 0 14px;
+  margin: 0 0 var(--space-4);
   font-size: var(--fs-18);
   font-weight: var(--fw-semibold);
   color: var(--text-primary);
 }
 .preview {
-  margin: 0 0 14px;
+  margin: 0 0 var(--space-4);
   padding: 12px;
   background: var(--surface-page);
   border-radius: var(--r-md);
@@ -57,7 +58,7 @@
   line-height: var(--lh-normal);
   padding: 10px 12px;
   border-radius: var(--r-sm);
-  margin-bottom: 14px;
+  margin-bottom: var(--space-4);
 }
 .input {
   width: 100%;
@@ -100,4 +101,7 @@
 .confirm:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.token {
+  user-select: none;
 }

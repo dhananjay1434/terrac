@@ -45,6 +45,9 @@
   height: 1em;
   flex: none;
 }
+.stamp[data-verdict="ISSUED"] { color: var(--indigo-600); background: var(--indigo-600); }
+.stamp[data-verdict="ISSUED"]::before { background: var(--surface-brand-subtle); }
+[data-theme="dark"] .stamp[data-verdict="ISSUED"] { color: var(--indigo-400); background: var(--indigo-400); }
 .stamp[data-verdict="ISSUABLE"] { color: var(--status-success); background: var(--status-success); }
 .stamp[data-verdict="ISSUABLE"]::before { background: var(--status-success-bg); }
 .stamp[data-verdict="PROVISIONAL"] { color: var(--status-warning); background: var(--status-warning); }

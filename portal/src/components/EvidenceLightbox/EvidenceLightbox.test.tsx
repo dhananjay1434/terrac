@@ -114,4 +114,51 @@ describe("EvidenceLightbox", () => {
     );
     expect(await screen.findByRole("img")).toBeInTheDocument();
   });
+
+  it("shows a skeleton, not an error, while the media is still loading (P6.6)", async () => {
+    const { fetchMediaUrl } = await import("../../api");
+    vi.mocked(fetchMediaUrl).mockReturnValue(new Promise(() => {}));
+    render(
+      <EvidenceLightbox
+        items={ITEMS}
+        index={0}
+        onClose={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    // Loading state: neither the media nor the error text — the skeleton branch.
+    expect(screen.queryByText("Media unavailable")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("lightbox-video")).not.toBeInTheDocument();
+  });
+
+  it("shows 'Media unavailable' when the media fetch fails (P6.6)", async () => {
+    const { fetchMediaUrl } = await import("../../api");
+    vi.mocked(fetchMediaUrl).mockRejectedValue(new Error("gone"));
+    render(
+      <EvidenceLightbox
+        items={ITEMS}
+        index={0}
+        onClose={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText("Media unavailable")).toBeInTheDocument();
+  });
+
+  it("advertises the arrow-key shortcuts (P6.6)", () => {
+    render(
+      <EvidenceLightbox
+        items={ITEMS}
+        index={0}
+        onClose={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("← → to navigate")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveAttribute(
+      "aria-keyshortcuts",
+      "ArrowLeft ArrowRight",
+    );
+  });
 });

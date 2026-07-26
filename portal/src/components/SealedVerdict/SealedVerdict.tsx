@@ -1,8 +1,9 @@
 import styles from "./SealedVerdict.module.css";
 
-export type Verdict = "ISSUABLE" | "PROVISIONAL" | "BLOCKED";
+export type Verdict = "ISSUED" | "ISSUABLE" | "PROVISIONAL" | "BLOCKED";
 
 const VERDICT_COPY: Record<Verdict, string> = {
+  ISSUED: "Credit issued",
   ISSUABLE: "Verified & Sealed",
   PROVISIONAL: "Pending verification",
   BLOCKED: "Verification blocked",
@@ -30,7 +31,7 @@ export default function SealedVerdict({
           fill="none"
           aria-hidden="true"
         >
-          {verdict === "ISSUABLE" ? (
+          {verdict === "ISSUABLE" || verdict === "ISSUED" ? (
             <path
               d="M20 6 9 17l-5-5"
               stroke="currentColor"
@@ -52,7 +53,7 @@ export default function SealedVerdict({
       </span>
       <div className={styles.caption}>
         {VERDICT_COPY[verdict]}
-        {verdict !== "ISSUABLE" && reasonCount ? (
+        {verdict !== "ISSUABLE" && verdict !== "ISSUED" && reasonCount ? (
           <span className={styles.count}>
             {reasonCount} blocker{reasonCount === 1 ? "" : "s"}
           </span>

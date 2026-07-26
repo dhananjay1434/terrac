@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import clsx from "clsx";
-import CopyButton from "../CopyButton/CopyButton";
 import Button from "../../ui/Button/Button";
 import styles from "./ConfirmModal.module.css";
 
@@ -73,8 +72,7 @@ export default function ConfirmModal({
           {warning && <div className={styles.warning}>{warning}</div>}
           <label className="micro" htmlFor="confirm-token">
             Type{" "}
-            <span className="mono">{confirmToken}</span>{" "}
-            <CopyButton value={confirmToken} label="Copy confirmation token" />
+            <span className={`mono ${styles.token}`}>{confirmToken}</span>
             {" "}to confirm
           </label>
           <input
