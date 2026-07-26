@@ -5,6 +5,7 @@ import { fetchMediaUrl, type MediaItem } from "../../api";
 import { isVideo } from "../EvidenceGallery/EvidenceGallery";
 import CopyButton from "../CopyButton/CopyButton";
 import { fmtDateTime } from "../../format";
+import Button from "../../ui/Button/Button";
 import styles from "./EvidenceLightbox.module.css";
 
 /**
@@ -128,31 +129,29 @@ export default function EvidenceLightbox({
             </div>
           </dl>
           <div className={styles.actions}>
-            <button
-              className="neutral"
-              type="button"
+            <Button
+              variant="neutral"
               aria-label="Previous evidence"
               disabled={index === 0}
               onClick={() => onNavigate(index - 1)}
             >
               <ChevronLeft size={14} aria-hidden /> Prev
-            </button>
+            </Button>
             <span className="micro tabular">
               {index + 1} / {items.length}
             </span>
-            <button
-              className="neutral"
-              type="button"
+            <Button
+              variant="neutral"
               aria-label="Next evidence"
               disabled={index === items.length - 1}
               onClick={() => onNavigate(index + 1)}
             >
               Next <ChevronRight size={14} aria-hidden />
-            </button>
+            </Button>
             <Dialog.Close asChild>
-              <button className="primary" type="button">
+              <Button variant="primary">
                 Close
-              </button>
+              </Button>
             </Dialog.Close>
           </div>
         </Dialog.Content>

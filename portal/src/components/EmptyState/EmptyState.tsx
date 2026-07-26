@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Button from "../../ui/Button/Button";
 import styles from "./EmptyState.module.css";
 
 /**
@@ -22,9 +23,9 @@ export default function EmptyState({
       <div className={styles.title}>{title}</div>
       {description && <div className={styles.desc}>{description}</div>}
       {action && (
-        <button className="neutral" type="button" onClick={action.onClick}>
+        <Button variant="neutral" onClick={action.onClick}>
           {action.label}
-        </button>
+        </Button>
       )}
     </div>
   );

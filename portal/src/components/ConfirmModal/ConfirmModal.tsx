@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import clsx from "clsx";
 import CopyButton from "../CopyButton/CopyButton";
+import Button from "../../ui/Button/Button";
 import styles from "./ConfirmModal.module.css";
 
 export interface PreviewRow {
@@ -101,9 +102,9 @@ export default function ConfirmModal({
           </div>
           <div className={styles.actions}>
             <Dialog.Close asChild>
-              <button className="neutral" type="button" disabled={busy}>
+              <Button variant="neutral" disabled={busy}>
                 Cancel
-              </button>
+              </Button>
             </Dialog.Close>
             <button
               type="button"

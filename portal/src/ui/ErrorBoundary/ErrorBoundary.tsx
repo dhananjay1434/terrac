@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from "react";
+import Button from "../Button/Button";
 import styles from "./ErrorBoundary.module.css";
 
 interface Props {
@@ -27,13 +28,12 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div className={styles.wrap} role="alert">
           <p className={styles.message}>Something went wrong on this screen.</p>
-          <button
-            type="button"
-            className="primary"
+          <Button
+            variant="primary"
             onClick={() => window.location.reload()}
           >
             Reload
-          </button>
+          </Button>
         </div>
       );
     }
