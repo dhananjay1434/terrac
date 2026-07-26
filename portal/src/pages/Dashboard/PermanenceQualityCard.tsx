@@ -1,9 +1,9 @@
 import type { QualityMetrics } from "../../api";
 import CardError from "../../ui/CardError/CardError";
-import StatBand from "../../ui/StatBand/StatBand";
 import StatTile from "../../components/StatTile/StatTile";
 import Skeleton from "../../components/Skeleton/Skeleton";
 import HorizontalBarList from "../../ui/HorizontalBarList/HorizontalBarList";
+import styles from "./PermanenceQualityCard.module.css";
 
 // The CSI 100-year decay model yields one of two permanence outcomes: the
 // top stability tier (H:Corg < 0.4 → ~83% retention) or the lower tier
@@ -42,7 +42,7 @@ export default function PermanenceQualityCard({
         )}
         {!loading && !error && data && data.n > 0 && (
           <>
-            <StatBand>
+            <div className={styles.statRow}>
               <StatTile
                 label="Avg permanence"
                 value={`${Math.round(data.permanence_pct!.avg)}%`}
@@ -52,7 +52,7 @@ export default function PermanenceQualityCard({
                 value={data.h_corg!.avg.toFixed(2)}
                 hint="lower = more durable"
               />
-            </StatBand>
+            </div>
             <div style={{ marginTop: 16 }}>
               {(() => {
                 const topTier =

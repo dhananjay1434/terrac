@@ -43,6 +43,7 @@ export default function KpiRow({
   // INV-3: "issued" excludes provisional entirely — never render a fake 0
   // when there simply isn't any issued credit yet.
   const noIssuedYet = totals.issued_credit_t_co2e === 0 && totals.issued_count === 0;
+  const noProvisional = totals.provisional_count === 0;
 
   return (
     <StatBand>
@@ -59,7 +60,8 @@ export default function KpiRow({
       />
       <StatTile
         label="Provisional credit (tCO₂e)"
-        value={fmtCredit(totals.provisional_credit_t_co2e)}
+        value={noProvisional ? "—" : fmtCredit(totals.provisional_credit_t_co2e)}
+        hint={noProvisional ? "none in pipeline" : undefined}
       />
     </StatBand>
   );

@@ -1,7 +1,9 @@
-import type { CreditBucket } from "../../api";
+import type { CreditBucket, CreditBucketGranularity } from "../../api";
 import { fmtCredit } from "../../format";
 import CardError from "../../ui/CardError/CardError";
 import Skeleton from "../../components/Skeleton/Skeleton";
+import BucketToggle from "../../ui/BucketToggle/BucketToggle";
+import { GRANULARITY_OPTIONS } from "../../config/chartRange";
 import DivergingStackedBarChart, {
   type DivergingBar,
 } from "../../ui/DivergingStackedBarChart/DivergingStackedBarChart";
@@ -69,19 +71,22 @@ function toDivergingBar(b: CreditBucket): DivergingBar {
  * Credits issued over time. Receives the already-fetched buckets from
  * Dashboard (INV-6 — one fetch of the metrics endpoint feeds both KpiRow and
  * this chart; fetching a second time here would be a redundant call to the
- * same data). v1 is month-only — there is no week toggle, since the backend
- * doesn't support it yet.
+ * same data).
  */
 export default function CreditsOverTime({
   buckets,
   loading,
   error,
   onRetry,
+  bucket = "week",
+  onBucket = () => {},
 }: {
   buckets: CreditBucket[] | null;
   loading: boolean;
   error: boolean;
   onRetry: () => void;
+  bucket?: CreditBucketGranularity;
+  onBucket?: (b: CreditBucketGranularity) => void;
 }) {
   const caption =
     buckets && buckets.length > 0
@@ -90,12 +95,22 @@ export default function CreditsOverTime({
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
-      <span className="micro">Credits issued and deductions over time</span>
-      {caption && (
-        <div className="micro" style={{ marginTop: 2 }}>
-          {caption}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-3)" }}>
+        <div>
+          <span className="micro">Credits issued and deductions over time</span>
+          {caption && (
+            <div className="micro" style={{ marginTop: 2 }}>
+              {caption}
+            </div>
+          )}
         </div>
-      )}
+        <BucketToggle
+          options={GRANULARITY_OPTIONS}
+          selected={bucket}
+          onSelect={onBucket}
+          ariaLabel="Chart granularity"
+        />
+      </div>
       <div style={{ marginTop: 12 }}>
         {loading && <Skeleton variant="card" />}
         {!loading && error && (

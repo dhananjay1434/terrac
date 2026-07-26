@@ -45,7 +45,9 @@ describe("KpiRow", () => {
       />,
     );
     expect(screen.getByText("No credits issued yet")).toBeInTheDocument();
-    expect(screen.getByText("—")).toBeInTheDocument();
+    // Both issued AND provisional credit are 0 → both show em-dash (P7.1.1).
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("none in pipeline")).toBeInTheDocument();
   });
 
   it("renders loading skeletons and does not render totals while loading", () => {

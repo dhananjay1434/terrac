@@ -7,6 +7,7 @@
  * with a styled floating panel) — do not conflate the two.
  */
 import { useState } from "react";
+import EmptyState from "../../components/EmptyState/EmptyState";
 import styles from "./DivergingStackedBarChart.module.css";
 
 export type StackSegment = { label: string; value: number; color: string };
@@ -137,13 +138,7 @@ export default function DivergingStackedBarChart({
   const format = formatValue ?? ((n: number) => String(n));
 
   if (!data || data.length === 0) {
-    return (
-      <svg viewBox={`0 0 ${WIDTH} ${height}`} width="100%" height={height} role="img" aria-label={label}>
-        <text x="50%" y="50%" textAnchor="middle" className="micro">
-          {emptyLabel ?? "No data"}
-        </text>
-      </svg>
-    );
+    return <EmptyState title={emptyLabel ?? "No data"} />;
   }
 
   const plotHeight = height - LABEL_RESERVE;

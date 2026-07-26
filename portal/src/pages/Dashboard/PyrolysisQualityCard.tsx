@@ -1,8 +1,8 @@
 import type { QualityMetrics } from "../../api";
 import CardError from "../../ui/CardError/CardError";
-import StatBand from "../../ui/StatBand/StatBand";
 import StatTile from "../../components/StatTile/StatTile";
 import Skeleton from "../../components/Skeleton/Skeleton";
+import styles from "./PyrolysisQualityCard.module.css";
 
 /**
  * Read-only analytics — never credit-affecting. A batch missing telemetry is
@@ -32,7 +32,7 @@ export default function PyrolysisQualityCard({
         )}
         {!loading && !error && data && data.n > 0 && (
           <>
-            <StatBand>
+            <div className={styles.statRow}>
               <StatTile
                 label="Peak temp (°C)"
                 value={String(Math.round(data.peak_temp_c!.avg))}
@@ -43,7 +43,7 @@ export default function PyrolysisQualityCard({
                 value={`${Math.round(data.pct_above_threshold!.avg)}%`}
                 hint="of readings"
               />
-            </StatBand>
+            </div>
             {data.excluded > 0 && (
               <div className="micro" style={{ marginTop: 8 }}>
                 {data.excluded} batches lack telemetry

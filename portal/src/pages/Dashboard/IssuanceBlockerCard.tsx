@@ -15,11 +15,13 @@ import { humanizeReason } from "../../config/blockerReasons";
  */
 export default function IssuanceBlockerCard({
   reasons,
+  provisionalCount = null,
   loading,
   error,
   onRetry,
 }: {
   reasons: Record<string, number> | null;
+  provisionalCount?: number | null;
   loading: boolean;
   error: boolean;
   onRetry: () => void;
@@ -32,6 +34,16 @@ export default function IssuanceBlockerCard({
     value,
     hint: code,
   }));
+
+  // Honest empty vocabulary (D3): "no blockers" is ambiguous — distinguish
+  // "there are no provisional batches at all" from "there are provisional
+  // batches but no recorded reasons".
+  const emptyLabel =
+    provisionalCount === 0
+      ? "No provisional batches yet"
+      : provisionalCount != null && provisionalCount > 0
+        ? "No blockers recorded — check batch details"
+        : "No blockers — all batches issuable";
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
@@ -49,7 +61,7 @@ export default function IssuanceBlockerCard({
             items={items}
             valueSuffix="batches"
             ariaLabel="Issuance blockers by compliance gate"
-            emptyLabel="No blockers — all batches issuable"
+            emptyLabel={emptyLabel}
           />
         )}
       </div>

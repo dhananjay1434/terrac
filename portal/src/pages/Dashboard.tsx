@@ -12,8 +12,7 @@ import CreditsOverTime from "./Dashboard/CreditsOverTime";
 import PyrolysisQualityCard from "./Dashboard/PyrolysisQualityCard";
 import PermanenceQualityCard from "./Dashboard/PermanenceQualityCard";
 import IssuanceBlockerCard from "./Dashboard/IssuanceBlockerCard";
-import BucketToggle from "../ui/BucketToggle/BucketToggle";
-import { GRANULARITY_OPTIONS, windowFor } from "../config/chartRange";
+import { windowFor } from "../config/chartRange";
 
 export default function Dashboard() {
   const [data, setData] = useState<CreditTimeseries | null>(null);
@@ -25,6 +24,7 @@ export default function Dashboard() {
   const [qualityError, setQualityError] = useState(false);
 
   const [reasons, setReasons] = useState<Record<string, number> | null>(null);
+  const [provisionalCount, setProvisionalCount] = useState<number | null>(null);
   const [reasonsLoading, setReasonsLoading] = useState(true);
   const [reasonsError, setReasonsError] = useState(false);
 
@@ -78,6 +78,7 @@ export default function Dashboard() {
     try {
       const s = await getSummary();
       setReasons(s.reasons_histogram);
+      setProvisionalCount(s.provisional);
     } catch {
       setReasonsError(true);
     } finally {
@@ -104,19 +105,13 @@ export default function Dashboard() {
         error={error}
         onRetry={fetchTotals}
       />
-      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 8 }}>
-        <BucketToggle
-          options={GRANULARITY_OPTIONS}
-          selected={bucket}
-          onSelect={setBucket}
-          ariaLabel="Chart granularity"
-        />
-      </div>
       <CreditsOverTime
         buckets={data?.buckets ?? null}
         loading={loading}
         error={error}
         onRetry={fetchTotals}
+        bucket={bucket}
+        onBucket={setBucket}
       />
 
       <h2 className="section-title" style={{ marginTop: "var(--space-6)" }}>
@@ -142,6 +137,7 @@ export default function Dashboard() {
       <div style={{ marginTop: 16 }}>
         <IssuanceBlockerCard
           reasons={reasons}
+          provisionalCount={provisionalCount}
           loading={reasonsLoading}
           error={reasonsError}
           onRetry={fetchReasons}
