@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   listFarmers,
@@ -12,6 +12,7 @@ import CardError from "../ui/CardError/CardError";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import StatusDot from "../components/StatusDot/StatusDot";
 import EmptyState from "../components/EmptyState/EmptyState";
+import Skeleton from "../components/Skeleton/Skeleton";
 import Button from "../ui/Button/Button";
 import Card from "../ui/Card/Card";
 
@@ -32,6 +33,7 @@ export default function Farmers() {
 
   const [selected, setSelected] = useState<FarmerDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const detailRef = useRef<HTMLElement>(null);
 
   const fetchPage = useCallback(
     async (p: number, q: string) => {
@@ -57,12 +59,17 @@ export default function Farmers() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (selected) detailRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  }, [selected]);
+
   async function openDetail(uuid: string) {
     setDetailLoading(true);
     try {
       setSelected(await getFarmer(uuid));
     } catch (e) {
       if (e instanceof AuthError) nav("/login");
+      else setErr("Couldn't load farmer detail.");
     } finally {
       setDetailLoading(false);
     }
@@ -179,8 +186,8 @@ export default function Farmers() {
       </nav>
 
       {(detailLoading || selected) && (
-        <Card as="section" style={{ marginTop: 18 }} aria-label="Farmer detail">
-          {detailLoading && <span className="micro">Loading…</span>}
+        <Card as="section" ref={detailRef} style={{ marginTop: 18 }} aria-label="Farmer detail">
+          {detailLoading && <Skeleton variant="card" />}
           {selected && (
             <>
               <div
@@ -246,7 +253,7 @@ export default function Farmers() {
                       <ul>
                         {selected.documents.map((d) => (
                           <li key={d.id}>
-                            {d.doc_type}: ••••{d.last4}
+                            {d.doc_type}: <span className="mono">••••{d.last4}</span>
                             {d.media_id ? " · photo captured" : " · photo not captured"}
                           </li>
                         ))}
@@ -265,7 +272,7 @@ export default function Farmers() {
                         {selected.payments.map((p) => (
                           <li key={p.id}>
                             {p.rail}:{" "}
-                            {p.masked_account ?? p.masked_upi_id ?? p.masked_mfs_id ?? "—"}
+                            <span className="mono">{p.masked_account ?? p.masked_upi_id ?? p.masked_mfs_id ?? "—"}</span>
                           </li>
                         ))}
                       </ul>
