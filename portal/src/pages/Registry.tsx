@@ -9,6 +9,7 @@ import {
   type KilnRow,
 } from "../api";
 import { kilnQrPayload } from "../qr";
+import { getRole } from "../auth";
 import { useNavigate } from "react-router-dom";
 import InfoTip from "../components/InfoTip/InfoTip";
 import Button from "../ui/Button/Button";
@@ -17,7 +18,13 @@ import StatusPill from "../ui/StatusPill/StatusPill";
 
 // A tiny generic form: field defs -> values -> POST. Keeps this admin page
 // compact without a form library.
-type Field = { key: string; label: string; type?: string; required?: boolean };
+type Field = {
+  key: string;
+  label: string;
+  type?: string;
+  required?: boolean;
+  options?: string[];
+};
 
 function Form({
   title,
@@ -33,11 +40,8 @@ function Form({
   const [busy, setBusy] = useState(false);
   const scope = useId();
 
-  useEffect(() => {
-    if (!msg) return;
-    const t = setTimeout(() => setMsg(null), 4000);
-    return () => clearTimeout(t);
-  }, [msg]);
+  // Status persists until the next submit — a registration confirmation the
+  // operator can miss if it auto-dismisses is worse than one that lingers.
   return (
     <Card
       as="form"
@@ -74,15 +78,35 @@ function Form({
               <label className="micro" htmlFor={id}>
                 {f.label}
               </label>
-              <input
-                id={id}
-                aria-label={f.label}
-                type={f.type ?? "text"}
-                value={v[f.key] ?? ""}
-                onChange={(e) =>
-                  setV((s) => ({ ...s, [f.key]: e.target.value }))
-                }
-              />
+              {f.options ? (
+                <span className="select-wrap">
+                  <select
+                    id={id}
+                    aria-label={f.label}
+                    value={v[f.key] ?? ""}
+                    onChange={(e) =>
+                      setV((s) => ({ ...s, [f.key]: e.target.value }))
+                    }
+                  >
+                    <option value="">—</option>
+                    {f.options.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              ) : (
+                <input
+                  id={id}
+                  aria-label={f.label}
+                  type={f.type ?? "text"}
+                  value={v[f.key] ?? ""}
+                  onChange={(e) =>
+                    setV((s) => ({ ...s, [f.key]: e.target.value }))
+                  }
+                />
+              )}
             </div>
           );
         })}
@@ -107,6 +131,7 @@ function num(s: string | undefined): number | undefined {
 
 export default function Registry() {
   const nav = useNavigate();
+  const isAdmin = getRole() === "admin";
   const [tab, setTab] = useState("kilns");
   const [kilns, setKilns] = useState<KilnRow[]>([]);
   const [caps, setCaps] = useState<Record<string, string>>({});
@@ -142,6 +167,11 @@ export default function Registry() {
   return (
     <div className="wrap">
       <h1 className="page-title">Registry</h1>
+      {!isAdmin && (
+        <p className="micro text-secondary" style={{ marginBottom: 14 }}>
+          Read-only — equipment and training records are registered by admins.
+        </p>
+      )}
       <Tabs.Root value={tab} onValueChange={setTab}>
         <Tabs.List aria-label="Registry sections" style={{ display: "flex", gap: 4, marginBottom: 14 }}>
           <Tabs.Trigger value="kilns" className={`linkbtn ${tab === "kilns" ? "active" : ""}`}>
@@ -156,6 +186,7 @@ export default function Registry() {
         </Tabs.List>
 
         <Tabs.Content value="kilns">
+          {isAdmin && (
           <Form
             title={
               <>
@@ -165,13 +196,14 @@ export default function Registry() {
             }
             fields={[
               { key: "kiln_id", label: "Kiln ID", required: true },
-              { key: "kiln_type", label: "Type (open/closed)" },
+              { key: "kiln_type", label: "Type", options: ["open", "closed"] },
               { key: "material", label: "Material" },
               { key: "weight_kg", label: "Weight (kg)", type: "number" },
               { key: "capacity_l", label: "Capacity (litres)", type: "number" },
             ]}
             onSubmit={submitKiln}
           />
+          )}
 
           {kilns.length > 0 && (
             <Card as="section" style={{ marginBottom: 14 }}>
@@ -196,6 +228,7 @@ export default function Registry() {
             </Card>
           )}
 
+          {isAdmin && (
           <div className="registry-grid">
             <Form
               title="Supervisor visit"
@@ -230,9 +263,11 @@ export default function Registry() {
               }
             />
           </div>
+          )}
         </Tabs.Content>
 
         <Tabs.Content value="operators">
+          {isAdmin && (
           <div className="registry-grid">
             <Form
               title="Operator training"
@@ -286,9 +321,11 @@ export default function Registry() {
               )}
             </Card>
           </div>
+          )}
         </Tabs.Content>
 
         <Tabs.Content value="standards">
+          {isAdmin && (
           <Form
             title={
               <>
@@ -309,6 +346,7 @@ export default function Registry() {
               }).then(() => undefined)
             }
           />
+          )}
         </Tabs.Content>
       </Tabs.Root>
     </div>

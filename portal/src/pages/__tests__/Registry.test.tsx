@@ -31,6 +31,8 @@ function renderPage() {
 describe("Registry page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The registration forms are admin-only; most tests exercise them.
+    localStorage.setItem("dmrv.portal.role", "admin");
     mockPost.mockResolvedValue({});
     mockKilns.mockResolvedValue({ kilns: [] });
   });
@@ -46,7 +48,7 @@ describe("Registry page", () => {
       { target: { value: "kiln-9" } },
     );
     fireEvent.change(
-      within(kilnForm).getByLabelText("Type (open/closed)"),
+      within(kilnForm).getByLabelText("Type"),
       { target: { value: "open" } },
     );
     fireEvent.change(within(kilnForm).getByLabelText("Material"), {
@@ -111,5 +113,31 @@ describe("Registry page", () => {
     await waitFor(() => {
       expect(screen.getByText("✓ Saved")).toBeInTheDocument();
     });
+  });
+
+  it("renders the kiln type as a native select with open/closed options", () => {
+    renderPage();
+    const kilnForm = screen.getByText("Register kiln (C8)").closest("form")!;
+    const typeSelect = within(kilnForm).getByLabelText("Type");
+    expect(typeSelect.tagName).toBe("SELECT");
+    const values = Array.from(
+      (typeSelect as HTMLSelectElement).options,
+    ).map((o) => o.value);
+    expect(values).toEqual(expect.arrayContaining(["open", "closed"]));
+  });
+
+  it("hides every registration form from non-admin roles but keeps kiln cards", async () => {
+    localStorage.setItem("dmrv.portal.role", "verifier");
+    mockKilns.mockResolvedValue({
+      kilns: [{ kiln_id: "kiln-1", kiln_type: "open" } as never],
+    });
+    renderPage();
+    await screen.findByText(/Read-only/);
+    expect(screen.queryByText("Register kiln (C8)")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Save" }),
+    ).not.toBeInTheDocument();
+    // The read-only kiln cards still render.
+    expect(await screen.findByText(/Kiln cards/)).toBeInTheDocument();
   });
 });
