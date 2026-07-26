@@ -10,6 +10,14 @@
   display: flex;
   gap: 4px;
 }
+.remarks {
+  font-size: var(--fs-12);
+  color: var(--status-error-fg);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .thumbBtn {
   display: block;
   width: 100%;

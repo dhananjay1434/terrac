@@ -172,7 +172,7 @@ export default function Dispatch() {
                 ? "warning"
                 : "inert"
           }
-          label={d.status}
+          label={d.status === "in_transit" ? "In transit" : d.status === "received" ? "Received" : "Draft"}
         />
       ),
     },

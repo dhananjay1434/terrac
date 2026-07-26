@@ -10,11 +10,15 @@ import {
 import { fmtDate } from "../format";
 import CardError from "../ui/CardError/CardError";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
+import StatusDot from "../components/StatusDot/StatusDot";
 import EmptyState from "../components/EmptyState/EmptyState";
 import Button from "../ui/Button/Button";
 import Card from "../ui/Card/Card";
 
 const PAGE_SIZE = 25;
+
+const KYC_VARIANT = { verified: "success", pending: "warning" } as const;
+const CONSENT_VARIANT = { signed: "success", revoked: "error" } as const;
 
 
 export default function Farmers() {
@@ -88,8 +92,26 @@ export default function Farmers() {
     },
     { key: "mobile", header: "Mobile", mono: true, render: (f) => f.mobile_number },
     { key: "village", header: "Village", render: (f) => f.village ?? "—" },
-    { key: "kyc", header: "KYC", render: (f) => f.kyc_status ?? "—" },
-    { key: "consent", header: "Consent", render: (f) => f.consent_status ?? "—" },
+    {
+      key: "kyc",
+      header: "KYC",
+      render: (f) =>
+        f.kyc_status ? (
+          <StatusDot variant={KYC_VARIANT[f.kyc_status as keyof typeof KYC_VARIANT] ?? "inert"} label={f.kyc_status} />
+        ) : (
+          "—"
+        ),
+    },
+    {
+      key: "consent",
+      header: "Consent",
+      render: (f) =>
+        f.consent_status ? (
+          <StatusDot variant={CONSENT_VARIANT[f.consent_status as keyof typeof CONSENT_VARIANT] ?? "inert"} label={f.consent_status} />
+        ) : (
+          "—"
+        ),
+    },
     { key: "created", header: "Registered", render: (f) => fmtDate(f.created_at) },
   ];
 

@@ -8,6 +8,7 @@ import CopyButton from "../CopyButton/CopyButton";
 import Skeleton from "../Skeleton/Skeleton";
 import EvidenceLightbox from "../EvidenceLightbox/EvidenceLightbox";
 import { fmtDateTime } from "../../format";
+import StatusPill from "../../ui/StatusPill/StatusPill";
 import styles from "./EvidenceGallery.module.css";
 
 type Filter = "all" | "photos" | "videos" | "certificates";
@@ -234,19 +235,20 @@ function GalleryThumb({
         </div>
         <div className={styles.chipRow}>
           {item.capture_type_verified ? (
-            <span className="chip ok">✓ verified</span>
+            <StatusPill status="success">Type verified</StatusPill>
           ) : item.capture_type ? (
-            <span className="chip warn">unverified</span>
+            <StatusPill status="warning">Type unverified</StatusPill>
           ) : null}
           {item.verification_status === "approved" && (
-            <span className="chip ok">reviewer approved</span>
+            <StatusPill status="success">Review approved</StatusPill>
           )}
           {item.verification_status === "rejected" && (
-            <span className="chip err" title={item.verification_remarks ?? undefined}>
-              rejected{item.verification_remarks ? `: ${item.verification_remarks}` : ""}
-            </span>
+            <StatusPill status="error">Review rejected</StatusPill>
           )}
         </div>
+        {item.verification_status === "rejected" && item.verification_remarks && (
+          <div className={styles.remarks}>{item.verification_remarks}</div>
+        )}
         <VerdictControls item={item} onVerified={onVerified} />
       </div>
     </div>

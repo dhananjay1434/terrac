@@ -6,6 +6,7 @@ import { isVideo } from "../EvidenceGallery/EvidenceGallery";
 import CopyButton from "../CopyButton/CopyButton";
 import { fmtDateTime } from "../../format";
 import Button from "../../ui/Button/Button";
+import StatusPill from "../../ui/StatusPill/StatusPill";
 import styles from "./EvidenceLightbox.module.css";
 
 /**
@@ -119,9 +120,9 @@ export default function EvidenceLightbox({
               <dt>Verification</dt>
               <dd>
                 {item.capture_type_verified ? (
-                  <span className="chip ok">✓ verified</span>
+                  <StatusPill status="success">Type verified</StatusPill>
                 ) : item.capture_type ? (
-                  <span className="chip warn">unverified</span>
+                  <StatusPill status="warning">Type unverified</StatusPill>
                 ) : (
                   <span className="text-tertiary">unclassified</span>
                 )}

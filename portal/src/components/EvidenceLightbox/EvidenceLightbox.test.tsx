@@ -36,7 +36,7 @@ describe("EvidenceLightbox", () => {
     expect(screen.getByText("hash-0-abcdef1234567890")).toBeInTheDocument();
     expect(screen.getByText("12.34567, 76.54321")).toBeInTheDocument();
     expect(screen.getByText("01 Jul 2026, 10:00 UTC")).toBeInTheDocument();
-    expect(screen.getByText("✓ verified")).toBeInTheDocument();
+    expect(screen.getByText("Type verified")).toBeInTheDocument();
   });
 
   it("traps focus inside the dialog", () => {

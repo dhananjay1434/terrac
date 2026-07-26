@@ -136,7 +136,7 @@ describe("EvidenceGallery — reviewer verdict (V8 Part 4 K)", () => {
     fireEvent.click(cellFor("h1").getByRole("button", { name: "Approve" }));
 
     expect(
-      await cellFor("h1").findByText("reviewer approved"),
+      await cellFor("h1").findByText("Review approved"),
     ).toBeInTheDocument();
     expect(verifyMedia).toHaveBeenCalledWith("o1", { status: "approved" });
   });
@@ -157,7 +157,7 @@ describe("EvidenceGallery — reviewer verdict (V8 Part 4 K)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm reject" }));
 
     expect(
-      await cellFor("h1").findByText(/rejected: kiln ID not visible/),
+      await cellFor("h1").findByText(/kiln ID not visible/),
     ).toBeInTheDocument();
     expect(verifyMedia).toHaveBeenCalledWith("o1", {
       status: "rejected",

@@ -12,6 +12,7 @@ import {
   type SourceParcel,
 } from "../api";
 import { fmtDate } from "../format";
+import StatusDot, { type StatusDotVariant } from "../components/StatusDot/StatusDot";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import EmptyState from "../components/EmptyState/EmptyState";
 import Button from "../ui/Button/Button";
@@ -20,6 +21,13 @@ import ProjectForm from "./Projects/ProjectForm";
 import ParcelForm from "./Projects/ParcelForm";
 
 const PAGE_SIZE = 25;
+
+const projectStatusVariant = (s: string): StatusDotVariant =>
+  s === "active" || s === "verified"
+    ? "success"
+    : s === "draft" || s === "provisional"
+      ? "warning"
+      : "inert";
 
 
 export default function Projects() {
@@ -250,7 +258,11 @@ export default function Projects() {
       header: "Clients",
       render: (p) => (p.client_target != null ? String(p.client_target) : "—"),
     },
-    { key: "status", header: "Status", render: (p) => p.status },
+    {
+      key: "status",
+      header: "Status",
+      render: (p) => <StatusDot variant={projectStatusVariant(p.status)} label={p.status} />,
+    },
     { key: "created", header: "Created", render: (p) => fmtDate(p.created_at) },
   ];
 
@@ -260,7 +272,16 @@ export default function Projects() {
     { key: "project_id", header: "Project ID", mono: true, render: (p) => p.project_id },
     { key: "area", header: "Area (m²)", render: (p) => `${p.area_m2.toLocaleString()} m²` },
     { key: "acres", header: "Declared (Acres)", render: (p) => p.declared_area_acres ? `${p.declared_area_acres} acres` : "—" },
-    { key: "status", header: "Status", render: (p) => p.boundary_status },
+    {
+      key: "status",
+      header: "Status",
+      render: (p) =>
+        p.boundary_status ? (
+          <StatusDot variant={projectStatusVariant(p.boundary_status)} label={p.boundary_status} />
+        ) : (
+          "—"
+        ),
+    },
     { key: "created", header: "Created", render: (p) => fmtDate(p.created_at) },
   ];
 
