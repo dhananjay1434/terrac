@@ -70,6 +70,16 @@ distances use `max(measured, default)`). Wire `JourneyPanel` into `Dispatch.tsx`
 as a select→panel side view (scroll-into-view — don't repeat audit F1); mount a
 Leaflet polyline into `JourneyPanel`'s `data-testid="route-slot"`.
 
+## ⚠ FOR THE AGENT ON M2.1/M2.2 (mid-flight note, ADR-002): `telemetry_chunks`
+should carry two extra NULLABLE columns — `seq INT NULL`, `prev_hash
+VARCHAR(64) NULL` (hash-chain fields, ADR-002 §2.3). If your migration hasn't
+landed yet, include them now; if it has, add a 5-line follow-up migration.
+Ingest additionally verifies chain continuity per (batch, channel); a break =
+stored gap annotation, never a rejection. Transport decision (BLE phone-gateway
+primary) changes NOTHING in M2.2 — the endpoint is transport-agnostic. New
+Phase M7 (Flutter BLE relay) specs live in ADR-002 §4; add to the plan manifest
+when your current plan-file edit lands.
+
 ## Both blocking decisions are now RESOLVED — see `docs/adr-001-thermal-and-identity.md`
 1. ~~M1.3 batch-code numbering~~ → **ADR-001 Part B**: add explicit ordinal
    columns (`org_ordinal`, `network_code`, `site_ordinal`, `kiln_ordinal`,

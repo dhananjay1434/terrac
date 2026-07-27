@@ -1,11 +1,25 @@
-# Edge Firmware ↔ dMRV Ingest Contract (M2h)
+# Edge Firmware ↔ dMRV Ingest Contract (M2h) — v2
 
 The single interface the kiln edge unit and the backend both build against.
 Written contract-first so firmware and `routers/telemetry.py` (M2.2) can be
 developed in parallel and meet without rework.
 
-**Status:** DRAFT — the endpoint (M2.2) is not yet merged. This doc is the spec;
-when M2.2 lands it MUST match this or update it in the same PR.
+**Status:** v2 per **ADR-002** (read it first — transport + local-crypto
+decisions live there). Endpoint (M2.2) in progress; it MUST match this doc or
+update it in the same PR.
+
+## 0 · Transport (ADR-002 §1 — DECIDED)
+- **Primary (artisanal): BLE phone-gateway, store-and-forward.** The unit
+  records to microSD during the burn (no connectivity needed at all); the
+  operator's phone drains unsent envelopes over BLE and relays them to the
+  ingest endpoint (phone app work = Phase M7). Live view = whenever a phone is
+  present — which, for flame-curtain operation, is the whole burn.
+- **Optional module (industrial/fixed sites): cellular/LAN direct** — same
+  envelopes, same endpoint; the server cannot tell transports apart.
+- Hardware deltas vs v1: **+ microSD module, + DS3231 RTC (coin cell) —
+  mandatory; − modem/SIM on artisanal units** (cellular only where the module
+  is fitted). ~60 KB per burn → a small card stores years; never delete
+  unsent data.
 
 ---
 
@@ -47,18 +61,26 @@ when M2.2 lands it MUST match this or update it in the same PR.
   `DMRV_EVOLUTION_AGENT_PLAN.md` M2.5). Firmware still SENDS T4; the backend
   decides how to use it.
 
-## 4 · Chunk format (the request body — exactly what gets signed)
-`POST /api/v2/telemetry/ingest`, one chunk per (channel, time-window),
-**≤720 values per chunk** (= 2 h at 10 s). Body:
+## 4 · Chunk format (the envelope — exactly what gets signed, AT WRITE TIME)
+Envelopes are signed **when written to the SD card** (before any transport —
+ADR-002 §2.2), then relayed verbatim. `POST /api/v2/telemetry/ingest`, one
+envelope per (channel, time-window), **≤720 values** (= 2 h at 10 s). Body:
 ```json
 {
   "batch_uuid": "0a73dcc2-9823-4054-abeb-b252f2406070",
   "channel": "T1",
   "t_start": "2026-07-22T13:02:00Z",
   "sample_period_s": 10.0,
-  "values": [412.5, 418.0, 421.2, "... up to 720 floats ..."]
+  "values": [412.5, 418.0, 421.2, "... up to 720 floats ..."],
+  "seq": 14,
+  "prev_hash": "9c1e...64-hex-sha256-of-previous-envelope...ab"
 }
 ```
+- `seq`: monotonic per (batch_uuid, channel), starting 0. `prev_hash`:
+  SHA-256 of the previous envelope's canonical bytes; literal `"GENESIS"` for
+  seq 0. Together they hash-chain the local log so deletion/reordering on the
+  card or courier phone is EVIDENT (server records a chain break as a sensor
+  gap — never a rejection of the valid chunks around it).
 - `values[i]` is the reading at `t_start + i * sample_period_s`.
 - Timestamps are UTC ISO-8601 with `Z`. The device clock is UTC; display-side
   IST conversion is the backend/portal's job, never the firmware's.
