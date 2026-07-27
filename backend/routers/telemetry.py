@@ -18,9 +18,9 @@ import math
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
@@ -28,8 +28,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import telemetry_bus
 from db import get_session
-from models import Batch, TelemetryChunk, BurnSession
-from security import verify_signature, verify_raw_signature
+from models import Batch, TelemetryChunk, BurnSession, AuditEvent
+from security import verify_signature, verify_raw_signature, _require_admin
 from telemetry_store import insert_points
 
 router = APIRouter(tags=["telemetry-v2"])
@@ -160,3 +160,91 @@ async def ingest(
             },
         )
     return {"status": "ok", "points": inserted}
+
+
+class BindSessionRequest(BaseModel):
+    batch_uuid: str = Field(..., max_length=64)
+
+
+@router.post("/api/v2/telemetry/sessions/{session_uuid}/bind")
+async def bind_session(
+    session_uuid: str,
+    payload: BindSessionRequest,
+    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    session: AsyncSession = Depends(get_session),
+):
+    _require_admin(x_admin_secret)
+
+    # 1. Verify BurnSession exists
+    burn_session = (
+        await session.execute(
+            select(BurnSession).where(BurnSession.session_uuid == session_uuid)
+        )
+    ).scalar_one_or_none()
+    
+    if not burn_session:
+        raise HTTPException(status_code=404, detail="session_not_found")
+        
+    if burn_session.batch_uuid == payload.batch_uuid:
+        return {"status": "ok", "points_inserted": 0, "message": "already_bound"}
+
+    # 2. Verify target Batch exists
+    batch_exists = (
+        await session.execute(
+            select(Batch.id).where(Batch.batch_uuid == payload.batch_uuid)
+        )
+    ).scalar_one_or_none()
+    if not batch_exists:
+        raise HTTPException(status_code=404, detail="batch_not_found")
+
+    # 3. Update BurnSession
+    burn_session.batch_uuid = payload.batch_uuid
+    burn_session.binding_source = "admin"
+    burn_session.bound_by = "admin"
+    burn_session.bound_at = datetime.now(timezone.utc)
+
+    # 4. Update TelemetryChunks
+    await session.execute(
+        update(TelemetryChunk)
+        .where(TelemetryChunk.session_uuid == session_uuid)
+        .where(TelemetryChunk.batch_uuid.is_(None))
+        .values(batch_uuid=payload.batch_uuid)
+    )
+    await session.flush()
+
+    # 5. Extract points from chunks and insert
+    chunks = (
+        await session.execute(
+            select(TelemetryChunk).where(TelemetryChunk.session_uuid == session_uuid)
+        )
+    ).scalars().all()
+
+    points_inserted = 0
+    if chunks:
+        rows = []
+        for chunk in chunks:
+            chunk_payload = json.loads(chunk.payload_json)
+            values = chunk_payload.get("values", [])
+            period = chunk.sample_period_s
+            for i, val in enumerate(values):
+                rows.append({
+                    "batch_uuid": payload.batch_uuid,
+                    "channel": chunk.channel,
+                    "ts": chunk.t_start + timedelta(seconds=period * i),
+                    "value": val,
+                })
+        
+        if rows:
+            points_inserted = await insert_points(session, rows)
+
+    # 6. Write AuditEvent
+    session.add(
+        AuditEvent(
+            event_type="session_bound",
+            batch_uuid=payload.batch_uuid,
+            payload_json=json.dumps({"session_uuid": session_uuid})
+        )
+    )
+
+    await session.commit()
+    return {"status": "ok", "points_inserted": points_inserted}

@@ -18,10 +18,12 @@ from db import init_db
 from settings import log
 
 
+import asyncio
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
-    log.info("Database initialized")
+    asyncio.create_task(init_db())
+    log.info("Database initialization started in background")
     # V8 Part 0.4/0.1: if server signing is configured, fail fast at boot when
     # the private key doesn't match the published pubkey for its kid. Otherwise
     # the /api/v1/config endpoint would happily sign documents that NO device
@@ -120,11 +122,15 @@ def create_app() -> FastAPI:
     from portal.issuance_routes import router as portal_issuance_router
     from portal.hierarchy_routes import router as portal_hierarchy_router  # M1.5
     from portal.telemetry_routes import router as portal_telemetry_router  # M2.3/M2.4
+    from portal.timeline_routes import router as portal_timeline_router    # M3.2
+    from portal.ledger_routes import router as portal_ledger_routes        # M5.1
 
     application.include_router(portal_router)
     application.include_router(portal_issuance_router)
     application.include_router(portal_hierarchy_router)  # M1.5
     application.include_router(portal_telemetry_router)  # M2.3/M2.4
+    application.include_router(portal_timeline_router)   # M3.2
+    application.include_router(portal_ledger_routes)     # M5.1
 
     return application
 

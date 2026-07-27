@@ -2,16 +2,20 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   getBatch,
+  getBatchTimeline,
   issueCredit,
   downloadExport,
   AuthError,
   ApiError,
   type BatchDetail as Detail,
   type MediaItem,
+  type TimelineStage,
 } from "../api";
 import { getRole } from "../auth";
 import ComplianceChecklist from "../components/ComplianceChecklist/ComplianceChecklist";
+import EvidenceLightbox from "../components/EvidenceLightbox/EvidenceLightbox";
 import EvidenceGallery from "../components/EvidenceGallery/EvidenceGallery";
+import StageTimeline from "../components/StageTimeline/StageTimeline";
 import ConfirmModal from "../components/ConfirmModal/ConfirmModal";
 import VerificationChain from "../components/VerificationChain/VerificationChain";
 import MetricBlock from "../components/MetricBlock/MetricBlock";
@@ -26,6 +30,8 @@ import Skeleton from "../components/Skeleton/Skeleton";
 import { fmtCredit, fmtDate, fmtKg, fmtDateTime } from "../format";
 import Button from "../ui/Button/Button";
 import Card from "../ui/Card/Card";
+
+const TIMELINE_V2 = true; // M3.3 feature flag
 
 export const STEP_ORDER = [
   "batch_photo", "flame_curtain", "quenching", "flame_height",
@@ -68,6 +74,8 @@ export default function BatchDetail() {
   const { uuid = "" } = useParams();
   const nav = useNavigate();
   const [d, setD] = useState<Detail | null>(null);
+  const [timeline, setTimeline] = useState<TimelineStage[]>([]);
+  const [timelineLightbox, setTimelineLightbox] = useState<MediaItem | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [issuing, setIssuing] = useState(false);
   const [exporting, setExporting] = useState<"csi" | "rainbow" | null>(null);
@@ -84,6 +92,16 @@ export default function BatchDetail() {
           setErr("Batch not found.");
         else setErr("Couldn't load batch.");
       });
+    
+    if (TIMELINE_V2) {
+      getBatchTimeline(uuid)
+        .then(setTimeline)
+        .catch((e) => {
+          // If legacy batch (404 timeline), no crash, just gallery
+          if (e instanceof ApiError && e.status === 404) return;
+          console.error("Failed to load timeline", e);
+        });
+    }
   }
   useEffect(() => {
     reload();
@@ -309,6 +327,37 @@ export default function BatchDetail() {
           <StatTile label="Post-burn yield" value={fmtKg(d.batch.wet_yield_kg)} />
         </div>
       </Card>
+
+      {TIMELINE_V2 && timeline.length > 0 && (
+        <section className="card" style={{ marginTop: "var(--space-4)", overflow: "hidden" }}>
+          <div className="micro" style={{ marginBottom: "var(--space-3)", padding: "var(--space-3) var(--space-4) 0" }}>Custody timeline</div>
+          <div style={{ padding: "0 var(--space-4) var(--space-4)" }}>
+            <StageTimeline
+              stages={timeline}
+              locked={d.batch.status === "ISSUED"}
+              onOpenMedia={setTimelineLightbox}
+              onVerified={() => {
+                // Not ideal but functional: reload entirely to sync verdict across UI.
+                // For a true SPA feel, we'd uplift overrides to BatchDetail.
+                reload();
+              }}
+            />
+          </div>
+        </section>
+      )}
+      
+      {timelineLightbox && (() => {
+        const flat = timeline.flatMap((s) => s.media ?? []);
+        const idx = flat.findIndex((m) => m.operation_id === timelineLightbox.operation_id);
+        return (
+          <EvidenceLightbox
+            items={flat}
+            index={idx >= 0 ? idx : 0}
+            onClose={() => setTimelineLightbox(null)}
+            onNavigate={(i) => setTimelineLightbox(flat[i])}
+          />
+        );
+      })()}
 
       <EvidenceGallery media={d.media} locked={d.batch.status === "ISSUED"} />
 

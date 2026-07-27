@@ -127,3 +127,37 @@ export interface HierarchyNode {
 export function getHierarchy(): Promise<{ networks: HierarchyNode[] }> {
   return req("/api/v1/portal/hierarchy");
 }
+
+// ── ledgers (M5.1) ────────────────────────────────────────────────────────
+export interface LedgerBucket {
+  period: string;
+  total_kg: number;
+  by_species: Record<string, number>;
+  batch_codes: string[];
+  row_count: number;
+}
+export interface BiomassLedgerResponse {
+  bucket: "day" | "month";
+  buckets: LedgerBucket[];
+  totals: {
+    total_kg: number;
+    by_species: Record<string, number>;
+    row_count: number;
+  };
+}
+export function getBiomassLedger(params: {
+  from?: string;
+  to?: string;
+  bucket?: "day" | "month";
+  site_id?: string;
+  network_id?: string;
+}): Promise<BiomassLedgerResponse> {
+  const q = new URLSearchParams();
+  if (params.from) q.set("from", params.from);
+  if (params.to) q.set("to", params.to);
+  if (params.bucket) q.set("bucket", params.bucket);
+  if (params.site_id) q.set("site_id", params.site_id);
+  if (params.network_id) q.set("network_id", params.network_id);
+  const s = q.toString();
+  return req(`/api/v1/portal/ledgers/biomass${s ? `?${s}` : ""}`);
+}

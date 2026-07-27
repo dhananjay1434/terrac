@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import * as Tabs from "@radix-ui/react-tabs";
 import {
   listDispatch,
+  getDispatchJourney,
   listFacilities,
   createFacility,
   AuthError,
@@ -19,6 +20,9 @@ import StatusDot from "../components/StatusDot/StatusDot";
 import StatusPill from "../ui/StatusPill/StatusPill";
 import Card from "../ui/Card/Card";
 import Button from "../ui/Button/Button";
+import Skeleton from "../components/Skeleton/Skeleton";
+import JourneyPanel, { type JourneyData } from "../components/JourneyPanel/JourneyPanel";
+import ParcelMap from "../components/ParcelMap/ParcelMap";
 
 const PAGE_SIZE = 25;
 
@@ -53,6 +57,11 @@ export default function Dispatch() {
   );
   const [facilitySubmitting, setFacilitySubmitting] = useState(false);
   const [showFacilityForm, setShowFacilityForm] = useState(false);
+
+  const [selected, setSelected] = useState<DispatchRow | null>(null);
+  const [journeyData, setJourneyData] = useState<JourneyData | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const detailRef = useRef<HTMLDivElement>(null);
 
   const fetchPage = useCallback(
     async (before: string | null) => {
@@ -151,6 +160,49 @@ export default function Dispatch() {
       }
     } finally {
       setFacilitySubmitting(false);
+    }
+  }
+
+  async function openDetail(uuid: string) {
+    const row = rows.find((r) => r.dispatch_uuid === uuid) ?? null;
+    setSelected(row);
+    if (!row) {
+      setJourneyData(null);
+      return;
+    }
+    setDetailLoading(true);
+    try {
+      const jd = await getDispatchJourney(uuid);
+      // Construct JourneyData adding the recipient
+      const sites = row.sites ?? [];
+      const primaryContactName = sites.find(s => s.contact_name)?.contact_name ?? null;
+      const primaryContactPhone = sites.find(s => s.contact_phone)?.contact_phone ?? null;
+      // Mask phone
+      let maskedPhone = null;
+      if (primaryContactPhone) {
+        maskedPhone = primaryContactPhone.length > 4 
+          ? `••••${primaryContactPhone.slice(-4)}`
+          : "••••" + primaryContactPhone;
+      }
+      
+      const fullJd: JourneyData = {
+        ...jd.journey,
+        manifest: jd.manifest,
+        recipient: {
+          contact_name: primaryContactName,
+          contact_phone_masked: maskedPhone,
+        }
+      };
+      setJourneyData(fullJd);
+      
+      setTimeout(() => {
+        detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    } catch (err) {
+      console.error(err);
+      setJourneyData(null);
+    } finally {
+      setDetailLoading(false);
     }
   }
 
@@ -320,6 +372,7 @@ export default function Dispatch() {
         columns={columns}
         rows={rows}
         rowKey={(d) => d.dispatch_uuid}
+        onRowClick={(d) => openDetail(d.dispatch_uuid)}
         loading={loading}
         empty={
           <EmptyState
@@ -352,6 +405,32 @@ export default function Dispatch() {
           Next ›
         </Button>
       </nav>
+      
+      {(detailLoading || selected) && (
+        <Card as="section" ref={detailRef} style={{ marginTop: "var(--space-4)" }} aria-label="Dispatch detail">
+          {detailLoading && <Skeleton variant="card" />}
+          {selected && !detailLoading && journeyData && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "var(--space-3)",
+                }}
+              >
+                <span className="micro">
+                  Dispatch <span className="mono">{selected.dispatch_uuid}</span>
+                </span>
+                <Button variant="neutral" size="sm" onClick={() => setSelected(null)}>
+                  Close
+                </Button>
+              </div>
+              <JourneyPanel data={journeyData} />
+            </>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

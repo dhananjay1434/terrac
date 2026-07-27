@@ -20,8 +20,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import observability
 import settings
 from db import get_session
-from models import Dispatch, DispatchSite, Facility
-from schemas import DispatchCreate, DispatchTransition
+from models import Dispatch, DispatchSite, Facility, DispatchJourney, DispatchManifestLine
+from schemas import DispatchCreate, DispatchTransition, DispatchJourneyCreate
+from emissions_factors import estimate_emissions
 from security import verify_signature
 from services import dispatch_state as ds
 
@@ -209,4 +210,79 @@ async def transition_dispatch(
         "dispatch_status": dispatch.status,
         "weight_flagged": dispatch.weight_flagged,
         "weight_delta_pct": dispatch.weight_delta_pct,
+    }
+
+
+@router.post("/api/v2/dispatch/{dispatch_uuid}/journey", status_code=status.HTTP_201_CREATED)
+async def post_dispatch_journey(
+    dispatch_uuid: str,
+    payload: DispatchJourneyCreate,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+):
+    dispatch = (
+        await session.execute(
+            select(Dispatch).where(Dispatch.dispatch_uuid == dispatch_uuid)
+        )
+    ).scalar_one_or_none()
+    
+    if dispatch is None:
+        raise HTTPException(status_code=404, detail="dispatch_not_found")
+    if dispatch.device_id != device_id:
+        raise HTTPException(status_code=403, detail="not_your_dispatch")
+
+    # Idempotency check
+    existing_journey = (
+        await session.execute(
+            select(DispatchJourney).where(DispatchJourney.dispatch_uuid == dispatch_uuid)
+        )
+    ).scalar_one_or_none()
+    
+    emissions_kg, factor_version = estimate_emissions(
+        distance_km=payload.distance_km,
+        fuel_type=payload.fuel_type,
+        vehicle_class=payload.vehicle_class,
+    )
+    
+    if existing_journey:
+        journey = existing_journey
+    else:
+        journey = DispatchJourney(dispatch_uuid=dispatch_uuid)
+        session.add(journey)
+        
+    journey.distance_source = payload.distance_source
+    journey.distance_km = payload.distance_km
+    journey.vehicle_reg = payload.vehicle_reg
+    journey.fuel_type = payload.fuel_type
+    journey.emissions_kg = emissions_kg
+    journey.factor_version = factor_version
+    journey.route_geojson = payload.route_geojson
+    
+    # Overwrite manifest lines
+    await session.execute(
+        delete(DispatchManifestLine).where(DispatchManifestLine.dispatch_uuid == dispatch_uuid)
+    )
+    
+    for line in payload.manifest:
+        session.add(
+            DispatchManifestLine(
+                dispatch_uuid=dispatch_uuid,
+                container=line.container,
+                count=line.count,
+                unit_kg=line.unit_kg,
+                volume_l=line.volume_l,
+                product=line.product,
+            )
+        )
+        
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="journey_conflict")
+        
+    return {
+        "status": "success",
+        "emissions_kg": emissions_kg,
+        "factor_version": factor_version,
     }

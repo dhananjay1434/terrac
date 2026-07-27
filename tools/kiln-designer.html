@@ -1,0 +1,711 @@
+<title>Parametric Kon-Tiki Kiln — Veridian Engineering</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #14161b;
+    --viewport: #101216;
+    --panel: #1b1e25;
+    --panel-2: #22262f;
+    --line: #2c313c;
+    --line-soft: #23272f;
+    --ink: #e9ebf1;
+    --ink-2: #a3aab8;
+    --ink-3: #6d7484;
+    --steel: #7d8798;
+    --steel-dark: #4a5260;
+    --steel-light: #a7b1c0;
+    --amber: #f0a742;
+    --amber-dim: #b87d2c;
+    --ok: #45c08a;
+    --crash: #e5544b;
+    --grid: #1e222a;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+    --sp1: 4px; --sp2: 8px; --sp3: 12px; --sp4: 16px; --sp5: 24px; --sp6: 32px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --ground: #eef1f6;
+      --viewport: #f7f9fc;
+      --panel: #ffffff;
+      --panel-2: #f2f5fa;
+      --line: #d3dae5;
+      --line-soft: #e4e9f1;
+      --ink: #161a22;
+      --ink-2: #4d5665;
+      --ink-3: #7b8494;
+      --steel: #8b95a5;
+      --steel-dark: #5d6675;
+      --steel-light: #b9c2d0;
+      --amber: #c97d10;
+      --amber-dim: #e0a445;
+      --ok: #16855c;
+      --crash: #c8382e;
+      --grid: #dfe5ee;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #14161b; --viewport: #101216; --panel: #1b1e25; --panel-2: #22262f;
+    --line: #2c313c; --line-soft: #23272f; --ink: #e9ebf1; --ink-2: #a3aab8; --ink-3: #6d7484;
+    --steel: #7d8798; --steel-dark: #4a5260; --steel-light: #a7b1c0;
+    --amber: #f0a742; --amber-dim: #b87d2c; --ok: #45c08a; --crash: #e5544b; --grid: #1e222a;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --ground: #eef1f6; --viewport: #f7f9fc; --panel: #ffffff; --panel-2: #f2f5fa;
+    --line: #d3dae5; --line-soft: #e4e9f1; --ink: #161a22; --ink-2: #4d5665; --ink-3: #7b8494;
+    --steel: #8b95a5; --steel-dark: #5d6675; --steel-light: #b9c2d0;
+    --amber: #c97d10; --amber-dim: #e0a445; --ok: #16855c; --crash: #c8382e; --grid: #dfe5ee;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--mono); font-size: 13px; -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ── masthead ─────────────────────────────────────── */
+  .masthead {
+    display: flex; align-items: baseline; gap: var(--sp4);
+    padding: var(--sp4) var(--sp5); border-bottom: 1px solid var(--line);
+    background: var(--panel); flex-wrap: wrap;
+  }
+  .mark {
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--amber); font-weight: 600;
+  }
+  .masthead h1 {
+    margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; color: var(--ink);
+  }
+  .masthead .sub {
+    font-family: var(--sans); font-size: 12px; color: var(--ink-3); margin-left: auto;
+    max-width: 44ch; line-height: 1.45;
+  }
+
+  /* ── stage ────────────────────────────────────────── */
+  .stage { display: grid; grid-template-columns: 1fr 296px; flex: 1; min-height: 0; }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+
+  .viewwrap { position: relative; background: var(--viewport); min-height: 460px; }
+  #view { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  #view:active { cursor: grabbing; }
+  #view:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+  .hint {
+    position: absolute; left: var(--sp4); top: var(--sp4); pointer-events: none;
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .verdict {
+    position: absolute; left: 50%; transform: translateX(-50%); bottom: var(--sp4);
+    display: flex; align-items: center; gap: var(--sp2);
+    padding: var(--sp2) var(--sp4); border-radius: 2px;
+    border: 1px solid currentColor; font-size: 12px; font-weight: 600;
+    letter-spacing: .04em; white-space: nowrap; background: var(--panel);
+  }
+  .verdict[data-state="crash"] { color: var(--crash); }
+  .verdict[data-state="clear"] { color: var(--ok); }
+  .verdict .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+  .verdict .num { font-variant-numeric: tabular-nums; }
+
+  /* ── instrument rail ──────────────────────────────── */
+  .rail {
+    background: var(--panel); border-left: 1px solid var(--line);
+    padding: var(--sp5) var(--sp4) var(--sp6);
+    display: flex; flex-direction: column; gap: var(--sp5);
+    overflow-y: auto; max-height: calc(100vh - 62px);
+  }
+  @media (max-width: 900px) { .rail { border-left: 0; border-top: 1px solid var(--line); max-height: none; } }
+  .rail h2 {
+    margin: 0 0 var(--sp3); font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 600;
+    padding-bottom: var(--sp2); border-bottom: 1px solid var(--line-soft);
+  }
+  .ctl { display: flex; flex-direction: column; gap: var(--sp1); margin-bottom: var(--sp3); }
+  .ctl-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp2); }
+  .ctl-head label { font-size: 12px; color: var(--ink-2); font-family: var(--sans); }
+  .ctl-head output { font-size: 13px; font-weight: 600; color: var(--amber); }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 18px;
+    background: transparent; margin: 0; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 2px; background: var(--line); border-radius: 1px;
+  }
+  input[type="range"]::-moz-range-track { height: 2px; background: var(--line); border-radius: 1px; }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px;
+    border-radius: 50%; background: var(--amber); border: 0;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 12px; height: 12px; border-radius: 50%; background: var(--amber); border: 0;
+  }
+  input[type="range"]:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: var(--sp2);
+    width: 100%; padding: 9px var(--sp3); font: inherit; font-size: 12px; font-weight: 600;
+    color: var(--ink); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 2px; cursor: pointer; letter-spacing: .03em;
+  }
+  .btn:hover { border-color: var(--steel); }
+  .btn:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  .btn[aria-pressed="true"] { color: var(--amber); border-color: var(--amber-dim); }
+  .btn-row { display: flex; flex-direction: column; gap: var(--sp2); }
+
+  /* ── readouts ─────────────────────────────────────── */
+  .spec { display: flex; flex-direction: column; gap: 0; }
+  .spec-row {
+    display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp2);
+    padding: 6px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px;
+  }
+  .spec-row:last-child { border-bottom: 0; }
+  .spec-row dt { color: var(--ink-3); font-family: var(--sans); }
+  .spec-row dd { margin: 0; color: var(--ink); font-weight: 600; }
+  .spec-row dd .u { color: var(--ink-3); font-weight: 400; margin-left: 3px; font-size: 11px; }
+
+  /* ── section view ─────────────────────────────────── */
+  .section-panel { border-top: 1px solid var(--line); background: var(--panel); }
+  .section-inner {
+    padding: var(--sp4) var(--sp5) var(--sp5);
+    display: grid; grid-template-columns: minmax(280px, 420px) 1fr; gap: var(--sp5); align-items: start;
+  }
+  @media (max-width: 760px) { .section-inner { grid-template-columns: 1fr; } }
+  #section { display: block; width: 100%; height: auto; background: var(--viewport); border: 1px solid var(--line); border-radius: 2px; }
+  .note { font-family: var(--sans); font-size: 12.5px; line-height: 1.6; color: var(--ink-2); max-width: 62ch; }
+  .note h3 {
+    margin: 0 0 var(--sp2); font-family: var(--mono); font-size: 10px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-3); font-weight: 600;
+  }
+  .note code {
+    font-family: var(--mono); font-size: 12px; color: var(--amber);
+    background: var(--panel-2); padding: 1px 5px; border-radius: 2px;
+  }
+  .note p { margin: 0 0 var(--sp3); }
+  .note p:last-child { margin-bottom: 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: var(--sp3); margin-top: var(--sp3); font-size: 11px; font-family: var(--mono); color: var(--ink-3); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 14px; height: 2px; flex: none; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app">
+  <header class="masthead">
+    <span class="mark">Veridian</span>
+    <h1>Parametric Kon-Tiki — kiln &amp; stand designer</h1>
+    <p class="sub">Live geometry and tipping-clearance solver for flame-curtain pyrolysis kilns. All dimensions in centimetres.</p>
+  </header>
+
+  <div class="stage">
+    <div class="viewwrap">
+      <canvas id="view" tabindex="0" aria-label="3D kiln model. Drag to rotate, scroll to zoom."></canvas>
+      <div class="hint">
+        <span>Drag — orbit</span>
+        <span>Scroll — zoom</span>
+      </div>
+      <div class="verdict" id="verdict" role="status" data-state="clear">
+        <span class="dot"></span><span id="verdict-text">Clears ground</span>
+      </div>
+    </div>
+
+    <aside class="rail">
+      <section>
+        <h2>Kiln sizing</h2>
+        <div class="ctl">
+          <div class="ctl-head"><label for="topD">Top diameter</label><output id="topD-out">190 cm</output></div>
+          <input type="range" id="topD" min="60" max="300" step="1" value="190">
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label for="botD">Bottom diameter</label><output id="botD-out">60 cm</output></div>
+          <input type="range" id="botD" min="10" max="200" step="1" value="60">
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label for="ht">Kiln height</label><output id="ht-out">90 cm</output></div>
+          <input type="range" id="ht" min="30" max="200" step="1" value="90">
+        </div>
+      </section>
+
+      <section>
+        <h2>Stand clearances</h2>
+        <div class="ctl">
+          <div class="ctl-head"><label for="hinge">Hinge drop (% from top)</label><output id="hinge-out">33 %</output></div>
+          <input type="range" id="hinge" min="0" max="100" step="1" value="33">
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label for="clear">Ground clearance</label><output id="clear-out">12 cm</output></div>
+          <input type="range" id="clear" min="0" max="150" step="1" value="12">
+        </div>
+      </section>
+
+      <section>
+        <h2>Tipping dump</h2>
+        <div class="ctl">
+          <div class="ctl-head"><label for="tip">Tip angle</label><output id="tip-out">0°</output></div>
+          <input type="range" id="tip" min="0" max="180" step="1" value="0">
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="simulate" type="button">Simulate tipping dump</button>
+          <button class="btn" id="dims" type="button" aria-pressed="false">Show dimensions</button>
+          <button class="btn" id="reset" type="button">Reset to reference</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Computed geometry</h2>
+        <dl class="spec">
+          <div class="spec-row"><dt>Hinge height</dt><dd id="s-hinge">72.3<span class="u">cm</span></dd></div>
+          <div class="spec-row"><dt>Max pivot radius</dt><dd id="s-radius">99.5<span class="u">cm</span></dd></div>
+          <div class="spec-row"><dt>Slant height</dt><dd id="s-slant">96.6<span class="u">cm</span></dd></div>
+          <div class="spec-row"><dt>Wall angle from vertical</dt><dd id="s-angle">20.9<span class="u">°</span></dd></div>
+          <div class="spec-row"><dt>Vessel volume</dt><dd id="s-vol">886<span class="u">L</span></dd></div>
+        </dl>
+      </section>
+
+      <section>
+        <h2>Batch estimate</h2>
+        <dl class="spec">
+          <div class="spec-row"><dt>Biomass charge</dt><dd id="s-biomass">177<span class="u">kg</span></dd></div>
+          <div class="spec-row"><dt>Biochar yield</dt><dd id="s-char">44<span class="u">kg</span></dd></div>
+          <div class="spec-row"><dt>Gross C-sink</dt><dd id="s-co2">0.113<span class="u">tCO₂e</span></dd></div>
+        </dl>
+      </section>
+    </aside>
+  </div>
+
+  <div class="section-panel">
+    <div class="section-inner">
+      <canvas id="section" width="840" height="520" aria-label="Cross-section showing the pivot arc and ground line."></canvas>
+      <div class="note">
+        <h3>Why it clears — or doesn't</h3>
+        <p>
+          The kiln pivots on trunnion pins whose axis passes through the vessel centreline at the
+          hinge height. Every point on the shell therefore sweeps a circle of radius <em>r</em> about
+          that axis. The lowest a point can reach is <code>hingeHeight − r</code>, so the vessel clears
+          the ground through a full tip if and only if the furthest point on the shell lies within the
+          hinge height of the pivot:
+        </p>
+        <p><code>clearance = hingeHeight − maxPivotRadius</code></p>
+        <p>
+          Negative clearance means the rim strikes the ground mid-dump. The governing point is almost
+          always the far top-rim edge — raising the stand, or moving the hinge down the wall, are the
+          two levers that fix it.
+        </p>
+        <div class="legend">
+          <span><i class="swatch" style="background:var(--steel)"></i>Shell profile</span>
+          <span><i class="swatch" style="background:var(--amber)"></i>Pivot arc — governing point</span>
+          <span><i class="swatch" style="background:var(--ink-3)"></i>Ground line</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ── model state ───────────────────────────────────────────────
+  const REF = { topD: 190, botD: 60, ht: 90, hinge: 33, clear: 12, tip: 0 };
+  const P = { ...REF };
+  const ids = ["topD", "botD", "ht", "hinge", "clear", "tip"];
+  const el = {};
+  ids.forEach(k => { el[k] = document.getElementById(k); el[k + "_out"] = document.getElementById(k + "-out"); });
+
+  // Bulk density of chipped woody biomass and a conservative mass yield —
+  // used only for the batch estimate readout, never for credit maths.
+  const BULK_DENSITY_KG_PER_L = 0.20;
+  const CHAR_MASS_YIELD = 0.25;
+  const CARBON_FRACTION = 0.70;
+  const CO2_PER_C = 44 / 12;
+
+  function geom() {
+    const Rt = P.topD / 2, Rb = P.botD / 2, H = P.ht;
+    const yBot = P.clear, yTop = P.clear + H;
+    // Trunnion axis passes through the centreline at this height.
+    const hy = P.clear + H * (1 - P.hinge / 100);
+    // Candidate governing points: both rim edges, both sides.
+    const cands = [
+      { x: Rt, y: yTop, tag: "top rim" }, { x: -Rt, y: yTop, tag: "top rim" },
+      { x: Rb, y: yBot, tag: "base rim" }, { x: -Rb, y: yBot, tag: "base rim" },
+    ];
+    let maxR = 0, gov = cands[0];
+    for (const c of cands) {
+      const r = Math.hypot(c.x, c.y - hy);
+      if (r > maxR) { maxR = r; gov = c; }
+    }
+    const slant = Math.hypot(Rt - Rb, H);
+    const angle = Math.atan2(Rt - Rb, H) * 180 / Math.PI;
+    // Frustum volume in litres (cm³ → L).
+    const volL = (Math.PI * H / 3) * (Rt * Rt + Rt * Rb + Rb * Rb) / 1000;
+    const biomass = volL * BULK_DENSITY_KG_PER_L;
+    const char = biomass * CHAR_MASS_YIELD;
+    const co2 = char * CARBON_FRACTION * CO2_PER_C / 1000;
+    return { Rt, Rb, H, yBot, yTop, hy, maxR, gov, slant, angle, volL, biomass, char, co2,
+             clearance: hy - maxR };
+  }
+
+  // Rotation about the trunnion axis (horizontal, along z, through x=0, y=hy).
+  function tipPoint(x, y, z, deg, hy) {
+    const t = deg * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+    const dx = x, dy = y - hy;
+    return { x: dx * c - dy * s, y: hy + dx * s + dy * c, z };
+  }
+
+  // ── 3D viewport ───────────────────────────────────────────────
+  const view = document.getElementById("view");
+  const vx = view.getContext("2d");
+  let yaw = -0.62, pitch = 0.30, zoom = 1;
+  let drag = null;
+
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function resize() {
+    const r = view.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
+    view.width = Math.max(1, Math.round(r.width * dpr));
+    view.height = Math.max(1, Math.round(r.height * dpr));
+    vx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function project(p, w, h, scale) {
+    // yaw about vertical, then pitch, then weak perspective.
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    let x = p.x * cy - p.z * sy, z = p.x * sy + p.z * cy, y = p.y;
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const y2 = y * cp - z * sp, z2 = y * sp + z * cp;
+    const d = 900, zc = z2 + 900;
+    const f = d / Math.max(120, zc);
+    return { X: w / 2 + x * scale * f, Y: h * 0.60 - y2 * scale * f, Z: z2 };
+  }
+
+  function draw() {
+    const g = geom();
+    const w = view.clientWidth, h = view.clientHeight;
+    if (!w || !h) return;
+    vx.clearRect(0, 0, w, h);
+
+    const span = Math.max(g.Rt * 2, g.yTop + 40);
+    const scale = (Math.min(w, h) * 0.42 / span) * 2 * zoom;
+    const pr = (x, y, z) => project({ x, y, z }, w, h, scale);
+    const N = 56;
+    const faces = [];
+
+    // ground grid
+    const gridC = css("--grid");
+    const step = 50, ext = Math.max(260, g.Rt * 2.2);
+    vx.strokeStyle = gridC; vx.lineWidth = 1;
+    for (let i = -ext; i <= ext; i += step) {
+      const a = pr(i, 0, -ext), b = pr(i, 0, ext);
+      const c = pr(-ext, 0, i), d = pr(ext, 0, i);
+      vx.beginPath(); vx.moveTo(a.X, a.Y); vx.lineTo(b.X, b.Y); vx.stroke();
+      vx.beginPath(); vx.moveTo(c.X, c.Y); vx.lineTo(d.X, d.Y); vx.stroke();
+    }
+
+    // shell quads (tipped)
+    const ring = (radius, y) => {
+      const out = [];
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        const x = Math.cos(a) * radius, z = Math.sin(a) * radius;
+        out.push(tipPoint(x, y, z, P.tip, g.hy));
+      }
+      return out;
+    };
+    const top = ring(g.Rt, g.yTop), bot = ring(g.Rb, g.yBot);
+
+    for (let i = 0; i < N; i++) {
+      const j = (i + 1) % N;
+      const q = [bot[i], bot[j], top[j], top[i]];
+      const p = q.map(v => pr(v.x, v.y, v.z));
+      const zAvg = (p[0].Z + p[1].Z + p[2].Z + p[3].Z) / 4;
+      // face normal for flat shading
+      const u = { x: q[1].x - q[0].x, y: q[1].y - q[0].y, z: q[1].z - q[0].z };
+      const v2 = { x: q[3].x - q[0].x, y: q[3].y - q[0].y, z: q[3].z - q[0].z };
+      const nx = u.y * v2.z - u.z * v2.y, ny = u.z * v2.x - u.x * v2.z, nz = u.x * v2.y - u.y * v2.x;
+      const len = Math.hypot(nx, ny, nz) || 1;
+      const lit = Math.abs((nx * 0.45 + ny * 0.75 + nz * 0.5) / len);
+      faces.push({ p, z: zAvg, shade: 0.34 + 0.66 * lit, kind: "shell" });
+    }
+    // base disc
+    {
+      const p = bot.map(v => pr(v.x, v.y, v.z));
+      faces.push({ p, z: Math.min(...p.map(q => q.Z)) - 1, shade: 0.3, kind: "disc" });
+    }
+    // rim band (amber)
+    const rimH = Math.max(2.2, g.H * 0.028);
+    const rimInner = ring(g.Rt * 0.955, g.yTop);
+    for (let i = 0; i < N; i++) {
+      const j = (i + 1) % N;
+      const q = [top[i], top[j], rimInner[j], rimInner[i]];
+      const p = q.map(v => pr(v.x, v.y, v.z));
+      faces.push({ p, z: (p[0].Z + p[2].Z) / 2 + rimH, shade: 1, kind: "rim" });
+    }
+
+    // stand: two A-frames in the x–y plane at z = ±hr, feet splayed, plus base rails
+    const hr = g.Rb + (g.Rt - g.Rb) * (1 - P.hinge / 100);
+    const foot = Math.max(g.Rt * 0.92, hr + 18);
+    const legs = [];
+    for (const zs of [hr, -hr]) {
+      legs.push([{ x: -foot, y: 0, z: zs }, { x: 0, y: g.hy, z: zs }]);
+      legs.push([{ x: foot, y: 0, z: zs }, { x: 0, y: g.hy, z: zs }]);
+      legs.push([{ x: -foot, y: 0, z: zs }, { x: foot, y: 0, z: zs }]);
+    }
+    legs.push([{ x: -foot, y: 0, z: hr }, { x: -foot, y: 0, z: -hr }]);
+    legs.push([{ x: foot, y: 0, z: hr }, { x: foot, y: 0, z: -hr }]);
+
+    // paint: shell/rim sorted, then stand strokes over/under by depth
+    faces.sort((a, b) => a.z - b.z);
+    const steel = css("--steel"), amber = css("--amber");
+    const rgb = hex => {
+      const m = hex.replace("#", "");
+      const n = m.length === 3 ? m.split("").map(c => c + c).join("") : m;
+      return [parseInt(n.slice(0, 2), 16), parseInt(n.slice(2, 4), 16), parseInt(n.slice(4, 6), 16)];
+    };
+    const [sr, sg, sb] = rgb(steel);
+
+    for (const f of faces) {
+      vx.beginPath();
+      vx.moveTo(f.p[0].X, f.p[0].Y);
+      for (let i = 1; i < f.p.length; i++) vx.lineTo(f.p[i].X, f.p[i].Y);
+      vx.closePath();
+      if (f.kind === "rim") { vx.fillStyle = amber; }
+      else {
+        const k = f.shade;
+        vx.fillStyle = `rgb(${Math.round(sr * k)},${Math.round(sg * k)},${Math.round(sb * k)})`;
+      }
+      vx.fill();
+    }
+
+    // stand
+    vx.strokeStyle = css("--steel-dark"); vx.lineWidth = Math.max(2, 3 * zoom); vx.lineCap = "round";
+    for (const [a, b] of legs) {
+      const pa = pr(a.x, a.y, a.z), pb = pr(b.x, b.y, b.z);
+      vx.beginPath(); vx.moveTo(pa.X, pa.Y); vx.lineTo(pb.X, pb.Y); vx.stroke();
+    }
+    // trunnion pins
+    vx.fillStyle = amber;
+    for (const zs of [hr, -hr]) {
+      const p = pr(0, g.hy, zs);
+      vx.beginPath(); vx.arc(p.X, p.Y, Math.max(3, 4.5 * zoom), 0, Math.PI * 2); vx.fill();
+    }
+
+    // governing point marker + its penetration
+    const gp = tipPoint(g.gov.x, g.gov.y, 0, P.tip, g.hy);
+    const gpp = pr(gp.x, gp.y, gp.z);
+    vx.strokeStyle = g.clearance < 0 ? css("--crash") : css("--ok");
+    vx.lineWidth = 1.5;
+    vx.beginPath(); vx.arc(gpp.X, gpp.Y, 6, 0, Math.PI * 2); vx.stroke();
+
+    if (dimsOn) drawDims(g, pr);
+  }
+
+  function drawDims(g, pr) {
+    const ink = css("--ink-2"), soft = css("--ink-3");
+    vx.strokeStyle = soft; vx.fillStyle = ink; vx.lineWidth = 1;
+    vx.font = "600 11px " + "ui-monospace, monospace";
+    vx.setLineDash([4, 4]);
+    const label = (t, x, y) => {
+      vx.setLineDash([]);
+      const wpad = vx.measureText(t).width + 8;
+      vx.fillStyle = css("--panel");
+      vx.fillRect(x - wpad / 2, y - 13, wpad, 15);
+      vx.fillStyle = ink;
+      vx.textAlign = "center"; vx.fillText(t, x, y - 2);
+      vx.setLineDash([4, 4]);
+    };
+    // top diameter
+    const a = pr(-g.Rt, g.yTop, 0), b = pr(g.Rt, g.yTop, 0);
+    vx.beginPath(); vx.moveTo(a.X, a.Y); vx.lineTo(b.X, b.Y); vx.stroke();
+    label(`⌀ ${P.topD}`, (a.X + b.X) / 2, a.Y - 6);
+    // bottom diameter
+    const c = pr(-g.Rb, g.yBot, 0), d = pr(g.Rb, g.yBot, 0);
+    vx.beginPath(); vx.moveTo(c.X, c.Y); vx.lineTo(d.X, d.Y); vx.stroke();
+    label(`⌀ ${P.botD}`, (c.X + d.X) / 2, d.Y + 18);
+    // height
+    const h1 = pr(g.Rt * 1.15, g.yBot, 0), h2 = pr(g.Rt * 1.15, g.yTop, 0);
+    vx.beginPath(); vx.moveTo(h1.X, h1.Y); vx.lineTo(h2.X, h2.Y); vx.stroke();
+    label(`H ${P.ht}`, h2.X + 4, (h1.Y + h2.Y) / 2);
+    // clearance
+    const g1 = pr(g.Rb, 0, 0), g2 = pr(g.Rb, g.yBot, 0);
+    vx.beginPath(); vx.moveTo(g1.X, g1.Y); vx.lineTo(g2.X, g2.Y); vx.stroke();
+    label(`GC ${P.clear}`, g1.X, g1.Y + 16);
+    vx.setLineDash([]);
+    vx.textAlign = "left";
+  }
+
+  // ── cross-section view ────────────────────────────────────────
+  const sec = document.getElementById("section");
+  const sx = sec.getContext("2d");
+
+  function drawSection() {
+    const g = geom();
+    const W = sec.width, H = sec.height, dpr = 1;
+    sx.setTransform(1, 0, 0, 1, 0, 0);
+    sx.clearRect(0, 0, W, H);
+
+    const maxX = Math.max(g.Rt, g.maxR) * 1.35;
+    const maxY = Math.max(g.yTop, g.hy + g.maxR) * 1.12;
+    const s = Math.min((W * 0.5) / maxX, (H - 70) / (maxY + Math.max(0, g.maxR - g.hy)));
+    const ox = W / 2, oy = H - 46;
+    const X = x => ox + x * s, Y = y => oy - y * s;
+
+    // ground
+    sx.strokeStyle = css("--ink-3"); sx.lineWidth = 1.5;
+    sx.beginPath(); sx.moveTo(20, Y(0)); sx.lineTo(W - 20, Y(0)); sx.stroke();
+    sx.fillStyle = css("--ink-3"); sx.font = "600 10px ui-monospace, monospace";
+    sx.textAlign = "left"; sx.fillText("GROUND", 22, Y(0) + 14);
+
+    // pivot arc of the governing point
+    sx.strokeStyle = css("--amber-dim"); sx.setLineDash([3, 4]); sx.lineWidth = 1;
+    sx.beginPath(); sx.arc(X(0), Y(g.hy), g.maxR * s, 0, Math.PI * 2); sx.stroke();
+    sx.setLineDash([]);
+
+    // shell profile at current tip
+    const prof = [
+      { x: -g.Rt, y: g.yTop }, { x: -g.Rb, y: g.yBot },
+      { x: g.Rb, y: g.yBot }, { x: g.Rt, y: g.yTop },
+    ].map(p => tipPoint(p.x, p.y, 0, P.tip, g.hy));
+    sx.strokeStyle = css("--steel"); sx.lineWidth = 2.5; sx.lineJoin = "round";
+    sx.beginPath();
+    prof.forEach((p, i) => i ? sx.lineTo(X(p.x), Y(p.y)) : sx.moveTo(X(p.x), Y(p.y)));
+    sx.stroke();
+
+    // pivot centre
+    sx.fillStyle = css("--amber");
+    sx.beginPath(); sx.arc(X(0), Y(g.hy), 4.5, 0, Math.PI * 2); sx.fill();
+    sx.strokeStyle = css("--line"); sx.lineWidth = 1;
+    sx.beginPath(); sx.moveTo(X(-maxX), Y(g.hy)); sx.lineTo(X(maxX), Y(g.hy)); sx.stroke();
+
+    // governing radius line + lowest reach
+    const gp = tipPoint(g.gov.x, g.gov.y, 0, P.tip, g.hy);
+    sx.strokeStyle = css("--amber"); sx.lineWidth = 1.5;
+    sx.beginPath(); sx.moveTo(X(0), Y(g.hy)); sx.lineTo(X(gp.x), Y(gp.y)); sx.stroke();
+    sx.fillStyle = css("--amber");
+    sx.beginPath(); sx.arc(X(gp.x), Y(gp.y), 4, 0, Math.PI * 2); sx.fill();
+
+    // lowest point of the arc + verdict bracket
+    const lowY = g.hy - g.maxR;
+    const bad = lowY < 0;
+    sx.strokeStyle = bad ? css("--crash") : css("--ok");
+    sx.lineWidth = 2;
+    sx.beginPath(); sx.moveTo(X(0) - 8, Y(lowY)); sx.lineTo(X(0) + 8, Y(lowY)); sx.stroke();
+    sx.setLineDash([2, 3]); sx.lineWidth = 1;
+    sx.beginPath(); sx.moveTo(X(0), Y(lowY)); sx.lineTo(X(0), Y(0)); sx.stroke();
+    sx.setLineDash([]);
+    sx.fillStyle = bad ? css("--crash") : css("--ok");
+    sx.textAlign = "left"; sx.font = "600 11px ui-monospace, monospace";
+    sx.fillText(
+      bad ? `strikes ${Math.abs(lowY).toFixed(1)} cm below` : `clears by ${lowY.toFixed(1)} cm`,
+      X(0) + 12, Y(lowY) + 4
+    );
+
+    // labels
+    sx.fillStyle = css("--ink-3"); sx.font = "600 10px ui-monospace, monospace";
+    sx.fillText(`PIVOT  h = ${g.hy.toFixed(1)}`, X(0) + 10, Y(g.hy) - 8);
+    sx.fillText(`r max = ${g.maxR.toFixed(1)}  (${g.gov.tag})`, 22, 22);
+    sx.fillText(`tip = ${P.tip}°`, 22, 38);
+  }
+
+  // ── sync ──────────────────────────────────────────────────────
+  let dimsOn = false;
+  const fmt = { topD: "cm", botD: "cm", ht: "cm", hinge: "%", clear: "cm", tip: "°" };
+
+  function syncOutputs() {
+    for (const k of ids) {
+      const unit = fmt[k];
+      el[k + "_out"].textContent = unit === "°" ? `${P[k]}°` : `${P[k]} ${unit}`;
+      el[k].value = P[k];
+    }
+    const g = geom();
+    document.getElementById("s-hinge").innerHTML = `${g.hy.toFixed(1)}<span class="u">cm</span>`;
+    document.getElementById("s-radius").innerHTML = `${g.maxR.toFixed(1)}<span class="u">cm</span>`;
+    document.getElementById("s-slant").innerHTML = `${g.slant.toFixed(1)}<span class="u">cm</span>`;
+    document.getElementById("s-angle").innerHTML = `${g.angle.toFixed(1)}<span class="u">°</span>`;
+    document.getElementById("s-vol").innerHTML = `${Math.round(g.volL)}<span class="u">L</span>`;
+    document.getElementById("s-biomass").innerHTML = `${Math.round(g.biomass)}<span class="u">kg</span>`;
+    document.getElementById("s-char").innerHTML = `${Math.round(g.char)}<span class="u">kg</span>`;
+    document.getElementById("s-co2").innerHTML = `${g.co2.toFixed(3)}<span class="u">tCO₂e</span>`;
+
+    const v = document.getElementById("verdict"), t = document.getElementById("verdict-text");
+    if (g.clearance < 0) {
+      v.dataset.state = "crash";
+      t.innerHTML = `Crash — rim hits ground by <span class="num">${Math.abs(g.clearance).toFixed(1)}</span> cm`;
+    } else {
+      v.dataset.state = "clear";
+      t.innerHTML = `Clears ground by <span class="num">${g.clearance.toFixed(1)}</span> cm`;
+    }
+  }
+
+  function render() { syncOutputs(); draw(); drawSection(); }
+
+  for (const k of ids) {
+    el[k].addEventListener("input", e => { P[k] = +e.target.value; render(); });
+  }
+
+  document.getElementById("dims").addEventListener("click", e => {
+    dimsOn = !dimsOn;
+    e.currentTarget.setAttribute("aria-pressed", String(dimsOn));
+    e.currentTarget.textContent = dimsOn ? "Hide dimensions" : "Show dimensions";
+    draw();
+  });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    Object.assign(P, REF); yaw = -0.62; pitch = 0.30; zoom = 1; render();
+  });
+
+  let anim = null;
+  document.getElementById("simulate").addEventListener("click", e => {
+    const btn = e.currentTarget;
+    if (anim) { cancelAnimationFrame(anim); anim = null; btn.textContent = "Simulate tipping dump"; return; }
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { P.tip = 135; render(); return; }
+    btn.textContent = "Stop simulation";
+    const t0 = performance.now(), dur = 2600;
+    const step = now => {
+      const k = Math.min(1, (now - t0) / dur);
+      // ease out and back: tip to 135° then settle
+      const e2 = k < 0.62 ? (k / 0.62) : 1 - (k - 0.62) / 0.38;
+      P.tip = Math.round(135 * (e2 < 0 ? 0 : e2 > 1 ? 1 : e2));
+      render();
+      if (k < 1) anim = requestAnimationFrame(step);
+      else { anim = null; btn.textContent = "Simulate tipping dump"; }
+    };
+    anim = requestAnimationFrame(step);
+  });
+
+  // orbit + zoom
+  view.addEventListener("pointerdown", e => {
+    drag = { x: e.clientX, y: e.clientY }; view.setPointerCapture(e.pointerId);
+  });
+  view.addEventListener("pointermove", e => {
+    if (!drag) return;
+    yaw += (e.clientX - drag.x) * 0.008;
+    pitch = Math.max(-0.35, Math.min(1.15, pitch + (e.clientY - drag.y) * 0.005));
+    drag = { x: e.clientX, y: e.clientY };
+    draw();
+  });
+  view.addEventListener("pointerup", () => { drag = null; });
+  view.addEventListener("pointercancel", () => { drag = null; });
+  view.addEventListener("wheel", e => {
+    e.preventDefault();
+    zoom = Math.max(0.45, Math.min(2.6, zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+    draw();
+  }, { passive: false });
+  view.addEventListener("keydown", e => {
+    const k = { ArrowLeft: () => yaw -= 0.09, ArrowRight: () => yaw += 0.09,
+                ArrowUp: () => pitch = Math.min(1.15, pitch + 0.06),
+                ArrowDown: () => pitch = Math.max(-0.35, pitch - 0.06) }[e.key];
+    if (k) { e.preventDefault(); k(); draw(); }
+  });
+
+  addEventListener("resize", resize);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+  new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  requestAnimationFrame(() => { resize(); render(); });
+})();
+</script>

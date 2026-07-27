@@ -523,3 +523,25 @@ class DensityTestSubmit(BaseModel):
     performed_at: Optional[str] = Field(None, max_length=64)
 
 
+class DispatchManifestLineInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    container: Optional[str] = Field(None, max_length=32)
+    count: Optional[int] = Field(None, ge=1)
+    unit_kg: Optional[float] = Field(None, gt=0.0)
+    volume_l: Optional[float] = Field(None, gt=0.0)
+    product: Optional[str] = Field(None, max_length=64)
+
+
+class DispatchJourneyCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    device_id: Optional[str] = None
+    producer_signature: Optional[str] = None
+    distance_source: Literal["gps", "manual"]
+    distance_km: float = Field(..., ge=0.0, le=20000.0)
+    vehicle_reg: Optional[str] = Field(None, max_length=32)
+    fuel_type: str = Field(..., max_length=16)
+    vehicle_class: Optional[str] = Field(None, max_length=32)
+    route_geojson: Optional[str] = Field(None, max_length=100000)
+    manifest: list[DispatchManifestLineInput] = Field(default_factory=list)
+
+

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
-import StageTimeline, { type TimelineStage } from "./StageTimeline";
+import type { TimelineStage } from "../../api";
+import StageTimeline from "./StageTimeline";
 
 const base: TimelineStage[] = [
   {
@@ -8,7 +9,7 @@ const base: TimelineStage[] = [
     started_at: "2026-07-22T13:02:00Z",
     ended_at: "2026-07-22T15:02:00Z",
     state: "done",
-    media: [{ operation_id: "op1", sha256_hash: "abc" }],
+    media: [{ operation_id: "op1", sha256_hash: "abc", exif_lat: null, exif_lon: null } as any],
     telemetry_summary: { max_temp: 477, duration_min: 120 },
   },
   {
@@ -27,9 +28,8 @@ describe("StageTimeline", () => {
     expect(getByText("Mixing")).toBeInTheDocument();
   });
 
-  it("shows evidence count and telemetry summary on a done stage", () => {
+  it("shows telemetry summary on a done stage", () => {
     const { getByText } = render(<StageTimeline stages={base} />);
-    expect(getByText(/1 evidence item/)).toBeInTheDocument();
     expect(getByText(/max 477°C · 120 min/)).toBeInTheDocument();
   });
 

@@ -32,6 +32,8 @@ from models import (
     SupervisorVisit,
     SystemMetadata,
     TransportEvent,
+    DispatchJourney,
+    DispatchSite,
     YieldMetrics,
 )
 from lca_engine import (
@@ -593,6 +595,24 @@ async def _recompute_batch_credit_impl(
     if lca_config is not None:
         kwargs["config"] = lca_config
 
+    # M4.3 LCA hook: measured journey replaces default transport penalty.
+    measured_transport_kg = None
+    distance_source = None
+    if batch.parcel_uuid:
+        journey_row = (
+            await session.execute(
+                select(DispatchJourney)
+                .join(DispatchSite, DispatchSite.dispatch_uuid == DispatchJourney.dispatch_uuid)
+                .where(DispatchSite.parcel_uuid == batch.parcel_uuid)
+                .order_by(DispatchJourney.id.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        
+        if journey_row and journey_row.emissions_kg is not None:
+            measured_transport_kg = journey_row.emissions_kg
+            distance_source = journey_row.distance_source
+
     lca = calculate_carbon_credit(
         wet_yield_kg=corr.wet_yield_kg if corr.wet_yield_kg is not None else 0.0,
         moisture_percent=batch.moisture_percent,
@@ -605,6 +625,8 @@ async def _recompute_batch_credit_impl(
             else 0.0
         ),
         feedstock_species=batch.feedstock_species,
+        measured_transport_kg=measured_transport_kg,
+        distance_source=distance_source,
         **kwargs,
     )
 

@@ -234,16 +234,30 @@ def step5_6_transport_penalty(
     dry_mass_t: float,
     transport_threshold_km: float = TRANSPORT_THRESHOLD_KM,
     transport_factor_kg_per_t_km: float = TRANSPORT_FACTOR_KG_PER_T_KM,
+    measured_transport_kg: float | None = None,
+    distance_source: str | None = None,
 ) -> float:
     """Steps 5 & 6 — Transport Distance + Penalty.
 
     If distance > threshold (default 100 km):
       transport_penalty = distance_km * factor (default 0.01194) * dry_mass_t (kg CO₂e)
     Else: 0
+    
+    If measured_transport_kg is provided, it replaces the default derived penalty
+    under the registry-conservativeness rule:
+      - 'gps': strictly replaces the default (can lower the penalty).
+      - 'manual': max(measured, default) (can only increase the penalty).
     """
-    if transport_distance_km <= transport_threshold_km:
-        return 0.0
-    return transport_distance_km * transport_factor_kg_per_t_km * dry_mass_t
+    default_penalty = 0.0
+    if transport_distance_km > transport_threshold_km:
+        default_penalty = transport_distance_km * transport_factor_kg_per_t_km * dry_mass_t
+
+    if measured_transport_kg is not None:
+        if distance_source == "gps":
+            return measured_transport_kg
+        return max(measured_transport_kg, default_penalty)
+        
+    return default_penalty
 
 
 def step7_ch4_penalty(
@@ -311,6 +325,8 @@ def calculate_carbon_credit(
     h_corg_ratio: float | None = None,
     corg_override: float | None = None,
     config: LcaParams | None = None,
+    measured_transport_kg: float | None = None,
+    distance_source: str | None = None,
 ) -> LCAAudit:
     """Execute the complete 8-step CSI LCA pipeline.
 
@@ -368,6 +384,8 @@ def calculate_carbon_credit(
         dry_mass,
         params.transport_threshold_km,
         params.transport_factor_kg_per_t_km,
+        measured_transport_kg=measured_transport_kg,
+        distance_source=distance_source,
     )
 
     # Step 7

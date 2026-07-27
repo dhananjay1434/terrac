@@ -1,0 +1,2344 @@
+[
+  {
+    "screenshot": "screenshots/login/light/1440x900/default.png",
+    "route": "login",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/1440x900/default.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/1440x900/default.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1440x900/default.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/light/1440x900/default.png",
+    "route": "lab-scan",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/light/1440x900/default.png",
+    "route": "lab-entry",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/light/1440x900/default.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/light/1440x900/default.png",
+    "route": "projects",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/1440x900/default.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/1440x900/default.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/light/1280x800/default.png",
+    "route": "login",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/1280x800/default.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/1280x800/default.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1280x800/default.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/light/1280x800/default.png",
+    "route": "lab-scan",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/light/1280x800/default.png",
+    "route": "lab-entry",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/light/1280x800/default.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/light/1280x800/default.png",
+    "route": "projects",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/1280x800/default.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/1280x800/default.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/light/768x1024/default.png",
+    "route": "login",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/768x1024/default.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/768x1024/default.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/768x1024/default.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/light/768x1024/default.png",
+    "route": "lab-scan",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/light/768x1024/default.png",
+    "route": "lab-entry",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/light/768x1024/default.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/light/768x1024/default.png",
+    "route": "projects",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/768x1024/default.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/768x1024/default.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/light/390x844/default.png",
+    "route": "login",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/390x844/default.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/390x844/default.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/390x844/default.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/light/390x844/default.png",
+    "route": "lab-scan",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/light/390x844/default.png",
+    "route": "lab-entry",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/light/390x844/default.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/light/390x844/default.png",
+    "route": "projects",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/390x844/default.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/390x844/default.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/dark/1440x900/default.png",
+    "route": "login",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/1440x900/default.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/1440x900/default.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1440x900/default.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/dark/1440x900/default.png",
+    "route": "lab-scan",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/dark/1440x900/default.png",
+    "route": "lab-entry",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/dark/1440x900/default.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/dark/1440x900/default.png",
+    "route": "projects",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/1440x900/default.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/1440x900/default.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/dark/1280x800/default.png",
+    "route": "login",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/1280x800/default.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/1280x800/default.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1280x800/default.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/dark/1280x800/default.png",
+    "route": "lab-scan",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/dark/1280x800/default.png",
+    "route": "lab-entry",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/dark/1280x800/default.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/dark/1280x800/default.png",
+    "route": "projects",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/1280x800/default.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/1280x800/default.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/dark/768x1024/default.png",
+    "route": "login",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/768x1024/default.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/768x1024/default.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/768x1024/default.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/dark/768x1024/default.png",
+    "route": "lab-scan",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/dark/768x1024/default.png",
+    "route": "lab-entry",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/dark/768x1024/default.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/dark/768x1024/default.png",
+    "route": "projects",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/768x1024/default.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/768x1024/default.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/dark/390x844/default.png",
+    "route": "login",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/390x844/default.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/390x844/default.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/390x844/default.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/dark/390x844/default.png",
+    "route": "lab-scan",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/dark/390x844/default.png",
+    "route": "lab-entry",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/dark/390x844/default.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/dark/390x844/default.png",
+    "route": "projects",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/390x844/default.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/390x844/default.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/light/1440x900/default.verifier.png",
+    "route": "login",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/1440x900/default.verifier.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/1440x900/default.verifier.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1440x900/default.verifier.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/light/1440x900/default.verifier.png",
+    "route": "lab-scan",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/light/1440x900/default.verifier.png",
+    "route": "lab-entry",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/light/1440x900/default.verifier.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/light/1440x900/default.verifier.png",
+    "route": "projects",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/1440x900/default.verifier.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/1440x900/default.verifier.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/light/1280x800/default.verifier.png",
+    "route": "login",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/1280x800/default.verifier.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/1280x800/default.verifier.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1280x800/default.verifier.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/light/1280x800/default.verifier.png",
+    "route": "lab-scan",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/light/1280x800/default.verifier.png",
+    "route": "lab-entry",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/light/1280x800/default.verifier.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/light/1280x800/default.verifier.png",
+    "route": "projects",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/1280x800/default.verifier.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/1280x800/default.verifier.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/light/768x1024/default.verifier.png",
+    "route": "login",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/768x1024/default.verifier.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/768x1024/default.verifier.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/768x1024/default.verifier.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/light/768x1024/default.verifier.png",
+    "route": "lab-scan",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/light/768x1024/default.verifier.png",
+    "route": "lab-entry",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/light/768x1024/default.verifier.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/light/768x1024/default.verifier.png",
+    "route": "projects",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/768x1024/default.verifier.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/768x1024/default.verifier.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/light/390x844/default.verifier.png",
+    "route": "login",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/390x844/default.verifier.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/390x844/default.verifier.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/390x844/default.verifier.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/light/390x844/default.verifier.png",
+    "route": "lab-scan",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/light/390x844/default.verifier.png",
+    "route": "lab-entry",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/light/390x844/default.verifier.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/light/390x844/default.verifier.png",
+    "route": "projects",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/390x844/default.verifier.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/390x844/default.verifier.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/dark/1440x900/default.verifier.png",
+    "route": "login",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/1440x900/default.verifier.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/1440x900/default.verifier.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1440x900/default.verifier.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/dark/1440x900/default.verifier.png",
+    "route": "lab-scan",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/dark/1440x900/default.verifier.png",
+    "route": "lab-entry",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/dark/1440x900/default.verifier.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/dark/1440x900/default.verifier.png",
+    "route": "projects",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/1440x900/default.verifier.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/1440x900/default.verifier.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/dark/1280x800/default.verifier.png",
+    "route": "login",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/1280x800/default.verifier.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/1280x800/default.verifier.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1280x800/default.verifier.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/dark/1280x800/default.verifier.png",
+    "route": "lab-scan",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/dark/1280x800/default.verifier.png",
+    "route": "lab-entry",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/dark/1280x800/default.verifier.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/dark/1280x800/default.verifier.png",
+    "route": "projects",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/1280x800/default.verifier.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/1280x800/default.verifier.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "1280x800",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/dark/768x1024/default.verifier.png",
+    "route": "login",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/768x1024/default.verifier.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/768x1024/default.verifier.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/768x1024/default.verifier.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/dark/768x1024/default.verifier.png",
+    "route": "lab-scan",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/dark/768x1024/default.verifier.png",
+    "route": "lab-entry",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/dark/768x1024/default.verifier.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/dark/768x1024/default.verifier.png",
+    "route": "projects",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/768x1024/default.verifier.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/768x1024/default.verifier.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "768x1024",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/dark/390x844/default.verifier.png",
+    "route": "login",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/390x844/default.verifier.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/390x844/default.verifier.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/390x844/default.verifier.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-scan/dark/390x844/default.verifier.png",
+    "route": "lab-scan",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/dark/390x844/default.verifier.png",
+    "route": "lab-entry",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/dark/390x844/default.verifier.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/dark/390x844/default.verifier.png",
+    "route": "projects",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/390x844/default.verifier.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/390x844/default.verifier.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "390x844",
+    "state": "default",
+    "role": "verifier",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/1440x900/empty.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/1440x900/empty.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1440x900/empty.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/light/1440x900/empty.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/light/1440x900/empty.png",
+    "route": "projects",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/1440x900/empty.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/1440x900/empty.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/1440x900/error.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/1440x900/error.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1440x900/error.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/light/1440x900/error.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/light/1440x900/error.png",
+    "route": "projects",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/1440x900/error.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/1440x900/error.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/1440x900/overflow.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/1440x900/overflow.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1440x900/overflow.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/light/1440x900/overflow.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/light/1440x900/overflow.png",
+    "route": "projects",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/1440x900/overflow.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/1440x900/overflow.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/1440x900/loading.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "loading",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/1440x900/loading.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "loading",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1440x900/loading.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "loading",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/light/1440x900/loading.png",
+    "route": "farmers",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "loading",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/light/1440x900/loading.png",
+    "route": "dispatch",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "loading",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1440x900/provisional.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "provisional",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1440x900/lightbox-open.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "lightbox-open",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/light/1440x900/filters-active.png",
+    "route": "batches",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "filters-active",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/1440x900/sidebar-collapsed.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "sidebar-collapsed",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/light/1440x900/account-menu-open.png",
+    "route": "dashboard",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "account-menu-open",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/light/1440x900/error-invalid-credentials.png",
+    "route": "login",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "error-invalid-credentials",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/light/1440x900/validation-error.png",
+    "route": "lab-entry",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "validation-error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/1440x900/empty.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/1440x900/empty.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1440x900/empty.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/dark/1440x900/empty.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/dark/1440x900/empty.png",
+    "route": "projects",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/1440x900/empty.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/1440x900/empty.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "empty",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/1440x900/error.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/1440x900/error.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1440x900/error.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/dark/1440x900/error.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/dark/1440x900/error.png",
+    "route": "projects",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/1440x900/error.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/1440x900/error.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/1440x900/overflow.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/1440x900/overflow.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1440x900/overflow.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/registry/dark/1440x900/overflow.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/projects/dark/1440x900/overflow.png",
+    "route": "projects",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/1440x900/overflow.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/1440x900/overflow.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "overflow",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/1440x900/loading.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "loading",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/1440x900/loading.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "loading",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1440x900/loading.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "loading",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/farmers/dark/1440x900/loading.png",
+    "route": "farmers",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "loading",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dispatch/dark/1440x900/loading.png",
+    "route": "dispatch",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "loading",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1440x900/provisional.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "provisional",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1440x900/lightbox-open.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "lightbox-open",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batches/dark/1440x900/filters-active.png",
+    "route": "batches",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "filters-active",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/1440x900/sidebar-collapsed.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "sidebar-collapsed",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/dashboard/dark/1440x900/account-menu-open.png",
+    "route": "dashboard",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "account-menu-open",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/login/dark/1440x900/error-invalid-credentials.png",
+    "route": "login",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "error-invalid-credentials",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/lab-entry/dark/1440x900/validation-error.png",
+    "route": "lab-entry",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "validation-error",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/print/print-emulated.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "print",
+    "state": "print-emulated",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/_print/batch-detail.light.pdf",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "A4",
+    "state": "print-pdf",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/registry/light/print/print-emulated.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "print",
+    "state": "print-emulated",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/_print/registry.light.pdf",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "A4",
+    "state": "print-pdf",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/print/print-emulated.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "print",
+    "state": "print-emulated",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/_print/batch-detail.dark.pdf",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "A4",
+    "state": "print-pdf",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/registry/dark/print/print-emulated.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "print",
+    "state": "print-emulated",
+    "role": "admin",
+    "note": null
+  },
+  {
+    "screenshot": "screenshots/_print/registry.dark.pdf",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "A4",
+    "state": "print-pdf",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/light/table-row-default.png",
+    "route": "micro",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "table-row-default",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/light/table-row-hover.png",
+    "route": "micro",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "table-row-hover",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/light/filter-input-default.png",
+    "route": "micro",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "filter-input-default",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/light/filter-input-focus.png",
+    "route": "micro",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "filter-input-focus",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/light/nav-item-default.png",
+    "route": "micro",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "nav-item-default",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/light/nav-item-hover.png",
+    "route": "micro",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "nav-item-hover",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/light/theme-toggle-focus.png",
+    "route": "micro",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "theme-toggle-focus",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/dark/table-row-default.png",
+    "route": "micro",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "table-row-default",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/dark/table-row-hover.png",
+    "route": "micro",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "table-row-hover",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/dark/filter-input-default.png",
+    "route": "micro",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "filter-input-default",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/dark/filter-input-focus.png",
+    "route": "micro",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "filter-input-focus",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/dark/nav-item-default.png",
+    "route": "micro",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "nav-item-default",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/dark/nav-item-hover.png",
+    "route": "micro",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "nav-item-hover",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/dark/theme-toggle-focus.png",
+    "route": "micro",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "theme-toggle-focus",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1440x900/ready-to-issue.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "ready-to-issue",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/light/issue-btn-default.png",
+    "route": "micro",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "issue-btn-default",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/light/issue-btn-hover.png",
+    "route": "micro",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "issue-btn-hover",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/light/issue-btn-focus.png",
+    "route": "micro",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "issue-btn-focus",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1440x900/confirm-modal-mid-token.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "confirm-modal-mid-token",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/batch-detail/light/1440x900/confirm-modal-token-match.png",
+    "route": "batch-detail",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "confirm-modal-token-match",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/registry/light/1440x900/operators-tab.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "operators-tab",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/registry/light/1440x900/token-minted.png",
+    "route": "registry",
+    "theme": "light",
+    "viewport": "1440x900",
+    "state": "token-minted",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1440x900/ready-to-issue.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "ready-to-issue",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/dark/issue-btn-default.png",
+    "route": "micro",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "issue-btn-default",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/dark/issue-btn-hover.png",
+    "route": "micro",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "issue-btn-hover",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/_micro/dark/issue-btn-focus.png",
+    "route": "micro",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "issue-btn-focus",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1440x900/confirm-modal-mid-token.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "confirm-modal-mid-token",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/batch-detail/dark/1440x900/confirm-modal-token-match.png",
+    "route": "batch-detail",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "confirm-modal-token-match",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/registry/dark/1440x900/operators-tab.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "operators-tab",
+    "role": "admin"
+  },
+  {
+    "screenshot": "screenshots/registry/dark/1440x900/token-minted.png",
+    "route": "registry",
+    "theme": "dark",
+    "viewport": "1440x900",
+    "state": "token-minted",
+    "role": "admin"
+  }
+]

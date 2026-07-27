@@ -344,6 +344,8 @@ def _facility_row(f: Facility) -> dict:
         "district": f.district,
         "latitude": f.latitude,
         "longitude": f.longitude,
+        "contact_name": f.contact_name,
+        "contact_phone": f.contact_phone,
         "status": f.status,
         "created_at": f.created_at.isoformat() if f.created_at else None,
     }
@@ -422,6 +424,17 @@ def _dispatch_row(d: Dispatch) -> dict:
         "device_id": d.device_id,
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "received_at": d.received_at.isoformat() if d.received_at else None,
+        # Included for frontend mapping if joined
+        "sites": [
+            {
+                "parcel_uuid": s.parcel_uuid,
+                "moisture_pct": s.moisture_pct,
+                "truck_percentage_filled": s.truck_percentage_filled,
+                "contact_name": s.contact_name,
+                "contact_phone": s.contact_phone,
+            }
+            for s in getattr(d, "sites", [])
+        ],
     }
 
 
@@ -433,7 +446,8 @@ async def list_dispatch(
     before: Optional[str] = Query(None, description="cursor: created_at ISO"),
     limit: int = Query(50, ge=1, le=100),
 ):
-    stmt = select(Dispatch)
+    from sqlalchemy.orm import selectinload
+    stmt = select(Dispatch).options(selectinload(Dispatch.sites))
     if status_eq is not None:
         stmt = stmt.where(Dispatch.status == status_eq)
     if before:
@@ -449,6 +463,44 @@ async def list_dispatch(
         else None
     )
     return {"dispatches": [_dispatch_row(d) for d in rows], "next_cursor": next_cursor}
+
+
+@router.get("/dispatch/{dispatch_uuid}/journey")
+async def get_dispatch_journey(
+    dispatch_uuid: str,
+    _user: PortalUser = Depends(require_role()),
+    session: AsyncSession = Depends(get_session),
+):
+    from models import DispatchJourney, DispatchManifestLine
+    journey = (await session.execute(
+        select(DispatchJourney).where(DispatchJourney.dispatch_uuid == dispatch_uuid)
+    )).scalar_one_or_none()
+    
+    manifest_lines = (await session.execute(
+        select(DispatchManifestLine).where(DispatchManifestLine.dispatch_uuid == dispatch_uuid)
+    )).scalars().all()
+    
+    return {
+        "journey": {
+            "distance_source": journey.distance_source if journey else None,
+            "distance_km": journey.distance_km if journey else None,
+            "vehicle_reg": journey.vehicle_reg if journey else None,
+            "fuel_type": journey.fuel_type if journey else None,
+            "emissions_kg": journey.emissions_kg if journey else None,
+            "factor_version": journey.factor_version if journey else None,
+            "route_geojson": journey.route_geojson if journey else None,
+        } if journey else None,
+        "manifest": [
+            {
+                "container": m.container,
+                "count": m.count,
+                "unit_kg": m.unit_kg,
+                "volume_l": m.volume_l,
+                "product": m.product,
+            }
+            for m in manifest_lines
+        ],
+    }
 
 
 # ---------------------------------------------------------------------------

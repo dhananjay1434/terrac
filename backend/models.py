@@ -706,6 +706,10 @@ class Facility(Base):
     longitude: Mapped[float] = mapped_column(Float, nullable=True)
     registry_config_id: Mapped[str] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    # M4 (journeys_v2): dispatch contact info.
+    contact_name: Mapped[str] = mapped_column(String(128), nullable=True)
+    contact_phone: Mapped[str] = mapped_column(String(32), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -804,6 +808,40 @@ class DispatchSite(Base):
     parcel_uuid: Mapped[str] = mapped_column(String(36), nullable=True)
     moisture_pct: Mapped[float] = mapped_column(Float, nullable=True)
     truck_percentage_filled: Mapped[float] = mapped_column(Float, nullable=True)
+
+    # M4 (journeys_v2): dispatch contact info.
+    contact_name: Mapped[str] = mapped_column(String(128), nullable=True)
+    contact_phone: Mapped[str] = mapped_column(String(32), nullable=True)
+
+
+class DispatchJourney(Base):
+    """M4 (journeys_v2) — records the distance and emissions of a dispatch."""
+
+    __tablename__ = "dispatch_journeys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dispatch_uuid: Mapped[str] = mapped_column(String(36), nullable=False, unique=True, index=True)
+    distance_source: Mapped[str] = mapped_column(String(16), nullable=True)
+    distance_km: Mapped[float] = mapped_column(Float, nullable=True)
+    vehicle_reg: Mapped[str] = mapped_column(String(32), nullable=True)
+    fuel_type: Mapped[str] = mapped_column(String(16), nullable=True)
+    emissions_kg: Mapped[float] = mapped_column(Float, nullable=True)
+    factor_version: Mapped[str] = mapped_column(String(16), nullable=True)
+    route_geojson: Mapped[str] = mapped_column(Text, nullable=True)
+
+
+class DispatchManifestLine(Base):
+    """M4 (journeys_v2) — items in a dispatch manifest."""
+
+    __tablename__ = "dispatch_manifest_lines"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dispatch_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    container: Mapped[str] = mapped_column(String(32), nullable=True)
+    count: Mapped[int] = mapped_column(Integer, nullable=True)
+    unit_kg: Mapped[float] = mapped_column(Float, nullable=True)
+    volume_l: Mapped[float] = mapped_column(Float, nullable=True)
+    product: Mapped[str] = mapped_column(String(64), nullable=True)
 
 
 class RegistryConfig(Base):

@@ -14,6 +14,8 @@ import styles from "./JourneyPanel.module.css";
  * never lowered the credit; a GPS-traced distance is chipped "GPS-traced".
  * Missing values render as em-dash — never fabricated.
  */
+import ParcelMap from "../ParcelMap/ParcelMap";
+
 export interface JourneyManifestLine {
   container: string;
   count: number;
@@ -31,6 +33,7 @@ export interface JourneyData {
   recipient?: { contact_name: string | null; contact_phone_masked: string | null } | null;
   manifest?: JourneyManifestLine[];
   application_evidence?: { count: number } | null;
+  route_geojson?: Record<string, unknown> | null;
 }
 
 const DASH = "—";
@@ -144,7 +147,16 @@ export default function JourneyPanel({ data }: { data: JourneyData }) {
 
       {/* M4 stitch slot: Leaflet route polyline (route_geojson) mounts here via
           the shared ParcelMap/MapCanvas — deferred to keep this parallel-safe. */}
-      <div className={styles.routeSlot} data-testid="route-slot" aria-hidden />
+      {data.route_geojson ? (
+        <div className={styles.routeSlot}>
+          <span className="micro">Route map</span>
+          <div style={{ height: "300px", marginTop: "var(--space-2)" }}>
+            <ParcelMap selectedGeoJson={data.route_geojson} readOnly={true} />
+          </div>
+        </div>
+      ) : (
+        <div className={styles.routeSlot} data-testid="route-slot" aria-hidden />
+      )}
     </section>
   );
 }

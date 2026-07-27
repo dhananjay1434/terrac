@@ -1,5 +1,7 @@
 import { fmtDateTime } from "../../format";
+import type { MediaItem, TimelineStage } from "../../api";
 import StatusPill from "../../ui/StatusPill/StatusPill";
+import MediaCell from "../MediaCell/MediaCell";
 import styles from "./StageTimeline.module.css";
 
 /**
@@ -13,19 +15,6 @@ import styles from "./StageTimeline.module.css";
  * parallel lane without touching shared components; the media chip can be
  * upgraded to gallery thumbnails at the M3 stitch.
  */
-export interface TimelineMedia {
-  operation_id: string;
-  sha256_hash: string;
-}
-export interface TimelineStage {
-  stage: string;
-  started_at: string | null;
-  ended_at: string | null;
-  state: "done" | "active" | "empty";
-  media?: TimelineMedia[];
-  telemetry_summary?: { max_temp: number; duration_min: number } | null;
-  blocking?: boolean;
-}
 
 const STAGE_TITLES: Record<string, string> = {
   sourcing: "Sourcing",
@@ -53,7 +42,17 @@ function marker(state: TimelineStage["state"], blocking?: boolean): string {
   return blocking ? "!" : "—";
 }
 
-export default function StageTimeline({ stages }: { stages: TimelineStage[] }) {
+export default function StageTimeline({
+  stages,
+  locked,
+  onOpenMedia,
+  onVerified,
+}: {
+  stages: TimelineStage[];
+  locked?: boolean;
+  onOpenMedia?: (item: MediaItem) => void;
+  onVerified?: (opId: string, status: string, remarks: string | null) => void;
+}) {
   if (!stages.length) return null;
   return (
     <ol className={styles.timeline} aria-label="Batch custody timeline">
@@ -87,15 +86,23 @@ export default function StageTimeline({ stages }: { stages: TimelineStage[] }) {
                 </div>
               ) : (
                 <div className={styles.meta}>
-                  {count > 0 && (
-                    <span className={styles.chip}>
-                      {count} evidence item{count === 1 ? "" : "s"}
-                    </span>
-                  )}
                   {s.telemetry_summary && (
-                    <span className={`${styles.chip} mono tabular`}>
+                    <span className={`${styles.chip} mono tabular`} style={{ marginBottom: "var(--space-2)" }}>
                       max {s.telemetry_summary.max_temp}°C · {s.telemetry_summary.duration_min} min
                     </span>
+                  )}
+                  {count > 0 && s.media && (
+                    <div className="media-grid">
+                      {s.media.map((m) => (
+                        <MediaCell
+                          key={m.sha256_hash}
+                          item={m}
+                          locked={locked}
+                          onOpen={() => onOpenMedia?.(m)}
+                          onVerified={onVerified ? (status, remarks) => onVerified(m.operation_id, status, remarks) : undefined}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
               )}

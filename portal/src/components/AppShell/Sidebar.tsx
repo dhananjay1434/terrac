@@ -7,6 +7,7 @@ import {
   FolderKanban,
   Users,
   Truck,
+  BookOpen,
   PanelLeft,
   PanelLeftClose,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import styles from "./AppShell.module.css";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", match: "/dashboard", Icon: LayoutDashboard },
+  { to: "/ledgers", label: "Ledgers", match: "/ledgers", Icon: BookOpen },
   { to: "/batches", label: "Batches", match: "/batches", Icon: Layers },
   { to: "/lab/scan", label: "Lab", match: "/lab", Icon: FlaskConical },
   { to: "/registry", label: "Registry", match: "/registry", Icon: Archive },

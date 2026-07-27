@@ -14,6 +14,7 @@ const Registry = lazy(() => import("./pages/Registry"));
 const Projects = lazy(() => import("./pages/Projects"));
 const Farmers = lazy(() => import("./pages/Farmers"));
 const Dispatch = lazy(() => import("./pages/Dispatch"));
+const Ledger = lazy(() => import("./pages/Ledger"));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   return isAuthed() ? children : <Navigate to="/login" replace />;
@@ -115,6 +116,16 @@ export default function App() {
               <RequireAuth>
                 <Shell>
                   <Dispatch />
+                </Shell>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/ledgers"
+            element={
+              <RequireAuth>
+                <Shell>
+                  <Ledger />
                 </Shell>
               </RequireAuth>
             }

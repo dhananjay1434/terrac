@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { fetchMediaUrl, type MediaItem } from "../../api";
-import { isVideo } from "../EvidenceGallery/EvidenceGallery";
+import { isVideo } from "../MediaCell/MediaCell";
 import CopyButton from "../CopyButton/CopyButton";
 import { fmtDateTime } from "../../format";
 import Button from "../../ui/Button/Button";

@@ -14,6 +14,16 @@ export class ApiError extends Error {
   }
 }
 
+export interface TimelineStage {
+  stage: string;
+  started_at: string | null;
+  ended_at: string | null;
+  state: "done" | "active" | "empty";
+  media?: MediaItem[];
+  telemetry_summary?: { max_temp: number; duration_min: number } | null;
+  blocking?: boolean;
+}
+
 export interface BatchRow {
   batch_uuid: string;
   device_id: string | null;
@@ -242,6 +252,20 @@ export function listBatches(params: Record<string, string> = {}): Promise<{
 }> {
   const q = new URLSearchParams(params).toString();
   return req(`/api/v1/portal/batches${q ? `?${q}` : ""}`);
+}
+
+export async function getBatchTimeline(uuid: string): Promise<TimelineStage[]> {
+  const res = await fetch(`/api/v1/portal/batches/${uuid}/timeline`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (res.status === 401) throw new AuthError();
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  return res.json();
+}
+
+export async function getTimeline(uuid: string) {
+  // Legacy alias if needed, or just use getBatchTimeline
+  return getBatchTimeline(uuid);
 }
 
 export function getBatch(uuid: string): Promise<BatchDetail> {
@@ -588,6 +612,13 @@ export interface DispatchRow {
   device_id: string | null;
   created_at: string | null;
   received_at: string | null;
+  sites?: {
+    parcel_uuid: string | null;
+    moisture_pct: number | null;
+    truck_percentage_filled: number | null;
+    contact_name: string | null;
+    contact_phone: string | null;
+  }[];
 }
 
 export function listDispatch(params: Record<string, string> = {}): Promise<{
@@ -596,4 +627,10 @@ export function listDispatch(params: Record<string, string> = {}): Promise<{
 }> {
   const q = new URLSearchParams(params).toString();
   return req(`/api/v1/portal/dispatch${q ? `?${q}` : ""}`);
+}
+
+import type { JourneyData } from "./components/JourneyPanel/JourneyPanel";
+
+export function getDispatchJourney(dispatchUuid: string): Promise<JourneyData> {
+  return req(`/api/v1/portal/dispatch/${dispatchUuid}/journey`);
 }

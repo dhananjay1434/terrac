@@ -10,12 +10,14 @@ interface ParcelMapProps {
   existingParcels?: SourceParcel[];
   onPolygonCreated?: (geojson: Record<string, unknown>) => void;
   selectedGeoJson?: Record<string, unknown> | null;
+  readOnly?: boolean;
 }
 
 export default function ParcelMap({
   existingParcels = [],
   onPolygonCreated,
   selectedGeoJson,
+  readOnly = false,
 }: ParcelMapProps) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const leafletInstance = useRef<L.Map | null>(null);
@@ -48,7 +50,7 @@ export default function ParcelMap({
       drawnItemsRef.current = drawnItems;
 
       // Geoman draw controls
-      if ((map as unknown as { pm: unknown }).pm) {
+      if (!readOnly && (map as unknown as { pm: unknown }).pm) {
         (
           map as unknown as { pm: { addControls: (opts: unknown) => void } }
         ).pm.addControls({
@@ -138,8 +140,25 @@ export default function ParcelMap({
     if (selectedGeoJson) {
       const text = JSON.stringify(selectedGeoJson, null, 2);
       setRawGeoJsonText(text);
+
+      if (leafletInstance.current && drawnItemsRef.current) {
+        try {
+          drawnItemsRef.current.clearLayers();
+          const layer = L.geoJSON(selectedGeoJson);
+          drawnItemsRef.current.addLayer(layer);
+          const bounds = layer.getBounds();
+          if (bounds.isValid()) {
+            leafletInstance.current.fitBounds(bounds);
+          }
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    } else {
+      if (drawnItemsRef.current) drawnItemsRef.current.clearLayers();
+      setRawGeoJsonText("");
     }
-  }, [selectedGeoJson]);
+  }, [selectedGeoJson, mapInitialized]);
 
   function handleTextareaChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value;
@@ -183,24 +202,26 @@ export default function ParcelMap({
         <div ref={mapRef} className={styles.map} data-testid="parcel-leaflet-map" />
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-        <label className="micro" htmlFor="geojson-textarea">
-          Boundary GeoJSON (draw above or paste GeoJSON here)
-        </label>
-        <textarea
-          id="geojson-textarea"
-          aria-label="Boundary GeoJSON"
-          className={styles.geoJsonInput}
-          value={rawGeoJsonText}
-          onChange={handleTextareaChange}
-          placeholder='{"type": "Polygon", "coordinates": [[[lon, lat], ...]]}'
-        />
-        {parseError && (
-          <span className="chip err" style={{ fontSize: "var(--fs-12)", alignSelf: "flex-start" }}>
-            {parseError}
-          </span>
-        )}
-      </div>
+      {!readOnly && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+          <label className="micro" htmlFor="geojson-textarea">
+            Boundary GeoJSON (draw above or paste GeoJSON here)
+          </label>
+          <textarea
+            id="geojson-textarea"
+            aria-label="Boundary GeoJSON"
+            className={styles.geoJsonInput}
+            value={rawGeoJsonText}
+            onChange={handleTextareaChange}
+            placeholder='{"type": "Polygon", "coordinates": [[[lon, lat], ...]]}'
+          />
+          {parseError && (
+            <span className="chip err" style={{ fontSize: "var(--fs-12)", alignSelf: "flex-start" }}>
+              {parseError}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
