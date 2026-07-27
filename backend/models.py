@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -875,6 +876,58 @@ class BulkDensityTest(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class TelemetryChunk(Base):
+    """M2.1 — one signed edge-telemetry chunk (a contiguous run of one channel).
+
+    The signed unit of ingest. UNIQUE(batch_uuid, channel, t_start, signature)
+    makes re-ingest idempotent (edge retries are free, not errors). Additive;
+    the legacy PyrolysisTelemetry path is untouched.
+    """
+
+    __tablename__ = "telemetry_chunks"
+    __table_args__ = (
+        UniqueConstraint(
+            "batch_uuid", "channel", "t_start", "signature",
+            name="uq_telemetry_chunks_idem",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        # BIGINT on Postgres; INTEGER on SQLite so it aliases rowid and
+        # autoincrements (a bare BIGINT PK does not on SQLite).
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
+    batch_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    device_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    channel: Mapped[str] = mapped_column(String(16), nullable=False)
+    t_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    t_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    sample_period_s: Mapped[float] = mapped_column(Float, nullable=False)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    signature: Mapped[str] = mapped_column(String(128), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class TelemetryPoint(Base):
+    """M2.1 — one unpacked telemetry sample. Composite PK (batch_uuid, channel,
+    ts) is required by the ORM AND doubles as point-level idempotency (audit A2:
+    conflict-ignoring inserts make chunk retries / overlapping re-aggregations
+    free). Plain table on SQLite; Postgres partitioning deferred to M6.2 perf."""
+
+    __tablename__ = "telemetry_points"
+
+    batch_uuid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    channel: Mapped[str] = mapped_column(String(16), primary_key=True)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
 
 
 class AppConfig(Base):
