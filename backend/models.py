@@ -1119,3 +1119,32 @@ class CreditIssuance(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class BatchStageEvent(Base):
+    """M3.1 — custody-chain timeline event.
+
+    One row per (batch, stage). Source tracks provenance: 'projected' for
+    historical backfill, 'device'/'edge' for forward telemetry/app events,
+    'admin' for manual corrections. Stage whitelist is CHECK-enforced in the
+    migration; the constant tuple here is the Python-side source of truth.
+    """
+
+    __tablename__ = "batch_stage_events"
+    __table_args__ = (
+        UniqueConstraint("batch_uuid", "stage", name="uq_stage_events_batch_stage"),
+    )
+
+    STAGE_WHITELIST = (
+        "sourcing", "moisture", "loading", "firing", "biochar_addition",
+        "pre_quenching", "quenching", "yield", "mixing", "packaging",
+        "dispatch", "application", "lab",
+    )
+    SOURCE_WHITELIST = ("device", "edge", "projected", "admin")
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    batch_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    stage: Mapped[str] = mapped_column(String(32), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False)
