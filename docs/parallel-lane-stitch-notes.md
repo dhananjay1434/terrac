@@ -18,6 +18,7 @@ serialized schema/endpoint tasks. Each stitch is small and explicitly scoped.
 | Stage projection (pure) | `backend/stage_projection.py` (+test) | M3.1-logic | 8a20a02 |
 | Stage timeline component | `portal/src/components/StageTimeline/` | M3.3 | 23421d5 |
 | Journey panel component | `portal/src/components/JourneyPanel/` | M4.4 | 21301da |
+| Biomass ledger aggregator (pure) | `backend/ledger_aggregate.py` (+test) | M5.1-core | (this lane) |
 
 ## Stitches owed (coordinator, after the serialized schema/endpoints land)
 
@@ -55,6 +56,13 @@ mode: `api2.openBurnStream`. Pass `gateSatisfied` from the compliance result.
 endpoint call it (adapt ORM rows → the dict shapes it accepts via `_get`).
 Wire `StageTimeline` into `BatchDetail.tsx` above the evidence gallery when the
 `timeline_v2` flag is on and the timeline is non-empty.
+
+### M5.1 biomass ledger — aggregation pre-built
+`ledger_aggregate.build_biomass_ledger(rows, date_from, date_to, bucket)` is
+ready + tested. The M5.1 endpoint (coordinator: router + registration) adapts
+ORM batch/intake rows → the dict shape `{date, species, kg, batch_code}` and
+calls it — do NOT reimplement the grouping inline. M5.2 page then renders the
+result (FilterBar MTD/YTD + DataTable + StatBand).
 
 ### M4.3/M4.4 journeys — needs M4.1 schema
 `emissions_factors.estimate_emissions` is ready for the LCA hook (A7: manual
