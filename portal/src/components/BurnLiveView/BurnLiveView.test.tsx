@@ -78,6 +78,16 @@ describe("BurnLiveView", () => {
     await waitFor(() => expect(screen.getByText(/Live view ended/i)).toBeInTheDocument());
   });
 
+  it("degrades to static (no crash) when the stream opener rejects", async () => {
+    const opener = vi.fn(async () => {
+      throw new Error("SSE endpoint 404 — M2.4 not built yet");
+    });
+    render(<BurnLiveView uuid="b1" initial={snapshot()} live streamOpener={opener as never} />);
+    await waitFor(() => expect(screen.getByText(/Live view ended/i)).toBeInTheDocument());
+    // chart still rendered from the snapshot
+    expect(document.querySelector("polyline")).not.toBeNull();
+  });
+
   it("disposes the stream on unmount", async () => {
     const dispose = vi.fn();
     const opener = vi.fn(async () => dispose);

@@ -20,7 +20,7 @@ import CopyButton from "../components/CopyButton/CopyButton";
 import ProvenanceTile from "../components/ProvenanceTile/ProvenanceTile";
 import LcaBreakdown from "../components/LcaBreakdown/LcaBreakdown";
 import LcaFormula from "../components/LcaFormula/LcaFormula";
-import TemperatureChart from "../components/TemperatureChart/TemperatureChart";
+import BurnTelemetryChart from "../components/BurnTelemetryChart/BurnTelemetryChart";
 import StatTile from "../components/StatTile/StatTile";
 import Skeleton from "../components/Skeleton/Skeleton";
 import { fmtCredit, fmtDate, fmtKg, fmtDateTime } from "../format";
@@ -292,10 +292,13 @@ export default function BatchDetail() {
 
       <Card as="section" style={{ marginTop: "var(--space-4)" }}>
         <span className="micro">Burn telemetry</span>
-        <TemperatureChart
-          readings={d.telemetry?.temperature_readings ?? []}
-          minTemp={d.telemetry?.min_temp ?? null}
-          maxTemp={d.telemetry?.max_temp ?? null}
+        <BurnTelemetryChart
+          uuid={d.batch.batch_uuid}
+          legacyReadings={d.telemetry?.temperature_readings ?? []}
+          legacyMin={d.telemetry?.min_temp ?? null}
+          legacyMax={d.telemetry?.max_temp ?? null}
+          gateSatisfied={d.compliance.checklist.some((c) => c.code === "C3" && c.ok)}
+          live={d.batch.status !== "ISSUED"}
         />
         <div className="tiles" style={{ marginTop: "var(--space-3)" }}>
           <StatTile label="Min temp" value={d.telemetry?.min_temp != null ? `${d.telemetry.min_temp}°C` : "—"} />

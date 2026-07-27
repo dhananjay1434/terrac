@@ -82,10 +82,16 @@ export default function BurnLiveView({
       } else if (m.type === "stream_closed") {
         setStatus("ended");
       }
-    }).then((d) => {
-      if (cancelled) d();
-      else dispose = d;
-    });
+    })
+      .then((d) => {
+        if (cancelled) d();
+        else dispose = d;
+      })
+      .catch(() => {
+        // SSE endpoint absent (M2.4 not yet live) or unreachable → degrade to a
+        // static snapshot rather than crash. Graceful-degradation law.
+        if (!cancelled) setStatus("ended");
+      });
     return () => {
       cancelled = true;
       dispose?.();
