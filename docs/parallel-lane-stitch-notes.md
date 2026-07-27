@@ -70,6 +70,22 @@ distances use `max(measured, default)`). Wire `JourneyPanel` into `Dispatch.tsx`
 as a select→panel side view (scroll-into-view — don't repeat audit F1); mount a
 Leaflet polyline into `JourneyPanel`'s `data-testid="route-slot"`.
 
+## ⚠⚠ M2.9 REQUIRED before M2 is declared done (ADR-002 Addendum A — re-audit):
+1. **Burn sessions + late binding (A1):** the edge unit cannot know batch_uuid
+   (batches are created in the phone app). Additive migration: `burn_sessions`
+   table + `telemetry_chunks.session_uuid` NULL + relax `chunks.batch_uuid` to
+   NULLABLE. Binding (kiln + time-overlap proposal, operator/admin confirm) =
+   UPDATE chunks + AuditEvent. Unbound sessions are invisible to compliance —
+   nothing fails. Read APIs/bridge/charts unchanged.
+2. **Courier auth (A2):** `verify_signature`'s v2 canonical has a signed-at
+   replay window → a store-and-forward edge pre-signing HTTP requests would go
+   stale. Resolution: transport request signed by the RELAYING device's own key
+   (fresh), edge's signature verified IN the envelope. Ingest verifies both;
+   store `courier_device_id`. Cellular units: producer == courier, same path.
+3. Envelope close cadence 10 min; chain verification lazy per session
+   (out-of-order arrival via multiple couriers is normal); break → gap
+   annotation, never rejection.
+
 ## ⚠ FOR THE AGENT ON M2.1/M2.2 (mid-flight note, ADR-002): `telemetry_chunks`
 should carry two extra NULLABLE columns — `seq INT NULL`, `prev_hash
 VARCHAR(64) NULL` (hash-chain fields, ADR-002 §2.3). If your migration hasn't

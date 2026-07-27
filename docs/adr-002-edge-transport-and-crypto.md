@@ -80,3 +80,71 @@ Net: **SD card and phone are untrusted by construction.** A hostile courier can 
 - **Phone-as-sensor-reader (no edge MCU, thermocouple dongle on the phone):** rejected — ties data capture to phone presence for the whole burn, no local integrity, wrong trust boundary.
 - **Cellular-everywhere:** rejected on economics/coverage (see §1); remains available per-site as a module.
 - **Encrypting the SD contents:** not required — telemetry is evidence, not a secret; integrity (signatures + chain) is the requirement, and key material never touches the card. Revisit only if PII ever lands on the edge (it must not).
+
+---
+
+# ADDENDUM A — Re-audit (2026-07-27, post-M2.2 landing)
+Hostile re-review against the real code (`security.py` canonicalization, landed
+M2.1/M2.2). Three amendments. A1 is a genuine design hole; A2/A3 are
+code-forced sharpenings. Everything else in ADR-002 survives scrutiny
+(BLE throughput: a full 72 h backlog ≈ 2 MB drains in ~3–5 min on BLE 5;
+Ed25519 on ESP32-S3 ≈ ms per envelope — neither is a bottleneck).
+
+## A1 · THE HOLE: the edge unit cannot know `batch_uuid` — introduce BURN SESSIONS with late binding
+The envelope (and the landed M2.2 ingest) requires `batch_uuid` — but batches
+are created in the phone app; a headless logger bolted to a kiln has no way to
+know which batch is burning. In the field this becomes wrong-or-missing batch
+IDs at burn time = compliance garbage. Fix — **separation of concerns: the edge
+logs SESSIONS; binding to a batch happens later, auditable:**
+- Envelope: `session_uuid` (generated on-device, part of the signed chain)
+  becomes the primary key-in-motion; `batch_uuid` becomes OPTIONAL (a
+  cellular/industrial unit that is told its batch may still set it).
+- New table `burn_sessions` (session_uuid PK, device_id, started_at, ended_at,
+  batch_uuid NULL, binding_source `operator|auto|admin`, bound_by, bound_at) +
+  additive columns on `telemetry_chunks`: `session_uuid` NULL; relax
+  `batch_uuid` to NULLABLE (expand-safe alter, no drop/rename).
+- Binding: at sync, the app/portal proposes matches by **kiln + time-overlap**
+  with the batch's own pyrolysis records; operator confirms (or admin binds in
+  portal). Binding = one UPDATE on the session's chunks + an AuditEvent. Until
+  bound, a session's data is simply invisible to compliance — correct
+  semantics, nothing fails (Global Rule 10 intact).
+- Read APIs / bridge / charts are UNCHANGED — they already query by batch_uuid
+  and simply see the data the moment it is bound.
+
+## A2 · Two-layer auth: the COURIER signs the transport, the EDGE signs the cargo
+`verify_signature` binds Ed25519 over [method, path, idempotency-key,
+sha256(body), device_id] — and canonical **v2 adds a signed-at replay window**.
+A store-and-forward edge unit pre-signing HTTP requests hours earlier would be
+rejected as stale the moment v2 is enforced. The clean resolution (and it drops
+out of the courier metaphor):
+- **Transport layer:** the PHONE signs the ingest HTTP request with ITS OWN
+  enrolled device key, fresh at send time — v2 replay window works naturally.
+- **Evidence layer:** the edge unit's signature lives IN the envelope
+  (+ chain), verified separately against the edge's registered pubkey.
+- Ingest delta (M2.2): the authenticated transport device may differ from the
+  envelope's producing device; verify BOTH keys; store both identities
+  (`courier_device_id`, producer = envelope signer). For cellular-direct units
+  producer == courier — the same code path, zero special-casing.
+- Security win: a phone can never alter/forge cargo (no edge key); an edge key
+  can never be exercised for arbitrary API calls from a phone (transport auth
+  is the phone's own, already-scoped identity).
+
+## A3 · Operational sharpenings (contract-level)
+1. **Envelope close every 10 min (60 values), not 2 h** — power loss mid-burn
+   costs ≤10 min of unsigned buffer instead of 2 h. (≤720-value ceiling stays
+   for backfill compaction.)
+2. **Chain verification is lazy/eventual:** chunks may arrive out of order via
+   multiple couriers; verify per-session continuity as neighbors arrive; a
+   persistent break = stored gap annotation, never a rejection of valid chunks.
+3. **BLE link needs no secrecy:** cargo is signed and non-secret, so use open
+   GATT + app-level device filtering; pairing/bonding adds field-support pain
+   and zero security (any phone MAY courier — the server dedups and verifies).
+4. Multiple phones draining the same backlog is a FEATURE (any visiting
+   operator syncs the site) — idempotency already makes it safe.
+
+## Sequencing note
+The M2 agent is mid-flight: M2.1/M2.2 landed with batch_uuid-required
+semantics. A1/A2 are **additive follow-ups** (one migration: burn_sessions +
+2 columns + nullable relax; one ingest amendment) — schedule as **M2.9
+"sessions + courier auth"** immediately after M2.5, before the M2 stitch is
+declared done. M7 (phone relay) consumes A1/A2 as its server contract.
