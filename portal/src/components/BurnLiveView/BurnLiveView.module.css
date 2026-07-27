@@ -1,0 +1,34 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.statusRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+.statusRow[data-status="live"] .dot {
+  background: var(--status-error-fg); /* a live-recording indicator, semantic */
+  animation: pulse 1.6s var(--ease-productive) infinite;
+}
+.statusRow[data-status="live"] .micro {
+  color: var(--status-error-fg);
+  letter-spacing: 0.08em;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .statusRow[data-status="live"] .dot {
+    animation: none;
+  }
+}
