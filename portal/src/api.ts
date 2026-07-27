@@ -629,8 +629,8 @@ export function listDispatch(params: Record<string, string> = {}): Promise<{
   return req(`/api/v1/portal/dispatch${q ? `?${q}` : ""}`);
 }
 
-import type { JourneyData } from "./components/JourneyPanel/JourneyPanel";
+import type { JourneyData, JourneyManifestLine } from "./components/JourneyPanel/JourneyPanel";
 
-export function getDispatchJourney(dispatchUuid: string): Promise<JourneyData> {
+export function getDispatchJourney(dispatchUuid: string): Promise<{ journey: JourneyData; manifest: JourneyManifestLine[] }> {
   return req(`/api/v1/portal/dispatch/${dispatchUuid}/journey`);
 }

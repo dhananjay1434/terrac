@@ -144,7 +144,7 @@ export default function ParcelMap({
       if (leafletInstance.current && drawnItemsRef.current) {
         try {
           drawnItemsRef.current.clearLayers();
-          const layer = L.geoJSON(selectedGeoJson);
+          const layer = L.geoJSON(selectedGeoJson as any);
           drawnItemsRef.current.addLayer(layer);
           const bounds = layer.getBounds();
           if (bounds.isValid()) {

@@ -22,7 +22,7 @@ import Card from "../ui/Card/Card";
 import Button from "../ui/Button/Button";
 import Skeleton from "../components/Skeleton/Skeleton";
 import JourneyPanel, { type JourneyData } from "../components/JourneyPanel/JourneyPanel";
-import ParcelMap from "../components/ParcelMap/ParcelMap";
+
 
 const PAGE_SIZE = 25;
 
