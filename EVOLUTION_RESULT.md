@@ -34,8 +34,30 @@ real, verified progress + a de-risked backlog, not a volume of ungated code.
 | M5.1–M5.2 ledgers | ⬜ pending | |
 | M6.1–M6.3 contract & harden | ⬜ pending | |
 
-**Score: 8 / 30 tasks done & gated; 1 blocked (M1.3).** M0 complete; M1 complete
-except M1.3 (blocked — under-specified). M1 phase gate GREEN.
+**Score: 12 / 30 tasks done & gated (+ 3 pre-built portal pieces wired-pending).**
+M0 + M1 complete (M1.3 unblocked via ADR-001 B); M2 backbone (2.1/2.2/2.5) done;
+M2.3/M2.4 + chart stitches remaining. Both phase gates GREEN.
+
+### M1.3-unblock + M2-backbone (latest run, baseline 9998575)
+- **M1.3 UNBLOCKED** (`ff98f42`) — ADR-001 B ordinals migration (`b8e2d4f6a1c3`) +
+  `ordinals.py` + `backfill_ordinals` (B4.1-4) + `backfill_batch_codes` (B4.5,
+  batch→telemetry-kiln→site→network, seq per kiln/day, incomplete→NULL).
+- **M2.1** (`b8c1bbd`) — telemetry_chunks/points schema (`c9f1a3b5d7e2`) +
+  `telemetry_store.insert_points` (conflict-ignoring, audit A2).
+- **M2.2** (`baa30f9`) — signed `/api/v2/telemetry/ingest`; clock rule A5;
+  idempotent chunk; publishes to `telemetry_bus`.
+- **M2.5** (`9c2d83a`) — `telemetry_bridge` burn-window compliance (ADR A2/A3:
+  T1-T3, 350°C window, gaps-excluded, <60→None) + one guarded `credit_engine`
+  hook (flag-gated, legacy-first).
+- Fix (`254fdf7`) — tokenized 3 raw `2px` spacings in the pre-built
+  StageTimeline/LoadTelemetryChart CSS (the Phase-8 no-raw-values guard caught
+  them at the new baseline).
+- **Gate:** backend **843 passed, 2 skipped** (~17.5 min, up from 803, zero
+  regressions); portal `npm run verify` (tsc+vitest 389+build) green. New alembic
+  head **c9f1a3b5d7e2**; all migrations up/down verified. Flags still default OFF.
+- **Remaining in M2:** M2.3 (read API + rollup), M2.4 (SSE ticket/stream shell
+  over the pre-built bus), and the BatchDetail chart stitch (a parallel lane has
+  begun wiring `BurnTelemetryChart`).
 
 ### M1 phase gate (this run)
 - Backend full suite: **803 passed, 2 skipped** (~950s) — up from 767 baseline

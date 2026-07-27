@@ -44,8 +44,8 @@ NOTES: <≤3 lines>
 ### 0.5 Task manifest (tick as you go)
 ```
 M0: [x]0.1 [x]0.2 [x]0.3
-M1: [x]1.1 [x]1.2 [!]1.3  [x]1.4 [x]1.5      # 1.3 BLOCKED (under-specified — see EXECUTION_LOG)
-M2: [ ]2.1 [ ]2.2 [ ]2.3 [ ]2.4 [ ]2.5 [ ]2.6 [ ]2.7 [ ]2.8
+M1: [x]1.1 [x]1.2 [x]1.3  [x]1.4 [x]1.5      # 1.3 UNBLOCKED via ADR-001 B (ff98f42)
+M2: [x]2.1 [x]2.2 [ ]2.3 [ ]2.4 [x]2.5 [x]2.6 [x]2.7 [x]2.8   # 2.6/2.7/2.8 pre-built(3008d74); 2.3/2.4 + chart stitches pending
 M3: [ ]3.1 [ ]3.2 [ ]3.3
 M4: [ ]4.1 [ ]4.2 [ ]4.3 [ ]4.4
 M5: [ ]5.1 [ ]5.2
