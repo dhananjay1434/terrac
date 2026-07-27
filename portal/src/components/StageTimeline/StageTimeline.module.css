@@ -54,7 +54,7 @@
 }
 .body {
   min-width: 0;
-  padding-top: 2px;
+  padding-top: var(--space-1);
 }
 .head {
   display: flex;
@@ -83,7 +83,7 @@
 .chip {
   font-size: var(--fs-12);
   color: var(--text-secondary);
-  padding: 2px var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--r-sm);
   background: var(--surface-sunken);
 }
