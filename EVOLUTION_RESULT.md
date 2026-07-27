@@ -23,18 +23,26 @@ real, verified progress + a de-risked backlog, not a volume of ungated code.
 | M0.1 read-and-map | ✅ done | NOTES in `EXECUTION_LOG.md` (test/migration/credit-anchor patterns) |
 | M0.2 feature flags | ✅ done | `feature_flags.py`, 4 tests. **Adapted**: real `AppConfig` is single-row `flags_json`, not key/value (the one permitted M0.2 deviation) |
 | M0.3 replay harness | ✅ done | `tools/replay_seed.py`, slow smoke test green. Seeds scratch SQLite via `--remote` (prod-safe) |
-| M1.1 schema: networks/site/kiln/batch | ⬜ pending | migration + models (coordinator-serialized) |
-| M1.2 batch-code generator | ✅ done | `batch_codes.py` verbatim + `slot_for`, 7 tests. No schema dep |
-| M1.3 backfill script | ⬜ pending | depends on M1.1 schema |
-| M1.4 hierarchy in portal list | ⬜ pending | depends on M1.1 |
-| M1.5 cascading filters | ⬜ pending | depends on M1.1 |
+| M1.1 schema: networks/site/kiln/batch | ✅ done | `hierarchy_v2` migration + models; 8 tests + alembic up/down/up (`46733d6`) |
+| M1.2 batch-code generator | ✅ done | `batch_codes.py` verbatim + `slot_for`, 7 tests (`b824994`) |
+| M1.3 backfill script | ⛔ BLOCKED | under-specified: no org_num/network_code/site_num/kiln_num mapping in schema or data; can't call `make_batch_code` without inventing one (§0.6/A3 forbids). Needs a spec |
+| M1.4 hierarchy in portal list | ✅ done | `_batch_row` +3 keys; apiV2types + Batches short-code cell (`d2e13d6`) |
+| M1.5 cascading filters | ✅ done | flagged `/hierarchy` + FilterBar cascading selects (`aa6fae5`); fetch wiring deferred to api2.ts (M2.6) |
 | M2.1–M2.8 telemetry plane | ⬜ pending | chunks/points, ingest, read+rollup, SSE tickets, credit bridge, api2.ts, ThermalMapChart, LoadTelemetryChart |
 | M3.1–M3.3 stage timeline | ⬜ pending | |
 | M4.1–M4.4 distribution intelligence | ⬜ pending | |
 | M5.1–M5.2 ledgers | ⬜ pending | |
 | M6.1–M6.3 contract & harden | ⬜ pending | |
 
-**Score: 4 / 30 tasks done & gated.**
+**Score: 8 / 30 tasks done & gated; 1 blocked (M1.3).** M0 complete; M1 complete
+except M1.3 (blocked — under-specified). M1 phase gate GREEN.
+
+### M1 phase gate (this run)
+- Backend full suite: **803 passed, 2 skipped** (~950s) — up from 767 baseline
+  (+36 additive tests across M0/M1), zero regressions.
+- Portal `npm run verify`: tsc clean + full vitest + production build, all green.
+- New Alembic head: **a7f3c1b9d2e4** (hierarchy_v2); upgrade/downgrade/upgrade
+  verified on scratch SQLite. All five feature flags remain default-OFF.
 
 ## Tests (before → after)
 - Backend baseline before: **767 passed, 2 skipped** (`~525s`, full run).

@@ -87,3 +87,33 @@ org-override-beats-global, default-off (missing row/key → off), never cached
 
 ## Task status log
 (appended as tasks complete)
+
+---
+
+## M1 status (this run)
+- **M1.1 done** (46733d6): `hierarchy_v2` migration + models (Network table;
+  Facility.network_id/site_code; Kiln.site_id/kiln_code/sensor_profile w/ CHECK
+  whitelist; Batch.batch_code UNIQUE + network_id/site_id). Schema test 8 passed;
+  alembic up/down/up clean on scratch SQLite (chains off head 653b964bf1c2).
+  New alembic head = **a7f3c1b9d2e4**.
+- **M1.2 done** (prior run, b824994): batch_codes.py + slot_for. 7 tests.
+- **M1.3 BLOCKED (under-specified).** The backfill must call
+  `make_batch_code(country, org_num, network_code, site_num, kiln_num, slot_num,
+  seq)`, but M1.1's schema/data carry NONE of the structured numeric components:
+  `org_id` is a free-form string (e.g. "org-1", "org-metrics-a") with no 0–99
+  mapping; there is no `network_code` (^[A-Z]\d{3}$) field; `site_code`/`kiln_code`
+  are themselves display codes (nullable, unpopulated) — deriving site_num/kiln_num
+  from them is circular. No numbering convention exists anywhere in the codebase
+  (grep: org_num/site_num/kiln_num/network_code → 0 hits). Implementing would
+  require inventing an entity→code-component mapping = the exact hallucination
+  §0.6/A3 and the prime directive forbid. NEEDS: a spec (or new schema fields) for
+  how org/network/site/kiln map to code components before M1.3 can proceed.
+  Does NOT block M1.4/M1.5 (batch_code stays NULL → portal short-UUID fallback).
+- **M1.4 done** (d2e13d6): `_batch_row` +batch_code/network_id/site_id (additive,
+  serves list+detail); portal apiV2types.ts (BatchRowV2) + Batches column shows
+  batch_code ?? short-uuid. Tests green.
+- **M1.5 done** (aa6fae5): flagged `GET /api/v1/portal/hierarchy`
+  (portal/hierarchy_routes.py, registered after portal_issuance_router) + FilterBar
+  cascading network→site→kiln selects (data-driven; hidden when empty). The
+  FETCH wiring (Batches → /hierarchy) lands with api2.ts in M2.6; FilterBar is
+  ready to receive the data. Tests: backend 4, FilterBar 5.
