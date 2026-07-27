@@ -85,6 +85,7 @@ def create_app() -> FastAPI:
     from routers.devices import router as devices_router
     from routers.batches import router as batches_router
     from routers.evidence import router as evidence_router
+    from routers.telemetry import router as telemetry_router  # M2.2
     from routers.media import router as media_router
     from routers.lab import router as lab_router
     from routers.admin import router as admin_router
@@ -101,6 +102,7 @@ def create_app() -> FastAPI:
     application.include_router(devices_router)
     application.include_router(batches_router)
     application.include_router(evidence_router)
+    application.include_router(telemetry_router)  # M2.2
     application.include_router(media_router)
     application.include_router(lab_router)
     application.include_router(admin_router)
