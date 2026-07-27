@@ -11,6 +11,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -168,6 +169,8 @@ class Kiln(Base):
             "sensor_profile IN ('none', 'load_only', 'thermal_only', 'full')",
             name="ck_kilns_sensor_profile",
         ),
+        # ADR-001 B2: kiln ordinal unique within its site.
+        UniqueConstraint("site_id", "kiln_ordinal", name="uq_kilns_kiln_ordinal"),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     kiln_id: Mapped[str] = mapped_column(
@@ -182,6 +185,8 @@ class Kiln(Base):
     # what actually streams (Global Rule 10). DEFAULT 'none' => zero setup.
     site_id: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
     kiln_code: Mapped[str] = mapped_column(String(16), nullable=True)
+    # ADR-001 B2: kiln ordinal (0–99, unique per site; nullable until assigned).
+    kiln_ordinal: Mapped[int] = mapped_column(SmallInteger, nullable=True)
     sensor_profile: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="none", default="none"
     )
@@ -680,6 +685,10 @@ class Facility(Base):
     """
 
     __tablename__ = "facilities"
+    __table_args__ = (
+        # ADR-001 B2: site ordinal unique within its network.
+        UniqueConstraint("network_id", "site_ordinal", name="uq_facilities_site_ordinal"),
+    )
 
     facility_uuid: Mapped[str] = mapped_column(String(36), primary_key=True)
     org_id: Mapped[str] = mapped_column(String(128), nullable=True)
@@ -690,6 +699,8 @@ class Facility(Base):
     # M1 (hierarchy_v2): network link + display site code — nullable/additive.
     network_id: Mapped[str] = mapped_column(String(64), nullable=True, index=True)
     site_code: Mapped[str] = mapped_column(String(16), nullable=True)
+    # ADR-001 B2: site ordinal (0–99, unique per network; nullable until assigned).
+    site_ordinal: Mapped[int] = mapped_column(SmallInteger, nullable=True)
     latitude: Mapped[float] = mapped_column(Float, nullable=True)
     longitude: Mapped[float] = mapped_column(Float, nullable=True)
     registry_config_id: Mapped[str] = mapped_column(String(128), nullable=True)
@@ -710,11 +721,21 @@ class Network(Base):
     """
 
     __tablename__ = "networks"
+    __table_args__ = (
+        # ADR-001 B2: ordinals/codes are unique PER ORG (NULLs stay distinct, so
+        # unassigned rows never collide).
+        UniqueConstraint("org_id", "org_ordinal", name="uq_networks_org_ordinal"),
+        UniqueConstraint("org_id", "network_code", name="uq_networks_network_code"),
+    )
 
     network_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     org_id: Mapped[str] = mapped_column(String(128), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     country_code: Mapped[str] = mapped_column(String(4), nullable=True)
+    # ADR-001 B2: explicit batch-code identity ordinals (assigned, not derived);
+    # nullable → dormant until allocated (audit A3 NULL-until-lineage preserved).
+    org_ordinal: Mapped[int] = mapped_column(SmallInteger, nullable=True)
+    network_code: Mapped[str] = mapped_column(String(4), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
