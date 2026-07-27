@@ -62,11 +62,15 @@ distances use `max(measured, default)`). Wire `JourneyPanel` into `Dispatch.tsx`
 as a select→panel side view (scroll-into-view — don't repeat audit F1); mount a
 Leaflet polyline into `JourneyPanel`'s `data-testid="route-slot"`.
 
-## Two decisions blocking forward progress (human)
-1. **M1.3 batch-code numbering convention** — `make_batch_code` needs
-   org/network/site/kiln as structured small integers, but the schema carries
-   free-form `org_id`/`site_code`/`kiln_code`. Needs either a numbering
-   convention or new schema fields. Until then `batch_code` stays NULL (portal
-   falls back to short-UUID — nothing breaks).
-2. **Compliance channels** — confirm T1–T3 drive the ≥350 °C gate, T4 base is
-   context only. Blocks enabling `telemetry_v2` in production.
+## Both blocking decisions are now RESOLVED — see `docs/adr-001-thermal-and-identity.md`
+1. ~~M1.3 batch-code numbering~~ → **ADR-001 Part B**: add explicit ordinal
+   columns (`org_ordinal`, `network_code`, `site_ordinal`, `kiln_ordinal`,
+   `country_code`), an `allocate_ordinal` service, and a 5-step backfill. M1.3
+   unblocks once that migration lands (coordinator lane).
+2. ~~Compliance channels~~ → **ADR-001 Part A**: `COMPLIANCE_CHANNELS =
+   ("T1","T2","T3")`, T4 context-only (literature: below the pyrolysis front
+   legitimately runs 150–450 °C). **Plus a defect fix the ADR uncovered — the
+   mandatory BURN WINDOW (§A3):** compliance must use only samples between
+   first and last crossing of 350 °C, or instrumented kilns fail where
+   app-evidenced kilns pass (Global Rule 10 violation). M2.5 in the agent plan
+   has been patched with the algorithm + required parity tests.
