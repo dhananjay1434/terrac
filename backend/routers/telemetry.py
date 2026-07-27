@@ -21,13 +21,15 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import telemetry_bus
 from db import get_session
-from models import Batch, TelemetryChunk
-from security import verify_signature
+from models import Batch, TelemetryChunk, BurnSession
+from security import verify_signature, verify_raw_signature
 from telemetry_store import insert_points
 
 router = APIRouter(tags=["telemetry-v2"])
@@ -38,11 +40,16 @@ _FUTURE_SKEW_S = 300
 
 class TelemetryChunkIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    batch_uuid: str = Field(..., max_length=64)
+    device_id: str = Field(..., max_length=255)
+    session_uuid: str = Field(..., max_length=64)
+    batch_uuid: str | None = Field(None, max_length=64)
     channel: Literal["T1", "T2", "T3", "T4", "LOAD"]
     t_start: str = Field(..., max_length=64)
     sample_period_s: float = Field(..., ge=1.0, le=60.0)
     values: list[float] = Field(..., min_length=1, max_length=_MAX_VALUES)
+    seq: int | None = Field(None)
+    prev_hash: str | None = Field(None, max_length=64)
+    producer_signature: str = Field(..., max_length=128)
 
     @field_validator("values")
     @classmethod
@@ -50,6 +57,10 @@ class TelemetryChunkIn(BaseModel):
         if any(not math.isfinite(x) for x in v):
             raise ValueError("values must all be finite")
         return v
+
+    def canonical_bytes(self) -> bytes:
+        d = self.model_dump(exclude={"producer_signature"}, mode="json")
+        return json.dumps(d, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
 
 def _parse_ts(s: str) -> datetime:
@@ -64,36 +75,55 @@ def _parse_ts(s: str) -> datetime:
 async def ingest(
     payload: TelemetryChunkIn,
     request: Request,
-    device_id: str = Depends(verify_signature),
+    courier_device_id: str = Depends(verify_signature),
     session: AsyncSession = Depends(get_session),
 ):
+    await verify_raw_signature(
+        payload.device_id, payload.producer_signature, payload.canonical_bytes(), session
+    )
+
     t_start = _parse_ts(payload.t_start)
     # audit A5: only a FUTURE t_start is impossible. A far-past t_end is NORMAL
-    # (72 h offline ring-buffer backfill) and must never be rejected.
     if t_start > datetime.now(timezone.utc) + timedelta(seconds=_FUTURE_SKEW_S):
         raise HTTPException(status_code=422, detail="t_start is in the future")
 
-    exists = (
-        await session.execute(
-            select(Batch.id).where(Batch.batch_uuid == payload.batch_uuid)
-        )
-    ).scalar_one_or_none()
-    if exists is None:
-        raise HTTPException(status_code=404, detail="unknown batch")
+    if payload.batch_uuid:
+        exists = (
+            await session.execute(
+                select(Batch.id).where(Batch.batch_uuid == payload.batch_uuid)
+            )
+        ).scalar_one_or_none()
+        if exists is None:
+            raise HTTPException(status_code=404, detail="unknown batch")
 
     period = payload.sample_period_s
     n = len(payload.values)
     t_end = t_start + timedelta(seconds=period * (n - 1))
 
-    chunk = TelemetryChunk(
+    # M2.9 - UPSERT BurnSession
+    dialect = session.bind.dialect.name
+    insert_stmt = (pg_insert if dialect == "postgresql" else sqlite_insert)(BurnSession).values(
+        session_uuid=payload.session_uuid,
+        device_id=payload.device_id,
+        started_at=t_start,
         batch_uuid=payload.batch_uuid,
-        device_id=device_id,
+    )
+    upsert_stmt = insert_stmt.on_conflict_do_nothing(index_elements=["session_uuid"])
+    await session.execute(upsert_stmt)
+
+    chunk = TelemetryChunk(
+        session_uuid=payload.session_uuid,
+        batch_uuid=payload.batch_uuid,
+        device_id=payload.device_id,
+        courier_device_id=courier_device_id,
         channel=payload.channel,
         t_start=t_start,
         t_end=t_end,
         sample_period_s=period,
+        seq=payload.seq,
+        prev_hash=payload.prev_hash,
         payload_json=json.dumps(payload.model_dump(mode="json")),
-        signature=request.headers.get("X-Signature", ""),
+        signature=payload.producer_signature,
     )
     session.add(chunk)
     try:
@@ -102,26 +132,31 @@ async def ingest(
         await session.rollback()
         return {"status": "duplicate"}  # idempotent re-ingest, not an error
 
-    rows = [
-        {
-            "batch_uuid": payload.batch_uuid,
-            "channel": payload.channel,
-            "ts": t_start + timedelta(seconds=period * i),
-            "value": payload.values[i],
-        }
-        for i in range(n)
-    ]
-    inserted = await insert_points(session, rows)
+    inserted = 0
+    if payload.batch_uuid:
+        rows = [
+            {
+                "batch_uuid": payload.batch_uuid,
+                "channel": payload.channel,
+                "ts": t_start + timedelta(seconds=period * i),
+                "value": payload.values[i],
+            }
+            for i in range(n)
+        ]
+        inserted = await insert_points(session, rows)
+    
     await session.commit()
 
-    telemetry_bus.publish(
-        payload.batch_uuid,
-        {
-            "type": "telemetry",
-            "channel": payload.channel,
-            "t_start": t_start.isoformat(),
-            "sample_period_s": period,
-            "values": payload.values,
-        },
-    )
+    # Publish to SSE bus only if bound (since it relies on batch_uuid)
+    if payload.batch_uuid:
+        telemetry_bus.publish(
+            payload.batch_uuid,
+            {
+                "type": "telemetry",
+                "channel": payload.channel,
+                "t_start": t_start.isoformat(),
+                "sample_period_s": period,
+                "values": payload.values,
+            },
+        )
     return {"status": "ok", "points": inserted}

@@ -15,14 +15,22 @@ BUID = "aaaa1111-2222-3333-4444-555566667777"
 
 
 def _body(**over) -> bytes:
+    from tests.conftest import _ed25519_sign
     b = {
+        "device_id": "test-device-reg",
+        "session_uuid": str(uuid.uuid4()),
         "batch_uuid": BUID,
         "channel": "T1",
         "t_start": "2026-07-23T09:00:00Z",
         "sample_period_s": 10.0,
         "values": [400.0, 410.0, 420.0],
+        "seq": 0,
+        "prev_hash": None,
     }
     b.update(over)
+    if "producer_signature" not in b:
+        canonical = json.dumps(b, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        b["producer_signature"] = _ed25519_sign(canonical)
     return json.dumps(b).encode("utf-8")
 
 

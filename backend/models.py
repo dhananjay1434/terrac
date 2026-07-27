@@ -878,6 +878,24 @@ class BulkDensityTest(Base):
     )
 
 
+class BurnSession(Base):
+    """M2.9 — A physical burn session logged by an edge device (ADR-002 Addendum A).
+    
+    Binds a chunk of telemetry to a batch at a later time (sync time).
+    Until bound, the session's data is invisible to compliance.
+    """
+    __tablename__ = "burn_sessions"
+
+    session_uuid: Mapped[str] = mapped_column(String(36), primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    batch_uuid: Mapped[str] = mapped_column(String(36), nullable=True, index=True)
+    binding_source: Mapped[str] = mapped_column(String(32), nullable=True)  # operator|auto|admin
+    bound_by: Mapped[str] = mapped_column(String(255), nullable=True)
+    bound_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class TelemetryChunk(Base):
     """M2.1 — one signed edge-telemetry chunk (a contiguous run of one channel).
 
@@ -901,7 +919,7 @@ class TelemetryChunk(Base):
         primary_key=True,
         autoincrement=True,
     )
-    batch_uuid: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    batch_uuid: Mapped[str] = mapped_column(String(36), nullable=True, index=True)
     device_id: Mapped[str] = mapped_column(String(255), nullable=False)
     channel: Mapped[str] = mapped_column(String(16), nullable=False)
     t_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -914,6 +932,11 @@ class TelemetryChunk(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    # M2.9 Additions
+    session_uuid: Mapped[str] = mapped_column(String(36), nullable=True, index=True)
+    courier_device_id: Mapped[str] = mapped_column(String(255), nullable=True)
+    seq: Mapped[int] = mapped_column(Integer, nullable=True)
+    prev_hash: Mapped[str] = mapped_column(String(64), nullable=True)
 
 
 class TelemetryPoint(Base):

@@ -114,6 +114,35 @@ async def verify_signature(
     return x_device_id
 
 
+async def verify_raw_signature(
+    device_id: str,
+    signature_b64: str,
+    payload: bytes,
+    session: AsyncSession,
+) -> None:
+    """M2.9: Verify a raw byte payload against a device's Ed25519 public key.
+    
+    Used to verify the inner payload (evidence layer) independently from the 
+    HTTP transport (courier layer).
+    """
+    device = (
+        await session.execute(
+            select(DeviceKey).where(DeviceKey.device_id == device_id)
+        )
+    ).scalar_one_or_none()
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="unknown_producer_device"
+        )
+    pub = Ed25519PublicKey.from_public_bytes(_b64url_decode(device.public_key))
+    try:
+        pub.verify(_b64url_decode(signature_b64), payload)
+    except InvalidSignature:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="producer_signature_mismatch"
+        )
+
+
 async def verify_media_signature(
     x_device_id: Optional[str] = Header(None, alias="X-Device-Id"),
     x_signature: Optional[str] = Header(None, alias="X-Signature"),
