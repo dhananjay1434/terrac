@@ -1,6 +1,6 @@
 """Portal Ledgers API (M5.1)."""
 
-from datetime import datetime
+from datetime import date, datetime, time, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -18,8 +18,8 @@ router = APIRouter(prefix="/api/v1/portal/ledgers", tags=["portal", "ledgers"])
 async def get_biomass_ledger(
     _user=Depends(require_role()),
     session: AsyncSession = Depends(get_session),
-    from_date: Optional[datetime] = Query(None, alias="from"),
-    to_date: Optional[datetime] = Query(None, alias="to"),
+    from_date: Optional[date] = Query(None, alias="from"),
+    to_date: Optional[date] = Query(None, alias="to"),
     bucket: str = Query("month", pattern="^(day|month)$"),
     site_id: Optional[str] = None,
     network_id: Optional[str] = None,
@@ -48,10 +48,18 @@ async def get_biomass_ledger(
 
     adapted_rows = [RowAdapter(b) for b in batches]
     
+    aware_from = None
+    if from_date:
+        aware_from = datetime.combine(from_date, time.min, tzinfo=timezone.utc)
+        
+    aware_to = None
+    if to_date:
+        aware_to = datetime.combine(to_date, time.max, tzinfo=timezone.utc)
+
     ledger = build_biomass_ledger(
         adapted_rows,
-        date_from=from_date,
-        date_to=to_date,
+        date_from=aware_from,
+        date_to=aware_to,
         bucket=bucket,
     )
     
