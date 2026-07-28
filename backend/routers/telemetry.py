@@ -18,7 +18,7 @@ import math
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Header
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -28,8 +28,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import telemetry_bus
 from db import get_session
-from models import Batch, TelemetryChunk, BurnSession, AuditEvent
-from security import verify_signature, verify_raw_signature, _require_admin
+from models import Batch, TelemetryChunk, BurnSession, AuditEvent, PortalUser
+from portal.auth import require_role
+from security import verify_signature, verify_raw_signature
 from telemetry_store import insert_points
 
 router = APIRouter(tags=["telemetry-v2"])
@@ -176,11 +177,9 @@ class BindSessionRequest(BaseModel):
 async def bind_session(
     session_uuid: str,
     payload: BindSessionRequest,
-    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
+    user: PortalUser = Depends(require_role("admin")),
     session: AsyncSession = Depends(get_session),
 ):
-    _require_admin(x_admin_secret)
-
     # 1. Verify BurnSession exists
     burn_session = (
         await session.execute(
@@ -206,7 +205,7 @@ async def bind_session(
     # 3. Update BurnSession
     burn_session.batch_uuid = payload.batch_uuid
     burn_session.binding_source = "admin"
-    burn_session.bound_by = "admin"
+    burn_session.bound_by = user.email
     burn_session.bound_at = datetime.now(timezone.utc)
 
     # 4. Update TelemetryChunks
@@ -248,7 +247,9 @@ async def bind_session(
         AuditEvent(
             event_type="session_bound",
             batch_uuid=payload.batch_uuid,
-            payload_json=json.dumps({"session_uuid": session_uuid})
+            payload_json=json.dumps(
+                {"session_uuid": session_uuid, "bound_by": user.email}
+            ),
         )
     )
 

@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
+import pytest_asyncio
 from sqlalchemy import func, select
 
 from models import Batch, TelemetryPoint, BurnSession, TelemetryChunk, AuditEvent
@@ -11,12 +12,25 @@ pytestmark = pytest.mark.asyncio
 
 BUID = "bbbb1111-2222-3333-4444-555566667777"
 SESSION_UUID = str(uuid.uuid4())
+ADMIN_EMAIL = "session-binder@x.org"
 
 
-@pytest.fixture
-def admin_headers():
-    from settings import _ADMIN_SECRET
-    return {"X-Admin-Secret": _ADMIN_SECRET}
+@pytest_asyncio.fixture
+async def admin_headers(client, session_factory):
+    # G2: bind_session now authenticates via portal RBAC, not X-Admin-Secret.
+    from models import PortalUser
+    from portal.auth import hash_password
+
+    async with session_factory() as s:
+        s.add(PortalUser(
+            email=ADMIN_EMAIL, password_hash=hash_password("pw-admin-12345"), role="admin",
+        ))
+        await s.commit()
+    token = (await client.post(
+        "/api/v1/portal/login",
+        json={"email": ADMIN_EMAIL, "password": "pw-admin-12345"},
+    )).json()["token"]
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _body(session_id: str, batch_id: str | None = None, **over) -> bytes:
@@ -88,7 +102,7 @@ async def test_session_binding_flow(client, registered_device, session_factory, 
         burn = (await s.execute(select(BurnSession).where(BurnSession.session_uuid == SESSION_UUID))).scalar_one()
         assert burn.batch_uuid == BUID
         assert burn.binding_source == "admin"
-        assert burn.bound_by == "admin"
+        assert burn.bound_by == ADMIN_EMAIL, "G2: must record the real actor, not the literal 'admin'"
         assert burn.bound_at is not None
 
         chunk = (await s.execute(select(TelemetryChunk).where(TelemetryChunk.session_uuid == SESSION_UUID))).scalar_one()
