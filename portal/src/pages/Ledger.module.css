@@ -1,11 +1,11 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .header h1 {
-  font-size: var(--fs-20);
+  font-size: var(--fs-18);
   font-weight: var(--fw-semibold);
   color: var(--text-primary);
   margin: 0;
@@ -13,9 +13,9 @@
 }
 
 .subtitle {
-  font-size: var(--fs-13);
+  font-size: var(--fs-12);
   color: var(--text-tertiary);
-  margin: var(--space-1) 0 0;
+  margin: 2px 0 0;
 }
 
 /* ── Controls row (presets + bucket toggle) ───────────────────────────── */
@@ -24,19 +24,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 .presets {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   flex-wrap: wrap;
 }
 .presetBtn {
   all: unset;
   cursor: pointer;
-  padding: var(--space-1) var(--space-3);
+  padding: 3px var(--space-2);
   border-radius: var(--r-sm);
   font-size: var(--fs-12);
   font-weight: var(--fw-medium);
@@ -56,11 +56,11 @@
 .dateRange {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 .dateInput {
   font-size: var(--fs-12);
-  padding: var(--space-1) var(--space-2);
+  padding: 3px var(--space-2);
   border: var(--border-hair);
   border-radius: var(--r-sm);
   background: var(--surface-card);
@@ -70,7 +70,7 @@
 /* ── Grid ─────────────────────────────────────────────────────────────── */
 .grid {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-2);
   grid-template-columns: repeat(12, 1fr);
 }
 
@@ -79,17 +79,22 @@
 }
 .statRow {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 /* Compact the stat tile cards inside this page — the global .card padding
    (24px) is too generous for these small KPI boxes. */
 .statRow :global(.card) {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
 }
-/* Scale down the big 32px value to 24px — fits the compact ledger layout
+/* Scale down the big 32px value to 20px — fits the compact ledger layout
    without touching Dashboard / BatchDetail which use the same StatTile. */
 .statRow :global(.tabular) {
-  font-size: var(--fs-24);
+  font-size: var(--fs-20);
+}
+
+/* Tighter padding on all cards within the ledger grid */
+.grid :global(.card) {
+  padding: var(--space-3);
 }
 
 .chartCard {
@@ -99,7 +104,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .speciesCard {
@@ -121,7 +126,7 @@
 }
 
 .loading {
-  padding: var(--space-6);
+  padding: var(--space-5);
   text-align: center;
   color: var(--text-tertiary);
   font-size: var(--fs-13);
@@ -136,12 +141,12 @@
   width: 100%;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
-  font-size: var(--fs-13);
+  font-size: var(--fs-12);
 }
 
 .table th,
 .table td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   text-align: left;
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -181,7 +186,7 @@
 .codeChip {
   font-size: var(--fs-12);
   font-family: var(--font-mono);
-  padding: var(--space-1) var(--space-2);
+  padding: 2px var(--space-1);
   border-radius: var(--r-sm);
   background: var(--surface-sunken);
   color: var(--indigo-600);
