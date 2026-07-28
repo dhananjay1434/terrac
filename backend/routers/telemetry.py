@@ -108,7 +108,13 @@ async def ingest(
         started_at=t_start,
         batch_uuid=payload.batch_uuid,
     )
-    upsert_stmt = insert_stmt.on_conflict_do_nothing(index_elements=["session_uuid"])
+    if payload.batch_uuid:
+        upsert_stmt = insert_stmt.on_conflict_do_update(
+            index_elements=["session_uuid"],
+            set_={"batch_uuid": insert_stmt.excluded.batch_uuid}
+        )
+    else:
+        upsert_stmt = insert_stmt.on_conflict_do_nothing(index_elements=["session_uuid"])
     await session.execute(upsert_stmt)
 
     chunk = TelemetryChunk(
