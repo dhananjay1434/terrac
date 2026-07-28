@@ -250,26 +250,22 @@ async def _recompute_batch_credit_impl(
         if attestation_ok:
             log.info("batch %s attestation unverified but device in grace", buid)
 
-    # M2.5 (ADR-001 A2/A3): with no legacy app-captured temperature array AND
-    # telemetry_v2 enabled for the batch's org, substitute the burn-window
-    # compliance array derived from streamed T1-T3 points — so BOTH min_temp and
-    # the C10 sustain check below see it. Legacy path stays first: streamed data
-    # can only ADD eligibility, never remove it (Global Rule 10).
-    _legacy_temps = tel_payload.get("temperature_readings") if tel_payload else None
-    if not _legacy_temps:
-        _org = None
-        if batch.project_id:
-            _proj = (
-                await session.execute(
-                    select(Project).where(Project.project_id == batch.project_id)
-                )
-            ).scalar_one_or_none()
-            _org = _proj.org_id if _proj else None
-        if await flag_enabled(session, "telemetry_v2", _org):
-            _bridge = await telemetry_bridge.temperature_array_for(session, buid)
-            if _bridge:
-                tel_payload = dict(tel_payload or {})
-                tel_payload["temperature_readings"] = _bridge
+    # M6.1 Legacy read-path retirement: telemetry bridge (v2) takes precedence over legacy.
+    # The legacy PyrolysisTelemetry payload stays forever as the signed historical record.
+    _org = None
+    if batch.project_id:
+        _proj = (
+            await session.execute(
+                select(Project).where(Project.project_id == batch.project_id)
+            )
+        ).scalar_one_or_none()
+        _org = _proj.org_id if _proj else None
+        
+    if await flag_enabled(session, "telemetry_v2", _org):
+        _bridge = await telemetry_bridge.temperature_array_for(session, buid)
+        if _bridge:
+            tel_payload = dict(tel_payload or {})
+            tel_payload["temperature_readings"] = _bridge
 
     min_temp, _ = derive_min_temp(tel_payload)
     wet_yield, _ = derive_wet_yield(yld_payload)

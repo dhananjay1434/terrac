@@ -1,35 +1,95 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
 
 .header h1 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--text-base);
+  font-size: var(--fs-20);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
   margin: 0;
   letter-spacing: -0.02em;
 }
 
 .subtitle {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin: 0.25rem 0 0;
+  font-size: var(--fs-13);
+  color: var(--text-tertiary);
+  margin: var(--space-1) 0 0;
 }
 
+/* ── Controls row (presets + bucket toggle) ───────────────────────────── */
+.controlsCard {
+  grid-column: span 12;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.presets {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.presetBtn {
+  all: unset;
+  cursor: pointer;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-12);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  border: var(--border-hair);
+  background: var(--surface-card);
+  transition: background 120ms ease, color 120ms ease;
+}
+.presetBtn:hover {
+  background: var(--surface-sunken);
+}
+.presetBtn[data-active="true"] {
+  background: var(--indigo-600);
+  color: var(--white);
+  border-color: var(--indigo-600);
+}
+.dateRange {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.dateInput {
+  font-size: var(--fs-12);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hair);
+  border-radius: var(--r-sm);
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+
+/* ── Grid ─────────────────────────────────────────────────────────────── */
 .grid {
   display: grid;
-  gap: 1.5rem;
+  gap: var(--space-5);
   grid-template-columns: repeat(12, 1fr);
 }
 
 .totalsCard {
   grid-column: span 12;
 }
+.statRow {
+  display: flex;
+  gap: var(--space-4);
+}
 
 .chartCard {
   grid-column: span 8;
+}
+.chartHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
 }
 
 .speciesCard {
@@ -52,12 +112,13 @@
 }
 
 .loading {
-  padding: 3rem;
+  padding: var(--space-6);
   text-align: center;
-  color: var(--text-muted);
-  font-size: 0.875rem;
+  color: var(--text-tertiary);
+  font-size: var(--fs-13);
 }
 
+/* ── Table ─────────────────────────────────────────────────────────────── */
 .tableWrap {
   overflow-x: auto;
 }
@@ -66,24 +127,25 @@
   width: 100%;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
-  font-size: 0.875rem;
+  font-size: var(--fs-13);
 }
 
 .table th,
 .table td {
-  padding: 0.75rem 1rem;
+  padding: var(--space-2) var(--space-3);
   text-align: left;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .table th {
-  color: var(--text-muted);
-  font-weight: 500;
+  color: var(--text-tertiary);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-12);
   white-space: nowrap;
 }
 
 .table td {
-  color: var(--text-base);
+  color: var(--text-primary);
 }
 
 .table .num {
@@ -92,4 +154,32 @@
 
 .table tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* ── Species pill row + batch code chips ──────────────────────────────── */
+.pillRow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.codeRow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.codeChip {
+  font-size: var(--fs-12);
+  font-family: var(--font-mono);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunken);
+  color: var(--indigo-600);
+  text-decoration: none;
+  border: var(--border-hair);
+  transition: background 120ms ease;
+}
+.codeChip:hover {
+  background: var(--indigo-100);
 }

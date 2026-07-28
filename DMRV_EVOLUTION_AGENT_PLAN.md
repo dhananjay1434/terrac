@@ -46,10 +46,10 @@ NOTES: <≤3 lines>
 M0: [x]0.1 [x]0.2 [x]0.3
 M1: [x]1.1 [x]1.2 [x]1.3  [x]1.4 [x]1.5      # 1.3 UNBLOCKED via ADR-001 B (ff98f42)
 M2: [x]2.1 [x]2.2 [x]2.3 [x]2.4 [x]2.5 [x]2.6 [x]2.7 [x]2.8 [x]2.9  # 2.3/2.4 landed (portal/telemetry_routes.py, handoff accepted); chart stitch landed (77c281a); M2.9 sessions/courier landed
-M3: [ ]3.1 [ ]3.2 [ ]3.3
-M4: [ ]4.1 [ ]4.2 [ ]4.3 [ ]4.4
-M5: [ ]5.1 [ ]5.2
-M6: [ ]6.1 [ ]6.2 [ ]6.3
+M3: [x]3.1 [x]3.2 [x]3.3
+M4: [x]4.1 [x]4.2 [x]4.3 [x]4.4
+M5: [x]5.1 [x]5.2
+M6: [x]6.1 [x]6.2 [x]6.3
 ```
 
 ---
