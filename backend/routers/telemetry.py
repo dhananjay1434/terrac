@@ -37,6 +37,7 @@ router = APIRouter(tags=["telemetry-v2"])
 
 _MAX_VALUES = 720
 _FUTURE_SKEW_S = 300
+_REPLAY_BATCH = 5000  # G3: cap points held in memory per insert during bind
 
 
 class TelemetryChunkIn(BaseModel):
@@ -217,7 +218,10 @@ async def bind_session(
     )
     await session.flush()
 
-    # 5. Extract points from chunks and insert
+    # 5. Extract points from chunks and insert, in bounded batches (G3).
+    #    A 72 h offline backfill is normal, so the full point set can be ~10^5 rows
+    #    - never materialise it all at once. A chunk with corrupt payload_json is
+    #    skipped and counted, not fatal: partial recovery beats losing a burn.
     chunks = (
         await session.execute(
             select(TelemetryChunk).where(TelemetryChunk.session_uuid == session_uuid)
@@ -225,22 +229,28 @@ async def bind_session(
     ).scalars().all()
 
     points_inserted = 0
-    if chunks:
-        rows = []
-        for chunk in chunks:
+    skipped_chunks = 0
+    rows: list[dict] = []
+    for chunk in chunks:
+        try:
             chunk_payload = json.loads(chunk.payload_json)
             values = chunk_payload.get("values", [])
-            period = chunk.sample_period_s
-            for i, val in enumerate(values):
-                rows.append({
-                    "batch_uuid": payload.batch_uuid,
-                    "channel": chunk.channel,
-                    "ts": chunk.t_start + timedelta(seconds=period * i),
-                    "value": val,
-                })
-        
-        if rows:
-            points_inserted = await insert_points(session, rows)
+        except (ValueError, TypeError):
+            skipped_chunks += 1
+            continue
+        period = chunk.sample_period_s
+        for i, val in enumerate(values):
+            rows.append({
+                "batch_uuid": payload.batch_uuid,
+                "channel": chunk.channel,
+                "ts": chunk.t_start + timedelta(seconds=period * i),
+                "value": val,
+            })
+            if len(rows) >= _REPLAY_BATCH:
+                points_inserted += await insert_points(session, rows)
+                rows = []
+    if rows:
+        points_inserted += await insert_points(session, rows)
 
     # 6. Write AuditEvent
     session.add(
@@ -254,4 +264,8 @@ async def bind_session(
     )
 
     await session.commit()
-    return {"status": "ok", "points_inserted": points_inserted}
+    return {
+        "status": "ok",
+        "points_inserted": points_inserted,
+        "skipped_chunks": skipped_chunks,
+    }

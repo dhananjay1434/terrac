@@ -95,3 +95,35 @@ async def test_bind_records_real_user_email(bind_client):
     assert bs.batch_uuid == BUID
     assert bs.bound_by == "boss@x.org", "must record the real actor, not 'admin'"
     assert bs.binding_source == "admin"
+
+
+async def test_bind_skips_corrupt_chunk_and_still_binds(bind_client):
+    """G3 - one unparseable chunk must not abort the whole bind."""
+    import json as _json
+    from datetime import datetime as _dt, timezone as _tz
+    from models import TelemetryChunk
+
+    ac, Session, auth = bind_client
+    t0 = _dt(2026, 7, 23, 9, 0, tzinfo=_tz.utc)
+    async with Session() as s:
+        s.add(TelemetryChunk(
+            session_uuid=SUID, batch_uuid=None, device_id="dev-1", channel="T1",
+            t_start=t0, t_end=t0, sample_period_s=10.0,
+            payload_json=_json.dumps({"values": [400.0, 410.0]}), signature="sig-good",
+        ))
+        s.add(TelemetryChunk(
+            session_uuid=SUID, batch_uuid=None, device_id="dev-1", channel="T2",
+            t_start=t0, t_end=t0, sample_period_s=10.0,
+            payload_json="{not valid json", signature="sig-bad",
+        ))
+        await s.commit()
+
+    r = await ac.post(
+        f"/api/v2/telemetry/sessions/{SUID}/bind",
+        json={"batch_uuid": BUID},
+        headers=auth,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["points_inserted"] == 2, "good chunk must still replay"
+    assert body["skipped_chunks"] == 1, "corrupt chunk must be counted, not fatal"

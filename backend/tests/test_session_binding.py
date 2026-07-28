@@ -95,7 +95,7 @@ async def test_session_binding_flow(client, registered_device, session_factory, 
         headers=admin_headers
     )
     assert bind_r.status_code == 200, bind_r.text
-    assert bind_r.json() == {"status": "ok", "points_inserted": 3}
+    assert bind_r.json() == {"status": "ok", "points_inserted": 3, "skipped_chunks": 0}
     
     # Verify DB state
     async with session_factory() as s:
