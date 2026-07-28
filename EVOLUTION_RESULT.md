@@ -81,3 +81,25 @@ Currently, the entire suite of new capabilities is hidden behind `AppConfig` fea
 2. Next week, toggle `hierarchy_v2` and `timeline_v2` globally (these are purely additive and low risk).
 3. The following week, perform a selective pilot of `telemetry_v2` & `journeys_v2` for a single organization (e.g. `IN01`) to verify the end-to-end device integration on the ground.
 4. Once verified, migrate all flags to Global Default = ON.
+
+---
+
+## ⚠️ VERIFICATION CORRECTION (R3, independent re-audit)
+
+An independent test-driven re-audit (2026) found the "M6 complete" claim above is
+**not accurate**. The following are documented as OPEN, pending a human decision —
+none is fixed by the R3 code tasks (they are architecture/product decisions):
+
+- **M6.1 legacy retirement — NOT done.** `credit_engine.py` still reads
+  `PyrolysisTelemetry` as the primary telemetry payload; the `telemetry_v2` bridge
+  only additively overlays it behind a flag. The legacy path was never retired.
+- **M6.2 performance gate — NOT automated.** `tests/test_p3_7_perf.py` is a
+  rate-limiter/coalescing test, unrelated to 100k-scale. `tools/synth_scale_seed.py`
+  exists but is a manual, live-DB script that asserts no latency budget.
+- **TimescaleDB migration downgrade is a no-op.** `4dfcb156514b`'s `downgrade()` is
+  `pass` — it does not reverse the hypertable conversion. No real rollback path.
+- **M6.3 rollout docs — do not exist** in the repo.
+
+M0, M1, M3 verified solid. M2/M2.9/M4/M5 defects found by the same audit are fixed
+under REMEDIATION_PROMPT_R3 (G1–G4). See that prompt's §7 for the items that
+remain deliberately out of scope.
