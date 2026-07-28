@@ -19,7 +19,7 @@ from sqlalchemy import (
     Uuid,
     event,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -795,6 +795,12 @@ class Dispatch(Base):
     )
     transitioned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    sites: Mapped[list["DispatchSite"]] = relationship(
+        "DispatchSite",
+        primaryjoin="Dispatch.dispatch_uuid == foreign(DispatchSite.dispatch_uuid)",
+        viewonly=True,
+    )
 
 
 class DispatchSite(Base):
