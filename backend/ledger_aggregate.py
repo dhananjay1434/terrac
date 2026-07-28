@@ -11,7 +11,7 @@ buckets + zeroed totals, not invented figures.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Iterable, Optional
 
 
@@ -25,10 +25,17 @@ def _get(obj: Any, key: str) -> Any:
 
 def _as_datetime(v: Any) -> Optional[datetime]:
     if isinstance(v, datetime):
-        return v
-    if isinstance(v, date):
-        return datetime(v.year, v.month, v.day)
-    return None
+        dt = v
+    elif isinstance(v, date):
+        dt = datetime(v.year, v.month, v.day)
+    else:
+        return None
+    # Normalise to tz-aware UTC so naive DB timestamps (SQLite round-trips naive)
+    # compare cleanly against the endpoint's aware from/to bounds. A naive value is
+    # assumed already-UTC - never a fabricated time, just an explicit zone.
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def bucket_key(dt: datetime, bucket: str) -> str:
@@ -61,6 +68,11 @@ def build_biomass_ledger(
     """
     if bucket not in ("day", "month"):
         raise ValueError(f"unsupported bucket: {bucket!r}")
+
+    # Route the caller's bounds through the same normaliser so a naive from/to can
+    # never mismatch a normalised row datetime.
+    date_from = _as_datetime(date_from)
+    date_to = _as_datetime(date_to)
 
     per_bucket: dict[str, dict] = {}
     grand_kg = 0.0

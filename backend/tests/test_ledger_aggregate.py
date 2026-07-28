@@ -79,3 +79,22 @@ def test_accepts_attribute_objects():
 
     out = build_biomass_ledger([R()])
     assert out["totals"]["total_kg"] == 42.0
+
+
+def test_naive_row_dates_compare_against_aware_bounds():
+    """G4 - a naive row datetime must not crash against tz-aware from/to bounds."""
+    from datetime import datetime, timezone
+    from ledger_aggregate import build_biomass_ledger
+
+    rows = [
+        {"date": datetime(2026, 7, 10), "species": "Prosopis", "kg": 100.0, "batch_code": "B1"},
+        {"date": datetime(2026, 8, 20), "species": "Lantana", "kg": 50.0, "batch_code": "B2"},
+    ]
+    out = build_biomass_ledger(
+        rows,
+        date_from=datetime(2026, 8, 1, tzinfo=timezone.utc),
+        bucket="month",
+    )
+    # only the August row survives the aware lower bound - no TypeError
+    assert out["totals"]["total_kg"] == 50.0
+    assert out["totals"]["by_species"] == {"Lantana": 50.0}
