@@ -15,6 +15,7 @@ _T0 = datetime(2026, 7, 23, 9, 0, tzinfo=timezone.utc)
 
 def _chunk(**over) -> TelemetryChunk:
     base = dict(
+        session_uuid="s-1",
         batch_uuid="b-1",
         device_id="dev-1",
         channel="T1",

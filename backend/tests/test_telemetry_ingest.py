@@ -1,4 +1,4 @@
-"""M2.2 — signed /api/v2/telemetry/ingest: happy path, idempotent duplicate,
+"""M2.2 - signed /api/v2/telemetry/ingest: happy path, idempotent duplicate,
 validation (channel/oversize/future), unsigned rejection."""
 import json
 import uuid
@@ -85,10 +85,32 @@ async def test_future_t_start_422(client, registered_device, session_factory):
 
 async def test_unsigned_rejected(client, session_factory):
     await _seed_batch(session_factory)
-    # both headers present → SignedAsyncClient does NOT auto-sign; bad sig → reject
+    # both headers present -> SignedAsyncClient does NOT auto-sign; bad sig -> reject
     r = await client.post(
         "/api/v2/telemetry/ingest",
         content=_body(),
         headers={"X-Device-Id": "nope", "X-Signature": "bad"},
     )
     assert r.status_code in (401, 403)
+
+
+
+async def test_unbound_duplicate_chunk_is_idempotent(client, registered_device, session_factory):
+    """F2 — an UNBOUND chunk (batch_uuid=None) must still be deduplicated.
+
+    Before the fix the UNIQUE included the nullable batch_uuid, and NULL != NULL
+    meant retries inserted duplicate rows forever.
+    """
+    from sqlalchemy import func, select
+    from models import TelemetryChunk
+
+    body = _body(batch_uuid=None)
+    first = await client.post("/api/v2/telemetry/ingest", content=body)
+    assert first.status_code == 200, first.text
+
+    second = await client.post("/api/v2/telemetry/ingest", content=body)
+    assert second.json() == {"status": "duplicate"}
+
+    async with session_factory() as s:
+        n = (await s.execute(select(func.count()).select_from(TelemetryChunk))).scalar_one()
+    assert n == 1, f"expected 1 chunk after a retried upload, found {n}"

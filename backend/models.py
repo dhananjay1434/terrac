@@ -951,7 +951,7 @@ class TelemetryChunk(Base):
     __tablename__ = "telemetry_chunks"
     __table_args__ = (
         UniqueConstraint(
-            "batch_uuid", "channel", "t_start", "signature",
+            "session_uuid", "channel", "t_start", "signature",
             name="uq_telemetry_chunks_idem",
         ),
     )
