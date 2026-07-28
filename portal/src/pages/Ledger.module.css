@@ -1,7 +1,7 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-3);
 }
 
 .header h1 {
@@ -70,7 +70,7 @@
 /* ── Grid ─────────────────────────────────────────────────────────────── */
 .grid {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--space-3);
   grid-template-columns: repeat(12, 1fr);
 }
 
@@ -79,7 +79,17 @@
 }
 .statRow {
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-3);
+}
+/* Compact the stat tile cards inside this page — the global .card padding
+   (24px) is too generous for these small KPI boxes. */
+.statRow :global(.card) {
+  padding: var(--space-3) var(--space-4);
+}
+/* Scale down the big 32px value to 24px — fits the compact ledger layout
+   without touching Dashboard / BatchDetail which use the same StatTile. */
+.statRow :global(.tabular) {
+  font-size: var(--fs-24);
 }
 
 .chartCard {
@@ -89,7 +99,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .speciesCard {
