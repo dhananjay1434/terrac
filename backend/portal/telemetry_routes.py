@@ -27,7 +27,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import telemetry_bus
 from db import get_session
-from models import Batch, PortalUser, TelemetryPoint
+from models import Batch, PortalUser, TelemetryPoint, TelemetryChunk
+from telemetry_integrity import detect_chain_gaps
 from portal.auth import require_role
 
 router = APIRouter(tags=["portal-telemetry"])
@@ -119,7 +120,18 @@ async def read_telemetry2(
         "t_end": all_ts[-1] if all_ts else 0,
         "gaps": _find_gaps(all_ts),
     }
-    return {"channels": out_channels, "burn": burn}
+    # R5: annotate (never reject) any chain gap for this batch's chunks so the
+    # portal can render deletion/reorder as an evident break.
+    chunk_rows = (
+        await session.execute(
+            select(TelemetryChunk.session_uuid, TelemetryChunk.channel, TelemetryChunk.seq)
+            .where(TelemetryChunk.batch_uuid == uuid)
+        )
+    ).all()
+    chain_gaps = detect_chain_gaps(
+        [{"session_uuid": s, "channel": c, "seq": q} for (s, c, q) in chunk_rows]
+    )
+    return {"channels": out_channels, "burn": burn, "chain_gaps": chain_gaps}
 
 
 # ── M2.4: SSE shell over telemetry_bus (audit A1/A8) ────────────────────────
