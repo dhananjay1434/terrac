@@ -124,6 +124,7 @@ def create_app() -> FastAPI:
     from portal.telemetry_routes import router as portal_telemetry_router  # M2.3/M2.4
     from portal.timeline_routes import router as portal_timeline_router    # M3.2
     from portal.ledger_routes import router as portal_ledger_routes        # M5.1
+    from portal.capability_routes import router as portal_capability_router  # R4
 
     application.include_router(portal_router)
     application.include_router(portal_issuance_router)
@@ -131,6 +132,7 @@ def create_app() -> FastAPI:
     application.include_router(portal_telemetry_router)  # M2.3/M2.4
     application.include_router(portal_timeline_router)   # M3.2
     application.include_router(portal_ledger_routes)     # M5.1
+    application.include_router(portal_capability_router)  # R4
 
     return application
 
