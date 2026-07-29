@@ -19,6 +19,10 @@ from models import AppConfig
 
 FLAGS = ("telemetry_v2", "hierarchy_v2", "timeline_v2", "journeys_v2", "ledgers_v2")
 
+# R4: opt-out (client-preference/display) flags default ON — shown unless a client
+# explicitly turns them off. Opt-in (rollout/credit) flags stay default OFF.
+_DEFAULT_ON = ("timeline_v2", "journeys_v2", "ledgers_v2")
+
 
 async def flag_enabled(
     session: AsyncSession, flag: str, org_id: str | None = None
@@ -43,3 +47,30 @@ async def flag_enabled(
         if key in flags:
             return str(flags[key]).strip().lower() == "on"
     return False
+
+
+async def flag_active(
+    session: AsyncSession, flag: str, org_id: str | None = None
+) -> bool:
+    """R4: resolve a flag honoring its default. Opt-out display flags default ON;
+    all others default OFF. An explicit "on"/"off" value always beats the default;
+    an org-specific key beats the global key."""
+    if flag not in FLAGS:
+        raise ValueError(f"unknown feature flag: {flag}")
+    default_on = flag in _DEFAULT_ON
+    row = (
+        await session.execute(select(AppConfig).where(AppConfig.config_id == "default"))
+    ).scalar_one_or_none()
+    if row is None:
+        return default_on
+    try:
+        flags = json.loads(row.flags_json or "{}")
+    except (ValueError, TypeError):
+        return default_on
+    if not isinstance(flags, dict):
+        return default_on
+    keys = [f"ff.{flag}"] + ([f"ff.{flag}.{org_id}"] if org_id else [])
+    for key in reversed(keys):  # org-specific beats global
+        if key in flags:
+            return str(flags[key]).strip().lower() == "on"
+    return default_on
