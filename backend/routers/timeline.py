@@ -104,9 +104,10 @@ async def get_batch_timeline(
     for tel in telemetries:
         try:
             payload = json.loads(tel.payload_json)
-            readings = payload.get("temperatureReadingsJson", [])
+            # R4: canonical key is temperature_readings (list of floats).
+            readings = payload.get("temperature_readings", []) or []
             for r in readings:
-                t = r.get("temperature")
+                t = r if isinstance(r, (int, float)) else None
                 if t is not None:
                     if max_t is None or t > max_t:
                         max_t = t

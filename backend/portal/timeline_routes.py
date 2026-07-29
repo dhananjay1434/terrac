@@ -17,6 +17,8 @@ from models import (
     PortalUser,
 )
 from portal.auth import require_role
+from feature_flags import flag_active
+from models import Project
 from stage_projection import STAGE_ORDER
 
 router = APIRouter(prefix="/api/v1/portal", tags=["portal", "timeline"])
@@ -50,6 +52,17 @@ async def get_batch_timeline(
     ).scalar_one_or_none()
     if not batch:
         raise HTTPException(status_code=404, detail="unknown_batch")
+
+    # R4: timeline is an opt-out display feature. If a client turned it off, hide it
+    # (empty list -> the portal renders no timeline panel). Default is ON.
+    _org = None
+    if batch.project_id:
+        _proj = (
+            await session.execute(select(Project).where(Project.project_id == batch.project_id))
+        ).scalar_one_or_none()
+        _org = _proj.org_id if _proj else None
+    if not await flag_active(session, "timeline_v2", _org):
+        return []
 
     reasons = []
     try:
@@ -105,10 +118,12 @@ async def get_batch_timeline(
     if tel:
         try:
             payload = json.loads(tel.payload_json or "{}")
-            t_readings = payload.get("temperatureReadingsJson", [])
-            max_temp = None
-            if t_readings:
-                max_temp = max(r.get("temperature", 0) for r in t_readings)
+            # R4: canonical key is temperature_readings (list of floats), per
+            # corroboration.py / credit_engine.py. The old temperatureReadingsJson
+            # + r.get("temperature") never matched real data -> max_temp always None.
+            t_readings = payload.get("temperature_readings", []) or []
+            numeric = [float(r) for r in t_readings if isinstance(r, (int, float))]
+            max_temp = max(numeric) if numeric else None
                 
             tel_summary = {
                 "max_temp": max_temp,

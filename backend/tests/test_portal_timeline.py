@@ -115,7 +115,11 @@ async def seeded_batch(tclient) -> str:
             batch_uuid=b.batch_uuid,
             telemetry_uuid=str(_uuid.uuid4()),
             payload_json=json.dumps({
-                "temperatureReadingsJson": [{"temperature": 350}, {"temperature": 455}]
+                # R4: canonical key the Flutter client actually writes (list of
+                # floats). The old temperatureReadingsJson dict shape was a relic
+                # of the removed telemetry mock (see conftest.py) — no real
+                # payload ever had it, so the endpoint read it as null.
+                "temperature_readings": [350.0, 455.0]
             }),
             received_at=_T0 + timedelta(hours=1),
         ))

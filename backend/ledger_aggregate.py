@@ -78,6 +78,7 @@ def build_biomass_ledger(
     grand_kg = 0.0
     grand_species: dict[str, float] = {}
     grand_rows = 0
+    grand_missing = 0  # R4: rows with no biomass value, surfaced instead of silently counted as 0
 
     for r in rows:
         dt = _as_datetime(_get(r, "date"))
@@ -89,6 +90,8 @@ def build_biomass_ledger(
             continue
 
         kg_raw = _get(r, "kg")
+        if kg_raw is None:
+            grand_missing += 1
         try:
             kg = float(kg_raw) if kg_raw is not None else 0.0
         except (TypeError, ValueError):
@@ -135,5 +138,6 @@ def build_biomass_ledger(
             "total_kg": round(grand_kg, 3),
             "by_species": _round_species(grand_species),
             "row_count": grand_rows,
+            "rows_missing_biomass": grand_missing,
         },
     }

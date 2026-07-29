@@ -98,3 +98,16 @@ def test_naive_row_dates_compare_against_aware_bounds():
     # only the August row survives the aware lower bound - no TypeError
     assert out["totals"]["total_kg"] == 50.0
     assert out["totals"]["by_species"] == {"Lantana": 50.0}
+
+
+def test_null_biomass_is_surfaced_not_silently_zeroed():
+    """H1 - a row with no biomass is counted in rows_missing_biomass."""
+    from ledger_aggregate import build_biomass_ledger
+    from datetime import datetime
+    rows = [
+        {"date": datetime(2026, 7, 10), "species": "Prosopis", "kg": 100.0, "batch_code": "B1"},
+        {"date": datetime(2026, 7, 11), "species": "Prosopis", "kg": None, "batch_code": "B2"},
+    ]
+    out = build_biomass_ledger(rows, bucket="month")
+    assert out["totals"]["rows_missing_biomass"] == 1
+    assert out["totals"]["total_kg"] == 100.0
