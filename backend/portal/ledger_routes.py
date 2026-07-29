@@ -10,13 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_session
 from models import Batch
 from portal.auth import require_role
+from feature_flags import flag_active
 from ledger_aggregate import build_biomass_ledger
 
 router = APIRouter(prefix="/api/v1/portal/ledgers", tags=["portal", "ledgers"])
 
 @router.get("/biomass")
 async def get_biomass_ledger(
-    _user=Depends(require_role()),
+    user=Depends(require_role()),
     session: AsyncSession = Depends(get_session),
     from_date: Optional[date] = Query(None, alias="from"),
     to_date: Optional[date] = Query(None, alias="to"),
@@ -24,6 +25,11 @@ async def get_biomass_ledger(
     site_id: Optional[str] = None,
     network_id: Optional[str] = None,
 ):
+    # R4: ledgers is an opt-out display feature (default ON). If a client turned it
+    # off, return an empty-but-valid ledger of the same shape.
+    if not await flag_active(session, "ledgers_v2", getattr(user, "org_id", None)):
+        return build_biomass_ledger([], bucket=bucket)
+
     # Base query for batches
     stmt = select(Batch)
     
