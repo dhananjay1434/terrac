@@ -1,0 +1,48 @@
+.frame {
+  width: 100%;
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.headRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.badge {
+  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  border: var(--border-hair);
+  border-radius: var(--r-sm);
+  padding: var(--space-1) var(--space-2);
+}
+.axisLabel {
+  fill: var(--text-tertiary, currentColor);
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
