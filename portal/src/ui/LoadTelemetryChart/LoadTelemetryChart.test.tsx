@@ -20,7 +20,8 @@ describe("LoadTelemetryChart", () => {
   it("renders a weight polyline and a dot per load event", () => {
     const { container } = render(<LoadTelemetryChart data={sample()} />);
     expect(container.querySelector("polyline")).not.toBeNull();
-    expect(container.querySelectorAll("circle")).toHaveLength(4);
+    // 4 load-event dots + 1 emphasized endpoint marker on the last point
+    expect(container.querySelectorAll("circle")).toHaveLength(5);
   });
 
   it("shows biomass / biochar / last-load chips with grouped kg", () => {
