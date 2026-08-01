@@ -132,13 +132,15 @@
   /* radius gap */
   --r-pill: 999px;
   /* z scale (audit X6) */
+  /* topmost last — a tooltip must render above a drawer/modal it's nested in,
+     so it sits above --z-modal; --z-skiplink stays highest of all (P8.5 / UX-G2). */
   --z-sticky: 10;
   --z-dropdown: 20;
-  --z-tooltip: 30;
   --z-scrim: 55;
   --z-drawer: 60;
   --z-overlay: 90;
   --z-modal: 100;
+  --z-tooltip: 110;
   --z-skiplink: 200;
   /* control + icon sizing (audit X9) */
   --control-h-md: 36px;

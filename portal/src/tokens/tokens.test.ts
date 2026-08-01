@@ -92,3 +92,33 @@ describe("no phantom tokens / stray scrims outside tokens.css (audit X2/X8)", ()
     expect(offenders).toEqual([]);
   });
 });
+
+describe("z-index scale ordering (UX-G2 — a tooltip must render above the drawer/modal it's nested in)", () => {
+  const ORDER = [
+    "--z-sticky",
+    "--z-dropdown",
+    "--z-scrim",
+    "--z-drawer",
+    "--z-overlay",
+    "--z-modal",
+    "--z-tooltip",
+    "--z-skiplink",
+  ];
+  const values = ORDER.map((name) => {
+    const m = root.match(new RegExp(`${name}:\\s*(\\d+);`));
+    if (!m) throw new Error(`token ${name} not found in tokens.css`);
+    return Number(m[1]);
+  });
+
+  it("each layer in the stack sits strictly above the one before it", () => {
+    for (let i = 1; i < values.length; i++) {
+      expect(values[i]).toBeGreaterThan(values[i - 1]);
+    }
+  });
+
+  it("--z-tooltip sits above --z-drawer and --z-modal", () => {
+    const byName = Object.fromEntries(ORDER.map((n, i) => [n, values[i]]));
+    expect(byName["--z-tooltip"]).toBeGreaterThan(byName["--z-drawer"]);
+    expect(byName["--z-tooltip"]).toBeGreaterThan(byName["--z-modal"]);
+  });
+});
