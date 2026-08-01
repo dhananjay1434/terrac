@@ -148,3 +148,19 @@ semantics. A1/A2 are **additive follow-ups** (one migration: burn_sessions +
 2 columns + nullable relax; one ingest amendment) — schedule as **M2.9
 "sessions + courier auth"** immediately after M2.5, before the M2 stitch is
 declared done. M7 (phone relay) consumes A1/A2 as its server contract.
+
+---
+
+# ADDENDUM B — Contradiction reconciliation (2026, post-stitching-review)
+Two statements in this ADR contradict later addenda in the same ADR. Resolved here so no reader
+picks the superseded version:
+- **Pairing:** §3 step 1 ("pairing pinned to the site's registered units") is SUPERSEDED by A3.3.
+  Decision: **no BLE pairing/bonding.** The Ed25519 signature is the security boundary, not the
+  BLE link. Any phone may courier; the server dedups and verifies.
+- **seq scope:** §2.2's "monotonic per (batch_uuid, channel)" is SUPERSEDED by A1. Decision: **seq
+  is monotonic per (session_uuid, channel)** — batch_uuid is usually null at write time and cannot
+  scope a chain.
+- **Producer key storage:** any reading that the Ed25519 key lives in an ATECC608B is WRONG — the
+  ATECC608B is NIST P-256 only and cannot do Ed25519. Per §2.1 the key lives in **ESP32-S3
+  flash-encrypted NVS + secure boot v2**. (A discrete Ed25519-capable secure element remains an
+  open BOM option; see STITCHING_BLUEPRINT.md A4.)
