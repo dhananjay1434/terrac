@@ -58,9 +58,13 @@ const AXIS_GUTTER = 44; // left room for y-axis labels
 const X_AXIS_H = 20; // bottom room (keeps a consistent baseline rhythm)
 const PLOT_TOP = 8; // headroom so peaks never clip
 
-function defaultTicks([lo, hi]: [number, number]): number[] {
+// Below this measured width there isn't room for 5 evenly-spaced y-axis
+// labels without them colliding — narrow chart cards get 3 instead.
+const NARROW_WIDTH = 400;
+
+function defaultTicks([lo, hi]: [number, number], width: number): number[] {
   if (hi <= lo) return [lo];
-  const steps = 4;
+  const steps = width < NARROW_WIDTH ? 2 : 4;
   return Array.from(
     { length: steps + 1 },
     (_, i) => lo + ((hi - lo) / steps) * i,
@@ -87,7 +91,7 @@ export default function ChartFrame({
 }: ChartFrameProps) {
   const [wrapRef, width] = useContainerWidth();
   const [lo, hi] = yDomain;
-  const ticks = yTicks ?? defaultTicks(yDomain);
+  const ticks = yTicks ?? defaultTicks(yDomain, width);
 
   const plotW = Math.max(width - AXIS_GUTTER, 1);
   const plotH = Math.max(height - X_AXIS_H - PLOT_TOP, 1);
