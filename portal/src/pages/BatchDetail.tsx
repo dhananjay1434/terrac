@@ -1,19 +1,7 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import {
-  getBatch,
-  getBatchTimeline,
-  issueCredit,
-  downloadExport,
-  AuthError,
-  ApiError,
-  type BatchDetail as Detail,
-  type MediaItem,
-  type TimelineStage,
-} from "../api";
+import { Link, useParams } from "react-router-dom";
+import type { MediaItem } from "../api";
 import { getRole } from "../auth";
-import { getBatchCapabilities } from "../api2";
-import type { BatchCapabilities } from "../apiV2types";
+import { useBatchDetail } from "../features/batch-detail/useBatchDetail";
 import ComplianceChecklist from "../components/ComplianceChecklist/ComplianceChecklist";
 import EvidenceLightbox from "../components/EvidenceLightbox/EvidenceLightbox";
 import EvidenceGallery from "../components/EvidenceGallery/EvidenceGallery";
@@ -32,8 +20,6 @@ import Skeleton from "../components/Skeleton/Skeleton";
 import { fmtCredit, fmtDate, fmtKg, fmtDateTime } from "../format";
 import Button from "../ui/Button/Button";
 import Card from "../ui/Card/Card";
-
-const TIMELINE_V2 = true; // M3.3 feature flag
 
 export const STEP_ORDER = [
   "batch_photo", "flame_curtain", "quenching", "flame_height",
@@ -74,81 +60,24 @@ export function groupMedia(items: MediaItem[]): [string, MediaItem[]][] {
 
 export default function BatchDetail() {
   const { uuid = "" } = useParams();
-  const nav = useNavigate();
-  const [d, setD] = useState<Detail | null>(null);
-  const [timeline, setTimeline] = useState<TimelineStage[]>([]);
-  const [caps, setCaps] = useState<BatchCapabilities | null>(null);
-  const [timelineLightbox, setTimelineLightbox] = useState<MediaItem | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [issuing, setIssuing] = useState(false);
-  const [exporting, setExporting] = useState<"csi" | "rainbow" | null>(null);
-
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  function reload() {
-    setErr(null);
-    getBatch(uuid)
-      .then(setD)
-      .catch((e) => {
-        if (e instanceof AuthError) nav("/login");
-        else if (e instanceof ApiError && e.status === 404)
-          setErr("Batch not found.");
-        else setErr("Couldn't load batch.");
-      });
-    
-    getBatchCapabilities(uuid)
-      .then(setCaps)
-      .catch(() => {
-        // Best-effort probe: on failure we fall back to the pre-capability default
-        // (show panels) so a failed probe never blanks a batch that has data.
-      });
-
-    if (TIMELINE_V2) {
-      getBatchTimeline(uuid)
-        .then(setTimeline)
-        .catch((e) => {
-          // If legacy batch (404 timeline), no crash, just gallery
-          if (e instanceof ApiError && e.status === 404) return;
-          console.error("Failed to load timeline", e);
-        });
-    }
-  }
-  useEffect(() => {
-    reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uuid]);
-
-  useEffect(() => {
-    if (d) document.title = `Batch ${uuid.slice(0, 8)} · TerraCipher`;
-  }, [d, uuid]);
-
-  async function issue() {
-    if (!d) return;
-    setIssuing(true);
-    try {
-      await issueCredit(uuid);
-      setConfirmOpen(false);
-      reload();
-    } catch (e) {
-      if (e instanceof AuthError) nav("/login");
-      else setErr("Issue failed — the server re-checks eligibility.");
-    } finally {
-      setIssuing(false);
-    }
-  }
-
-  async function exportAs(fmt: "csi" | "rainbow") {
-    if (!d) return;
-    setExporting(fmt);
-    try {
-      await downloadExport(uuid, fmt);
-    } catch (e) {
-      if (e instanceof AuthError) nav("/login");
-      else setErr("Export failed — the batch must be issuable to export.");
-    } finally {
-      setExporting(null);
-    }
-  }
+  const {
+    d,
+    timeline,
+    timelineLightbox,
+    setTimelineLightbox,
+    err,
+    issuing,
+    exporting,
+    confirmOpen,
+    setConfirmOpen,
+    reload,
+    issue,
+    exportAs,
+    showTimeline,
+    showThermal,
+    showLoad,
+    chainNodes,
+  } = useBatchDetail(uuid);
 
   if (err) {
     return (
@@ -184,36 +113,7 @@ export default function BatchDetail() {
     );
   }
 
-  // Render from the server's stated verdict; if caps haven't loaded or the probe
-  // failed, fall back to TIMELINE_V2 (today's behavior) so nothing regresses.
-  const showTimeline = caps?.timeline ?? TIMELINE_V2;
-  const showThermal = caps ? caps.thermal : true;
-  const showLoad = caps ? caps.load : false;
-
-  const okCount = d.compliance.checklist.filter((c) => c.ok).length;
-  const total = d.compliance.checklist.length;
   const issued = d.batch.status === "ISSUED";
-  const chainNodes = [
-    {
-      label: "Received",
-      sublabel: d.batch.received_at ? fmtDate(d.batch.received_at) : undefined,
-      state: d.batch.received_at ? ("done" as const) : ("pending" as const),
-    },
-    {
-      label: "Evidence",
-      sublabel: `${d.media.length} item${d.media.length === 1 ? "" : "s"}`,
-      state: d.media.length > 0 ? ("done" as const) : ("pending" as const),
-    },
-    {
-      label: "Compliance",
-      sublabel: `${okCount}/${total} criteria`,
-      state: d.compliance.issuable ? ("done" as const) : ("current" as const),
-    },
-    {
-      label: "Issued",
-      state: issued ? ("done" as const) : ("pending" as const),
-    },
-  ];
 
   return (
     <div className="wrap">
