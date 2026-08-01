@@ -89,7 +89,7 @@ export default function BarChart({
 
   return (
     <div className={styles.wrap}>
-      <ChartFrame ariaLabel={label} yDomain={[0, max]} yTicks={[]} height={height}>
+      <ChartFrame ariaLabel={label} yDomain={[0, max]} height={height}>
         {({ w, yScale: yy }) => {
           const { slotWidth, barWidth } = computeLayout(data.length, w);
           // Shown labels are spaced `step` slots apart — that's the real horizontal

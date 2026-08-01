@@ -66,7 +66,11 @@ describe("BarChart", () => {
       value: i,
     }));
     const { container } = render(<BarChart data={many} />);
-    const texts = container.querySelectorAll("text");
+    // Scope to BarChart's own marks (drawn inside ChartFrame's transformed
+    // <g>) — ChartFrame now also renders its own y-axis tick <text>s (C2),
+    // which are siblings outside that <g>, not part of the x-axis thinning
+    // this test asserts.
+    const texts = container.querySelectorAll("g[transform] text");
     expect(texts.length).toBeLessThanOrEqual(8);
     expect(container.querySelectorAll("rect").length).toBe(24);
   });
@@ -80,7 +84,9 @@ describe("BarChart", () => {
       { label: "min_temp_uncorroborated", value: 1 },
     ];
     const { container } = render(<BarChart data={longLabels} />);
-    const texts = Array.from(container.querySelectorAll("text"));
+    // Scope to BarChart's own marks — ChartFrame's y-axis tick <text>s (C2)
+    // are numeric, not category labels, and would fail the lookup below.
+    const texts = Array.from(container.querySelectorAll("g[transform] text"));
     // Every rendered label must be shorter than its raw source label — proof
     // truncation actually kicked in for long snake_case category names —
     // and the full name always survives in the bar's <title> for hover.
@@ -96,20 +102,22 @@ describe("BarChart", () => {
   });
 
   it("prints each value above its bar when showValues is set (incl. an explicit 0)", () => {
-    render(<BarChart data={DATA} showValues />);
+    const { container } = render(<BarChart data={DATA} showValues />);
     // Value labels appear for every bucket, including the zero bucket — so a
     // distribution reads as exact counts, not 'one tall bar + slivers'.
     expect(screen.getByText("10")).toBeInTheDocument();
     expect(screen.getByText("25")).toBeInTheDocument();
     expect(screen.getByText("40")).toBeInTheDocument();
-    // "0" is a value label, not an axis label (axis labels are Jan..Apr).
-    expect(screen.getByText("0")).toBeInTheDocument();
+    // "0" now matches both a value label AND ChartFrame's y-axis zero tick
+    // (C2 turned the axis on) — assert on the value-label element specifically.
+    expect(container.querySelector('[class*="valueLabel"]')).not.toBeNull();
   });
 
   it("does NOT print value labels by default", () => {
-    render(<BarChart data={DATA} />);
-    // No value label for the zero bucket when showValues is off.
-    expect(screen.queryByText("0")).not.toBeInTheDocument();
+    const { container } = render(<BarChart data={DATA} />);
+    // No .valueLabel element for the zero bucket when showValues is off —
+    // a "0" tick label from ChartFrame's y-axis (C2) is expected and fine.
+    expect(container.querySelector('[class*="valueLabel"]')).toBeNull();
   });
 
   it("has no axe violations", async () => {

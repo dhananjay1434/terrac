@@ -163,7 +163,7 @@ function LedgerContent() {
           <span className="micro">Biomass over time</span>
         </div>
         <div className={styles.chartWrap}>
-          <BarChart data={chartData} height={160} formatValue={(v) => `${v.toLocaleString()} kg`} />
+          <BarChart data={chartData} height={160} formatValue={(v) => `${v.toLocaleString()} kg`} showValues />
         </div>
       </div>
 
