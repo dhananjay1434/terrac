@@ -1,5 +1,10 @@
 // Capability descriptor — mirrors backend capabilities.resolve_batch_capabilities exactly.
 // The portal renders panels from this stated verdict instead of guessing from failed fetches.
+export interface UnboundSession { session_uuid: string; device_id: string | null; started_at: string | null; chunk_count: number; }
+export interface UnboundSessionsResponse { unbound_sessions: UnboundSession[]; }
+export interface SyncWatermark { session_uuid: string; channel: string; max_seq: number; }
+export interface SyncStatusResponse { device_id: string; watermarks: SyncWatermark[]; }
+
 export interface BatchCapabilities {
   telemetry: "v2" | "legacy" | "none";
   thermal: boolean;
