@@ -22,12 +22,12 @@ void main() {
       clock: FakeDemoClock(),
     );
     final n = await TelemetryCourier(outbox).drainStream(dev.stream());
-    expect(n, 6); // 3 buckets × 2 channels
-    expect(outbox.payloads.length, 6);
+    expect(n, 15); // 3 buckets × 5 channels (T1..T4 + LOAD)
+    expect(outbox.payloads.length, 15);
     for (final p in outbox.payloads) {
       final e = jsonDecode(p) as Map<String, dynamic>;
       expect(e.containsKey('producer_signature'), isTrue);
-      expect(['T1', 'LOAD'].contains(e['channel']), isTrue);
+      expect(['T1', 'T2', 'T3', 'T4', 'LOAD'].contains(e['channel']), isTrue);
     }
   });
 }

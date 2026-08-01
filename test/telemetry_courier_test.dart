@@ -17,13 +17,13 @@ void main() {
     final outbox = _FakeOutbox();
     final device = SimulatedEdgeDevice(deviceId: await CryptoSigner.getDeviceId(), sessionUuid: 'sess-demo', buckets: 2);
     final n = await TelemetryCourier(outbox).drain(device);
-    expect(n, 4); // 2 buckets × 2 channels
-    expect(outbox.payloads.length, 4);
+    expect(n, 10); // 2 buckets × 5 channels (T1..T4 + LOAD)
+    expect(outbox.payloads.length, 10);
     // each enqueued payload is a complete signed envelope
     for (final p in outbox.payloads) {
       final e = jsonDecode(p) as Map<String, dynamic>;
       expect(e.containsKey('producer_signature'), isTrue);
-      expect(['T1', 'LOAD'].contains(e['channel']), isTrue);
+      expect(['T1', 'T2', 'T3', 'T4', 'LOAD'].contains(e['channel']), isTrue);
     }
   });
 }

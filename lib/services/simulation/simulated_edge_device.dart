@@ -26,7 +26,7 @@ class SimulatedEdgeDevice implements EdgeDeviceLink {
   final int buckets;
 
   Duration _elapsedAt(int b) => Duration(seconds: b * profile.profile.bucketSeconds);
-  double _temp(int b) => profile.sample(_elapsedAt(b)).tempC;
+  double _probeTemp(ProbeSpec probe, int b) => profile.sampleProbe(probe, _elapsedAt(b));
   double _weight(int b) => profile.sample(_elapsedAt(b)).loadKg;
 
   // Now-relative AND always in the PAST: model the burn as ENDING at
@@ -41,19 +41,30 @@ class SimulatedEdgeDevice implements EdgeDeviceLink {
   @override
   Future<List<SignedChunk>> collect() async {
     final out = <SignedChunk>[];
-    var seqT = 0, seqL = 0;
-    var prevT = 'GENESIS', prevL = 'GENESIS';
+    final seq = <String, int>{};      // per-channel monotonic seq (starts 0)
+    final prev = <String, String>{};  // per-channel prev_hash chain (starts GENESIS)
     for (var b = 0; b < buckets; b++) {
-      final t = await TelemetryEnvelopeBuilder.build(
-        deviceId: deviceId, sessionUuid: sessionUuid, batchUuid: null, channel: 'T1',
-        tStartIso: _iso(b), samplePeriodS: 10.0, values: [_temp(b)], seq: seqT, prevHash: prevT);
-      prevT = t.nextPrevHash; seqT++; out.add(t);
-      final l = await TelemetryEnvelopeBuilder.build(
-        deviceId: deviceId, sessionUuid: sessionUuid, batchUuid: null, channel: 'LOAD',
-        tStartIso: _iso(b), samplePeriodS: 10.0, values: [_weight(b)], seq: seqL, prevHash: prevL);
-      prevL = l.nextPrevHash; seqL++; out.add(l);
+      for (final probe in profile.profile.probes) {
+        out.add(await _emit(probe.channel, _iso(b), _probeTemp(probe, b), seq, prev));
+      }
+      out.add(await _emit('LOAD', _iso(b), _weight(b), seq, prev));
     }
     return out;
+  }
+
+  /// Build one signed chunk on [channel]'s OWN chain (GENESIS at seq 0), advance it.
+  Future<SignedChunk> _emit(
+    String channel, String tStartIso, double value,
+    Map<String, int> seq, Map<String, String> prev,
+  ) async {
+    final s = seq[channel] ?? 0;
+    final p = prev[channel] ?? 'GENESIS';
+    final c = await TelemetryEnvelopeBuilder.build(
+      deviceId: deviceId, sessionUuid: sessionUuid, batchUuid: null, channel: channel,
+      tStartIso: tStartIso, samplePeriodS: 10.0, values: [value], seq: s, prevHash: p);
+    seq[channel] = s + 1;
+    prev[channel] = c.nextPrevHash;
+    return c;
   }
 
   /// Live emission: yields one bucket's T1+LOAD chunks every
@@ -64,18 +75,14 @@ class SimulatedEdgeDevice implements EdgeDeviceLink {
       milliseconds: (profile.profile.bucketSeconds * 1000 ~/ profile.profile.accelerationFactor)
           .clamp(1, 1 << 30),
     );
-    var seqT = 0, seqL = 0;
-    var prevT = 'GENESIS', prevL = 'GENESIS';
+    final seq = <String, int>{};
+    final prev = <String, String>{};
     for (var b = 0; b < buckets; b++) {
       if (b > 0) await Future<void>.delayed(period);
-      final t = await TelemetryEnvelopeBuilder.build(
-        deviceId: deviceId, sessionUuid: sessionUuid, batchUuid: null, channel: 'T1',
-        tStartIso: _iso(b), samplePeriodS: 10.0, values: [_temp(b)], seq: seqT, prevHash: prevT);
-      prevT = t.nextPrevHash; seqT++; yield t;
-      final l = await TelemetryEnvelopeBuilder.build(
-        deviceId: deviceId, sessionUuid: sessionUuid, batchUuid: null, channel: 'LOAD',
-        tStartIso: _iso(b), samplePeriodS: 10.0, values: [_weight(b)], seq: seqL, prevHash: prevL);
-      prevL = l.nextPrevHash; seqL++; yield l;
+      for (final probe in profile.profile.probes) {
+        yield await _emit(probe.channel, _iso(b), _probeTemp(probe, b), seq, prev);
+      }
+      yield await _emit('LOAD', _iso(b), _weight(b), seq, prev);
     }
   }
 

@@ -22,7 +22,7 @@ void main() {
       buckets: 6,
     );
     final chunks = await dev.collect();
-    expect(chunks.length, 12); // 6 buckets × 2 channels (T1 + LOAD)
+    expect(chunks.length, 30); // 6 buckets × 5 channels (T1..T4 + LOAD)
     // every chunk verifies against the device key
     final pub = SimplePublicKey(base64Url.decode(_pad(await CryptoSigner.publicKeyB64())), type: KeyPairType.ed25519);
     for (final c in chunks) {
@@ -33,6 +33,17 @@ void main() {
     final t1 = chunks.where((c) => c.envelope['channel'] == 'T1').toList();
     final load = chunks.where((c) => c.envelope['channel'] == 'LOAD').toList();
     expect(t1.length, 6); expect(load.length, 6);
+    // all four probes present, each its own 6-long chain starting GENESIS/seq 0
+    for (final ch in ['T1', 'T2', 'T3', 'T4']) {
+      final s = chunks.where((c) => c.envelope['channel'] == ch).toList();
+      expect(s.length, 6, reason: ch);
+      expect(s.first.envelope['prev_hash'], 'GENESIS', reason: '$ch seq0');
+      expect(s.first.envelope['seq'], 0, reason: '$ch seq0');
+    }
+    // bottom (T4) reads hotter than a side (T3) at the final bucket
+    final t4last = (chunks.where((c) => c.envelope['channel'] == 'T4').last.envelope['values'] as List).first as double;
+    final t3last = (chunks.where((c) => c.envelope['channel'] == 'T3').last.envelope['values'] as List).first as double;
+    expect(t4last, greaterThan(t3last));
     // hash chain: T1 seq1.prev_hash == sha256(canonical of T1 seq0); seq0 is GENESIS
     expect(t1[0].envelope['prev_hash'], 'GENESIS');
     expect(t1[1].envelope['prev_hash'], sha256.convert(utf8.encode(canonicalJson(t1[0].envelope))).toString());
