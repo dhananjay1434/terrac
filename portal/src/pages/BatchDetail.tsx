@@ -184,6 +184,12 @@ export default function BatchDetail() {
     );
   }
 
+  // Render from the server's stated verdict; if caps haven't loaded or the probe
+  // failed, fall back to TIMELINE_V2 (today's behavior) so nothing regresses.
+  const showTimeline = caps?.timeline ?? TIMELINE_V2;
+  const showThermal = caps ? caps.thermal : true;
+  const showLoad = caps ? caps.load : false;
+
   const okCount = d.compliance.checklist.filter((c) => c.ok).length;
   const total = d.compliance.checklist.length;
   const issued = d.batch.status === "ISSUED";
@@ -329,8 +335,9 @@ export default function BatchDetail() {
           live={d.batch.status !== "ISSUED"}
         />
         <div className="tiles" style={{ marginTop: "var(--space-3)" }}>
-          <StatTile label="Min temp" value={d.telemetry?.min_temp != null ? `${d.telemetry.min_temp}°C` : "—"} />
-          <StatTile label="Max temp" value={d.telemetry?.max_temp != null ? `${d.telemetry.max_temp}°C` : "—"} />
+          <StatTile label="Min temp" value={showThermal && d.telemetry?.min_temp != null ? `${d.telemetry.min_temp}°C` : "—"} />
+          <StatTile label="Max temp" value={showThermal && d.telemetry?.max_temp != null ? `${d.telemetry.max_temp}°C` : "—"} />
+          <StatTile label="Load channel" value={showLoad ? "active" : "—"} />
           {/* Weight is a single post-burn measurement, not a time series —
               shown as a stat, not a curve. A weight-vs-time curve would
               require app-side series capture (out of scope). */}
@@ -338,7 +345,7 @@ export default function BatchDetail() {
         </div>
       </Card>
 
-      {TIMELINE_V2 && timeline.length > 0 && (
+      {showTimeline && timeline.length > 0 && (
         <section className="card" style={{ marginTop: "var(--space-4)", overflow: "hidden" }}>
           <div className="micro" style={{ marginBottom: "var(--space-3)", padding: "var(--space-3) var(--space-4) 0" }}>Custody timeline</div>
           <div style={{ padding: "0 var(--space-4) var(--space-4)" }}>
