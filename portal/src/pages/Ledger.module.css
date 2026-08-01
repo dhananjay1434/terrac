@@ -15,7 +15,7 @@
 .subtitle {
   font-size: var(--fs-12);
   color: var(--text-tertiary);
-  margin: 2px 0 0;
+  margin: var(--space-1) 0 0;
 }
 
 /* ── Controls row (presets + bucket toggle) ───────────────────────────── */
@@ -186,7 +186,7 @@
 .codeChip {
   font-size: var(--fs-12);
   font-family: var(--font-mono);
-  padding: 2px var(--space-1);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--r-sm);
   background: var(--surface-sunken);
   color: var(--indigo-600);
