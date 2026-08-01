@@ -36,10 +36,14 @@ export default function ParcelMap({
 
     try {
       // Default center: India (20.5937, 78.9629)
-      const map = L.map(mapRef.current, { attributionControl: false }).setView(
-        [20.5937, 78.9629],
-        5,
-      );
+      // In read-only mode (the dispatch journey drawer) the map sits inside a
+      // scrollable panel, so wheel-zoom would trap the page scroll — the user
+      // can't scroll past the map. Disable scroll-wheel zoom there and rely on
+      // the +/- zoom controls; keep it on for the parcel-drawing map.
+      const map = L.map(mapRef.current, {
+        attributionControl: false,
+        scrollWheelZoom: !readOnly,
+      }).setView([20.5937, 78.9629], 5);
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
