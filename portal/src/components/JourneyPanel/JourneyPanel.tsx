@@ -1,5 +1,6 @@
 import { fmtKg } from "../../format";
 import StatusPill from "../../ui/StatusPill/StatusPill";
+import DataTable, { type ColumnDef } from "../DataTable/DataTable";
 import styles from "./JourneyPanel.module.css";
 
 /**
@@ -107,32 +108,11 @@ export default function JourneyPanel({ data }: { data: JourneyData }) {
         {manifest.length === 0 ? (
           <div className="text-tertiary">{DASH} no manifest lines</div>
         ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Container</th>
-                <th className={styles.num}>Count</th>
-                <th className={styles.num}>Mass / volume</th>
-                <th>Product</th>
-              </tr>
-            </thead>
-            <tbody>
-              {manifest.map((m, i) => (
-                <tr key={i}>
-                  <td>{m.container}</td>
-                  <td className={`${styles.num} mono tabular`}>{m.count}</td>
-                  <td className={`${styles.num} mono tabular`}>
-                    {m.unit_kg != null
-                      ? fmtKg(m.unit_kg * m.count)
-                      : m.volume_l != null
-                        ? `${(m.volume_l * m.count).toLocaleString()} L`
-                        : DASH}
-                  </td>
-                  <td>{m.product}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable<JourneyManifestLine>
+            columns={manifestColumns}
+            rows={manifest}
+            rowKey={(m) => `${m.container}-${manifest.indexOf(m)}`}
+          />
         )}
       </div>
 
@@ -160,3 +140,21 @@ export default function JourneyPanel({ data }: { data: JourneyData }) {
     </section>
   );
 }
+
+const manifestColumns: ColumnDef<JourneyManifestLine>[] = [
+  { key: "container", header: "Container", render: (m) => m.container },
+  { key: "count", header: "Count", align: "right", mono: true, render: (m) => m.count },
+  {
+    key: "mass",
+    header: "Mass / volume",
+    align: "right",
+    mono: true,
+    render: (m) =>
+      m.unit_kg != null
+        ? fmtKg(m.unit_kg * m.count)
+        : m.volume_l != null
+          ? `${(m.volume_l * m.count).toLocaleString()} L`
+          : DASH,
+  },
+  { key: "product", header: "Product", render: (m) => m.product },
+];

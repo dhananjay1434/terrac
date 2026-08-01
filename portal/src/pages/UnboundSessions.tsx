@@ -4,6 +4,7 @@ import type { UnboundSession, SyncWatermark } from "../apiV2types";
 import { getRole } from "../auth";
 import Button from "../ui/Button/Button";
 import Card from "../ui/Card/Card";
+import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 
 export default function UnboundSessions() {
   const [rows, setRows] = useState<UnboundSession[]>([]);
@@ -34,32 +35,34 @@ export default function UnboundSessions() {
   }
 
   if (!isAdmin) return <div className="wrap">Admins only.</div>;
+
+  const columns: ColumnDef<UnboundSession>[] = [
+    { key: "session", header: "Session", mono: true, render: (r) => r.session_uuid.slice(0, 8) },
+    { key: "device", header: "Device", render: (r) => r.device_id ?? "—" },
+    { key: "started", header: "Started", mono: true, render: (r) => r.started_at ?? "—" },
+    { key: "chunks", header: "Chunks", align: "right", mono: true, render: (r) => r.chunk_count },
+    {
+      key: "bind",
+      header: "",
+      align: "right",
+      render: (r) => (
+        <Button size="sm" disabled={busy === r.session_uuid} onClick={() => bind(r.session_uuid)}>
+          {busy === r.session_uuid ? "Binding…" : "Bind to batch"}
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="wrap">
       <h1 className="text-primary" style={{ fontSize: 20, fontWeight: 600 }}>Unbound burn sessions</h1>
       <p className="micro" style={{ marginBottom: "var(--space-4)" }}>Burn sessions recorded with no batch yet. Bind each to attach its telemetry.</p>
       {err && <div className="err" style={{ marginBottom: "var(--space-3)" }}>{err}</div>}
       <Card as="section">
-        {rows.length === 0 ? <div className="micro">No unbound sessions.</div> : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr className="micro">
-              <th style={{ textAlign: "left" }}>Session</th><th style={{ textAlign: "left" }}>Device</th>
-              <th style={{ textAlign: "left" }}>Started</th><th style={{ textAlign: "right" }}>Chunks</th><th></th>
-            </tr></thead>
-            <tbody>{rows.map((r) => (
-              <tr key={r.session_uuid}>
-                <td className="mono">{r.session_uuid.slice(0, 8)}</td>
-                <td>{r.device_id ?? "—"}</td>
-                <td className="tabular">{r.started_at ?? "—"}</td>
-                <td className="tabular" style={{ textAlign: "right" }}>{r.chunk_count}</td>
-                <td style={{ textAlign: "right" }}>
-                  <Button size="sm" disabled={busy === r.session_uuid} onClick={() => bind(r.session_uuid)}>
-                    {busy === r.session_uuid ? "Binding…" : "Bind to batch"}
-                  </Button>
-                </td>
-              </tr>
-            ))}</tbody>
-          </table>
+        {rows.length === 0 ? (
+          <div className="micro">No unbound sessions.</div>
+        ) : (
+          <DataTable<UnboundSession> columns={columns} rows={rows} rowKey={(r) => r.session_uuid} />
         )}
       </Card>
       <Card as="section" style={{ marginTop: "var(--space-4)" }}>

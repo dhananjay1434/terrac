@@ -6,9 +6,12 @@ import StatusPill from "../ui/StatusPill/StatusPill";
 import BarChart from "../ui/BarChart/BarChart";
 import HorizontalBarList from "../ui/HorizontalBarList/HorizontalBarList";
 import BucketToggle from "../ui/BucketToggle/BucketToggle";
+import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import styles from "./Ledger.module.css";
 import ErrorBoundary from "../ui/ErrorBoundary/ErrorBoundary";
 import CardError from "../ui/CardError/CardError";
+
+type LedgerBucketRow = BiomassLedgerResponse["buckets"][number];
 
 /* ── Date preset helpers ─────────────────────────────────────────────────── */
 type Preset = "mtd" | "ytd" | "custom";
@@ -164,63 +167,67 @@ function LedgerContent() {
       <div className={`card ${styles.tableCard}`}>
         <span className="micro" style={{ display: "block", marginBottom: "var(--space-3)" }}>Ledger detail</span>
         <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Period</th>
-                <th className={styles.num}>Batches</th>
-                <th className={styles.num}>Biomass (kg)</th>
-                <th>Species</th>
-                <th>Batch codes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.buckets.map((b) => {
-                const speciesEntries = Object.entries(b.by_species).sort(
-                  ([, a], [, b]) => b - a,
-                );
-
-                return (
-                  <tr key={b.period}>
-                    <td className="mono tabular">{b.period}</td>
-                    <td className={`${styles.num} mono tabular`}>{b.row_count}</td>
-                    <td className={`${styles.num} mono tabular`}>{b.total_kg.toLocaleString()}</td>
-                    <td>
-                      <span className={styles.pillRow}>
-                        {speciesEntries.length > 0
-                          ? speciesEntries.map(([s]) => (
-                              <StatusPill key={s} status="inert">
-                                {s.replace(/_/g, " ")}
-                              </StatusPill>
-                            ))
-                          : "—"}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={styles.codeRow}>
-                        {(b.batch_codes ?? []).length > 0
-                          ? b.batch_codes.map((code) => (
-                              <Link
-                                key={code}
-                                to={`/batches/${code}`}
-                                className={styles.codeChip}
-                              >
-                                {code}
-                              </Link>
-                            ))
-                          : "—"}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <DataTable<LedgerBucketRow>
+            columns={ledgerColumns}
+            rows={data.buckets}
+            rowKey={(b) => b.period}
+          />
         </div>
       </div>
     </div>
   );
 }
+
+const ledgerColumns: ColumnDef<LedgerBucketRow>[] = [
+  { key: "period", header: "Period", mono: true, render: (b) => b.period },
+  {
+    key: "batches",
+    header: "Batches",
+    align: "right",
+    mono: true,
+    render: (b) => b.row_count,
+  },
+  {
+    key: "biomass",
+    header: "Biomass (kg)",
+    align: "right",
+    mono: true,
+    render: (b) => b.total_kg.toLocaleString(),
+  },
+  {
+    key: "species",
+    header: "Species",
+    render: (b) => {
+      const speciesEntries = Object.entries(b.by_species).sort(([, a], [, c]) => c - a);
+      return (
+        <span className={styles.pillRow}>
+          {speciesEntries.length > 0
+            ? speciesEntries.map(([s]) => (
+                <StatusPill key={s} status="inert">
+                  {s.replace(/_/g, " ")}
+                </StatusPill>
+              ))
+            : "—"}
+        </span>
+      );
+    },
+  },
+  {
+    key: "codes",
+    header: "Batch codes",
+    render: (b) => (
+      <span className={styles.codeRow}>
+        {(b.batch_codes ?? []).length > 0
+          ? b.batch_codes.map((code) => (
+              <Link key={code} to={`/batches/${code}`} className={styles.codeChip}>
+                {code}
+              </Link>
+            ))
+          : "—"}
+      </span>
+    ),
+  },
+];
 
 export default function Ledger() {
   return (
