@@ -1,11 +1,11 @@
 :root {
   /* ── primitives: Basalt neutral scale — cool blue-grey undertone ── */
-  --basalt-50:  #f7f8fa;   /* faint cool off-white page */
-  --basalt-100: #e6e8ee;   /* hairline borders */
-  --basalt-300: #d0d5dd;   /* strong borders */
-  --basalt-500: #6b7280;   /* 4.83:1 on white — AA pass */
-  --basalt-700: #4a5065;   /* 8.00:1 */
-  --basalt-950: #1a1f36;   /* 16.24:1 — near-black, blue undertone, never pure black */
+  --basalt-50:  #f9f8f7;   /* faint warm off-white page */
+  --basalt-100: #eceae6;   /* hairline borders */
+  --basalt-300: #d8d8d3;   /* strong borders */
+  --basalt-500: #737477;   /* 4.67:1 on white — AA pass */
+  --basalt-700: #50525e;   /* 7.75:1 */
+  --basalt-950: #1e2030;   /* 16.10:1 — near-black, warm undertone, never pure black */
   /* ── primitives: brand + semantic hues (Stripe/Mercury-calibrated) ── */
   --indigo-600: #635bff;   /* THE brand accent. 4.70:1 on white — AA pass */
   --indigo-50:  #f3f2ff;
@@ -54,12 +54,12 @@
 
   /* === extended neutral steps (cool, indigo-tinted at the dark end) === */
   --basalt-0:   #ffffff;
-  --basalt-200: #dcdfe6;
-  --basalt-400: #9297a8;
-  --basalt-600: #565c72;
-  --basalt-800: #21232f;
-  --basalt-900: #1c1e27;   /* dark-theme card surface */
-  --basalt-950-canvas: #14151c;   /* dark-theme page canvas — deeper than card */
+  --basalt-200: #e3e2dd;
+  --basalt-400: #9b9a9d;
+  --basalt-600: #5d5e6a;
+  --basalt-800: #262529;
+  --basalt-900: #201f22;   /* dark-theme card surface */
+  --basalt-950-canvas: #171618;   /* dark-theme page canvas — deeper than card */
   /* indigo tint for dark-mode text/links (brand hue lifted for ≥4.5:1 on dark) */
   --indigo-400: #8b85ff;   /* 5.45:1 on --basalt-900 */
   /* ember scale (brand-warm accent for banners/reticles) */
