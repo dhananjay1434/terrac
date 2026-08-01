@@ -1,0 +1,5 @@
+{
+  "canonical_authority": "backend/tools/golden_vectors.json",
+  "note": "Firmware (C) and app (Dart) must reproduce canonical_hex for every vector in the authority file byte-for-byte before either is trusted. Do not hand-edit; regenerate the authority with: cd backend && python tools/gen_golden_vectors.py",
+  "protocol_spec": "docs/ble-sync-protocol.md"
+}
