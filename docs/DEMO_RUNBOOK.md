@@ -12,11 +12,16 @@ Signed chunks only reach the portal if the device is enrolled server-side.
 1. `flutter run --dart-define=DMRV_DEMO_MODE=true`
 2. Start a burn. On the phone, temperature climbs past 350°C toward the 420°C plateau and the load
    cell settles at 15.2 kg — live. Under the hood a SimulatedEdgeDevice signs & hash-chains 10s chunks
-   (T1 + LOAD) off the shared BurnProfile, timestamps them now-relative (backward-anchored so the burn
-   ends ≈now), and streams them to POST /api/v2/telemetry/ingest DURING the burn (default 10× — tune
-   `DemoProfile.accelerationFactor`).
-3. Portal → the burn's batch: timeline + thermal + LOAD tiles light from the capability verdict. If
-   the session is unbound, bind it at /telemetry/unbound, then refresh.
+   for FOUR thermocouples — T1/T2/T3 on the sides and T4 at the bottom (hottest, nearest the flame
+   front) — plus LOAD, EACH ON ITS OWN CHAIN, off the shared BurnProfile, timestamps them now-relative
+   (backward-anchored so the burn ends ≈now), and streams them to POST /api/v2/telemetry/ingest DURING
+   the burn (default 10× — tune `DemoProfile.accelerationFactor`).
+3. Portal → the burn's batch: timeline + thermal + LOAD tiles light from the capability verdict. The
+   thermal map draws all four lines fanning out during ramp and holding a steady gradient
+   (T4 > T1 > T2 > T3) at plateau, beside the LOAD curve. T1 stays the 420°C reference that matches the
+   phone; T2–T4 are placement offsets of the same signed curve. The real ESP32 must reproduce the
+   T1–T4 vectors in `test/golden_vectors.json` (MT-F1). If the session is unbound, bind it at
+   /telemetry/unbound, then refresh.
 
 ## What reconciles (and what doesn't)
 The signed portal record and the on-phone UI agree on the plateau (420°C), the load (15.2 kg), and
