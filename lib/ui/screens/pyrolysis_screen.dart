@@ -9,6 +9,7 @@ import '../../providers/batch_session_notifier.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/pyrolysis_ble_notifier.dart';
 import '../../services/ble_permission_gate.dart';
+import '../../services/demo_telemetry_wire.dart';
 import '../../services/ble_temperature_service.dart';
 import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
@@ -99,6 +100,13 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
     }
     setState(() => _permError = null);
     await ref.read(pyrolysisBleProvider.notifier).beginBurn();
+    // WIRING P16: demo-only, dual-runs beside the legacy write in _endBurn.
+    // No-op unless built with --dart-define=DMRV_DEMO_MODE=true.
+    final batchUuid = ref.read(batchSessionProvider);
+    if (batchUuid != null) {
+      final db = await ref.read(appDatabaseProvider.future);
+      await maybeStartDemoTelemetry(db: db, sessionUuid: batchUuid);
+    }
   }
 
   Future<void> _endBurn() async {
