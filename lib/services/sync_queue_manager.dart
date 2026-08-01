@@ -507,6 +507,58 @@ class SyncQueueManager {
 
     try {
       // -----------------------------------------------------------------------
+      // TELEMETRY V2 CHUNK — single signed POST, no JSON/media two-phase (WIRING P15).
+      // Short-circuits before the targetTable dispatch below: a v2 chunk has its
+      // own endpoint and its own success/duplicate semantics, not a table row.
+      // -----------------------------------------------------------------------
+      if (entry.operationType == 'TELEMETRY_V2_CHUNK') {
+        final deviceId = await CryptoSigner.getDeviceId();
+        final (signature, signedAt) = await CryptoSigner.signRequestV2(
+          method: 'POST',
+          path: '/api/v2/telemetry/ingest',
+          idempotencyKey: entry.operationId,
+          deviceId: deviceId,
+          jsonBody: entry.payloadJson,
+        );
+        final response = await _client.post(
+          Uri.parse('${_config.apiBase}/api/v2/telemetry/ingest'),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Idempotency-Key': entry.operationId,
+            'X-Device-Id': deviceId,
+            'X-Signature': signature,
+            'X-Canonical-Version': '2',
+            'X-Signed-At': signedAt,
+          },
+          body: entry.payloadJson,
+        );
+        _recordClockSkew(response.headers);
+
+        // 200 covers both a fresh accept and {"status":"duplicate"} — either
+        // way the server has the chunk, so treat it as the existing success
+        // transition. 422 is a genuine validation rejection (permanent); any
+        // other non-200 (5xx, timeout) falls through to the existing
+        // PENDING+backoff retry path via the catch block below.
+        if (response.statusCode == 200) {
+          await (db.update(db.syncOutbox)
+                ..where((t) => t.operationId.equals(entry.operationId)))
+              .write(const SyncOutboxCompanion(status: Value('SYNCED')));
+          debugPrint(
+            '[SyncQueue] Telemetry v2 chunk ${entry.operationId} SYNCED.',
+          );
+          return;
+        }
+        if (response.statusCode == 422) {
+          throw PermanentSyncException(
+            'Telemetry v2 ingest rejected (422): ${response.body}',
+          );
+        }
+        throw Exception(
+          'Telemetry v2 ingest failed: ${response.statusCode} - ${response.body}',
+        );
+      }
+
+      // -----------------------------------------------------------------------
       // Phase 1 — JSON metadata upload
       // -----------------------------------------------------------------------
       // Fix 4: skip if already confirmed in a prior sync attempt.
