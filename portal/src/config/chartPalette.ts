@@ -20,3 +20,21 @@ export const INDIGO_CHART_SCALE = [
 export function indigoTone(index: number): string {
   return INDIGO_CHART_SCALE[index % INDIGO_CHART_SCALE.length];
 }
+
+/** Categorical tones for MULTI-SERIES charts only (e.g. 4 thermocouples on one
+ * chart) — single-series charts must keep using `indigoTone`/`INDIGO_CHART_SCALE`.
+ * Reuses the existing ember and verde token scales (already defined in
+ * tokens.css for exactly this "brand-warm accent" purpose) rather than
+ * inventing a new hue — per the no-new-brand-hue rule, indigo/ember/verde/amber
+ * are all tokens that already exist. */
+const CATEGORICAL_SCALE = [
+  "var(--indigo-600)",
+  "var(--ember-600)",
+  "var(--verde-500)",
+  "var(--amber-700)",
+] as const;
+
+/** Returns the Nth categorical tone, cycling if `index` exceeds the scale length. */
+export function categoricalTone(index: number): string {
+  return CATEGORICAL_SCALE[index % CATEGORICAL_SCALE.length];
+}

@@ -1,4 +1,4 @@
-import { indigoTone } from "@config/chartPalette";
+import { categoricalTone } from "@config/chartPalette";
 import ChartFrame from "../ChartFrame/ChartFrame";
 import styles from "./ThermalMapChart.module.css";
 
@@ -83,7 +83,7 @@ export default function ThermalMapChart({
         title="Real-time thermal mapping"
         yDomain={[lo, hi]}
         yFormat={(v) => v.toFixed(0)}
-        legend={present.map((c, i) => ({ label: `${c}·${PLACEMENT[c] ?? ""}`, color: indigoTone(i) }))}
+        legend={present.map((c, i) => ({ label: `${c}·${PLACEMENT[c] ?? ""}`, color: categoricalTone(i) }))}
         badge={
           <span className={styles.maxBadge} data-gate={gateSatisfied ? "pass" : "pending"}>
             MAX <span className="mono tabular">{peak.toFixed(1)}</span>°C
@@ -95,7 +95,7 @@ export default function ThermalMapChart({
           return (
             <>
               {present.map((c, i) => {
-                const color = indigoTone(i);
+                const color = categoricalTone(i);
                 return segments(data.channels[c].points, gaps).map((seg, si) => (
                   <polyline
                     key={`${c}-${si}`}
