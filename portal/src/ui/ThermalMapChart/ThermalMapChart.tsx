@@ -30,6 +30,9 @@ const VIEW_H = 200;
 const Y_TOP = 8;
 const Y_BOT = 192;
 const CHANNEL_ORDER = ["T1", "T2", "T3", "T4"] as const;
+// Placement of each probe (matches the edge DemoProfile.probes) — shown in the
+// end-label so four live lines are self-describing (T4·bottom, T1·side…).
+const PLACEMENT: Record<string, string> = { T1: "side", T2: "side", T3: "side", T4: "bottom" };
 
 function yScale(v: number, lo: number, hi: number): number {
   if (hi === lo) return (Y_TOP + Y_BOT) / 2;
@@ -140,7 +143,7 @@ export default function ThermalMapChart({
               fontSize="var(--fs-12)"
               className="mono"
             >
-              {c}
+              {`${c}·${PLACEMENT[c] ?? ""}`}
             </text>
           );
         })}
