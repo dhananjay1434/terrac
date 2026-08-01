@@ -176,13 +176,11 @@ function LedgerContent() {
       {/* ── Data table with species pills + batch_code links ───────── */}
       <div className={`card ${styles.tableCard}`}>
         <span className="micro" style={{ display: "block", marginBottom: "var(--space-3)" }}>Ledger detail</span>
-        <div className={styles.tableWrap}>
-          <DataTable<LedgerBucketRow>
-            columns={ledgerColumns}
-            rows={data.buckets}
-            rowKey={(b) => b.period}
-          />
-        </div>
+        <DataTable<LedgerBucketRow>
+          columns={ledgerColumns}
+          rows={data.buckets}
+          rowKey={(b) => b.period}
+        />
       </div>
     </div>
   );
