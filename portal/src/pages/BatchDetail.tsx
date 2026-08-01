@@ -12,6 +12,8 @@ import {
   type TimelineStage,
 } from "../api";
 import { getRole } from "../auth";
+import { getBatchCapabilities } from "../api2";
+import type { BatchCapabilities } from "../apiV2types";
 import ComplianceChecklist from "../components/ComplianceChecklist/ComplianceChecklist";
 import EvidenceLightbox from "../components/EvidenceLightbox/EvidenceLightbox";
 import EvidenceGallery from "../components/EvidenceGallery/EvidenceGallery";
