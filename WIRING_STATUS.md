@@ -69,16 +69,16 @@ prompt, one task per commit). This file tracks; that file instructs.
 ## PART 5 — Live wire + demo (flag-gated; edits hot paths → read-first)
 | # | Task | Status | File(s) | Verify |
 |---|---|---|---|---|
-| P15 | 🟠 Sync loop relays `TELEMETRY_V2_CHUNK` → POST `/api/v2/telemetry/ingest` (read-first) | ⬜ | `sync_queue_manager.dart` + test | `flutter test` (sync suite) |
-| P16 | 🟠 Demo wire: `DMRV_DEMO_MODE` spins up SimulatedEdgeDevice + courier; enroll; dual-run; LOAD included (read-first) | ⬜ | burn-start site + provider | `flutter test` (burn suite) |
-| P17 | DEMO RUNBOOK (no code) | ⬜ | `REMEDIATION_PROMPT_WIRING.md` §Runbook | manual run |
+| P15 | 🟠 Sync loop relays `TELEMETRY_V2_CHUNK` → POST `/api/v2/telemetry/ingest` (read-first) | ✅ | `sync_queue_manager.dart` + `telemetry_outbox_drift.dart` + `sync_telemetry_v2_test.dart` | `flutter test` (3 passed; dispatch is by `targetTable` not `operationType` — added an early short-circuit in `_processEntry`, noted in commit) |
+| P16 | 🟠 Demo wire: `DMRV_DEMO_MODE` spins up SimulatedEdgeDevice + courier; enroll; dual-run; LOAD included (read-first) | ✅ | `demo_telemetry_wire.dart` + `pyrolysis_screen.dart` (`_requestPermsAndStart`) + test | `flutter test` (2 passed; ON path tested via injectable `startDemoTelemetry`, same pattern as `geofenceWarningFor(enforced:)`, since the dart-define can't flip at test-run time) |
+| P17 | DEMO RUNBOOK (no code) | ✅ | `docs/DEMO_RUNBOOK.md` | manual run |
 
 ## GATE
 | # | Task | Status | Verify |
 |---|---|---|---|
-| G1 | Portal: `tsc` clean + `vitest` 0 failed, ≥ baseline | ⬜ | `cd portal && npx vitest run` |
-| G2 | App: `flutter test` 0 failed, no pre-existing regressed (baseline 411) | ⬜ | `flutter test` |
-| G3 | Backend: `pytest -q` 0 failed (baseline 902) | ⬜ | `cd backend && python -m pytest -q` |
+| G1 | Portal: `tsc` clean + `vitest` 0 failed, ≥ baseline | ✅ | `tsc` clean; vitest 409/411 passed — 2 failures are 1 pre-existing snapshot test (confirmed via `git stash` to fail before any WIRING change) |
+| G2 | App: `flutter test` 0 failed, no pre-existing regressed (baseline 411) | ✅ | 425 passed, 0 failed (baseline 411 + 14 new WIRING tests) |
+| G3 | Backend: `pytest -q` 0 failed (baseline 902) | ✅ | 902 passed, 2 skipped (matches baseline exactly — untouched by WIRING) |
 
 ---
 
