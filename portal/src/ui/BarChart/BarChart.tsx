@@ -136,6 +136,12 @@ export default function BarChart({
               })}
               {showValues &&
                 data.map((d, i) => {
+                  // Only the same thinned set of indices used for x-axis labels —
+                  // rendering a value label above EVERY bar collides into unreadable
+                  // overlapping text once there are more than a handful of bars
+                  // (e.g. a daily-bucketed chart with 79+ bars). At <= MAX_X_LABELS
+                  // bars this is a no-op: labelIndices already contains every index.
+                  if (!labelIndices.has(i)) return null;
                   const rawBarHeight = baseline - yy(d.value);
                   const barHeight = Math.max(rawBarHeight, 2);
                   const barTop = baseline - barHeight;
