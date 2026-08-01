@@ -1,6 +1,5 @@
 .scrollWrap {
   width: 100%;
-  overflow-x: auto;
 }
 .stickyHead th {
   position: sticky;
@@ -8,7 +7,21 @@
   background: var(--surface-card);
   z-index: 1;
 }
+/* Horizontal scroll is only needed on narrow screens (a wide table would
+   otherwise force body-level horizontal scroll). We scope overflow to mobile
+   deliberately: `overflow-x: auto` makes .scrollWrap a scroll container, and a
+   first-child sticky header offset by --topbar-h would then be shoved DOWN by
+   that offset (a 56px gap + overlap on row 1). So on desktop .scrollWrap stays
+   a plain block and the header keeps sticking to the page below the topbar; on
+   mobile we drop the vertical offset (top: 0) so the header can't gap, while
+   the first column stays frozen during horizontal scroll. */
 @media (max-width: 768px) {
+  .scrollWrap {
+    overflow-x: auto;
+  }
+  .stickyHead th {
+    top: 0;
+  }
   .scrollWrap table tr > *:first-child {
     position: sticky;
     left: 0;
