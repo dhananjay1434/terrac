@@ -15,6 +15,7 @@ const Projects = lazy(() => import("./pages/Projects"));
 const Farmers = lazy(() => import("./pages/Farmers"));
 const Dispatch = lazy(() => import("./pages/Dispatch"));
 const Ledger = lazy(() => import("./pages/Ledger"));
+const UnboundSessions = lazy(() => import("./pages/UnboundSessions"));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   return isAuthed() ? children : <Navigate to="/login" replace />;
@@ -130,6 +131,7 @@ export default function App() {
               </RequireAuth>
             }
           />
+          <Route path="/telemetry/unbound" element={<RequireAuth><Shell><UnboundSessions /></Shell></RequireAuth>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Suspense>
