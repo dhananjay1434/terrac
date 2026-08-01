@@ -1,6 +1,7 @@
 import { fmtKg } from "../../format";
 import StatusPill from "../../ui/StatusPill/StatusPill";
 import DataTable, { type ColumnDef } from "../DataTable/DataTable";
+import MetricBlock from "../MetricBlock/MetricBlock";
 import styles from "./JourneyPanel.module.css";
 
 /**
@@ -75,6 +76,11 @@ export default function JourneyPanel({ data }: { data: JourneyData }) {
 
   const manifest = data.manifest ?? [];
   const appCount = data.application_evidence?.count ?? 0;
+  const manifestMassKg = manifest.reduce(
+    (sum, m) => sum + (m.unit_kg != null ? m.unit_kg * m.count : 0),
+    0,
+  );
+  const manifestHasMass = manifest.some((m) => m.unit_kg != null);
 
   return (
     <section className={styles.panel} aria-label="Journey details">
@@ -105,6 +111,9 @@ export default function JourneyPanel({ data }: { data: JourneyData }) {
 
       <div className={styles.manifest}>
         <span className="micro">Cargo manifest</span>
+        {manifestHasMass && (
+          <MetricBlock value={fmtKg(manifestMassKg).replace(/\s*kg$/, "")} unit="kg" caption="total cargo mass" size="md" />
+        )}
         {manifest.length === 0 ? (
           <div className="text-tertiary">{DASH} no manifest lines</div>
         ) : (
