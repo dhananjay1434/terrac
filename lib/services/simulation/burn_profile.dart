@@ -13,6 +13,12 @@ class DemoProfile {
     this.bucketCount = 12,
     this.ignitionBuckets = 2,
     this.accelerationFactor = 10,
+    this.probes = const [
+      ProbeSpec(channel: 'T4', plateauC: 455.0, lagBuckets: -0.5, placement: 'bottom'),
+      ProbeSpec(channel: 'T1', plateauC: 420.0, lagBuckets: 0.0, placement: 'side-A'),
+      ProbeSpec(channel: 'T2', plateauC: 405.0, lagBuckets: 0.5, placement: 'side-B'),
+      ProbeSpec(channel: 'T3', plateauC: 390.0, lagBuckets: 1.0, placement: 'side-C'),
+    ],
   });
   final double ambientC;
   final double plateauC;
@@ -21,6 +27,27 @@ class DemoProfile {
   final int bucketCount;
   final int ignitionBuckets;
   final int accelerationFactor;
+
+  /// The physical thermocouples. T1-T3 on the sides, T4 at the bottom (nearest
+  /// the flame front → hottest, leads the ramp). T1 stays the reference probe at
+  /// plateauC (== VirtualBleAdapter.targetPlateau; the DH-C1 drift guard). The
+  /// producer loops this list, so any probe count "just works".
+  final List<ProbeSpec> probes;
+}
+
+/// One thermocouple's placement-dependent parameters: the same burn shape as the
+/// base curve, re-parameterised by plateau height and a ramp phase (lag).
+class ProbeSpec {
+  const ProbeSpec({
+    required this.channel,
+    required this.plateauC,
+    this.lagBuckets = 0.0,
+    this.placement = '',
+  });
+  final String channel;    // 'T1'..'T4'
+  final double plateauC;   // this probe's plateau temperature
+  final double lagBuckets; // + = ramps later (cooler side); - = earlier (hot bottom)
+  final String placement;  // 'side-A' | 'side-B' | 'side-C' | 'bottom'
 }
 
 class BurnSample {
@@ -45,9 +72,13 @@ class BurnProfile {
     return BurnSample(round1dp(temp), round1dp(load));
   }
 
-  double _temp(double b) {
+  double _temp(double b) => _tempFor(b, profile.plateauC, 0.0);
+
+  /// Placement-aware curve: same ignition→ramp→plateau shape, re-scaled to
+  /// [plateau] and phase-shifted by [lag] buckets (bottom leads, sides lag).
+  double _tempFor(double b0, double plateau, double lag) {
     final ambient = profile.ambientC;
-    final plateau = profile.plateauC;
+    final b = b0 - lag; // apply ramp phase
     const ignitionEnd = 3.0; // buckets of linear ignition climb
     const rampEnd = 6.0; // buckets to effectively reach plateau
     if (b <= 0) return ambient;
@@ -62,6 +93,13 @@ class BurnProfile {
     }
     final noise = ((b.floor() % 5) - 2) * 0.1; // deterministic plateau shimmer
     return plateau + noise;
+  }
+
+  /// One probe's temperature at [elapsed] (canonical 1dp). Used by the signed
+  /// producer for T1..T4; LOAD still comes from [sample].
+  double sampleProbe(ProbeSpec probe, Duration elapsed) {
+    final b = (elapsed.inMilliseconds / 1000.0) / profile.bucketSeconds;
+    return round1dp(_tempFor(b, probe.plateauC, probe.lagBuckets));
   }
 
   // 1 → 0 over [0,1], concave (fast approach then settle).
