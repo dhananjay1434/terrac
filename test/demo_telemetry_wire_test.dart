@@ -55,6 +55,9 @@ void main() {
         rows.any((r) => r.payloadJson.contains('"channel":"LOAD"')),
         isTrue,
       );
+      for (final ch in ['T2', 'T3', 'T4']) {
+        expect(rows.any((r) => r.payloadJson.contains('"channel":"$ch"')), isTrue, reason: ch);
+      }
       // dual-run: nothing here touches pyrolysis_telemetry (the legacy write
       // lives entirely in pyrolysis_screen.dart's _endBurn, untouched by P16).
     },

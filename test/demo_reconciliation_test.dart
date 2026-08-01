@@ -8,7 +8,7 @@ import 'package:dmrv_app/services/simulation/simulated_edge_device.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
-  test('signed producer T1 values ARE the BurnProfile curve (one source)', () async {
+  test('signed producer T1..T4 values ARE the BurnProfile curve (one source)', () async {
     const profile = BurnProfile(DemoProfile());
     final dev = SimulatedEdgeDevice(
       deviceId: await CryptoSigner.getDeviceId(),
@@ -17,11 +17,14 @@ void main() {
       clock: FakeDemoClock(startedAt: DateTime.utc(2026, 8, 1, 9)),
       buckets: 8,
     );
-    final t1 = (await dev.collect()).where((c) => c.envelope['channel'] == 'T1').toList();
-    for (var b = 0; b < t1.length; b++) {
-      final signed = (t1[b].envelope['values'] as List).first as double;
-      final expected = profile.sample(Duration(seconds: b * profile.profile.bucketSeconds)).tempC;
-      expect(signed, closeTo(expected, 1e-9), reason: 'bucket $b must equal the profile');
+    final chunks = await dev.collect();
+    for (final probe in profile.profile.probes) {
+      final series = chunks.where((c) => c.envelope['channel'] == probe.channel).toList();
+      for (var b = 0; b < series.length; b++) {
+        final signed = (series[b].envelope['values'] as List).first as double;
+        final expected = profile.sampleProbe(probe, Duration(seconds: b * profile.profile.bucketSeconds));
+        expect(signed, closeTo(expected, 1e-9), reason: '${probe.channel} bucket $b');
+      }
     }
   });
   test('on-phone plateau + load cannot drift from the signed profile', () {
