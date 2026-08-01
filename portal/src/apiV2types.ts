@@ -27,6 +27,7 @@ export interface BatchRowV2 extends BatchRow {
   batch_code: string | null;
   network_id: string | null;
   site_id: string | null;
+  feedstock_species: string | null;
 }
 
 /** M1.5 — shape of GET /api/v1/portal/hierarchy (fetched via api2.ts in M2.6). */

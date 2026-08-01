@@ -8,12 +8,13 @@ import type { BatchRowV2 } from "../apiV2types";
 import { fmtCredit, fmtDate } from "../format";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
 import FilterBar, { type FilterPatch } from "../components/FilterBar/FilterBar";
-import StatusDot from "../components/StatusDot/StatusDot";
 import EmptyState from "../components/EmptyState/EmptyState";
 import StatTile from "../components/StatTile/StatTile";
 import InfoTip from "../components/InfoTip/InfoTip";
 import StatBand from "../ui/StatBand/StatBand";
 import StatusPill from "../ui/StatusPill/StatusPill";
+import Chip from "../ui/Chip/Chip";
+import CellStack from "../ui/CellStack/CellStack";
 import CardError from "../ui/CardError/CardError";
 import Button from "../ui/Button/Button";
 
@@ -192,6 +193,22 @@ export default function Batches() {
     },
     { key: "device", header: "Device", render: (b) => b.device_id ?? "—" },
     {
+      key: "biomass",
+      header: "Biomass",
+      render: (b) => {
+        const species = (b as BatchRowV2).feedstock_species;
+        return species ? <Chip>{species.replace(/_/g, " ")}</Chip> : <span className="text-tertiary">—</span>;
+      },
+    },
+    {
+      key: "network",
+      header: "Network / Site",
+      render: (b) => {
+        const v2 = b as BatchRowV2;
+        return <CellStack primary={v2.network_id ?? "—"} secondary={v2.site_id ?? undefined} />;
+      },
+    },
+    {
       key: "received",
       header: "Received",
       render: (b) => fmtDate(b.received_at),
@@ -212,10 +229,9 @@ export default function Batches() {
         </>
       ),
       render: (b) => (
-        <StatusDot
-          variant={b.provisional ? "warning" : "success"}
-          label={b.provisional ? "Provisional" : "Issuable"}
-        />
+        <StatusPill status={b.provisional ? "warning" : "success"}>
+          {b.provisional ? "Provisional" : "Issuable"}
+        </StatusPill>
       ),
     },
     {

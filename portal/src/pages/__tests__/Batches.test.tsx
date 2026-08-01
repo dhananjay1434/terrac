@@ -76,11 +76,13 @@ describe("Batches page", () => {
     expect(await screen.findByText("No batches found")).toBeInTheDocument();
   });
 
-  it("renders StatusDot variants from row eligibility", async () => {
-    const { container } = renderPage();
+  it("renders StatusPill states from row eligibility (B2 correction: was StatusDot)", async () => {
+    renderPage();
     await screen.findByText("dev-1");
-    expect(container.querySelector('[data-variant="success"]')).not.toBeNull();
-    expect(container.querySelector('[data-variant="warning"]')).not.toBeNull();
+    expect(screen.getByText("Issuable")).toBeInTheDocument();
+    // "Provisional" also labels the summary StatTile, so a row's status pill
+    // is the *second* match, not the only one.
+    expect(screen.getAllByText("Provisional").length).toBeGreaterThanOrEqual(2);
   });
 
   it("navigates to the batch on row click", async () => {
