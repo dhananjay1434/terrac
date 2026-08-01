@@ -4,8 +4,12 @@ CFLAGS ?= -std=c11 -Wall -Wextra -Isrc/domain
 BUILD := build
 
 .PHONY: test clean
-test: $(BUILD)/test_canonical
+test: $(BUILD)/test_canonical $(BUILD)/test_aggregate
 	$(BUILD)/test_canonical
+	$(BUILD)/test_aggregate
+
+$(BUILD)/test_aggregate: src/domain/aggregate.c test/test_aggregate.c | $(BUILD)
+	$(CC) $(CFLAGS) $^ -lm -o $@
 
 $(BUILD)/test_canonical: src/domain/canonical.c test/test_canonical.c | $(BUILD)
 	$(CC) $(CFLAGS) $^ -o $@
