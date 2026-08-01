@@ -2,7 +2,10 @@
   position: fixed;
   inset: 0;
   background: var(--overlay-scrim);
-  z-index: var(--z-overlay);
+  /* Scrim MUST sit below the drawer panel (--z-drawer), or it covers the panel
+   * and swallows every click/scroll — the drawer looks dimmed and feels frozen.
+   * --z-scrim (55) < --z-drawer (60). */
+  z-index: var(--z-scrim);
 }
 .panel {
   position: fixed;
@@ -14,8 +17,12 @@
   border-left: var(--border-hair);
   box-shadow: var(--shadow-modal);
   z-index: var(--z-drawer);
-  display: flex;
-  flex-direction: column;
+  /* The Dialog content is itself the scroll container (header sticks). Radix's
+   * modal scroll-lock only re-enables wheel/touch scrolling on the Content node
+   * and its scrollable descendants reliably when the scroller IS the Content —
+   * an inner flex child scroller was getting blocked, freezing the drawer. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: slide-in var(--dur-panel) var(--ease-out);
 }
 @media (max-width: 768px) {
@@ -43,7 +50,11 @@
   gap: var(--space-3);
   padding: var(--space-4);
   border-bottom: var(--border-hair);
-  flex: none;
+  /* Stays pinned to the top while the panel body scrolls beneath it. */
+  position: sticky;
+  top: 0;
+  background: var(--surface-card);
+  z-index: 1;
 }
 .title {
   margin: 0;
@@ -69,7 +80,5 @@
   background: var(--surface-sunken);
 }
 .body {
-  flex: 1;
-  overflow-y: auto;
   padding: var(--space-4);
 }
