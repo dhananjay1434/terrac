@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/local/app_database.dart';
 import 'crypto_signer.dart';
+import 'simulation/demo_readiness.dart';
 import 'simulation/simulated_edge_device.dart';
 import 'telemetry_courier.dart';
 import 'telemetry_outbox_drift.dart';
@@ -15,9 +16,10 @@ Future<void> startDemoTelemetry({
   required AppDatabase db,
   required String sessionUuid,
 }) async {
-  if (!await CryptoSigner.isEnrolled()) {
-    await CryptoSigner.registerDevice();
-  }
+  // Soft-fail: never throw. If enrollment can't complete, we simply don't enqueue
+  // v2 chunks (the phone UI + legacy write are unaffected).
+  final ready = await ensureDemoReady();
+  if (!ready.ok) return;
   final deviceId = await CryptoSigner.getDeviceId();
   final device = SimulatedEdgeDevice(
     deviceId: deviceId,

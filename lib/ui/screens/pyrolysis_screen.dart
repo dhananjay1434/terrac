@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -100,12 +102,19 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
     }
     setState(() => _permError = null);
     await ref.read(pyrolysisBleProvider.notifier).beginBurn();
-    // WIRING P16: demo-only, dual-runs beside the legacy write in _endBurn.
+    // WIRING P16 + DEMO-HARDENING DH-D1: demo-only, dual-runs beside the legacy
+    // write in _endBurn. Fire-and-forget + soft-fail: producing/streaming demo
+    // telemetry must NEVER block START or crash the burn. A missing enrollment
+    // just means the portal won't receive this burn (phone UI + legacy unaffected).
     // No-op unless built with --dart-define=DMRV_DEMO_MODE=true.
     final batchUuid = ref.read(batchSessionProvider);
     if (batchUuid != null) {
       final db = await ref.read(appDatabaseProvider.future);
-      await maybeStartDemoTelemetry(db: db, sessionUuid: batchUuid);
+      unawaited(
+        maybeStartDemoTelemetry(db: db, sessionUuid: batchUuid).catchError(
+          (Object e) => debugPrint('[PyrolysisScreen] demo telemetry skipped (non-fatal): $e'),
+        ),
+      );
     }
   }
 
