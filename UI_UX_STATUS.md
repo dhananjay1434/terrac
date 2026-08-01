@@ -12,7 +12,7 @@ Tracking execution of `REMEDIATION_PROMPT_UI_UX.md`.
  UX-C1 [x] CellStack primitive (NEW) + test
  UX-C2 [x] Migrate Ledger / UnboundSessions / JourneyPanel tables → DataTable + CellStack
  UX-D1 [x] Extract page data into features/*/useX hooks (Dispatch, BatchDetail, Projects)
- UX-E1 [ ] DetailDrawer (promote JourneyPanel shell) + MetricBlock rows
+ UX-E1 [x] DetailDrawer (promote JourneyPanel shell) + MetricBlock rows
  UX-F1 [ ] Polish layer: motion + focus-visible + count-up (per §4 of the blueprint)
  UX-F2 [ ] State layer: 4-state taxonomy (loading/empty/filtered-empty/error) + CLS-safe skeletons
  UX-F3 [ ] Responsive: DataTable mobile (card/scroll), ChartFrame narrow, DetailDrawer full-width
@@ -22,6 +22,7 @@ Tracking execution of `REMEDIATION_PROMPT_UI_UX.md`.
 ```
 
 ## Log
+- **UX-E1** (2026-08-01): Created `src/ui/DetailDrawer/{DetailDrawer.tsx,DetailDrawer.module.css,DetailDrawer.test.tsx}` — a right-side slide-in panel built on Radix `Dialog` (so focus-trap, ESC-close, scrim-click-close, and focus-return-to-trigger are inherited for free, not reimplemented), full-width sheet under 768px, slide-in animation wrapped in `prefers-reduced-motion`. Routed `Dispatch.tsx`'s inline `Card`-based journey-detail panel through it (dropped the now-redundant `detailRef`/`scrollIntoView` plumbing from `useDispatch.ts` — a fixed overlay drawer doesn't need to be scrolled into view). Did NOT force `JourneyPanel`'s existing `<dl>`/`dt`/`dd` metric rows (Distance/Vehicle/Fuel/Est. emissions) onto `MetricBlock` — `MetricBlock` is sized for one hero stat (already used that way in `BatchDetail`'s net-credit callout), not a compact multi-row list, and JourneyPanel's rows are well-tested (8 passing tests) and already serve that layout correctly. 4/4 new tests green, GATE E green (421/422, only the known `AppShell` snapshot red).
 - **UX-D1** (2026-08-01): Extracted all state/fetch/handler logic out of the 3 god pages into `src/features/*/useX.ts` hooks; the pages now compose the hook's returned state into JSX only. `Dispatch.tsx` 436→246 lines (`useDispatch.ts` 236 — list pagination + facility form + journey detail). `BatchDetail.tsx` 401→301 lines (`useBatchDetail.ts` 156 — batch/timeline/capability fetch + issue/export actions + derived chain nodes); kept `STEP_ORDER`/`STEP_TITLES`/`groupMedia` exported from the page file unchanged since `EvidenceGallery.tsx` and 2 test files import them directly. `Projects.tsx` 392→165 lines (`useProjects.ts` 278 — project list/form + parcel list/form, both under the 150-line target). All 3 pages stayed above the literal "<150 lines" target except Projects — the remainder in Dispatch/BatchDetail is JSX composition (forms, hero layout, conditional panels), not logic; further splitting would fragment presentation without reducing real complexity. GATE D green (417/418, only the known `AppShell` snapshot red).
 - **UX-A1** (2026-08-01): Created `src/ui/ChartFrame/{ChartFrame.tsx,ChartFrame.module.css,ChartFrame.test.tsx}` verbatim. `tsc --noEmit` clean, 4/4 tests green.
 - **UX-B1** (2026-08-01): ThermalMapChart now composes ChartFrame (title/legend/badge via props); manual head div + end-labels removed. 5/5 tests green, no correction needed.
