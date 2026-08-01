@@ -4,7 +4,7 @@
 .stickyHead th {
   position: sticky;
   top: var(--topbar-h);
-  background: var(--surface-card);
+  background: var(--surface-header);
   z-index: 1;
 }
 /* Horizontal scroll is only needed on narrow screens (a wide table would

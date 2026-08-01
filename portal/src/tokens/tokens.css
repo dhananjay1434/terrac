@@ -31,6 +31,7 @@
   --surface-card: #ffffff;
   --surface-sunken: #f1f3f7;   /* wells, inset fields, fallback thumbnails */
   --surface-brand-subtle: var(--indigo-50);
+  --surface-header: #f5f2ee;   /* warm tint distinct from --surface-card, for table head rows */
   --border-subtle: var(--basalt-100);
   --border-strong: var(--basalt-300);
   --text-primary: var(--basalt-950);
@@ -161,6 +162,7 @@
   --surface-card: var(--basalt-900);
   --surface-sunken: var(--basalt-800);
   --surface-brand-subtle: #26224d;
+  --surface-header: #26242a;
   --border-subtle: var(--basalt-800);
   --border-strong: var(--basalt-600);
   --text-primary: #ededf3;   /* 14.24:1 on --basalt-900 */
