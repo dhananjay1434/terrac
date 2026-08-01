@@ -79,6 +79,7 @@ export default function ThermalMapChart({
     <div className={styles.wrap}>
       <ChartFrame
         ariaLabel={`Burn thermal map, ${present.length} channel${present.length === 1 ? "" : "s"}`}
+        summary={`${present.join(", ")}. Peak temperature ${peak.toFixed(1)}°C.`}
         title="Real-time thermal mapping"
         yDomain={[lo, hi]}
         yFormat={(v) => v.toFixed(0)}

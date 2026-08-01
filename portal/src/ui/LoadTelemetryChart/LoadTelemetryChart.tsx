@@ -46,6 +46,7 @@ export default function LoadTelemetryChart({ data }: { data: LoadTelemetryData }
     <div className={styles.wrap}>
       <ChartFrame
         ariaLabel="Continuous kiln load weight"
+        summary={`Latest reading ${fmtKg(last[1])}, peak ${fmtKg(hi)}.`}
         title="Load telemetry"
         yDomain={[0, hi]}
         headerStats={chips}

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import styles from "./ChartFrame.module.css";
 
 // Coordinate width used until the container is measured (jsdom/SSR/first paint);
@@ -42,6 +42,10 @@ export interface ChartFrameProps {
   badge?: ReactNode;
   headerStats?: ChartHeaderStat[];
   legend?: ChartLegendItem[];
+  /** Visually-hidden summary (e.g. series + latest/peak) wired to the SVG via
+   * aria-describedby, so screen-reader users get the numeric gist without
+   * having to parse SVG marks. */
+  summary?: string;
   height?: number;
   /** Data-space values to label on the y-axis. Defaults to 5 even ticks. */
   yTicks?: number[];
@@ -84,12 +88,14 @@ export default function ChartFrame({
   badge,
   headerStats,
   legend,
+  summary,
   height = 200,
   yTicks,
   yFormat = (v) => v.toFixed(0),
   children,
 }: ChartFrameProps) {
   const [wrapRef, width] = useContainerWidth();
+  const summaryId = useId();
   const [lo, hi] = yDomain;
   const ticks = yTicks ?? defaultTicks(yDomain, width);
 
@@ -120,12 +126,18 @@ export default function ChartFrame({
           </div>
         </div>
       )}
+      {summary && (
+        <span className={styles.visuallyHidden} id={summaryId}>
+          {summary}
+        </span>
+      )}
       <svg
         viewBox={`0 0 ${width} ${height}`}
         width="100%"
         height={height}
         role="img"
         aria-label={ariaLabel}
+        aria-describedby={summary ? summaryId : undefined}
       >
         {ticks.map((t) => {
           const y = yScale(t);
