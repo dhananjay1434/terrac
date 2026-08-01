@@ -62,8 +62,11 @@ describe("BurnLiveView", () => {
     expect(opener).toHaveBeenCalledWith("b1", expect.any(Function));
     emit({ type: "telemetry", frame: { channel: "T1", t_start: 3000, sample_period_s: 10, values: [500] } });
     await waitFor(() => {
-      // new max reflected in the MAX badge
-      expect(screen.getByText(/500.0/)).toBeInTheDocument();
+      // new max reflected in the visible MAX badge (a visually-hidden
+      // ChartFrame aria-describedby summary also mentions the peak value,
+      // so scope to the badge's [data-gate] container specifically).
+      const badge = document.querySelector("[data-gate]");
+      expect(badge?.textContent).toContain("500.0");
     });
   });
 
