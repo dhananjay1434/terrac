@@ -1,4 +1,5 @@
 import { indigoTone } from "@config/chartPalette";
+import ChartFrame from "../ChartFrame/ChartFrame";
 import styles from "./ThermalMapChart.module.css";
 
 /**
@@ -25,19 +26,10 @@ export interface ThermalMapData {
   burn: { t_start: number; t_end: number; gaps?: [number, number][] };
 }
 
-const VIEW_W = 600;
-const VIEW_H = 200;
-const Y_TOP = 8;
-const Y_BOT = 192;
 const CHANNEL_ORDER = ["T1", "T2", "T3", "T4"] as const;
 // Placement of each probe (matches the edge DemoProfile.probes) — shown in the
 // end-label so four live lines are self-describing (T4·bottom, T1·side…).
 const PLACEMENT: Record<string, string> = { T1: "side", T2: "side", T3: "side", T4: "bottom" };
-
-function yScale(v: number, lo: number, hi: number): number {
-  if (hi === lo) return (Y_TOP + Y_BOT) / 2;
-  return Y_BOT - ((v - lo) / (hi - lo)) * (Y_BOT - Y_TOP);
-}
 
 /** Split a series into contiguous segments, breaking across any burn gap so we
  * never draw a line through a sensor outage. */
@@ -81,73 +73,43 @@ export default function ThermalMapChart({
 
   const t0 = data.burn.t_start;
   const span = (data.burn.t_end || t0) - t0 || 1; // guard zero-span burns
-  const xScale = (t: number) => ((t - t0) / span) * VIEW_W;
   const gaps = data.burn.gaps ?? [];
-
-  const gridY = [Y_TOP, (Y_TOP + Y_BOT) / 2, Y_BOT];
 
   return (
     <div className={styles.wrap}>
-      <div className={styles.head}>
-        <span className="micro">Burn thermal map</span>
-        <span
-          className={styles.maxBadge}
-          data-gate={gateSatisfied ? "pass" : "pending"}
-        >
-          MAX <span className="mono tabular">{peak.toFixed(1)}</span>°C
-        </span>
-      </div>
-      <svg
-        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        width="100%"
-        height={VIEW_H}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`Burn thermal map, ${present.length} channel${present.length === 1 ? "" : "s"}`}
+      <ChartFrame
+        ariaLabel={`Burn thermal map, ${present.length} channel${present.length === 1 ? "" : "s"}`}
+        title="Real-time thermal mapping"
+        yDomain={[lo, hi]}
+        yFormat={(v) => v.toFixed(0)}
+        legend={present.map((c, i) => ({ label: `${c}·${PLACEMENT[c] ?? ""}`, color: indigoTone(i) }))}
+        badge={
+          <span className={styles.maxBadge} data-gate={gateSatisfied ? "pass" : "pending"}>
+            MAX <span className="mono tabular">{peak.toFixed(1)}</span>°C
+          </span>
+        }
       >
-        {gridY.map((y) => (
-          <line
-            key={y}
-            x1={0}
-            y1={y}
-            x2={VIEW_W}
-            y2={y}
-            stroke="var(--border-subtle)"
-            strokeWidth={1}
-            opacity={0.5}
-          />
-        ))}
-        {present.map((c, i) => {
-          const color = indigoTone(i);
-          return segments(data.channels[c].points, gaps).map((seg, si) => (
-            <polyline
-              key={`${c}-${si}`}
-              points={seg.map(([t, v]) => `${xScale(t)},${yScale(v, lo, hi)}`).join(" ")}
-              fill="none"
-              stroke={color}
-              strokeWidth={2}
-              data-channel={c}
-            />
-          ));
-        })}
-        {/* direct end-labels, no legend box */}
-        {present.map((c, i) => {
-          const pts = data.channels[c].points;
-          const last = pts[pts.length - 1];
+        {({ w, yScale: yy }) => {
+          const xScale = (t: number) => ((t - t0) / span) * w;
           return (
-            <text
-              key={`lbl-${c}`}
-              x={Math.min(xScale(last[0]) + 4, VIEW_W - 20)}
-              y={yScale(last[1], lo, hi)}
-              fill={indigoTone(i)}
-              fontSize="var(--fs-12)"
-              className="mono"
-            >
-              {`${c}·${PLACEMENT[c] ?? ""}`}
-            </text>
+            <>
+              {present.map((c, i) => {
+                const color = indigoTone(i);
+                return segments(data.channels[c].points, gaps).map((seg, si) => (
+                  <polyline
+                    key={`${c}-${si}`}
+                    points={seg.map(([t, v]) => `${xScale(t)},${yy(v)}`).join(" ")}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={2}
+                    data-channel={c}
+                  />
+                ));
+              })}
+            </>
           );
-        })}
-      </svg>
+        }}
+      </ChartFrame>
       {gaps.length > 0 && (
         <div className={styles.gapNote}>
           {gaps.length} sensor gap{gaps.length === 1 ? "" : "s"} — shown as breaks,
