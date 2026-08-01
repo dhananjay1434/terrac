@@ -15,17 +15,20 @@ import 'telemetry_outbox_drift.dart';
 Future<void> startDemoTelemetry({
   required AppDatabase db,
   required String sessionUuid,
+  SimulatedEdgeDevice? deviceOverride,
 }) async {
   // Soft-fail: never throw. If enrollment can't complete, we simply don't enqueue
   // v2 chunks (the phone UI + legacy write are unaffected).
   final ready = await ensureDemoReady();
   if (!ready.ok) return;
-  final deviceId = await CryptoSigner.getDeviceId();
-  final device = SimulatedEdgeDevice(
-    deviceId: deviceId,
-    sessionUuid: sessionUuid,
-  );
-  await TelemetryCourier(TelemetryOutboxDrift(db)).drain(device);
+  final device = deviceOverride ??
+      SimulatedEdgeDevice(
+        deviceId: await CryptoSigner.getDeviceId(),
+        sessionUuid: sessionUuid,
+      );
+  // Live streaming: chunks enqueue as the burn progresses (the call site
+  // fire-and-forgets this, so the ~12s accelerated stream never blocks START).
+  await TelemetryCourier(TelemetryOutboxDrift(db)).drainStream(device.stream());
 }
 
 /// DMRV_DEMO_MODE wire (WIRING P16): on burn start, spins up a

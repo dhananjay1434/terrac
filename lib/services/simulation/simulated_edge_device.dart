@@ -56,6 +56,29 @@ class SimulatedEdgeDevice implements EdgeDeviceLink {
     return out;
   }
 
+  /// Live emission: yields one bucket's T1+LOAD chunks every
+  /// bucketSeconds/accelerationFactor, so the courier can relay them DURING the
+  /// burn (not all at t=0). collect() stays for the batch/test path.
+  Stream<SignedChunk> stream() async* {
+    final period = Duration(
+      milliseconds: (profile.profile.bucketSeconds * 1000 ~/ profile.profile.accelerationFactor)
+          .clamp(1, 1 << 30),
+    );
+    var seqT = 0, seqL = 0;
+    var prevT = 'GENESIS', prevL = 'GENESIS';
+    for (var b = 0; b < buckets; b++) {
+      if (b > 0) await Future<void>.delayed(period);
+      final t = await TelemetryEnvelopeBuilder.build(
+        deviceId: deviceId, sessionUuid: sessionUuid, batchUuid: null, channel: 'T1',
+        tStartIso: _iso(b), samplePeriodS: 10.0, values: [_temp(b)], seq: seqT, prevHash: prevT);
+      prevT = t.nextPrevHash; seqT++; yield t;
+      final l = await TelemetryEnvelopeBuilder.build(
+        deviceId: deviceId, sessionUuid: sessionUuid, batchUuid: null, channel: 'LOAD',
+        tStartIso: _iso(b), samplePeriodS: 10.0, values: [_weight(b)], seq: seqL, prevHash: prevL);
+      prevL = l.nextPrevHash; seqL++; yield l;
+    }
+  }
+
   @override
   Future<void> ack(String sessionUuid, String channel, int throughSeq) async {
     // Simulated: nothing to reclaim. A real device drops flash <= throughSeq here.

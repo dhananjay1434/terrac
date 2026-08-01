@@ -1,5 +1,7 @@
 import 'package:dmrv_app/data/local/app_database.dart';
 import 'package:dmrv_app/services/demo_telemetry_wire.dart';
+import 'package:dmrv_app/services/simulation/burn_profile.dart';
+import 'package:dmrv_app/services/simulation/simulated_edge_device.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,7 +36,15 @@ void main() {
     'ON path (provably correct even though it ships behind the flag today): '
     'startDemoTelemetry enqueues signed T1 + LOAD chunks, dual-run safe',
     () async {
-      await startDemoTelemetry(db: db, sessionUuid: 'sess-demo-on');
+      await startDemoTelemetry(
+        db: db,
+        sessionUuid: 'sess-demo-on',
+        deviceOverride: SimulatedEdgeDevice(
+          deviceId: 'edge-demo-001',
+          sessionUuid: 'sess-demo-on',
+          profile: const BurnProfile(DemoProfile(accelerationFactor: 100000)),
+        ),
+      );
       final rows = await v2Rows(db);
       expect(rows, isNotEmpty);
       expect(
