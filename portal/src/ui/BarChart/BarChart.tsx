@@ -57,6 +57,19 @@ function truncateLabel(label: string, slotWidth: number): string {
   return `${label.slice(0, maxChars - 1)}…`;
 }
 
+/** Compact y-axis tick formatter — ChartFrame's left gutter is sized for
+ * short labels; a raw 6-digit magnitude (biomass kg, credit totals, ...)
+ * would render past the SVG's left edge and clip. Abbreviate to "170.4k"
+ * instead of the exact value — the precise figure is still in each bar's
+ * <title> tooltip and its showValues label. */
+function compactTick(v: number): string {
+  const abs = Math.abs(v);
+  if (abs >= 1000) {
+    return `${(v / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })}k`;
+  }
+  return String(Math.round(v));
+}
+
 export default function BarChart({
   data,
   height = 200,
@@ -89,7 +102,7 @@ export default function BarChart({
 
   return (
     <div className={styles.wrap}>
-      <ChartFrame ariaLabel={label} yDomain={[0, max]} height={height}>
+      <ChartFrame ariaLabel={label} yDomain={[0, max]} yFormat={compactTick} height={height}>
         {({ w, yScale: yy }) => {
           const { slotWidth, barWidth } = computeLayout(data.length, w);
           // Shown labels are spaced `step` slots apart — that's the real horizontal
