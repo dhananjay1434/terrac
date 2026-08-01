@@ -154,6 +154,22 @@ export function getBatchCapabilities(uuid: string): Promise<BatchCapabilities> {
   return req(`/api/v1/portal/batches/${uuid}/capabilities`);
 }
 
+// ── unbound sessions + binding + sync status (STITCHING Phase H / W1-W2) ─────
+import type { UnboundSessionsResponse, SyncStatusResponse } from "./apiV2types";
+
+export function getUnboundSessions(): Promise<UnboundSessionsResponse> {
+  return req(`/api/v2/telemetry/unbound-sessions`);
+}
+export function bindSession(sessionUuid: string, batchUuid: string): Promise<unknown> {
+  return req(`/api/v2/telemetry/sessions/${sessionUuid}/bind`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ batch_uuid: batchUuid }),
+  });
+}
+export function getDeviceSyncStatus(deviceId: string): Promise<SyncStatusResponse> {
+  return req(`/api/v2/telemetry/sync-status/${deviceId}`);
+}
+
 export function getBiomassLedger(params: {
   from?: string;
   to?: string;
