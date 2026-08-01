@@ -2,6 +2,7 @@ import type { QualityMetrics } from "../../api";
 import CardError from "../../ui/CardError/CardError";
 import StatTile from "../../components/StatTile/StatTile";
 import Skeleton from "../../components/Skeleton/Skeleton";
+import EmptyState from "../../components/EmptyState/EmptyState";
 import HorizontalBarList from "../../ui/HorizontalBarList/HorizontalBarList";
 import styles from "./PermanenceQualityCard.module.css";
 
@@ -86,7 +87,10 @@ export default function PermanenceQualityCard({
           </>
         )}
         {!loading && !error && (!data || data.n === 0) && (
-          <div className="micro">No lab permanence data yet</div>
+          <EmptyState
+            title="No lab permanence data yet"
+            description="This view populates once a batch has a lab-measured H:Corg reading."
+          />
         )}
       </div>
     </div>

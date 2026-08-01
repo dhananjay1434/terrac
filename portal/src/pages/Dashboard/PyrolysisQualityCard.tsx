@@ -2,6 +2,7 @@ import type { QualityMetrics } from "../../api";
 import CardError from "../../ui/CardError/CardError";
 import StatTile from "../../components/StatTile/StatTile";
 import Skeleton from "../../components/Skeleton/Skeleton";
+import EmptyState from "../../components/EmptyState/EmptyState";
 import styles from "./PyrolysisQualityCard.module.css";
 
 /**
@@ -52,7 +53,10 @@ export default function PyrolysisQualityCard({
           </>
         )}
         {!loading && !error && (!data || data.n === 0) && (
-          <div className="micro">Insufficient telemetry yet</div>
+          <EmptyState
+            title="Insufficient telemetry yet"
+            description="This view populates once a batch reports enough temperature readings."
+          />
         )}
       </div>
     </div>
