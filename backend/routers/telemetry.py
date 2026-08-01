@@ -304,3 +304,41 @@ async def sync_status(
             for (s, c, m) in rows
         ],
     }
+
+
+@router.get("/api/v2/telemetry/unbound-sessions")
+async def unbound_sessions(
+    _user: PortalUser = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_session),
+):
+    """STITCHING Phase H — burn sessions with no batch yet, oldest first, each with
+    its chunk count. An admin binds these via the existing bind_session endpoint.
+    Does NOT propose a batch (that needs a device->kiln->batch link that does not
+    exist yet — H0). Empty list, never an error, when nothing is unbound.
+    """
+    counts = dict(
+        (
+            await session.execute(
+                select(TelemetryChunk.session_uuid, func.count(TelemetryChunk.id))
+                .group_by(TelemetryChunk.session_uuid)
+            )
+        ).all()
+    )
+    sessions = (
+        await session.execute(
+            select(BurnSession)
+            .where(BurnSession.batch_uuid.is_(None))
+            .order_by(BurnSession.started_at.asc())
+        )
+    ).scalars().all()
+    return {
+        "unbound_sessions": [
+            {
+                "session_uuid": bs.session_uuid,
+                "device_id": bs.device_id,
+                "started_at": bs.started_at.isoformat() if bs.started_at else None,
+                "chunk_count": int(counts.get(bs.session_uuid, 0)),
+            }
+            for bs in sessions
+        ]
+    }
