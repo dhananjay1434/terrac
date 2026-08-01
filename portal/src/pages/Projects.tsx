@@ -1,16 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  createProject,
-  listProjects,
-  createParcel,
-  listParcels,
-  listRegistryConfigs,
-  AuthError,
-  ApiError,
-  type ProjectRow,
-  type SourceParcel,
-} from "../api";
+import type { ProjectRow, SourceParcel } from "../api";
 import { fmtDate } from "../format";
 import { getRole } from "../auth";
 import StatusDot, { type StatusDotVariant } from "../components/StatusDot/StatusDot";
@@ -20,8 +8,7 @@ import Button from "../ui/Button/Button";
 import CardError from "../ui/CardError/CardError";
 import ProjectForm from "./Projects/ProjectForm";
 import ParcelForm from "./Projects/ParcelForm";
-
-const PAGE_SIZE = 25;
+import { useProjects } from "../features/projects/useProjects";
 
 const projectStatusVariant = (s: string): StatusDotVariant =>
   s === "active" || s === "verified"
@@ -30,262 +17,48 @@ const projectStatusVariant = (s: string): StatusDotVariant =>
       ? "warning"
       : "inert";
 
+const columns: ColumnDef<ProjectRow>[] = [
+  { key: "project_id", header: "Project ID", mono: true, render: (p) => p.project_id },
+  { key: "name", header: "Name", render: (p) => p.name },
+  {
+    key: "feedstock",
+    header: "Feedstock",
+    render: (p) => (p.allowed_feedstocks.length > 0 ? p.allowed_feedstocks.join(", ") : "—"),
+  },
+  {
+    key: "clients",
+    header: "Clients",
+    render: (p) => (p.client_target != null ? String(p.client_target) : "—"),
+  },
+  {
+    key: "status",
+    header: "Status",
+    render: (p) => <StatusDot variant={projectStatusVariant(p.status)} label={p.status} />,
+  },
+  { key: "created", header: "Created", render: (p) => fmtDate(p.created_at) },
+];
+
+const parcelColumns: ColumnDef<SourceParcel>[] = [
+  { key: "parcel_uuid", header: "Parcel UUID", mono: true, render: (p) => p.parcel_uuid.slice(0, 8) + "…" },
+  { key: "name", header: "Parcel name", render: (p) => p.name },
+  { key: "project_id", header: "Project ID", mono: true, render: (p) => p.project_id },
+  { key: "area", header: "Area (m²)", render: (p) => `${p.area_m2.toLocaleString()} m²` },
+  { key: "acres", header: "Declared (acres)", render: (p) => p.declared_area_acres ? `${p.declared_area_acres} acres` : "—" },
+  {
+    key: "status",
+    header: "Status",
+    render: (p) =>
+      p.boundary_status ? (
+        <StatusDot variant={projectStatusVariant(p.boundary_status)} label={p.boundary_status} />
+      ) : (
+        "—"
+      ),
+  },
+  { key: "created", header: "Created", render: (p) => fmtDate(p.created_at) },
+];
 
 export default function Projects() {
-  const nav = useNavigate();
-  const [rows, setRows] = useState<ProjectRow[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [currentBefore, setCurrentBefore] = useState<string | null>(null);
-  const [prevStack, setPrevStack] = useState<(string | null)[]>([]);
-  const [pageIndex, setPageIndex] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  // Project form state
-  const [projectId, setProjectId] = useState("");
-  const [name, setName] = useState("");
-  const [formMsg, setFormMsg] = useState<{ text: string; ok: boolean } | null>(
-    null,
-  );
-  const [submitting, setSubmitting] = useState(false);
-
-  // FM-3: feedstock dropdown options (union of every registry config's
-  // corg_table keys, minus "Default") + selection + client-count input.
-  const [feedstockOptions, setFeedstockOptions] = useState<string[]>([]);
-  const [selectedFeedstock, setSelectedFeedstock] = useState("");
-  const [clientTarget, setClientTarget] = useState("");
-
-  // Parcel form & list state (Part 1.5)
-  const [parcels, setParcels] = useState<SourceParcel[]>([]);
-  const [parcelsLoading, setParcelsLoading] = useState(false);
-  const [parcelProjectId, setParcelProjectId] = useState("");
-  const [parcelName, setParcelName] = useState("");
-  const [declaredAcres, setDeclaredAcres] = useState("");
-  const [drawnGeoJson, setDrawnGeoJson] = useState<Record<string, unknown> | null>(null);
-  const [parcelMsg, setParcelMsg] = useState<{ text: string; ok: boolean } | null>(null);
-  const [parcelSubmitting, setParcelSubmitting] = useState(false);
-
-  const fetchPage = useCallback(
-    async (before: string | null) => {
-      setLoading(true);
-      setErr(null);
-      try {
-        const params: Record<string, string> = { limit: String(PAGE_SIZE) };
-        if (before) params.before = before;
-        const r = await listProjects(params);
-        setRows(r.projects);
-        setNextCursor(r.next_cursor);
-        if (r.projects.length > 0 && !parcelProjectId) {
-          setParcelProjectId(r.projects[0].project_id);
-        }
-      } catch (e) {
-        if (e instanceof AuthError) nav("/login");
-        else setErr("Failed to load projects.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [nav, parcelProjectId],
-  );
-
-  const fetchParcels = useCallback(async () => {
-    setParcelsLoading(true);
-    try {
-      const res = await listParcels(parcelProjectId || undefined);
-      setParcels(res.parcels);
-    } catch (_) {
-      /* ignore parcel load failure in background */
-    } finally {
-      setParcelsLoading(false);
-    }
-  }, [parcelProjectId]);
-
-  useEffect(() => {
-    document.title = "Projects · TerraCipher";
-    fetchPage(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    // FM-3: build the feedstock dropdown's options from real registry-config
-    // data — never a hardcoded species list. The backend (create_project)
-    // remains the validation authority; this union is just the picker's
-    // candidate set.
-    listRegistryConfigs()
-      .then((r) => {
-        const union = new Set<string>();
-        for (const cfg of r.registry_configs) {
-          for (const species of Object.keys(cfg.params?.corg_table ?? {})) {
-            if (species.toLowerCase() !== "default") union.add(species);
-          }
-        }
-        setFeedstockOptions(Array.from(union).sort());
-      })
-      .catch(() => {
-        /* leave feedstockOptions empty — the picker disables itself below */
-      });
-  }, []);
-
-  useEffect(() => {
-    fetchParcels();
-  }, [fetchParcels, parcelProjectId]);
-
-  useEffect(() => {
-    if (!formMsg) return;
-    const t = setTimeout(() => setFormMsg(null), 4000);
-    return () => clearTimeout(t);
-  }, [formMsg]);
-
-  useEffect(() => {
-    if (!parcelMsg) return;
-    const t = setTimeout(() => setParcelMsg(null), 5000);
-    return () => clearTimeout(t);
-  }, [parcelMsg]);
-
-  function goNext() {
-    if (!nextCursor) return;
-    setPrevStack((s) => [...s, currentBefore]);
-    setCurrentBefore(nextCursor);
-    setPageIndex((n) => n + 1);
-    fetchPage(nextCursor);
-  }
-  function goPrev() {
-    setPrevStack((s) => {
-      const copy = [...s];
-      const target = copy.pop() ?? null;
-      setCurrentBefore(target);
-      setPageIndex((n) => Math.max(1, n - 1));
-      fetchPage(target);
-      return copy;
-    });
-  }
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!projectId.trim() || !name.trim()) {
-      setFormMsg({ text: "Project ID and name are required", ok: false });
-      return;
-    }
-    setSubmitting(true);
-    setFormMsg(null);
-    try {
-      const target = clientTarget.trim() ? parseInt(clientTarget.trim(), 10) : undefined;
-      await createProject({
-        project_id: projectId.trim(),
-        name: name.trim(),
-        allowed_feedstocks: selectedFeedstock ? [selectedFeedstock] : [],
-        client_target: target,
-      });
-      setFormMsg({ text: "✓ Project created", ok: true });
-      setProjectId("");
-      setName("");
-      setSelectedFeedstock("");
-      setClientTarget("");
-      setPrevStack([]);
-      setCurrentBefore(null);
-      setPageIndex(1);
-      await fetchPage(null);
-    } catch (e) {
-      if (e instanceof AuthError) {
-        nav("/login");
-      } else if (e instanceof ApiError && e.status === 409) {
-        setFormMsg({ text: "A project with that ID already exists", ok: false });
-      } else if (e instanceof ApiError && e.status === 422) {
-        let msg = "That feedstock is not on the registry's positive list.";
-        try {
-          const detail = JSON.parse(e.message);
-          if (detail?.error === "feedstock_not_in_positive_list") {
-            msg = `Not on the positive list: ${detail.unknown?.join(", ")}. Allowed: ${detail.allowed?.join(", ")}.`;
-          }
-        } catch (_) {}
-        setFormMsg({ text: msg, ok: false });
-      } else {
-        setFormMsg({ text: "Create failed — check values", ok: false });
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function submitParcel(e: React.FormEvent) {
-    e.preventDefault();
-    if (!parcelProjectId.trim() || !parcelName.trim() || !drawnGeoJson) {
-      setParcelMsg({ text: "Project ID, Parcel Name, and Boundary GeoJSON are required", ok: false });
-      return;
-    }
-    setParcelSubmitting(true);
-    setParcelMsg(null);
-    try {
-      const acres = declaredAcres.trim() ? parseFloat(declaredAcres.trim()) : undefined;
-      await createParcel({
-        project_id: parcelProjectId.trim(),
-        name: parcelName.trim(),
-        boundary_geojson: drawnGeoJson,
-        declared_area_acres: acres,
-      });
-      setParcelMsg({ text: "✓ Source parcel boundary registered & approved", ok: true });
-      setParcelName("");
-      setDeclaredAcres("");
-      setDrawnGeoJson(null);
-      await fetchParcels();
-    } catch (e) {
-      if (e instanceof AuthError) {
-        nav("/login");
-      } else if (e instanceof ApiError) {
-        let msg = e.message;
-        try {
-          const detailObj = JSON.parse(e.message);
-          if (detailObj.message) msg = detailObj.message;
-        } catch (_) {}
-        setParcelMsg({ text: `Parcel registration failed: ${msg}`, ok: false });
-      } else {
-        setParcelMsg({ text: "Parcel registration failed", ok: false });
-      }
-    } finally {
-      setParcelSubmitting(false);
-    }
-  }
-
-  const columns: ColumnDef<ProjectRow>[] = [
-    { key: "project_id", header: "Project ID", mono: true, render: (p) => p.project_id },
-    { key: "name", header: "Name", render: (p) => p.name },
-    {
-      key: "feedstock",
-      header: "Feedstock",
-      render: (p) => (p.allowed_feedstocks.length > 0 ? p.allowed_feedstocks.join(", ") : "—"),
-    },
-    {
-      key: "clients",
-      header: "Clients",
-      render: (p) => (p.client_target != null ? String(p.client_target) : "—"),
-    },
-    {
-      key: "status",
-      header: "Status",
-      render: (p) => <StatusDot variant={projectStatusVariant(p.status)} label={p.status} />,
-    },
-    { key: "created", header: "Created", render: (p) => fmtDate(p.created_at) },
-  ];
-
-  const parcelColumns: ColumnDef<SourceParcel>[] = [
-    { key: "parcel_uuid", header: "Parcel UUID", mono: true, render: (p) => p.parcel_uuid.slice(0, 8) + "…" },
-    { key: "name", header: "Parcel name", render: (p) => p.name },
-    { key: "project_id", header: "Project ID", mono: true, render: (p) => p.project_id },
-    { key: "area", header: "Area (m²)", render: (p) => `${p.area_m2.toLocaleString()} m²` },
-    { key: "acres", header: "Declared (acres)", render: (p) => p.declared_area_acres ? `${p.declared_area_acres} acres` : "—" },
-    {
-      key: "status",
-      header: "Status",
-      render: (p) =>
-        p.boundary_status ? (
-          <StatusDot variant={projectStatusVariant(p.boundary_status)} label={p.boundary_status} />
-        ) : (
-          "—"
-        ),
-    },
-    { key: "created", header: "Created", render: (p) => fmtDate(p.created_at) },
-  ];
-
+  const pr = useProjects();
   const isAdmin = getRole() === "admin";
 
   return (
@@ -295,52 +68,52 @@ export default function Projects() {
       {/* Project & parcel registration is admin-only — verifiers read the
           tables below but never see write controls they can't authorize. */}
       {isAdmin && (
-      <ProjectForm
-        projectId={projectId}
-        onProjectIdChange={setProjectId}
-        name={name}
-        onNameChange={setName}
-        feedstockOptions={feedstockOptions}
-        selectedFeedstock={selectedFeedstock}
-        onFeedstockChange={setSelectedFeedstock}
-        clientTarget={clientTarget}
-        onClientTargetChange={setClientTarget}
-        submitting={submitting}
-        formMsg={formMsg}
-        onSubmit={submit}
-      />
+        <ProjectForm
+          projectId={pr.projectId}
+          onProjectIdChange={pr.setProjectId}
+          name={pr.name}
+          onNameChange={pr.setName}
+          feedstockOptions={pr.feedstockOptions}
+          selectedFeedstock={pr.selectedFeedstock}
+          onFeedstockChange={pr.setSelectedFeedstock}
+          clientTarget={pr.clientTarget}
+          onClientTargetChange={pr.setClientTarget}
+          submitting={pr.submitting}
+          formMsg={pr.formMsg}
+          onSubmit={pr.submit}
+        />
       )}
 
       {/* Source Parcel Boundary Registration Form (Part 1.5) */}
       {isAdmin && (
-      <ParcelForm
-        projects={rows}
-        parcelProjectId={parcelProjectId}
-        onParcelProjectIdChange={setParcelProjectId}
-        parcelName={parcelName}
-        onParcelNameChange={setParcelName}
-        declaredAcres={declaredAcres}
-        onDeclaredAcresChange={setDeclaredAcres}
-        existingParcels={parcels}
-        drawnGeoJson={drawnGeoJson}
-        onPolygonCreated={(geojson) => setDrawnGeoJson(geojson)}
-        parcelSubmitting={parcelSubmitting}
-        parcelMsg={parcelMsg}
-        onSubmit={submitParcel}
-      />
+        <ParcelForm
+          projects={pr.rows}
+          parcelProjectId={pr.parcelProjectId}
+          onParcelProjectIdChange={pr.setParcelProjectId}
+          parcelName={pr.parcelName}
+          onParcelNameChange={pr.setParcelName}
+          declaredAcres={pr.declaredAcres}
+          onDeclaredAcresChange={pr.setDeclaredAcres}
+          existingParcels={pr.parcels}
+          drawnGeoJson={pr.drawnGeoJson}
+          onPolygonCreated={(geojson) => pr.setDrawnGeoJson(geojson)}
+          parcelSubmitting={pr.parcelSubmitting}
+          parcelMsg={pr.parcelMsg}
+          onSubmit={pr.submitParcel}
+        />
       )}
 
-      {err && (
-        <CardError message={err} onRetry={() => fetchPage(currentBefore)} />
+      {pr.err && (
+        <CardError message={pr.err} onRetry={() => pr.fetchPage(pr.currentBefore)} />
       )}
 
       {/* Projects Table */}
       <h2 className="section-title">Registered projects</h2>
       <DataTable
         columns={columns}
-        rows={rows}
+        rows={pr.rows}
         rowKey={(p) => p.project_id}
-        loading={loading}
+        loading={pr.loading}
         empty={
           <EmptyState
             title="No projects yet"
@@ -353,21 +126,21 @@ export default function Projects() {
         <Button
           variant="neutral"
           size="sm"
-          onClick={goPrev}
-          disabled={loading || prevStack.length === 0}
+          onClick={pr.goPrev}
+          disabled={pr.loading || pr.prevStack.length === 0}
         >
           ‹ Previous
         </Button>
         <span className="micro pager-status" aria-live="polite">
-          Page {pageIndex}
-          {rows.length > 0 &&
-            ` · ${rows.length} row${rows.length === 1 ? "" : "s"}`}
+          Page {pr.pageIndex}
+          {pr.rows.length > 0 &&
+            ` · ${pr.rows.length} row${pr.rows.length === 1 ? "" : "s"}`}
         </span>
         <Button
           variant="neutral"
           size="sm"
-          onClick={goNext}
-          disabled={loading || !nextCursor}
+          onClick={pr.goNext}
+          disabled={pr.loading || !pr.nextCursor}
         >
           Next ›
         </Button>
@@ -377,9 +150,9 @@ export default function Projects() {
       <h2 className="section-title">Source parcels</h2>
       <DataTable
         columns={parcelColumns}
-        rows={parcels}
+        rows={pr.parcels}
         rowKey={(p) => p.parcel_uuid}
-        loading={parcelsLoading}
+        loading={pr.parcelsLoading}
         empty={
           <EmptyState
             title="No source parcels registered"
