@@ -1,3 +1,5 @@
+import ChartFrame from "../../ui/ChartFrame/ChartFrame";
+
 /**
  * Inline SVG burn-temperature curve — no charting dependency. Renders the raw
  * thermocouple readings as-is; never interpolates or fabricates points.
@@ -21,58 +23,56 @@ export default function TemperatureChart({
 
   const lo = minTemp ?? Math.min(...readings);
   const hi = maxTemp ?? Math.max(...readings);
-  const flat = hi === lo;
   const mid = Math.round((hi + lo) / 2);
-
-  const gridlines = [50, 100, 150].map((y) => (
-    <line
-      key={y}
-      x1={0}
-      y1={y}
-      x2={600}
-      y2={y}
-      stroke="var(--border-subtle)"
-      strokeWidth={1}
-      opacity={0.4}
-    />
-  ));
+  const yFormat = (v: number) => `${Math.round(v)}°C`;
 
   if (readings.length === 1) {
-    const y = flat ? 100 : 100;
     return (
-      <svg viewBox="0 0 600 200" width="100%" height="200" preserveAspectRatio="none" role="img" aria-label="Burn temperature">
-        {gridlines}
-        <circle cx={300} cy={y} r={4} fill="var(--indigo-600)" />
-        <text x="4" y="16" fill="var(--text-tertiary)" fontSize="var(--fs-12)">{hi}°C</text>
-      </svg>
+      <ChartFrame
+        ariaLabel="Burn temperature"
+        yDomain={[lo, hi]}
+        yTicks={[hi]}
+        yFormat={yFormat}
+      >
+        {({ w, yScale: yy }) => (
+          <circle cx={w / 2} cy={yy(hi)} r={4} fill="var(--indigo-600)" />
+        )}
+      </ChartFrame>
     );
   }
 
   const n = readings.length;
-  const coords = readings.map((t, i) => {
-    const x = (i / (n - 1)) * 600;
-    const y = flat ? 100 : 192 - ((t - lo) / (hi - lo)) * 184;
-    return { x, y, t };
-  });
-  const points = coords.map(({ x, y }) => `${x},${y}`).join(" ");
 
   return (
-    <svg viewBox="0 0 600 200" width="100%" height="200" preserveAspectRatio="none" role="img" aria-label="Burn temperature">
-      {gridlines}
-      <polyline
-        points={points}
-        fill="none"
-        stroke="var(--indigo-600)"
-        strokeWidth={2}
-      />
-      {coords.map(({ x, y, t }, i) => (
-        <circle key={i} cx={x} cy={y} r={2.5} fill="var(--indigo-600)">
-          <title>{t}°C</title>
-        </circle>
-      ))}
-      <text x="4" y="16" fill="var(--text-tertiary)" fontSize="var(--fs-12)">{hi}°C</text>
-      <text x="4" y="104" fill="var(--text-tertiary)" fontSize="var(--fs-12)">{mid}°C</text>
-      <text x="4" y="196" fill="var(--text-tertiary)" fontSize="var(--fs-12)">{lo}°C</text>
-    </svg>
+    <ChartFrame
+      ariaLabel="Burn temperature"
+      yDomain={[lo, hi]}
+      yTicks={Array.from(new Set([hi, mid, lo]))}
+      yFormat={yFormat}
+    >
+      {({ w, yScale: yy }) => {
+        const coords = readings.map((t, i) => ({
+          x: (i / (n - 1)) * w,
+          y: yy(t),
+          t,
+        }));
+        const points = coords.map(({ x, y }) => `${x},${y}`).join(" ");
+        return (
+          <>
+            <polyline
+              points={points}
+              fill="none"
+              stroke="var(--indigo-600)"
+              strokeWidth={2}
+            />
+            {coords.map(({ x, y, t }, i) => (
+              <circle key={i} cx={x} cy={y} r={2.5} fill="var(--indigo-600)">
+                <title>{t}°C</title>
+              </circle>
+            ))}
+          </>
+        );
+      }}
+    </ChartFrame>
   );
 }
