@@ -1,8 +1,19 @@
+.scrollWrap {
+  width: 100%;
+  overflow-x: auto;
+}
 .stickyHead th {
   position: sticky;
   top: var(--topbar-h);
   background: var(--surface-card);
   z-index: 1;
+}
+@media (max-width: 768px) {
+  .scrollWrap table tr > *:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--surface-card);
+  }
 }
 .right {
   text-align: right;

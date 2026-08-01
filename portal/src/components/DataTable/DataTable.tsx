@@ -75,6 +75,7 @@ export default function DataTable<T>({
   const showEmpty = !loading && rows.length === 0;
 
   return (
+    <div className={styles.scrollWrap}>
     <table aria-busy={loading}>
       <thead className={styles.stickyHead}>
         <tr>
@@ -134,5 +135,6 @@ export default function DataTable<T>({
           })}
       </tbody>
     </table>
+    </div>
   );
 }
