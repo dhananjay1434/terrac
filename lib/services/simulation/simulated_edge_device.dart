@@ -1,5 +1,6 @@
-import '../telemetry_aggregator.dart';
 import '../telemetry_envelope_builder.dart';
+import 'burn_profile.dart';
+import 'demo_clock.dart';
 import 'edge_device_link.dart';
 
 /// Software stand-in for the ESP32 edge unit. Generates a realistic burn —
@@ -8,26 +9,34 @@ import 'edge_device_link.dart';
 /// LOAD), exactly the shape the backend verifies. This is the modular "hardware":
 /// delete it / swap it for BleEdgeDeviceLink with zero change above this file.
 class SimulatedEdgeDevice implements EdgeDeviceLink {
-  SimulatedEdgeDevice({required this.deviceId, required this.sessionUuid, this.buckets = 12});
+  SimulatedEdgeDevice({
+    required this.deviceId,
+    required this.sessionUuid,
+    BurnProfile? profile,
+    DemoClock? clock,
+    int? buckets,
+  })  : profile = profile ?? const BurnProfile(DemoProfile()),
+        clock = clock ?? WallDemoClock(),
+        buckets = buckets ?? (profile ?? const BurnProfile(DemoProfile())).profile.bucketCount;
   @override
   final String deviceId;
   final String sessionUuid;
+  final BurnProfile profile;
+  final DemoClock clock;
   final int buckets;
 
-  // Deterministic burn profile (per 10s bucket index b).
-  double _temp(int b) {
-    if (b == 0) return 45.0;             // ambient/ignition
-    if (b < 4) return 60.0 + b * 95.0;   // 155, 250, 345 → climbing
-    if (b < 6) return 360.0 + (b - 4) * 60.0; // 360, 420 → past 350
-    return 455.0 + (b % 2);              // plateau ~455°C
-  }
-  double _weight(int b) => b < 2 ? 0.0 : 15.2; // load settles after ignition
-  String _iso(int b) {
-    final sec = b * 10;
-    final mm = (sec ~/ 60).toString().padLeft(2, '0');
-    final ss = (sec % 60).toString().padLeft(2, '0');
-    return '2026-07-23T09:$mm:${ss}Z';
-  }
+  Duration _elapsedAt(int b) => Duration(seconds: b * profile.profile.bucketSeconds);
+  double _temp(int b) => profile.sample(_elapsedAt(b)).tempC;
+  double _weight(int b) => profile.sample(_elapsedAt(b)).loadKg;
+
+  // Now-relative AND always in the PAST: model the burn as ENDING at
+  // clock.startedAt, so bucket b covers [startedAt - (buckets-1-b)*bs, …].
+  // Every t_start <= startedAt (≈now); a forward "startedAt + b*bs" would make
+  // late buckets FUTURE and the backend (future-skew 300s) would 422 them on a
+  // long burn. Backward-anchoring is future-proof for any bucketCount.
+  String _iso(int b) => clock.startedAt
+      .subtract(Duration(seconds: (buckets - 1 - b) * profile.profile.bucketSeconds))
+      .toIso8601String();
 
   @override
   Future<List<SignedChunk>> collect() async {
@@ -37,11 +46,11 @@ class SimulatedEdgeDevice implements EdgeDeviceLink {
     for (var b = 0; b < buckets; b++) {
       final t = await TelemetryEnvelopeBuilder.build(
         deviceId: deviceId, sessionUuid: sessionUuid, batchUuid: null, channel: 'T1',
-        tStartIso: _iso(b), samplePeriodS: 10.0, values: [round1dp(_temp(b))], seq: seqT, prevHash: prevT);
+        tStartIso: _iso(b), samplePeriodS: 10.0, values: [_temp(b)], seq: seqT, prevHash: prevT);
       prevT = t.nextPrevHash; seqT++; out.add(t);
       final l = await TelemetryEnvelopeBuilder.build(
         deviceId: deviceId, sessionUuid: sessionUuid, batchUuid: null, channel: 'LOAD',
-        tStartIso: _iso(b), samplePeriodS: 10.0, values: [round1dp(_weight(b))], seq: seqL, prevHash: prevL);
+        tStartIso: _iso(b), samplePeriodS: 10.0, values: [_weight(b)], seq: seqL, prevHash: prevL);
       prevL = l.nextPrevHash; seqL++; out.add(l);
     }
     return out;
