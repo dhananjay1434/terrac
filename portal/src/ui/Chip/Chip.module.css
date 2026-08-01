@@ -1,10 +1,13 @@
 .chip {
   display: inline-flex;
   align-items: center;
+  max-width: 100%;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--r-sm);
   font-size: var(--fs-12);
   font-weight: var(--fw-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   background: var(--surface-sunken);
   color: var(--text-secondary);

@@ -195,14 +195,17 @@ export default function Batches() {
     {
       key: "biomass",
       header: "Biomass",
+      width: "78px",
       render: (b) => {
         const species = (b as BatchRowV2).feedstock_species;
-        return species ? <Chip>{species.replace(/_/g, " ")}</Chip> : <span className="text-tertiary">—</span>;
+        const label = species?.replace(/_/g, " ");
+        return label ? <Chip title={label}>{label}</Chip> : <span className="text-tertiary">—</span>;
       },
     },
     {
       key: "network",
       header: "Network / Site",
+      width: "78px",
       render: (b) => {
         const v2 = b as BatchRowV2;
         return <CellStack primary={v2.network_id ?? "—"} secondary={v2.site_id ?? undefined} />;

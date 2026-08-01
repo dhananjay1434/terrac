@@ -122,6 +122,7 @@ export default function DataTable<T>({
                 {columns.map((c) => (
                   <td
                     key={c.key}
+                    style={c.width ? { width: c.width, maxWidth: c.width } : undefined}
                     className={clsx(
                       c.align === "right" && styles.right,
                       c.mono && "mono",
