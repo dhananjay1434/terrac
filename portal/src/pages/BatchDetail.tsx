@@ -77,6 +77,7 @@ export default function BatchDetail() {
   const nav = useNavigate();
   const [d, setD] = useState<Detail | null>(null);
   const [timeline, setTimeline] = useState<TimelineStage[]>([]);
+  const [caps, setCaps] = useState<BatchCapabilities | null>(null);
   const [timelineLightbox, setTimelineLightbox] = useState<MediaItem | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [issuing, setIssuing] = useState(false);
@@ -95,6 +96,13 @@ export default function BatchDetail() {
         else setErr("Couldn't load batch.");
       });
     
+    getBatchCapabilities(uuid)
+      .then(setCaps)
+      .catch(() => {
+        // Best-effort probe: on failure we fall back to the pre-capability default
+        // (show panels) so a failed probe never blanks a batch that has data.
+      });
+
     if (TIMELINE_V2) {
       getBatchTimeline(uuid)
         .then(setTimeline)
