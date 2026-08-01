@@ -160,6 +160,15 @@ class CryptoSigner {
     );
   }
 
+  /// PRODUCER signature (layer 1): Ed25519 over RAW bytes (telemetry canonical
+  /// bytes), base64url without padding — the encoding the backend's
+  /// verify_raw_signature expects. Same device key as signRequest.
+  static Future<String> signBytesB64(List<int> bytes) async {
+    if (isDeviceCompromisedGlobally) throw StateError('device_compromised');
+    final sig = await _algo.sign(bytes, keyPair: await _keyPair());
+    return base64Url.encode(sig.bytes).replaceAll('=', '');
+  }
+
   /// CANONICAL STRING (frozen): method\npath\nidempotencyKey\nsha256(jsonBody)\ndeviceId
   static Future<String> signRequest({
     required String method,
