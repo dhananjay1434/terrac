@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   listDispatch,
@@ -54,7 +54,6 @@ export function useDispatch() {
   const [selected, setSelected] = useState<DispatchRow | null>(null);
   const [journeyData, setJourneyData] = useState<JourneyData | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const detailRef = useRef<HTMLDivElement>(null);
 
   const fetchPage = useCallback(
     async (before: string | null) => {
@@ -187,10 +186,6 @@ export function useDispatch() {
         },
       };
       setJourneyData(fullJd);
-
-      setTimeout(() => {
-        detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 50);
     } catch (err) {
       console.error(err);
       setJourneyData(null);
@@ -230,7 +225,6 @@ export function useDispatch() {
     setSelected,
     journeyData,
     detailLoading,
-    detailRef,
     openDetail,
   };
 }

@@ -10,6 +10,7 @@ import Card from "../ui/Card/Card";
 import Button from "../ui/Button/Button";
 import Skeleton from "../components/Skeleton/Skeleton";
 import JourneyPanel from "../components/JourneyPanel/JourneyPanel";
+import DetailDrawer from "../ui/DetailDrawer/DetailDrawer";
 import { useDispatch, DISPATCH_VIEWS, type DispatchViewKey } from "../features/dispatch/useDispatch";
 import type { DispatchRow } from "../api";
 
@@ -216,31 +217,16 @@ export default function Dispatch() {
         </Button>
       </nav>
 
-      {(dp.detailLoading || dp.selected) && (
-        <Card as="section" ref={dp.detailRef} style={{ marginTop: "var(--space-4)" }} aria-label="Dispatch detail">
-          {dp.detailLoading && <Skeleton variant="card" />}
-          {dp.selected && !dp.detailLoading && dp.journeyData && (
-            <>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "var(--space-3)",
-                }}
-              >
-                <span className="micro">
-                  Dispatch <span className="mono">{dp.selected.dispatch_uuid}</span>
-                </span>
-                <Button variant="neutral" size="sm" onClick={() => dp.setSelected(null)}>
-                  Close
-                </Button>
-              </div>
-              <JourneyPanel data={dp.journeyData} />
-            </>
-          )}
-        </Card>
-      )}
+      <DetailDrawer
+        open={Boolean(dp.detailLoading || dp.selected)}
+        onOpenChange={(o) => !o && dp.setSelected(null)}
+        title={dp.selected ? `Dispatch ${dp.selected.dispatch_uuid.slice(0, 8)}` : "Dispatch detail"}
+      >
+        {dp.detailLoading && <Skeleton variant="card" />}
+        {dp.selected && !dp.detailLoading && dp.journeyData && (
+          <JourneyPanel data={dp.journeyData} />
+        )}
+      </DetailDrawer>
     </div>
   );
 }
