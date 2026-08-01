@@ -370,15 +370,18 @@ async def test_batch_row_exposes_hierarchy_keys(read_client):
         coded.batch_code = "IN01A001P03S2K07B23072601"
         coded.network_id = "NET-1"
         coded.site_id = "FAC-1"
+        coded.feedstock_species = "Lantana_camara"
         s.add(coded)
         await s.commit()
 
     body = (await ac.get("/api/v1/portal/batches", headers=auth)).json()
     for row in body["batches"]:
         assert "batch_code" in row and "network_id" in row and "site_id" in row
+        assert "feedstock_species" in row
 
     by_code = {r["batch_code"]: r for r in body["batches"]}
     assert by_code["IN01A001P03S2K07B23072601"]["network_id"] == "NET-1"
     assert by_code["IN01A001P03S2K07B23072601"]["site_id"] == "FAC-1"
+    assert by_code["IN01A001P03S2K07B23072601"]["feedstock_species"] == "Lantana_camara"
     assert None in by_code  # the uncoded batch
     assert by_code[None]["network_id"] is None and by_code[None]["site_id"] is None

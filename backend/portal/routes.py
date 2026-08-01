@@ -1035,6 +1035,7 @@ def _batch_row(b: Batch) -> dict:
         "batch_code": b.batch_code,
         "network_id": b.network_id,
         "site_id": b.site_id,
+        "feedstock_species": b.feedstock_species,
     }
 
 
