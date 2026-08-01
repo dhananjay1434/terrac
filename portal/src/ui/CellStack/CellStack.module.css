@@ -1,0 +1,13 @@
+.stack {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.primary {
+  color: var(--text-primary);
+  font-weight: var(--fw-medium);
+}
+.secondary {
+  color: var(--text-tertiary);
+  font-size: var(--fs-12);
+}
