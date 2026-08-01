@@ -1,3 +1,16 @@
+// Capability descriptor — mirrors backend capabilities.resolve_batch_capabilities exactly.
+// The portal renders panels from this stated verdict instead of guessing from failed fetches.
+export interface BatchCapabilities {
+  telemetry: "v2" | "legacy" | "none";
+  thermal: boolean;
+  load: boolean;
+  timeline: boolean;
+  journeys: boolean;
+  ledgers: boolean;
+  provenance_code: boolean;
+  tier: "none" | "load" | "thermal" | "full";
+}
+
 import type { BatchRow } from "./api";
 
 /**
