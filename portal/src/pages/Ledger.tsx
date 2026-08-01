@@ -224,7 +224,7 @@ function LedgerContent() {
 
 export default function Ledger() {
   return (
-    <div className={styles.container}>
+    <div className={`wrap ${styles.container}`}>
       <header className={styles.header}>
         <h1>Biomass ledgers</h1>
         <p className={styles.subtitle}>
