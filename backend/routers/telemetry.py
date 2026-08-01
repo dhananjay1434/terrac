@@ -20,7 +20,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
@@ -268,4 +268,39 @@ async def bind_session(
         "status": "ok",
         "points_inserted": points_inserted,
         "skipped_chunks": skipped_chunks,
+    }
+
+
+@router.get("/api/v2/telemetry/sync-status/{device_id}")
+async def sync_status(
+    device_id: str,
+    _user: PortalUser = Depends(require_role()),
+    session: AsyncSession = Depends(get_session),
+):
+    """STITCHING D3b — the confirmed watermark per (session, channel) for a device.
+
+    A courier relays this back to the edge unit so it can reclaim flash for data
+    the SERVER already holds, without depending on the specific phone that
+    delivered it ever returning. Returns max stored seq per (session, channel);
+    chunks with seq=None (legacy/cellular, no chain) are ignored. Never raises on
+    an unknown device — an unknown device simply has an empty watermark list.
+    """
+    rows = (
+        await session.execute(
+            select(
+                TelemetryChunk.session_uuid,
+                TelemetryChunk.channel,
+                func.max(TelemetryChunk.seq),
+            )
+            .where(TelemetryChunk.device_id == device_id)
+            .where(TelemetryChunk.seq.isnot(None))
+            .group_by(TelemetryChunk.session_uuid, TelemetryChunk.channel)
+        )
+    ).all()
+    return {
+        "device_id": device_id,
+        "watermarks": [
+            {"session_uuid": s, "channel": c, "max_seq": int(m)}
+            for (s, c, m) in rows
+        ],
     }
