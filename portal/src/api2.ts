@@ -145,6 +145,15 @@ export interface BiomassLedgerResponse {
     row_count: number;
   };
 }
+// ── capability descriptor (STITCHING Phase B) ───────────────────────────────
+import type { BatchCapabilities } from "./apiV2types";
+
+/** Fetch the per-batch capability verdict. The portal should render panels from
+ * this instead of probing endpoints and catching failures. */
+export function getBatchCapabilities(uuid: string): Promise<BatchCapabilities> {
+  return req(`/api/v1/portal/batches/${uuid}/capabilities`);
+}
+
 export function getBiomassLedger(params: {
   from?: string;
   to?: string;
