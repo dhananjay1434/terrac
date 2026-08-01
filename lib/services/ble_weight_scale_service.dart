@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
+import 'simulation/burn_profile.dart';
 
 /// =============================================================================
 /// BleWeightScaleService  (Prompt 5 — Task 1 — Yield)
@@ -195,8 +196,9 @@ class MockBleWeightScaleService implements BleWeightScaleSource {
     _conn.add(BleScaleState.connected);
     if (tickInterval != null) {
       _timer = Timer.periodic(tickInterval!, (_) {
-        // Start with some jitter, then stabilize at ~15.2 kg after 10 ticks
-        final base = 15.2;
+        // Settle value sourced from the shared BurnProfile (same loadKg the
+        // signed LOAD channel uses) so phone and portal weights can't drift.
+        final base = const BurnProfile(DemoProfile()).profile.loadKg;
         final jitter = _i < 10 ? (((seed + _i) * 17) % 5) * 0.1 : 0.0;
         _weight.add(base + jitter);
         _i++;
