@@ -7,6 +7,7 @@ import BarChart from "../ui/BarChart/BarChart";
 import HorizontalBarList from "../ui/HorizontalBarList/HorizontalBarList";
 import BucketToggle from "../ui/BucketToggle/BucketToggle";
 import DataTable, { type ColumnDef } from "../components/DataTable/DataTable";
+import Skeleton from "../components/Skeleton/Skeleton";
 import styles from "./Ledger.module.css";
 import ErrorBoundary from "../ui/ErrorBoundary/ErrorBoundary";
 import CardError from "../ui/CardError/CardError";
@@ -75,7 +76,16 @@ function LedgerContent() {
   }, [bucket, from, to]);
 
   if (error) return <CardError message="Failed to load ledger data." onRetry={() => setBucket(bucket)} />;
-  if (loading || !data) return <div className={styles.loading}>Loading ledger...</div>;
+  if (loading || !data) {
+    return (
+      <div className={styles.grid}>
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
+        <Skeleton variant="card" />
+      </div>
+    );
+  }
 
   const chartData = data.buckets.map((b) => ({
     label: b.period,
