@@ -24,7 +24,12 @@ void main() {
     final executor = NativeDatabase.memory();
     final db = AppDatabase.forTesting(executor);
 
-    expect(db.schemaVersion, 27);
+    // CORRECTION (P2.3): schemaVersion legitimately advanced to 28 when the
+    // Kilns.sensorProfile migration landed. forTesting always builds the
+    // CURRENT schema (no historical replay), so this follows
+    // migration_v25_to_v26_parcel_test.dart's `greaterThanOrEqualTo` style
+    // rather than pinning an exact version this test predates.
+    expect(db.schemaVersion, greaterThanOrEqualTo(27));
 
     // Batch-scoped outbox row — the pre-existing shape — still works.
     await db.into(db.syncOutbox).insert(
