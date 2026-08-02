@@ -46,13 +46,48 @@ Blueprint: `TELEMETRY_CHART_UX_BLUEPRINT.md` (v2, post-CTO-audit)
           prompt's explicit permission. CSV (Phase E) is the shipped download.
  G    [x] Final wiring + full gate — npm run test: 445 passed (429 baseline + 16
           new), 1 known pre-existing failure (AppShell snapshot, untouched by this
-          work), 446 total. npm run build: clean. BarChart + TemperatureChart
-          (the other 2 ChartFrame consumers) unchanged and green throughout.
-          HUMAN VISUAL QA STILL NEEDED — no browser was driven this session, only
-          jsdom unit tests + tsc + vite build. Before trusting the UX: `npm run
-          dev`, open a batch with v2 telemetry (e.g. the KILN-DEMO-01 batch bound
-          in the phone-capability-telemetry session), and check — compact grid
-          side-by-side/stacked; click AND keyboard (Tab+Enter) open the modal;
-          hovering either chart moves BOTH crosshairs together; Download CSV
-          produces a correct file; at both desktop and narrow (~375px) widths.
+          work). npm run build: clean. BarChart + TemperatureChart (the other 2
+          ChartFrame consumers) unchanged and green throughout.
+
+## Real-browser verification (playwright-core) — 2 real bugs found + fixed (commit 381fdfb)
+
+jsdom unit tests alone were NOT sufficient — verified per repo convention
+("verify UI in a browser" — jsdom/vitest miss real hit-testing and CSS layout).
+Set up: local backend (`uvicorn app_factory:app`) against local sqlite with a
+local portal admin user + seeded T1-T4+LOAD `telemetry_points` on an existing
+batch + `ff.telemetry_v2` flag on, `vite` dev server pointed at it (CORS
+origin matched via `DMRV_ALLOWED_ORIGIN`), driven with `playwright-core`
+(chromium), auth token seeded into localStorage via `page.addInitScript`.
+Found and fixed:
+
+1. **Hover/crosshair/tooltip did not work at all** in a real browser, despite
+   the unit tests being green. Root cause: the pointer-capture
+   `<rect fill="transparent">` relies on SVG's default
+   `pointer-events: visiblePainted`, which does NOT hit-test a transparent
+   fill — only real paint. jsdom's `fireEvent.pointerMove()` calls the React
+   handler directly, bypassing hit-testing entirely, so the tests could never
+   have caught this. Fixed with `pointerEvents="all"` on the capture rect.
+2. **Both the compact card and the expanded modal showed the chart's title
+   TWICE** — once from the card/modal's own heading, once from ChartFrame's
+   own internal title (which the chart always renders). Fixed by dropping the
+   card's redundant visible label (kept as `aria-label` for a11y) and making
+   the modal's `Dialog.Title` visually-hidden (kept in the DOM for Radix/a11y)
+   since the chart's own title is the on-screen heading.
+
+Also had to fix my OWN verification script twice before it was trustworthy:
+first it grabbed the wrong `<svg>` (a `lucide-react` icon also renders as
+`<svg>`, needed `svg[role="img"]`), then raw `page.mouse.move()` coordinates
+were below the fold and silently hit nothing (`document.elementFromPoint`
+returned null) until `scrollIntoViewIfNeeded()` was added — a reminder that a
+"looks done" Playwright script needs its own scrutiny, not just a green run.
+
+Re-verified after both fixes: compact grid (side-by-side desktop, stacked
+narrow/375px), synchronized hover crosshair + tooltip on BOTH charts
+simultaneously (same elapsed-time label, proving the shared HoverSync), click
+AND keyboard (Enter) expand, Esc/Close dismiss, Download CSV triggers with the
+correct filename — all confirmed via screenshots, not just DOM queries.
+Full gate re-run after the fixes: 445 passed (same count — same tests now
+exercising CORRECT code), build clean.
+
+**Pushed to origin/main.**
 ```
