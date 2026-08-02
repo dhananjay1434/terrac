@@ -5,7 +5,14 @@ import json
 from sqlalchemy import select
 from datetime import datetime, timezone
 
-from models import MediaFile, PyrolysisTelemetry, Batch, EndUseApplication
+from models import (
+    MediaFile,
+    PyrolysisTelemetry,
+    Batch,
+    EndUseApplication,
+    MoistureReading,
+    CompositePileSample,
+)
 from scripts.backfill_media_capture_types import backfill
 
 pytestmark = pytest.mark.asyncio
@@ -93,6 +100,33 @@ async def test_backfill_media_capture_types(session_factory):
             capture_type_verified=False
         ))
 
+        # Batch 5: moisture (C2) + composite (C4) photos that landed with a NULL
+        # capture_type (the "Other / Uncategorized" bug). One moisture reading
+        # REUSED the batch anchor image (sha == batch.sha256_hash) — that photo
+        # must stay batch_photo, not be stolen by the moisture rule.
+        b5 = str(uuid.uuid4())
+        s.add(make_batch(b5, sha="b5-anchor-hash"))
+        # moisture reading #1 reused the anchor image
+        s.add(MoistureReading(
+            reading_uuid=str(uuid.uuid4()), batch_uuid=b5,
+            payload_json=json.dumps({"sequence": 1, "sha256_hash": "b5-anchor-hash"}),
+        ))
+        # moisture reading #2 — a distinct shot
+        s.add(MoistureReading(
+            reading_uuid=str(uuid.uuid4()), batch_uuid=b5,
+            payload_json=json.dumps({"sequence": 2, "sha256_hash": "moist-hash-2"}),
+        ))
+        s.add(CompositePileSample(
+            sample_uuid=str(uuid.uuid4()), batch_uuid=b5,
+            payload_json=json.dumps({"sha256_hash": "composite-hash"}),
+        ))
+        s.add(MediaFile(batch_uuid=b5, operation_id="m-anchor",
+                        file_path="d.jpg", sha256_hash="b5-anchor-hash", capture_type_verified=False))
+        s.add(MediaFile(batch_uuid=b5, operation_id="m-moist2",
+                        file_path="d.jpg", sha256_hash="moist-hash-2", capture_type_verified=False))
+        s.add(MediaFile(batch_uuid=b5, operation_id="m-comp",
+                        file_path="d.jpg", sha256_hash="composite-hash", capture_type_verified=False))
+
         await s.commit()
 
     async with session_factory() as s:
@@ -100,7 +134,9 @@ async def test_backfill_media_capture_types(session_factory):
         assert counts["telemetry"] == 1
         assert counts["lab_certificate"] == 1
         assert counts["end_use"] == 1
-        assert counts["batch_photo"] == 1
+        assert counts["batch_photo"] == 2  # b3 anchor + b5 reused-anchor
+        assert counts["moisture"] == 1     # only the distinct shot; anchor reuse skipped
+        assert counts["composite_sample"] == 1
         assert counts["unchanged"] == 1
 
         # Check DB updates
@@ -123,3 +159,16 @@ async def test_backfill_media_capture_types(session_factory):
         m5 = (await s.execute(select(MediaFile).where(MediaFile.operation_id == "m-4"))).scalar_one()
         assert m5.capture_type == "end_use"
         assert m5.capture_type_verified is False
+
+        # b5: the reused-anchor moisture photo is batch_photo (verified, trust-root),
+        # NOT stolen by the moisture rule.
+        anchor = (await s.execute(select(MediaFile).where(MediaFile.operation_id == "m-anchor"))).scalar_one()
+        assert anchor.capture_type == "batch_photo"
+        assert anchor.capture_type_verified is True
+        # the distinct moisture + composite shots get their (unverified) labels.
+        moist2 = (await s.execute(select(MediaFile).where(MediaFile.operation_id == "m-moist2"))).scalar_one()
+        assert moist2.capture_type == "moisture"
+        assert moist2.capture_type_verified is False
+        comp = (await s.execute(select(MediaFile).where(MediaFile.operation_id == "m-comp"))).scalar_one()
+        assert comp.capture_type == "composite_sample"
+        assert comp.capture_type_verified is False

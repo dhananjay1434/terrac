@@ -22,13 +22,15 @@ import Button from "../ui/Button/Button";
 import Card from "../ui/Card/Card";
 
 export const STEP_ORDER = [
-  "batch_photo", "flame_curtain", "quenching", "flame_height",
+  "batch_photo", "moisture", "flame_curtain", "quenching", "flame_height",
   "smoke_0", "0", "smoke_50", "50", "smoke_90", "90", "smoke_100", "100",
-  "post_burn_mass", "packaging", "end_use", "lab_certificate",
+  "composite_sample", "post_burn_mass", "packaging", "end_use", "lab_certificate",
 ];
 
 export const STEP_TITLES: Record<string, string> = {
   batch_photo: "Batch photo",
+  moisture: "Moisture verification",
+  composite_sample: "Composite pile sub-sample",
   flame_curtain: "Burn — flame curtain",
   quenching: "Burn — quenching",
   flame_height: "Burn — flame height",

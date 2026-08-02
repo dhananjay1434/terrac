@@ -89,5 +89,43 @@ void main() {
       // Present as an explicit null (server treats null as "no geofence").
       expect(payload['parcel_uuid'], isNull);
     });
+
+    // Regression: moisture (C2) and composite-pile (C4) photos ride the same
+    // /media path but their signed metadata payloads cannot carry capture_type
+    // (strict endpoints). They were absent from kCaptureTypeByTable, so their
+    // photos uploaded with a NULL capture_type and the verifier portal bucketed
+    // them under "Other / Uncategorized". They must now derive a type from the
+    // table — while still NOT writing capture_type into the JSON body.
+    test('moisture + composite photos derive a capture_type from the table, not the body', () async {
+      await db.insertMoistureReadingWithOutbox(
+        batchUuid: 'b-moist',
+        moisturePercent: 5.0,
+        sequence: 1,
+        photoPath: '/sandbox/moist.jpg',
+        sha256Hash: 'a' * 64,
+      );
+      await db.insertCompositePileSampleWithOutbox(
+        batchUuid: 'b-comp',
+        photoPath: '/sandbox/comp.jpg',
+        sha256Hash: 'b' * 64,
+      );
+
+      final moist = await (db.select(db.syncOutbox)
+            ..where((t) => t.targetTable.equals('moisture_readings')))
+          .getSingle();
+      final comp = await (db.select(db.syncOutbox)
+            ..where((t) => t.targetTable.equals('composite_pile_samples')))
+          .getSingle();
+
+      // capture_type stays OUT of the strict JSON metadata bodies.
+      expect((jsonDecode(moist.payloadJson) as Map).containsKey('capture_type'), isFalse);
+      expect((jsonDecode(comp.payloadJson) as Map).containsKey('capture_type'), isFalse);
+
+      // ...and is derived from the table for the X-Capture-Type header.
+      // 'moisture' is the canonical string the backend custody-timeline
+      // projection (stage_projection._CAPTURE_STAGE) already maps to a stage.
+      expect(kCaptureTypeByTable['moisture_readings'], 'moisture');
+      expect(kCaptureTypeByTable['composite_pile_samples'], 'composite_sample');
+    });
   });
 }

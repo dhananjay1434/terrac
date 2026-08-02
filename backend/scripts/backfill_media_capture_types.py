@@ -6,11 +6,56 @@ import logging
 from sqlalchemy import select
 
 from db import async_sessionmaker
-from models import MediaFile, PyrolysisTelemetry, Batch, EndUseApplication
+from models import (
+    MediaFile,
+    PyrolysisTelemetry,
+    Batch,
+    EndUseApplication,
+    MoistureReading,
+    CompositePileSample,
+)
 from services.evidence import label_media_from_telemetry
 
 log = logging.getLogger("dmrv.backfill")
 logging.basicConfig(level=logging.INFO)
+
+
+async def _label_from_evidence_table(session, model, capture_type, batch_hashes) -> int:
+    """Classify photos whose sha256 matches an evidence-table row's own
+    submitted record (moisture_readings / composite_pile_samples). Same
+    payload-parse + sha-match, source-HINT pattern as the end_use rule (2b):
+    matched against the operator's own record, so capture_type_verified stays
+    False — NOT corroborated against independent signed telemetry.
+
+    Never overrides the batch-anchor image: if a reading reused the batch's
+    anchor photo (same sha == batches.sha256_hash), that photo is left for the
+    trust-root batch_photo rule, which labels it verified=True."""
+    n = 0
+    rows = (await session.execute(select(model))).scalars().all()
+    for r in rows:
+        try:
+            sha = json.loads(r.payload_json).get("sha256_hash")
+        except Exception:
+            continue
+        if not sha:
+            continue
+        sha = str(sha).lower()
+        if batch_hashes.get(r.batch_uuid) == sha:
+            continue  # this is the batch anchor — batch_photo rule owns it
+        medias = (
+            await session.execute(
+                select(MediaFile)
+                .where(MediaFile.batch_uuid == r.batch_uuid)
+                .where(MediaFile.sha256_hash == sha)
+                .where(MediaFile.capture_type.is_(None))
+            )
+        ).scalars().all()
+        for m in medias:
+            m.capture_type = capture_type
+            session.add(m)
+            n += 1
+    return n
+
 
 async def backfill(session, apply: bool = False) -> dict:
     counts = {
@@ -18,6 +63,8 @@ async def backfill(session, apply: bool = False) -> dict:
         "lab_certificate": 0,
         "batch_photo": 0,
         "end_use": 0,
+        "moisture": 0,
+        "composite_sample": 0,
         "unchanged": 0,
     }
 
@@ -75,20 +122,34 @@ async def backfill(session, apply: bool = False) -> dict:
             session.add(m)
             counts["end_use"] += 1
 
+    # Pre-fetch batch anchor hashes once — used by BOTH the moisture/composite
+    # rule (to avoid stealing the anchor image) and the batch_photo rule below.
+    batches = (await session.execute(select(Batch.batch_uuid, Batch.sha256_hash))).all()
+    batch_hashes = {b.batch_uuid: b.sha256_hash for b in batches}
+
+    # 2c. Moisture (C2) + composite-pile (C4) photos — the previously-NULL
+    # evidence that landed under "Other / Uncategorized". Runs BEFORE the
+    # batch-anchor rule and skips any reading that reused the anchor image, so
+    # the trust-root batch_photo classification still wins for that shot.
+    # 'moisture' is the canonical string the custody timeline already expects
+    # (stage_projection._CAPTURE_STAGE); 'composite_sample' is gallery-only.
+    counts["moisture"] += await _label_from_evidence_table(
+        session, MoistureReading, "moisture", batch_hashes
+    )
+    counts["composite_sample"] += await _label_from_evidence_table(
+        session, CompositePileSample, "composite_sample", batch_hashes
+    )
+
     # 3. Batch anchor photo
     # rows whose sha256_hash equals their batch's batches.sha256_hash -> capture_type="batch_photo", verified True
-    # Excludes rows the end_use rule (2b) just labeled this run — capture_type
-    # IS NOT NULL is the "already classified" test, since 2b intentionally
-    # leaves capture_type_verified False (source hint, not telemetry-verified).
+    # Excludes rows the earlier rules (2b/2c) just labeled this run — capture_type
+    # IS NOT NULL is the "already classified" test, since those intentionally
+    # leave capture_type_verified False (source hint, not telemetry-verified).
     all_medias = (await session.execute(
         select(MediaFile)
         .where(MediaFile.capture_type_verified == False)
         .where(MediaFile.capture_type.is_(None))
     )).scalars().all()
-
-    # Pre-fetch batches for quick lookup (if many, might need join, but small dataset is fine)
-    batches = (await session.execute(select(Batch.batch_uuid, Batch.sha256_hash))).all()
-    batch_hashes = {b.batch_uuid: b.sha256_hash for b in batches}
 
     for m in all_medias:
         if m.batch_uuid in batch_hashes and m.sha256_hash == batch_hashes[m.batch_uuid] and m.sha256_hash is not None:

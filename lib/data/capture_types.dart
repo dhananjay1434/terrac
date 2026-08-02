@@ -11,6 +11,20 @@ class CaptureType {
   static const packaging = 'packaging';
   static const endUse = 'end_use';
   static const labCertificate = 'lab_certificate';
+  // C2 moisture-verification photos and C4 site composite-pile sub-sample
+  // photos both ride the shared two-phase /media upload but, unlike batch/
+  // end-use photos, were never assigned a capture_type — so they landed as
+  // NULL and the verifier portal bucketed them under "Other / Uncategorized".
+  // Named here so their table→type mapping (kCaptureTypeByTable) can stamp them.
+  //
+  // `moisture` is the CANONICAL string the backend already reserves: the custody
+  // timeline (backend/stage_projection.py `_CAPTURE_STAGE`) maps it to the
+  // "moisture" stage, asserted by test_stage_events.py. It MUST be "moisture"
+  // (not e.g. "moisture_reading") or the moisture stage silently drops off the
+  // timeline. `composite_sample` is new (no custody stage — it is site-sampling
+  // QA evidence, shown in the gallery only).
+  static const moisture = 'moisture';
+  static const compositeSample = 'composite_sample';
   // V8 Part 4 (O) — video evidence. Uploaded through the same /api/v1/media
   // channel as photos (capture_type is a free-form validated string
   // server-side, and MultipartFile.fromPath infers video/mp4 from the

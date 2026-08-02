@@ -104,6 +104,13 @@ const Map<String, String> kEndpointByTable = <String, String>{
 const Map<String, String> kCaptureTypeByTable = <String, String>{
   'biomass_sourcing': CaptureType.batchPhoto,
   'end_use_application': CaptureType.endUse,
+  // A moisture_readings row's photo is always a C2 moisture-verification shot;
+  // a composite_pile_samples row's photo is always the C4 site sub-sample.
+  // Without these, both uploaded with a NULL capture_type and the verifier
+  // portal dumped them into "Other / Uncategorized". `moisture` is the string
+  // the backend custody-timeline projection already expects (stage_projection).
+  'moisture_readings': CaptureType.moisture,
+  'composite_pile_samples': CaptureType.compositeSample,
 };
 
 /// Resolve the sync endpoint for [targetTable]. Throws [StateError] for an
