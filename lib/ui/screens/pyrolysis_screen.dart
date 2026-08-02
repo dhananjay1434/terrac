@@ -9,10 +9,13 @@ import '../../data/local/database_provider.dart';
 import '../../data/local/pyrolysis_writer.dart';
 import '../../providers/batch_session_notifier.dart';
 import '../../providers/dashboard_provider.dart';
+import '../../providers/multichannel_burn_notifier.dart';
 import '../../providers/pyrolysis_ble_notifier.dart';
 import '../../services/ble_permission_gate.dart';
 import '../../services/demo_telemetry_wire.dart';
 import '../../services/ble_temperature_service.dart';
+import '../../services/simulation/sensor_profile.dart';
+import '../../services/simulation/virtual_multichannel_adapter.dart';
 import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
 import '../design/tokens.dart';
@@ -22,6 +25,7 @@ import '../../services/secure_capture_service.dart';
 import '../../providers/smoke_evidence_provider.dart';
 import 'kiln_select_screen.dart';
 import 'secure_camera_screen.dart';
+import 'widgets/multichannel_burn_hud.dart';
 import 'yield_scale_screen.dart';
 
 /// The 4 smoke-opacity proofs every burn documents.
@@ -61,6 +65,35 @@ bool canEndBurn({
   return true;
 }
 
+/// The profile that resolves the machine's multi-channel telemetry SOURCE —
+/// i.e. what actually gets sampled and, downstream, what can reach the
+/// legacy/signed write (see [resolveLegacyTemperatureReadings]). This is
+/// ALWAYS the resolved kiln/device profile; the P1.4 view-only demo override
+/// only ever changes which tiles are drawn on screen and must never reach
+/// this decision, no matter its value (audit fix #2).
+SensorProfile persistedBurnProfile({
+  required SensorProfile resolvedProfile,
+  required SensorProfile viewOverride,
+}) => resolvedProfile;
+
+/// P1.5 — the single temperature series fed to the legacy (signed) telemetry
+/// write. Prefers the multi-channel burn's T1 reference log (matches the
+/// signed producer's reference probe) when the resolved profile carries
+/// thermal channels; otherwise falls back to the legacy notifier's own log.
+/// Never invents values — an empty result here still trips the existing
+/// "No temperature samples captured" guard in `_endBurn`.
+List<double> resolveLegacyTemperatureReadings({
+  required SensorProfile resolvedProfile,
+  required Map<String, List<double>> multiChannelLog,
+  required List<double> legacyTemperatureLog,
+}) {
+  if (profileHasThermal(resolvedProfile)) {
+    final t1 = multiChannelLog['T1'];
+    if (t1 != null && t1.isNotEmpty) return t1;
+  }
+  return legacyTemperatureLog;
+}
+
 /// =============================================================================
 /// PyrolysisScreen — India paper skin (tokens + Dmrv components)
 /// =============================================================================
@@ -86,10 +119,32 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
     'SYNGAS': 'Syngas',
   };
 
+  // Phase-1 multi-channel HUD (demo-only for now — resolved locally). The
+  // source is always started at `_resolvedProfile`; `_viewOverride` only ever
+  // changes which tiles this screen draws (audit fix #2 — never fed to the
+  // notifier, the signed producer, or persistence).
+  MultiChannelBurnNotifier? _multiNotifier;
+  // Mirrors _multiNotifier's state via addListener — StateNotifier.state is
+  // protected/visible-for-testing, so the screen never reads it directly.
+  MultiChannelBurnState _multiState = const MultiChannelBurnState();
+  SensorProfile _viewOverride = SensorProfile.none;
+
+  SensorProfile get _resolvedProfile =>
+      const bool.fromEnvironment('DMRV_DEMO_MODE')
+          ? SensorProfile.full
+          : SensorProfile.none;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewOverride = _resolvedProfile;
+  }
+
   @override
   void dispose() {
     _flameHeightCtrl.dispose();
     _ignitionAmountCtrl.dispose();
+    _multiNotifier?.dispose();
     super.dispose();
   }
 
@@ -102,6 +157,23 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
     }
     setState(() => _permError = null);
     await ref.read(pyrolysisBleProvider.notifier).beginBurn();
+    // P1.3/P1.4 — beside the legacy notifier, NEVER replacing it (rule 6). The
+    // source profile is `persistedBurnProfile`, i.e. always the RESOLVED
+    // profile — the view-only override cannot reach it (audit fix #2).
+    final startProfile = persistedBurnProfile(
+      resolvedProfile: _resolvedProfile,
+      viewOverride: _viewOverride,
+    );
+    if (startProfile != SensorProfile.none) {
+      final notifier = MultiChannelBurnNotifier(
+        VirtualMultiChannelAdapter(profile: startProfile),
+      );
+      _multiNotifier = notifier;
+      notifier.addListener((multiState) {
+        if (mounted) setState(() => _multiState = multiState);
+      });
+      await notifier.begin();
+    }
     // WIRING P16 + DEMO-HARDENING DH-D1: demo-only, dual-runs beside the legacy
     // write in _endBurn. Fire-and-forget + soft-fail: producing/streaming demo
     // telemetry must NEVER block START or crash the burn. A missing enrollment
@@ -135,7 +207,13 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
         throw StateError('Selected kiln has no capacity recorded.');
       }
       final final_ = await ref.read(pyrolysisBleProvider.notifier).endBurn();
-      if (final_.temperatureLog.isEmpty) {
+      await _multiNotifier?.end();
+      final legacyReadings = resolveLegacyTemperatureReadings(
+        resolvedProfile: _resolvedProfile,
+        multiChannelLog: _multiState.log,
+        legacyTemperatureLog: final_.temperatureLog,
+      );
+      if (legacyReadings.isEmpty) {
         throw StateError('No temperature samples captured. Cannot persist.');
       }
 
@@ -148,7 +226,7 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
         kilnType: kiln.kilnType,
         burnStart: final_.burnStartAt!,
         burnEnd: final_.burnEndAt!,
-        temperatureReadings: final_.temperatureLog,
+        temperatureReadings: legacyReadings,
         flameHeightM: isOpen
             ? double.tryParse(_flameHeightCtrl.text.trim())
             : null,
@@ -410,7 +488,7 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
                     ),
                   ],
                   SizedBox(height: t.gapL),
-                  _TemperaturePanel(state: s),
+                  _temperatureSection(t, s),
                   SizedBox(height: t.gapXL),
                   // Smoke photo capture button (only during active burn)
                   if (s.burnStartAt != null && !isOpenKiln && proofs.length < 4)
@@ -516,6 +594,60 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ===========================================================================
+  // Phase-1 multi-channel HUD (P1.4) — the `none` path (existing
+  // _TemperaturePanel) is untouched; a resolved multi-channel profile renders
+  // MultiChannelBurnHud instead, with a demo-only, view-only override that
+  // only filters which tiles are shown (never the source, never persistence).
+  // ===========================================================================
+
+  Widget _temperatureSection(DmrvTokens t, PyrolysisState s) {
+    if (_resolvedProfile == SensorProfile.none) {
+      return _TemperaturePanel(state: s);
+    }
+    final displayChannels = _multiState.channels
+        .where((c) => expectedChannels(_viewOverride).contains(c))
+        .toList();
+    const isDemo = bool.fromEnvironment('DMRV_DEMO_MODE');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (isDemo) _viewOverrideControl(t),
+        if (isDemo) SizedBox(height: t.gapM),
+        MultiChannelBurnHud(
+          state: _multiState.copyWith(channels: displayChannels),
+        ),
+      ],
+    );
+  }
+
+  static const _viewOverrideLabels = <SensorProfile, String>{
+    SensorProfile.none: 'NONE',
+    SensorProfile.loadOnly: 'LOAD',
+    SensorProfile.thermalOnly: 'THERMAL',
+    SensorProfile.full: 'FULL',
+  };
+
+  Widget _viewOverrideControl(DmrvTokens t) {
+    return Wrap(
+      spacing: t.gapS,
+      runSpacing: t.gapS,
+      children: [
+        for (final entry in _viewOverrideLabels.entries)
+          Semantics(
+            identifier: 'view-override-${entry.key.name}',
+            button: true,
+            selected: _viewOverride == entry.key,
+            child: ChoiceChip(
+              label: Text('VIEW: ${entry.value}'),
+              selected: _viewOverride == entry.key,
+              onSelected: (_) => setState(() => _viewOverride = entry.key),
+            ),
+          ),
+      ],
     );
   }
 
