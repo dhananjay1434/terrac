@@ -1,10 +1,13 @@
-import 'package:drift/drift.dart' show OrderingTerm;
+import 'dart:async';
+
+import 'package:drift/drift.dart' show OrderingTerm, Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/app_database.dart';
 import '../../data/local/database_provider.dart';
+import '../../services/kiln_service.dart';
 import '../components/dmrv_button.dart';
 import '../design/premium_field_components.dart';
 import '../design/tokens.dart';
@@ -39,6 +42,28 @@ class _KilnSelectScreenState extends ConsumerState<KilnSelectScreen> {
   bool _showAddForm = false;
   bool _savingKiln = false;
   String? _addError;
+
+  // P2.4 — set when a kiln-select's profile sync had neither a live fetch
+  // nor a cache (offline + never-synced). Surfaces a banner instead of
+  // silently proceeding on a fabricated 'none' (audit fix #3).
+  bool _profileSyncUnknown = false;
+
+  /// Fire-and-forget at kiln-select: never blocks selection on the network.
+  /// A successful fetch persists the DECLARED profile onto the local kiln
+  /// row (offline-first cache for the burn screen); any failure keeps
+  /// whatever is already cached and, only when there is truly nothing
+  /// cached either, surfaces `_profileSyncUnknown`.
+  Future<void> _syncKilnProfile(Kiln k) async {
+    final profile = await KilnService.fetchKilnProfile(k.kilnId);
+    if (profile == null) {
+      if (mounted) setState(() => _profileSyncUnknown = true);
+      return;
+    }
+    final db = await ref.read(appDatabaseProvider.future);
+    await (db.update(db.kilns)..where((t) => t.kilnId.equals(k.kilnId)))
+        .write(KilnsCompanion(sensorProfile: Value(profile)));
+    if (mounted) setState(() => _profileSyncUnknown = false);
+  }
 
   final _idCtrl = TextEditingController();
   final _capacityCtrl = TextEditingController();
@@ -135,6 +160,17 @@ class _KilnSelectScreenState extends ConsumerState<KilnSelectScreen> {
                       _kilnRow(t, k, selected?.kilnId == k.kilnId),
                       SizedBox(height: t.gapM),
                     ],
+                  if (selected != null && _profileSyncUnknown) ...[
+                    PremiumFieldPanel(
+                      accentBorderColor: t.danger,
+                      child: Text(
+                        'Sensor profile unknown — connect to sync. The burn '
+                        'HUD may under-report this kiln\'s channels until then.',
+                        style: t.metadata.copyWith(color: t.textPrimary),
+                      ),
+                    ),
+                    SizedBox(height: t.gapM),
+                  ],
                   SizedBox(height: t.gapM),
                   if (_showAddForm)
                     _addForm(t)
@@ -186,6 +222,8 @@ class _KilnSelectScreenState extends ConsumerState<KilnSelectScreen> {
           onTap: () {
             HapticFeedback.selectionClick();
             ref.read(selectedKilnProvider.notifier).state = k;
+            setState(() => _profileSyncUnknown = false);
+            unawaited(_syncKilnProfile(k));
           },
           child: PremiumFieldPanel(
             accentBorderColor: isSelected ? t.success : null,
