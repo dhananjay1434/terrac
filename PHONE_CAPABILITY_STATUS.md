@@ -81,8 +81,57 @@ Plan: `~/.claude/plans/wild-conjuring-firefly.md` (v2, post-audit)
           → `greaterThanOrEqualTo(27)`, matching its own predecessor test's style,
           because P2.3 legitimately advanced the current schema to 28; see commit
           17ac00c). Remote config verified: KILN-DEMO-01 sensor_profile='full',
-          ff.telemetry_v2 flag ON (global). End-to-end phone verification STILL NOT
-          DONE — no physical phone was connected this session to drive an actual
-          burn; do that before relying on this for a recording (see GATE1's Visual
-          QA note above — same missing step).
+          ff.telemetry_v2 flag ON (global).
+
+## Post-GATE2: two real device-driven bugs found + fixed/resolved (2026-08-02)
+
+End-to-end phone verification WAS done this session (Micromax E7533, fresh
+install + real burn against KILN-DEMO-01) and found two genuine, unrelated
+integration gaps neither the flutter test suite nor `flutter analyze` could
+catch (no device was ever attached to prove the wiring end-to-end before):
+
+1. **FIXED, commit 7fe490b** — kiln-select never synced `sensor_profile` when
+   a kiln was added via the ADD KILN form (only wired into tapping an
+   *existing* row), and even a successful sync never updated the in-memory
+   `selectedKilnProvider` Kiln object (only the DB row) — so a burn right
+   after add/select always resolved `SensorProfile.none` and P2.5 correctly
+   signed ZERO channels. Regression test added in `test/kiln_select_test.dart`.
+
+2. **NOT a code bug — pre-existing STITCHING architecture gap, worked around
+   manually.** After the fix above, the phone correctly SIGNED and SYNCED all
+   5 channels (verified: 121 `telemetry_chunks` rows for the burn, one
+   `[SyncQueue] Telemetry v2 chunk ... SYNCED` per chunk) — but the portal
+   still showed nothing. Root cause: `SimulatedEdgeDevice._emit()`
+   (`lib/services/simulation/simulated_edge_device.dart`) hardcodes
+   `batchUuid: null` on every envelope; chunks land as session-scoped only
+   (`telemetry_chunks.batch_uuid = NULL`) and NEVER reach `telemetry_points`
+   (what the portal actually reads / what `capabilities.py` tier-resolves
+   from) until an admin calls
+   `POST /api/v2/telemetry/sessions/{session_uuid}/bind {"batch_uuid": ...}`
+   (`backend/routers/telemetry.py`). This is BY DESIGN for real hardware
+   (an edge unit doesn't know the app's batch UUID at emission time — see the
+   `unbound-sessions` endpoint's H0 comment), but nothing in the phone's demo
+   path, or anywhere else, ever calls `bind`. The July 23-25 batches that DID
+   show full portal data were seeded directly via `seed_demo_telemetry.py`
+   (bypassing this whole chunk pipeline), not produced by a live burn — which
+   is why this gap was invisible until an actual device test today.
+   WORKED AROUND for THIS burn only: manually called
+   `POST /api/v2/telemetry/sessions/d76914c9.../bind` (session_uuid == the
+   phone's batch_uuid by construction in the demo wiring) as the portal admin
+   — verified by direct DB read: `telemetry_points` now has 12 rows × 5
+   channels (T1=25-420.2°C, T2=25-405.2°C, T3=25-390.2°C, T4=50.1-455.2°C,
+   LOAD=0-15.2kg) for that batch.
+   NOT FIXED IN CODE — this will recur for EVERY future demo burn until
+   something automates the bind. Two options weighed, neither applied (needs
+   a decision, out of scope for the phone-capability-telemetry feature
+   itself): (a) have the phone call `bind` right after `_endBurn`'s legacy
+   write succeeds — but `bind` is `require_role("admin")`-gated, a portal
+   JWT the DEVICE does not and should not hold; would need a new
+   device-signed bind endpoint. (b) Since the demo device deliberately sets
+   `sessionUuid = batchUuid`, stamp `batchUuid: sessionUuid` directly in
+   `SimulatedEdgeDevice._emit()` for the demo-only path — simplest, but risks
+   chunks 404ing at `POST /api/v2/telemetry/ingest` if they arrive before the
+   `Batch` row exists server-side (ingest checks
+   `if payload.batch_uuid: exists = ...; if None: 404`) — needs confirming
+   batch-creation ordering relative to burn-start before doing this safely.
 ```
