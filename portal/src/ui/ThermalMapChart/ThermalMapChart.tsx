@@ -59,12 +59,16 @@ function segments(
 export default function ThermalMapChart({
   data,
   gateSatisfied = false,
+  height,
 }: {
   data: ThermalMapData;
   /** Whether the sustained-temperature compliance gate has passed. Colors the
    * MAX badge — the compliance tie-in a plain chart lacks. Computed by the
    * caller (backend/credit engine), never by this presentational component. */
   gateSatisfied?: boolean;
+  /** Pass-through to ChartFrame's `height` (default 200) — lets a compact card
+   * render short and an expanded modal render tall from the SAME component. */
+  height?: number;
 }) {
   const present = CHANNEL_ORDER.filter((c) => data.channels[c]?.points.length);
   if (present.length === 0) return null; // Tier-aware: nothing to draw
@@ -90,6 +94,7 @@ export default function ThermalMapChart({
         title="Real-time thermal mapping"
         yDomain={[lo, hi]}
         yFormat={(v) => v.toFixed(0)}
+        height={height}
         legend={present.map((c, i) => ({ label: `${c}·${PLACEMENT[c] ?? ""}`, color: categoricalTone(i) }))}
         badge={
           <span className={styles.maxBadge} data-gate={gateSatisfied ? "pass" : "pending"}>

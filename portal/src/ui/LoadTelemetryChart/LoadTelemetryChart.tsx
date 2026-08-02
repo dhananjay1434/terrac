@@ -22,7 +22,15 @@ export interface LoadTelemetryData {
   last_load_kg?: number | null;
 }
 
-export default function LoadTelemetryChart({ data }: { data: LoadTelemetryData }) {
+export default function LoadTelemetryChart({
+  data,
+  height,
+}: {
+  data: LoadTelemetryData;
+  /** Pass-through to ChartFrame's `height` (default 200) — lets a compact card
+   * render short and an expanded modal render tall from the SAME component. */
+  height?: number;
+}) {
   const pts = data.points ?? [];
   if (pts.length === 0) return null; // Tier-aware: no load cells → no chart
 
@@ -57,6 +65,7 @@ export default function LoadTelemetryChart({ data }: { data: LoadTelemetryData }
         title="Load telemetry"
         yDomain={[0, hi]}
         headerStats={chips}
+        height={height}
         onHoverFrac={(f) => setHoverT(f == null ? null : t0 + f * span)}
         crosshairFrac={clampedFrac}
       >
