@@ -137,4 +137,30 @@ describe("BurnLiveView", () => {
     expect(screen.queryByText("400.0°C")).toBeNull();
     expect(screen.queryByText("LOAD")).toBeNull();
   });
+
+  it("expanding a card offers a Download CSV action that triggers a download", async () => {
+    const OriginalBlob = globalThis.Blob;
+    let capturedParts: string[] = [];
+    class CapturingBlob extends OriginalBlob {
+      constructor(parts: string[], opts?: BlobPropertyBag) {
+        super(parts, opts);
+        capturedParts = parts;
+      }
+    }
+    globalThis.Blob = CapturingBlob as unknown as typeof Blob;
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL = () => "blob:mock";
+    (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = () => {};
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    render(<BurnLiveView uuid="b1" initial={snapshotWithLoad()} live={false} />);
+    fireEvent.click(screen.getByRole("button", { name: /expand real-time thermal mapping/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /download csv/i }));
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    const csvText = capturedParts.join("");
+    expect(csvText).toContain("iso_ts,channel,value");
+    expect(csvText).toContain("T1");
+    globalThis.Blob = OriginalBlob;
+  });
 });

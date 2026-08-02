@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { Download } from "lucide-react";
 import ThermalMapChart, { type ThermalMapData } from "../../ui/ThermalMapChart/ThermalMapChart";
 import LoadTelemetryChart from "../../ui/LoadTelemetryChart/LoadTelemetryChart";
 import { HoverSync } from "../../ui/HoverSync/HoverSync";
 import TelemetryCard from "../../ui/TelemetryCard/TelemetryCard";
+import Button from "../../ui/Button/Button";
+import { downloadCsv } from "../../lib/downloadCsv";
+import { toCsvRows } from "../../lib/telemetry/lookup";
 import { openBurnStream as realOpenBurnStream } from "../../api2";
 import styles from "./BurnLiveView.module.css";
 
@@ -120,6 +124,25 @@ export default function BurnLiveView({
             <TelemetryCard
               title="Real-time thermal mapping"
               expandedChildren={<ThermalMapChart data={data} gateSatisfied={gateSatisfied} height={440} />}
+              actions={
+                <Button
+                  variant="neutral"
+                  onClick={() =>
+                    downloadCsv(
+                      `burn-${uuid}-thermal.csv`,
+                      toCsvRows(
+                        Object.fromEntries(
+                          ["T1", "T2", "T3", "T4"]
+                            .filter((c) => data.channels[c]?.points.length)
+                            .map((c) => [c, data.channels[c].points]),
+                        ),
+                      ),
+                    )
+                  }
+                >
+                  <Download size={14} aria-hidden /> Download CSV
+                </Button>
+              }
             >
               <ThermalMapChart data={data} gateSatisfied={gateSatisfied} height={160} />
             </TelemetryCard>
@@ -128,6 +151,14 @@ export default function BurnLiveView({
             <TelemetryCard
               title="Load telemetry"
               expandedChildren={<LoadTelemetryChart data={{ points: load.points }} height={440} />}
+              actions={
+                <Button
+                  variant="neutral"
+                  onClick={() => downloadCsv(`burn-${uuid}-load.csv`, toCsvRows({ LOAD: load.points }))}
+                >
+                  <Download size={14} aria-hidden /> Download CSV
+                </Button>
+              }
             >
               <LoadTelemetryChart data={{ points: load.points }} height={160} />
             </TelemetryCard>
