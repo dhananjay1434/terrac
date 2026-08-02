@@ -1,6 +1,7 @@
 import 'package:dmrv_app/data/local/app_database.dart';
 import 'package:dmrv_app/services/demo_telemetry_wire.dart';
 import 'package:dmrv_app/services/simulation/burn_profile.dart';
+import 'package:dmrv_app/services/simulation/sensor_profile.dart';
 import 'package:dmrv_app/services/simulation/simulated_edge_device.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -60,6 +61,30 @@ void main() {
       }
       // dual-run: nothing here touches pyrolysis_telemetry (the legacy write
       // lives entirely in pyrolysis_screen.dart's _endBurn, untouched by P16).
+    },
+  );
+
+  test(
+    'P2.5 — a load_only sensorProfile (no deviceOverride) signs only LOAD',
+    () async {
+      await startDemoTelemetry(
+        db: db,
+        sessionUuid: 'sess-load-only',
+        sensorProfile: SensorProfile.loadOnly,
+      );
+      final rows = await v2Rows(db);
+      expect(rows, isNotEmpty);
+      expect(
+        rows.every((r) => r.payloadJson.contains('"channel":"LOAD"')),
+        isTrue,
+      );
+      for (final ch in ['T1', 'T2', 'T3', 'T4']) {
+        expect(
+          rows.any((r) => r.payloadJson.contains('"channel":"$ch"')),
+          isFalse,
+          reason: ch,
+        );
+      }
     },
   );
 }

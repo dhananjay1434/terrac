@@ -182,8 +182,17 @@ class _PyrolysisScreenState extends ConsumerState<PyrolysisScreen> {
     final batchUuid = ref.read(batchSessionProvider);
     if (batchUuid != null) {
       final db = await ref.read(appDatabaseProvider.future);
+      // P2.5 — the kiln's REAL cached profile (never `_viewOverride`) gates
+      // what the signed producer emits.
+      final selected = ref.read(selectedKilnProvider);
       unawaited(
-        maybeStartDemoTelemetry(db: db, sessionUuid: batchUuid).catchError(
+        maybeStartDemoTelemetry(
+          db: db,
+          sessionUuid: batchUuid,
+          sensorProfile: selected != null
+              ? sensorProfileFromString(selected.sensorProfile)
+              : null,
+        ).catchError(
           (Object e) => debugPrint('[PyrolysisScreen] demo telemetry skipped (non-fatal): $e'),
         ),
       );

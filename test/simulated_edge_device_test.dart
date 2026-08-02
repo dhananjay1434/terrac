@@ -56,4 +56,36 @@ void main() {
     expect(t1[1].envelope['t_start'], startsWith('2026-08-01T09:00:20'));
     expect(t1.last.envelope['t_start'], startsWith('2026-08-01T09:01:00'));
   });
+
+  // P2.5 — activeChannels gates what the producer SIGNS to the kiln's real
+  // declared profile. null (untested above) preserves full/all-probes+LOAD;
+  // these cover the narrower profiles.
+  test('activeChannels={LOAD} (load_only) yields only LOAD chunks', () async {
+    final dev = SimulatedEdgeDevice(
+      deviceId: await CryptoSigner.getDeviceId(),
+      sessionUuid: 'sess-load-only',
+      clock: FakeDemoClock(startedAt: DateTime.utc(2026, 8, 1, 9, 1)),
+      buckets: 3,
+      activeChannels: const {'LOAD'},
+    );
+    final chunks = await dev.collect();
+    expect(chunks.length, 3);
+    expect(chunks.every((c) => c.envelope['channel'] == 'LOAD'), isTrue);
+  });
+
+  test(
+    'activeChannels={T1..T4} (thermal_only) yields no LOAD chunk',
+    () async {
+      final dev = SimulatedEdgeDevice(
+        deviceId: await CryptoSigner.getDeviceId(),
+        sessionUuid: 'sess-thermal-only',
+        clock: FakeDemoClock(startedAt: DateTime.utc(2026, 8, 1, 9, 1)),
+        buckets: 3,
+        activeChannels: const {'T1', 'T2', 'T3', 'T4'},
+      );
+      final chunks = await dev.collect();
+      expect(chunks.length, 12); // 3 buckets x 4 thermocouples
+      expect(chunks.any((c) => c.envelope['channel'] == 'LOAD'), isFalse);
+    },
+  );
 }

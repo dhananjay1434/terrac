@@ -15,6 +15,7 @@ class SimulatedEdgeDevice implements EdgeDeviceLink {
     BurnProfile? profile,
     DemoClock? clock,
     int? buckets,
+    this.activeChannels,
   })  : profile = profile ?? const BurnProfile(DemoProfile()),
         clock = clock ?? WallDemoClock(),
         buckets = buckets ?? (profile ?? const BurnProfile(DemoProfile())).profile.bucketCount;
@@ -24,6 +25,17 @@ class SimulatedEdgeDevice implements EdgeDeviceLink {
   final BurnProfile profile;
   final DemoClock clock;
   final int buckets;
+
+  /// P2.5 — gates what this producer SIGNS to the kiln's REAL declared
+  /// profile (never the phone's P1.4 view-only override). Null (the default)
+  /// preserves the pre-P2.5 behaviour of every existing caller/test: all
+  /// probes + LOAD. Non-null filters probes.channel to this set and only
+  /// emits LOAD when it is a member — audit fix #2/#8: this producer must
+  /// never sign a channel the kiln isn't declared to have.
+  final Set<String>? activeChannels;
+
+  bool _channelActive(String channel) =>
+      activeChannels == null || activeChannels!.contains(channel);
 
   Duration _elapsedAt(int b) => Duration(seconds: b * profile.profile.bucketSeconds);
   double _probeTemp(ProbeSpec probe, int b) => profile.sampleProbe(probe, _elapsedAt(b));
@@ -45,9 +57,12 @@ class SimulatedEdgeDevice implements EdgeDeviceLink {
     final prev = <String, String>{};  // per-channel prev_hash chain (starts GENESIS)
     for (var b = 0; b < buckets; b++) {
       for (final probe in profile.profile.probes) {
+        if (!_channelActive(probe.channel)) continue;
         out.add(await _emit(probe.channel, _iso(b), _probeTemp(probe, b), seq, prev));
       }
-      out.add(await _emit('LOAD', _iso(b), _weight(b), seq, prev));
+      if (_channelActive('LOAD')) {
+        out.add(await _emit('LOAD', _iso(b), _weight(b), seq, prev));
+      }
     }
     return out;
   }
@@ -80,9 +95,12 @@ class SimulatedEdgeDevice implements EdgeDeviceLink {
     for (var b = 0; b < buckets; b++) {
       if (b > 0) await Future<void>.delayed(period);
       for (final probe in profile.profile.probes) {
+        if (!_channelActive(probe.channel)) continue;
         yield await _emit(probe.channel, _iso(b), _probeTemp(probe, b), seq, prev);
       }
-      yield await _emit('LOAD', _iso(b), _weight(b), seq, prev);
+      if (_channelActive('LOAD')) {
+        yield await _emit('LOAD', _iso(b), _weight(b), seq, prev);
+      }
     }
   }
 

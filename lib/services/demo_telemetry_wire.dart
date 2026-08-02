@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../data/local/app_database.dart';
 import 'crypto_signer.dart';
 import 'simulation/demo_readiness.dart';
+import 'simulation/sensor_profile.dart';
 import 'simulation/simulated_edge_device.dart';
 import 'telemetry_courier.dart';
 import 'telemetry_outbox_drift.dart';
@@ -16,6 +17,11 @@ Future<void> startDemoTelemetry({
   required AppDatabase db,
   required String sessionUuid,
   SimulatedEdgeDevice? deviceOverride,
+  // P2.5 — the kiln's REAL declared profile (never the phone's P1.4
+  // view-only override), gating which channels this producer SIGNS. Null
+  // preserves the pre-P2.5 default (all probes + LOAD) for every caller that
+  // doesn't yet know a kiln's profile.
+  SensorProfile? sensorProfile,
 }) async {
   // Soft-fail: never throw. If enrollment can't complete, we simply don't enqueue
   // v2 chunks (the phone UI + legacy write are unaffected).
@@ -25,6 +31,8 @@ Future<void> startDemoTelemetry({
       SimulatedEdgeDevice(
         deviceId: await CryptoSigner.getDeviceId(),
         sessionUuid: sessionUuid,
+        activeChannels:
+            sensorProfile != null ? expectedChannels(sensorProfile).toSet() : null,
       );
   // Live streaming: chunks enqueue as the burn progresses (the call site
   // fire-and-forgets this, so the ~12s accelerated stream never blocks START).
@@ -40,11 +48,16 @@ Future<void> startDemoTelemetry({
 Future<void> maybeStartDemoTelemetry({
   required AppDatabase db,
   required String sessionUuid,
+  SensorProfile? sensorProfile,
 }) async {
   const isDemoFlag = bool.fromEnvironment(
     'DMRV_DEMO_MODE',
     defaultValue: false,
   );
   if (!isDemoFlag || kReleaseMode) return;
-  await startDemoTelemetry(db: db, sessionUuid: sessionUuid);
+  await startDemoTelemetry(
+    db: db,
+    sessionUuid: sessionUuid,
+    sensorProfile: sensorProfile,
+  );
 }
