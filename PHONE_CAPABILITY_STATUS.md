@@ -31,11 +31,33 @@ Plan: `~/.claude/plans/wild-conjuring-firefly.md` (v2, post-audit)
           --dart-define=DMRV_PROJECT_ID=demo-lantana-01`, start a burn, confirm
           T1-T4 + LOAD tiles live, and that the VIEW override chips (shown only in
           demo mode) swap tiles without restarting the burn.
- P2.1  [ ] backend: KilnRequest + upsert_kiln accept sensor_profile + test
- P2.2  [ ] backend: device GET /api/v1/kiln + test
- P2.3  [ ] phone: Kilns.sensorProfile column + schema v27→28 migration
- P2.4  [ ] phone: KilnService (offline-first, never throws) + fetch/cache at kiln-select
- P2.5  [ ] phone: signed producer gated by kiln's REAL profile (never the override)
+ P2.1  [x] backend: KilnRequest + upsert_kiln accept sensor_profile + test — commit 2bd1efc
+ P2.2  [x] backend: device GET /api/v1/kiln + test — commit da4edb6
+ P2.3  [x] phone: Kilns.sensorProfile column + schema v27→28 migration — commit 6388604
+ P2.4  [x] phone: KilnService (offline-first, never throws) + fetch/cache at kiln-select
+          — commit 8b2748d. Also added a P2.4-scoped, view-only "sensor profile
+          unknown — connect to sync" banner on KilnSelectScreen per the plan's audit
+          fix #3 (never silently under-capture); not unit-tested (no dedicated test
+          task was specified for the UI banner itself, only for KilnService's
+          offline-first contract, which is covered).
+ P2.5  [x] phone: signed producer gated by kiln's REAL profile (never the override)
+          — commit 59a3d66. Confirmed by grep that `_viewOverride` never reaches
+          `maybeStartDemoTelemetry` (it only feeds `persistedBurnProfile`, tested to
+          ignore it, and the HUD's view filter).
  P2.6  [ ] backend config: KILN-DEMO-01 → full (local+remote) + telemetry_v2 flag ON for org
- GATE2 [ ] Backend + Flutter gates green; end-to-end verified
+          — NOT RUN. Needs the admin secret + writes to the remote Render Postgres +
+          a shared org-config flag flip; per repo rules this requires explicit human
+          approval before touching. Also: the admin secret was exposed in an earlier
+          session's chat/.env and flagged for rotation — recommend rotating before
+          reusing it here.
+ GATE2 [~] Backend gate GREEN: pytest 906 passed (902 baseline + 4 new), 2 skipped,
+          0 failed. Flutter gate GREEN: flutter analyze 17 pre-existing infos/0
+          errors; flutter test 461 passed (452 after Phase 1 + 9 new), 2 skipped, 0
+          failed — includes a CORRECTION to
+          test/migration_v26_to_v27_entity_media_test.dart (exact `schemaVersion==27`
+          → `greaterThanOrEqualTo(27)`, matching its own predecessor test's style,
+          because P2.3 legitimately advanced the current schema to 28; see commit
+          17ac00c). End-to-end verification NOT DONE — blocked on P2.6 (needs the
+          real backend + a kiln declared 'full' + telemetry_v2 ON) and on physical
+          phone access (none connected this session).
 ```
