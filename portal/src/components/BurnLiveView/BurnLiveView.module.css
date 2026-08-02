@@ -3,6 +3,11 @@
   flex-direction: column;
   gap: var(--space-4);
 }
+.grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
 .statusRow {
   display: inline-flex;
   align-items: center;

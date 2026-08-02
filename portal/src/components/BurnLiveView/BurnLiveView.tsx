@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import ThermalMapChart, { type ThermalMapData } from "../../ui/ThermalMapChart/ThermalMapChart";
 import LoadTelemetryChart from "../../ui/LoadTelemetryChart/LoadTelemetryChart";
 import { HoverSync } from "../../ui/HoverSync/HoverSync";
+import TelemetryCard from "../../ui/TelemetryCard/TelemetryCard";
 import { openBurnStream as realOpenBurnStream } from "../../api2";
 import styles from "./BurnLiveView.module.css";
 
@@ -114,8 +115,24 @@ export default function BurnLiveView({
         </div>
       )}
       <HoverSync>
-        {hasThermal && <ThermalMapChart data={data} gateSatisfied={gateSatisfied} />}
-        {hasLoad && <LoadTelemetryChart data={{ points: load.points }} />}
+        <div className={styles.grid}>
+          {hasThermal && (
+            <TelemetryCard
+              title="Real-time thermal mapping"
+              expandedChildren={<ThermalMapChart data={data} gateSatisfied={gateSatisfied} height={440} />}
+            >
+              <ThermalMapChart data={data} gateSatisfied={gateSatisfied} height={160} />
+            </TelemetryCard>
+          )}
+          {hasLoad && (
+            <TelemetryCard
+              title="Load telemetry"
+              expandedChildren={<LoadTelemetryChart data={{ points: load.points }} height={440} />}
+            >
+              <LoadTelemetryChart data={{ points: load.points }} height={160} />
+            </TelemetryCard>
+          )}
+        </div>
       </HoverSync>
     </div>
   );
