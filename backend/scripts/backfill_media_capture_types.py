@@ -5,7 +5,7 @@ import logging
 
 from sqlalchemy import select
 
-from db import async_sessionmaker
+from db import SessionLocal
 from models import (
     MediaFile,
     PyrolysisTelemetry,
@@ -173,7 +173,7 @@ async def main():
     parser.add_argument("--apply", action="store_true", help="Actually commit changes to the DB")
     args = parser.parse_args()
 
-    async with async_sessionmaker() as session:
+    async with SessionLocal() as session:
         counts = await backfill(session, apply=args.apply)
         log.info(f"Backfill counts (apply={args.apply}): {counts}")
 

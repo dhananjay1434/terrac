@@ -67,16 +67,27 @@ ADR-002 §2.2), then relayed verbatim. `POST /api/v2/telemetry/ingest`, one
 envelope per (channel, time-window), **≤720 values** (= 2 h at 10 s). Body:
 ```json
 {
-  "batch_uuid": "0a73dcc2-9823-4054-abeb-b252f2406070",
+  "device_id": "edge-001",
+  "session_uuid": "0f2b9c14-7a3e-4d18-9c55-1b6e2f8a4d90",
+  "batch_uuid": null,
   "channel": "T1",
   "t_start": "2026-07-22T13:02:00Z",
   "sample_period_s": 10.0,
   "values": [412.5, 418.0, 421.2, "... up to 720 floats ..."],
   "seq": 14,
-  "prev_hash": "9c1e...64-hex-sha256-of-previous-envelope...ab"
+  "prev_hash": "9c1e...64-hex-sha256-of-previous-envelope...ab",
+  "producer_signature": "base64-ed25519-over-the-canonical-bytes-below"
 }
 ```
-- `seq`: monotonic per (batch_uuid, channel), starting 0. `prev_hash`:
+- **`device_id`** — the edge unit's own enrolled id. Required. This is the *producer*, and it is NOT
+  the phone that relays the envelope.
+- **`session_uuid`** — **generated ON-DEVICE when the burn starts**, and required on every chunk of
+  that burn. This is what makes late binding possible: a burn can be recorded with no batch at all
+  and be attached to one afterwards, from the portal.
+- **`batch_uuid`** — **optional, and normally `null` at write time.** The operator usually does not
+  know the batch when the burn begins. Do NOT block a burn waiting for one, and do NOT invent one.
+- `seq`: monotonic per **(session_uuid, channel)**, starting 0 — NOT per batch_uuid, which is
+  usually still null when the chunk is written. `prev_hash`:
   SHA-256 of the previous envelope's canonical bytes; literal `"GENESIS"` for
   seq 0. Together they hash-chain the local log so deletion/reordering on the
   card or courier phone is EVIDENT (server records a chain break as a sensor
@@ -88,24 +99,50 @@ envelope per (channel, time-window), **≤720 values** (= 2 h at 10 s). Body:
   two chunks around the hole rather than sending a placeholder — the backend
   renders gaps as breaks and never interpolates (audit A4). Never zero-fill.
 
-## 5 · Signing (canonicalization — must match `security.verify_signature`)
-- Read `backend/security.py` for the exact scheme (Ed25519 over a canonical
-  byte string per the existing device write path). Firmware reuses that same
-  routine — do NOT invent a telemetry-specific signature.
-- Headers on every ingest call mirror the app's signed writes (device id +
-  signature headers exactly as `routers/evidence.py` receives them).
+## 5 · Signing — TWO independent layers (ADR-002 A2)
+
+An envelope carries **two** signatures, made by two different devices at two different times. This
+is what lets an untrusted phone carry the data without being able to alter it.
+
+**Layer 1 — producer / cargo (the edge unit, at WRITE time).**
+`producer_signature` = Ed25519 over `canonical_bytes()`, signed by the edge unit's own key the
+moment the envelope is written to the SD card, and never re-made afterwards.
+
+**Layer 2 — transport / courier (the phone, at SEND time).**
+The relaying phone signs the HTTP request with its own enrolled key, exactly like any other app
+write. The server records it as `courier_device_id`.
+
+**Consequence:** the phone is a **courier, not a trust party**. It can lose an envelope or delay it,
+but it cannot alter one — any edit invalidates the producer signature, which the server checks
+independently of who delivered it.
+
+### Canonical bytes (the exact bytes Layer 1 signs)
+Take the envelope, **remove `producer_signature`**, then serialize as JSON with:
+- **keys sorted alphabetically** (so: `batch_uuid, channel, device_id, prev_hash, sample_period_s,
+  seq, session_uuid, t_start, values`)
+- **no whitespace** — separators are `,` and `:` exactly
+- **UTF-8** encoding
+
+⚠️ **This byte form is pinned by `backend/tools/golden_vectors.json`.** That file is the
+authority — not this prose. Before shipping firmware, verify your implementation reproduces
+`canonical_hex` for both committed vectors byte-for-byte. If the backend's canonical form ever
+changes, that file changes with it and CI fails, so it can never drift silently. Regenerate with
+`cd backend && python tools/gen_golden_vectors.py`.
 
 ## 6 · Responses & retry
 | response | meaning | firmware action |
 |---|---|---|
-| `200 {"status":"ok","points":N}` | accepted, N points stored | drop chunk from ring buffer |
+| `200 {"status":"ok", ...}` | accepted and stored | drop chunk from ring buffer |
 | `200 {"status":"duplicate"}` | already ingested (idempotent, audit A2) | drop chunk (success — a prior retry landed) |
 | `401` / `403` | signature/enrollment problem | stop, re-provision; do NOT drop data |
 | `422` | malformed (bad channel, >720 values, future t_start, non-finite) | log locally, drop chunk (it will never succeed), raise a health flag |
+| `404` | a non-null `batch_uuid` names a batch the server doesn't know | do NOT drop — the batch may not be synced yet; retry with backoff, or send with `batch_uuid: null` and bind later |
 | `5xx` / timeout | transient | keep in ring buffer, exponential backoff, retry |
-- Idempotency is total: re-sending an identical chunk is always safe (server
-  dedups on `(batch_uuid, channel, t_start, signature)` and on point PK). Prefer
-  over-sending to losing data.
+- Idempotency is total: re-sending an identical chunk is always safe. The server dedups on
+  **`(session_uuid, channel, t_start, signature)`** — keyed on `session_uuid`, NOT `batch_uuid`,
+  because `batch_uuid` is usually null at write time and a null key cannot deduplicate. Point-level
+  inserts are conflict-ignoring on their primary key, so a retry can never double-count a reading.
+  **Prefer over-sending to losing data.**
 
 ## 7 · Live view interaction (informational — firmware does nothing extra)
 When a verifier opens the live burn view, the portal mints a stream ticket and
