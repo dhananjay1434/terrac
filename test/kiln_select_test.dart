@@ -1,12 +1,14 @@
 import 'dart:io';
 
 import 'package:dmrv_app/data/local/app_database.dart';
+import 'package:dmrv_app/data/local/database_provider.dart';
 import 'package:dmrv_app/ui/screens/kiln_select_screen.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// P1-S3 — mandatory kiln selection before pyrolysis. A new local Kilns table
 /// (schema v25) backs the pick-list; the burn cannot start until a kiln is
@@ -87,6 +89,57 @@ void main() {
       expect(find.textContaining('No kilns yet'), findsOneWidget);
       expect(find.text('LOCKED // SELECT A KILN'), findsOneWidget);
     });
+
+    // Bug found via a real device burn: after a fresh install, a burn using a
+    // just-selected kiln signed ZERO v2 channels even though the backend had
+    // that kiln correctly declared 'full'. Root cause: tapping a kiln row
+    // fires `_syncKilnProfile` (fetch+cache the real profile), but it only
+    // wrote the LOCAL DB row — `selectedKilnProvider` kept holding the STALE
+    // in-memory `Kiln` (sensorProfile: null) that the burn screen actually
+    // reads. Fixed by also updating the provider's Kiln when the sync lands.
+    testWidgets(
+      'selecting a kiln updates selectedKilnProvider with the synced sensorProfile',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          'dmrv.kiln_profile.v1.KILN-42': 'full',
+        });
+        final db = AppDatabase.forTesting(NativeDatabase.memory());
+        await db.into(db.kilns).insertOnConflictUpdate(kiln42);
+        addTearDown(db.close);
+
+        final container = ProviderContainer(
+          overrides: [
+            appDatabaseProvider.overrideWith((ref) => Future.value(db)),
+            kilnListProvider.overrideWith((ref) => Stream.value([kiln42])),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        tester.view.physicalSize = const Size(1200, 2600);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(home: KilnSelectScreen()),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Before selection: no profile known yet.
+        expect(container.read(selectedKilnProvider), isNull);
+
+        await tester.tap(find.text('KILN-42'));
+        await tester.pumpAndSettle();
+
+        // After the fire-and-forget sync lands, the IN-MEMORY selection must
+        // carry the fetched profile — not just the DB row.
+        final selected = container.read(selectedKilnProvider);
+        expect(selected, isNotNull);
+        expect(selected!.sensorProfile, 'full');
+      },
+    );
   });
 
   group('hardcodes removed at the call sites', () {

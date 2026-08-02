@@ -62,6 +62,17 @@ class _KilnSelectScreenState extends ConsumerState<KilnSelectScreen> {
     final db = await ref.read(appDatabaseProvider.future);
     await (db.update(db.kilns)..where((t) => t.kilnId.equals(k.kilnId)))
         .write(KilnsCompanion(sensorProfile: Value(profile)));
+    // Bug fix: the DB write above is invisible to the already-selected
+    // in-memory Kiln object held by selectedKilnProvider (a plain
+    // StateProvider snapshot, not DB-backed) — without this, a burn started
+    // right after add/select would read a stale `sensorProfile: null` and
+    // P2.5 would correctly-but-uselessly sign zero channels. Only update if
+    // the selection hasn't moved on to a different kiln in the meantime.
+    final current = ref.read(selectedKilnProvider);
+    if (current != null && current.kilnId == k.kilnId) {
+      ref.read(selectedKilnProvider.notifier).state =
+          current.copyWith(sensorProfile: Value(profile));
+    }
     if (mounted) setState(() => _profileSyncUnknown = false);
   }
 
@@ -105,8 +116,10 @@ class _KilnSelectScreenState extends ConsumerState<KilnSelectScreen> {
       );
       await db.into(db.kilns).insertOnConflictUpdate(kiln);
       ref.read(selectedKilnProvider.notifier).state = kiln;
+      unawaited(_syncKilnProfile(kiln));
       if (mounted) {
         setState(() {
+          _profileSyncUnknown = false;
           _showAddForm = false;
           _idCtrl.clear();
           _capacityCtrl.clear();
