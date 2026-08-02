@@ -197,6 +197,12 @@ export default function ChartFrame({
               width={plotW}
               height={plotH}
               fill="transparent"
+              // A transparent fill is not "painted", so the SVG default
+              // (pointer-events: visiblePainted) never hit-tests it in a real
+              // browser — only pointerEvents="all" makes a transparent shape
+              // receive pointer events. jsdom's fireEvent bypasses real
+              // hit-testing, so unit tests alone did not catch this.
+              pointerEvents="all"
               onPointerMove={(e) => {
                 const r = (e.target as SVGRectElement).getBoundingClientRect();
                 const f = r.width > 0 ? (e.clientX - r.left) / r.width : 0;

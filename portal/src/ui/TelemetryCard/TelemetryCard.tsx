@@ -37,10 +37,11 @@ export default function TelemetryCard({
           }
         }}
       >
-        <div className={styles.head}>
-          <span className="micro">{title}</span>
-          <Maximize2 size={14} className={styles.glyph} aria-hidden />
-        </div>
+        {/* No visible title here — the chart itself (ChartFrame) already
+            renders `title` in its own header; repeating it would duplicate
+            the heading. The glyph is purely a hover/focus affordance; the
+            accessible name lives on the card's aria-label. */}
+        <Maximize2 size={14} className={styles.glyph} aria-hidden />
         {children}
       </div>
       <ChartExpandModal open={open} onClose={() => setOpen(false)} title={title} actions={actions}>

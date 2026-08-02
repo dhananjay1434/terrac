@@ -18,11 +18,20 @@
   padding: var(--space-5);
   z-index: var(--z-modal);
 }
+/* The chart rendered in .body already shows its own ChartFrame title visibly
+ * — Dialog.Title stays in the DOM (Radix requires/expects it for a11y) but is
+ * visually hidden so the heading isn't duplicated on screen. Mirrors
+ * ChartFrame.module.css's identical .visuallyHidden pattern. */
 .title {
-  margin: 0 0 var(--space-3);
-  font-size: var(--fs-16);
-  font-weight: var(--fw-semibold);
-  color: var(--text-primary);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .body {
   min-height: 200px;
