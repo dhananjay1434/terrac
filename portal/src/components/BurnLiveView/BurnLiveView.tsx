@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ThermalMapChart, { type ThermalMapData } from "../../ui/ThermalMapChart/ThermalMapChart";
 import LoadTelemetryChart from "../../ui/LoadTelemetryChart/LoadTelemetryChart";
+import { HoverSync } from "../../ui/HoverSync/HoverSync";
 import { openBurnStream as realOpenBurnStream } from "../../api2";
 import styles from "./BurnLiveView.module.css";
 
@@ -112,8 +113,10 @@ export default function BurnLiveView({
           <span className="micro">{status === "live" ? "LIVE" : "Live view ended"}</span>
         </div>
       )}
-      {hasThermal && <ThermalMapChart data={data} gateSatisfied={gateSatisfied} />}
-      {hasLoad && <LoadTelemetryChart data={{ points: load.points }} />}
+      <HoverSync>
+        {hasThermal && <ThermalMapChart data={data} gateSatisfied={gateSatisfied} />}
+        {hasLoad && <LoadTelemetryChart data={{ points: load.points }} />}
+      </HoverSync>
     </div>
   );
 }

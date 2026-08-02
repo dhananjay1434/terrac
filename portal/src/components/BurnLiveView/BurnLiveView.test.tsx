@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import BurnLiveView, { appendFrame } from "./BurnLiveView";
 import type { ThermalMapData } from "../../ui/ThermalMapChart/ThermalMapChart";
 
@@ -7,6 +7,16 @@ function snapshot(): ThermalMapData {
   return {
     channels: { T1: { points: [[1000, 400]], max: 400, min: 400 } },
     burn: { t_start: 1000, t_end: 1000 },
+  };
+}
+
+function snapshotWithLoad(): ThermalMapData {
+  return {
+    channels: {
+      T1: { points: [[1000, 400], [11000, 420]], max: 420, min: 400 },
+      LOAD: { points: [[1000, 5], [11000, 15]], max: 15, min: 5 },
+    },
+    burn: { t_start: 1000, t_end: 11000 },
   };
 }
 
@@ -100,5 +110,31 @@ describe("BurnLiveView", () => {
     await waitFor(() => expect(opener).toHaveBeenCalled());
     unmount();
     await waitFor(() => expect(dispose).toHaveBeenCalled());
+  });
+
+  it("synchronizes hover across both charts via the shared HoverSync context", () => {
+    const { container } = render(<BurnLiveView uuid="b1" initial={snapshotWithLoad()} live={false} />);
+    // Both charts render their hover-capture rect; the thermal chart's is first
+    // in the DOM (ThermalMapChart renders before LoadTelemetryChart).
+    const captureRects = container.querySelectorAll('rect[fill="transparent"]');
+    expect(captureRects).toHaveLength(2);
+    // jsdom's getBoundingClientRect returns a 0-width rect, so ChartFrame's
+    // guard (`r.width > 0 ? ... : 0`) always yields frac=0 → hoverT = burn t_start
+    // (1000). Both series have a sample exactly at t_start, so both tooltips
+    // must appear showing that instant's values — proving the hover state is
+    // SHARED (hovering the thermal chart also lights up the load tooltip).
+    fireEvent.pointerMove(captureRects[0]);
+    // Each chart renders its OWN tooltip label independently ("t+0:00" appears
+    // twice — once per chart) but both must agree, proving one shared hoverT.
+    expect(screen.getAllByText("t+0:00")).toHaveLength(2);
+    expect(screen.getByText("400.0°C")).toBeInTheDocument();
+    // "5 kg" also exists in LoadTelemetryChart's own <title> point-marker for
+    // this same sample, so assert the tooltip's presence via its row text
+    // instead of the ambiguous bare value.
+    expect(screen.getByText("LOAD")).toBeInTheDocument();
+    expect(screen.getAllByText("5 kg").length).toBeGreaterThanOrEqual(1);
+    fireEvent.pointerLeave(captureRects[0]);
+    expect(screen.queryByText("400.0°C")).toBeNull();
+    expect(screen.queryByText("LOAD")).toBeNull();
   });
 });

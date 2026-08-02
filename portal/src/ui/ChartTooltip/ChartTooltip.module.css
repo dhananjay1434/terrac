@@ -1,0 +1,15 @@
+.tip {
+  position: absolute;
+  top: var(--space-2);
+  z-index: 2;
+  pointer-events: none;
+  background: var(--surface-card);
+  border: var(--border-hair);
+  border-radius: var(--r-sm);
+  padding: var(--space-2);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+  min-width: 120px;
+}
+.label { color: var(--text-secondary); margin-bottom: var(--space-1); }
+.row { display: flex; align-items: center; gap: var(--space-2); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }

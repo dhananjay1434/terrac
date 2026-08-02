@@ -1,6 +1,9 @@
 import { indigoTone } from "@config/chartPalette";
 import { fmtKg } from "../../format";
 import ChartFrame from "../ChartFrame/ChartFrame";
+import ChartTooltip from "../ChartTooltip/ChartTooltip";
+import { useHoverSync } from "../HoverSync/HoverSync";
+import { sampleAt, elapsed } from "../../lib/telemetry/lookup";
 import styles from "./LoadTelemetryChart.module.css";
 
 /**
@@ -42,6 +45,10 @@ export default function LoadTelemetryChart({ data }: { data: LoadTelemetryData }
 
   const last = pts[pts.length - 1];
 
+  const { hoverT, setHoverT } = useHoverSync();
+  const rawFrac = hoverT == null ? null : (hoverT - t0) / span;
+  const clampedFrac = rawFrac != null && rawFrac >= 0 && rawFrac <= 1 ? rawFrac : null;
+
   return (
     <div className={styles.wrap}>
       <ChartFrame
@@ -50,6 +57,8 @@ export default function LoadTelemetryChart({ data }: { data: LoadTelemetryData }
         title="Load telemetry"
         yDomain={[0, hi]}
         headerStats={chips}
+        onHoverFrac={(f) => setHoverT(f == null ? null : t0 + f * span)}
+        crosshairFrac={clampedFrac}
       >
         {({ w, yScale: yy }) => {
           const xScale = (t: number) => ((t - t0) / span) * w;
@@ -84,6 +93,16 @@ export default function LoadTelemetryChart({ data }: { data: LoadTelemetryData }
           );
         }}
       </ChartFrame>
+      {clampedFrac != null && hoverT != null && (() => {
+        const v = sampleAt(pts, hoverT);
+        return v == null ? null : (
+          <ChartTooltip
+            label={elapsed(t0, hoverT)}
+            items={[{ label: "LOAD", color: indigoTone(0), value: fmtKg(v) }]}
+            xFrac={clampedFrac}
+          />
+        );
+      })()}
     </div>
   );
 }

@@ -1,5 +1,8 @@
 import { categoricalTone } from "@config/chartPalette";
 import ChartFrame from "../ChartFrame/ChartFrame";
+import ChartTooltip from "../ChartTooltip/ChartTooltip";
+import { useHoverSync } from "../HoverSync/HoverSync";
+import { sampleAt, elapsed } from "../../lib/telemetry/lookup";
 import styles from "./ThermalMapChart.module.css";
 
 /**
@@ -75,6 +78,10 @@ export default function ThermalMapChart({
   const span = (data.burn.t_end || t0) - t0 || 1; // guard zero-span burns
   const gaps = data.burn.gaps ?? [];
 
+  const { hoverT, setHoverT } = useHoverSync();
+  const rawFrac = hoverT == null ? null : (hoverT - t0) / span;
+  const clampedFrac = rawFrac != null && rawFrac >= 0 && rawFrac <= 1 ? rawFrac : null;
+
   return (
     <div className={styles.wrap}>
       <ChartFrame
@@ -89,6 +96,8 @@ export default function ThermalMapChart({
             MAX <span className="mono tabular">{peak.toFixed(1)}</span>°C
           </span>
         }
+        onHoverFrac={(f) => setHoverT(f == null ? null : t0 + f * span)}
+        crosshairFrac={clampedFrac}
       >
         {({ w, yScale: yy }) => {
           const xScale = (t: number) => ((t - t0) / span) * w;
@@ -111,6 +120,19 @@ export default function ThermalMapChart({
           );
         }}
       </ChartFrame>
+      {clampedFrac != null && hoverT != null && (() => {
+        const items = present
+          .map((c, i) => {
+            const v = sampleAt(data.channels[c].points, hoverT);
+            return v == null
+              ? null
+              : { label: `${c}·${PLACEMENT[c] ?? ""}`, color: categoricalTone(i), value: `${v.toFixed(1)}°C` };
+          })
+          .filter((x): x is { label: string; color: string; value: string } => x != null);
+        return items.length ? (
+          <ChartTooltip label={elapsed(t0, hoverT)} items={items} xFrac={clampedFrac} />
+        ) : null;
+      })()}
       {gaps.length > 0 && (
         <div className={styles.gapNote}>
           {gaps.length} sensor gap{gaps.length === 1 ? "" : "s"} — shown as breaks,
