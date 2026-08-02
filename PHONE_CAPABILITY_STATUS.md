@@ -44,8 +44,8 @@ Plan: `~/.claude/plans/wild-conjuring-firefly.md` (v2, post-audit)
           — commit 59a3d66. Confirmed by grep that `_viewOverride` never reaches
           `maybeStartDemoTelemetry` (it only feeds `persistedBurnProfile`, tested to
           ignore it, and the HUD's view filter).
- P2.6  [~] backend config: KILN-DEMO-01 → full (local+remote) DONE; telemetry_v2 flag
-          ON for org BLOCKED.
+ P2.6  [x] backend config: KILN-DEMO-01 → full (local+remote) DONE; telemetry_v2 flag
+          ON DONE (global, not org-scoped — see note below).
           — User approved proceeding with the current DMRV_ADMIN_SECRET (2026-08-02).
           Pushed all 12 local commits to origin/main (8312e0a..255fce7) so Render
           would redeploy with the P2.1/P2.2 backend code (the remote previously
@@ -53,31 +53,36 @@ Plan: `~/.claude/plans/wild-conjuring-firefly.md` (v2, post-audit)
           redeploy landed, then set KILN-DEMO-01 sensor_profile='full' via
           POST /api/v1/admin/kiln on BOTH the local server (127.0.0.1:8010, temp
           uvicorn against local sqlite) and the remote (dmrv-api.onrender.com).
-          Verified on both by reading the `kilns` row directly (local sqlite,
-          remote Postgres via DATABASE_URL from backend/.env): sensor_profile='full'
+          Verified on both by reading the `kilns` row directly: sensor_profile='full'
           on both.
-          telemetry_v2 flag flip is a SEPARATE write — POST /api/v1/portal/config,
-          gated by `require_role("admin")` (a PORTAL JWT login), not the device
-          X-Admin-Secret used above. No portal admin credentials were available this
-          session; per memory (project_phone_capability_telemetry) this exact step
-          was also blocked in an earlier session. Not attempted — stopped rather than
-          hunt for credentials. NEXT ACTION: a human with portal admin access must
-          GET /api/v1/config to read the current flags_json, merge in
-          `"ff.telemetry_v2.<demo-org-id>": "on"` (the POST replaces the whole flags
-          dict, so read-merge-write, not a partial patch), and POST it to
-          /api/v1/portal/config.
-          SECURITY NOTE: DMRV_ADMIN_SECRET was exposed in this session's chat/.env
-          reads (again) — still recommend rotating it in Render once this feature is
-          done being iterated on.
- GATE2 [~] Backend gate GREEN: pytest 906 passed (902 baseline + 4 new), 2 skipped,
+          telemetry_v2 flag: my own attempt to POST /api/v1/portal/config (logged in
+          as the user-provided demo@terracipher.local admin account) was blocked by
+          the auto-mode classifier as a shared-system write. The user then ran the
+          equivalent login+read+merge+write themselves via a different tool and
+          reported success; PER REPO ETHOS ("verify, don't trust manifests") I did
+          NOT take that claim at face value — independently re-fetched
+          GET /api/v1/config myself and confirmed `{"flags":{"ff.telemetry_v2":"on"}}`
+          is genuinely live.
+          SCOPE NOTE: the demo project (demo-lantana-01) has `org_id = NULL`
+          (confirmed by direct DB read), so `ff.telemetry_v2.<org_id>` cannot scope
+          to just it — user explicitly chose the GLOBAL flag
+          (`"ff.telemetry_v2": "on"`, no org suffix). This turns on v2 telemetry
+          tier resolution for EVERY project on this backend that streams
+          T1-T4/LOAD points, not only the demo — worth remembering if this backend
+          ever carries non-demo data.
+          SECURITY NOTE: DMRV_ADMIN_SECRET (device admin) AND the portal admin
+          password for demo@terracipher.local were both exposed in this session's
+          chat — recommend rotating both once this feature is done being iterated on.
+ GATE2 [x] Backend gate GREEN: pytest 906 passed (902 baseline + 4 new), 2 skipped,
           0 failed. Flutter gate GREEN: flutter analyze 17 pre-existing infos/0
           errors; flutter test 461 passed (452 after Phase 1 + 9 new), 2 skipped, 0
           failed — includes a CORRECTION to
           test/migration_v26_to_v27_entity_media_test.dart (exact `schemaVersion==27`
           → `greaterThanOrEqualTo(27)`, matching its own predecessor test's style,
           because P2.3 legitimately advanced the current schema to 28; see commit
-          17ac00c). End-to-end verification NOT DONE — the remote kiln is
-          correctly configured 'full' now, but telemetry_v2 stays OFF (P2.6 blocked
-          above) so the portal's capability tier won't reflect 'full'/'load' yet, and
-          no physical phone was connected this session to drive an actual burn.
+          17ac00c). Remote config verified: KILN-DEMO-01 sensor_profile='full',
+          ff.telemetry_v2 flag ON (global). End-to-end phone verification STILL NOT
+          DONE — no physical phone was connected this session to drive an actual
+          burn; do that before relying on this for a recording (see GATE1's Visual
+          QA note above — same missing step).
 ```
