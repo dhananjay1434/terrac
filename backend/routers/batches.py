@@ -7,7 +7,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_session
-from models import Batch, MediaFile, Project, RegistryConfig, SourceParcel
+from models import Batch, Kiln, MediaFile, Project, RegistryConfig, SourceParcel
 from geo import haversine_km, _evaluate_anchor
 from schemas import BatchPayload, BatchResponse
 from security import verify_signature
@@ -119,6 +119,28 @@ async def get_project_for_device(
         "allowed_feedstocks": allowed_feedstocks,
         "client_target": project.client_target,
         "positive_list": positive_list(table),
+    }
+
+
+@router.get("/api/v1/kiln")
+async def get_kiln_for_device(
+    kiln_id: str,
+    device_id: str = Depends(verify_signature),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Device-facing kiln resolution: the field app reads a kiln's declared
+    sensor_profile (+ type/capacity) so the burn UI can pick the right telemetry
+    view. Device-Ed25519-authed, read-only. The profile is a DECLARED
+    EXPECTATION — the live channels still come from the connected device."""
+    kiln = (
+        await session.execute(select(Kiln).where(Kiln.kiln_id == kiln_id))
+    ).scalar_one_or_none()
+    if kiln is None:
+        raise HTTPException(status_code=404, detail="kiln_not_found")
+    return {
+        "kiln_id": kiln.kiln_id,
+        "sensor_profile": kiln.sensor_profile,
+        "kiln_type": kiln.kiln_type,
     }
 
 
