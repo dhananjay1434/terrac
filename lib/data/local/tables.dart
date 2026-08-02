@@ -393,6 +393,9 @@ class Kilns extends Table {
   /// Optional operator-facing label.
   TextColumn get label => text().nullable()();
 
+  /// Cached backend sensor_profile ('none'|'load_only'|'thermal_only'|'full').
+  TextColumn get sensorProfile => text().nullable()();
+
   TextColumn get addedAt => text()();
 
   @override

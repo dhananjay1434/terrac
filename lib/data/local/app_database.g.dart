@@ -7269,6 +7269,17 @@ class $KilnsTable extends Kilns with TableInfo<$KilnsTable, Kiln> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _sensorProfileMeta = const VerificationMeta(
+    'sensorProfile',
+  );
+  @override
+  late final GeneratedColumn<String> sensorProfile = GeneratedColumn<String>(
+    'sensor_profile',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _addedAtMeta = const VerificationMeta(
     'addedAt',
   );
@@ -7286,6 +7297,7 @@ class $KilnsTable extends Kilns with TableInfo<$KilnsTable, Kiln> {
     kilnType,
     capacityLitres,
     label,
+    sensorProfile,
     addedAt,
   ];
   @override
@@ -7331,6 +7343,15 @@ class $KilnsTable extends Kilns with TableInfo<$KilnsTable, Kiln> {
         label.isAcceptableOrUnknown(data['label']!, _labelMeta),
       );
     }
+    if (data.containsKey('sensor_profile')) {
+      context.handle(
+        _sensorProfileMeta,
+        sensorProfile.isAcceptableOrUnknown(
+          data['sensor_profile']!,
+          _sensorProfileMeta,
+        ),
+      );
+    }
     if (data.containsKey('added_at')) {
       context.handle(
         _addedAtMeta,
@@ -7364,6 +7385,10 @@ class $KilnsTable extends Kilns with TableInfo<$KilnsTable, Kiln> {
         DriftSqlType.string,
         data['${effectivePrefix}label'],
       ),
+      sensorProfile: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sensor_profile'],
+      ),
       addedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}added_at'],
@@ -7388,12 +7413,16 @@ class Kiln extends DataClass implements Insertable<Kiln> {
 
   /// Optional operator-facing label.
   final String? label;
+
+  /// Cached backend sensor_profile ('none'|'load_only'|'thermal_only'|'full').
+  final String? sensorProfile;
   final String addedAt;
   const Kiln({
     required this.kilnId,
     required this.kilnType,
     this.capacityLitres,
     this.label,
+    this.sensorProfile,
     required this.addedAt,
   });
   @override
@@ -7406,6 +7435,9 @@ class Kiln extends DataClass implements Insertable<Kiln> {
     }
     if (!nullToAbsent || label != null) {
       map['label'] = Variable<String>(label);
+    }
+    if (!nullToAbsent || sensorProfile != null) {
+      map['sensor_profile'] = Variable<String>(sensorProfile);
     }
     map['added_at'] = Variable<String>(addedAt);
     return map;
@@ -7421,6 +7453,9 @@ class Kiln extends DataClass implements Insertable<Kiln> {
       label: label == null && nullToAbsent
           ? const Value.absent()
           : Value(label),
+      sensorProfile: sensorProfile == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sensorProfile),
       addedAt: Value(addedAt),
     );
   }
@@ -7435,6 +7470,7 @@ class Kiln extends DataClass implements Insertable<Kiln> {
       kilnType: serializer.fromJson<String>(json['kilnType']),
       capacityLitres: serializer.fromJson<double?>(json['capacityLitres']),
       label: serializer.fromJson<String?>(json['label']),
+      sensorProfile: serializer.fromJson<String?>(json['sensorProfile']),
       addedAt: serializer.fromJson<String>(json['addedAt']),
     );
   }
@@ -7446,6 +7482,7 @@ class Kiln extends DataClass implements Insertable<Kiln> {
       'kilnType': serializer.toJson<String>(kilnType),
       'capacityLitres': serializer.toJson<double?>(capacityLitres),
       'label': serializer.toJson<String?>(label),
+      'sensorProfile': serializer.toJson<String?>(sensorProfile),
       'addedAt': serializer.toJson<String>(addedAt),
     };
   }
@@ -7455,6 +7492,7 @@ class Kiln extends DataClass implements Insertable<Kiln> {
     String? kilnType,
     Value<double?> capacityLitres = const Value.absent(),
     Value<String?> label = const Value.absent(),
+    Value<String?> sensorProfile = const Value.absent(),
     String? addedAt,
   }) => Kiln(
     kilnId: kilnId ?? this.kilnId,
@@ -7463,6 +7501,9 @@ class Kiln extends DataClass implements Insertable<Kiln> {
         ? capacityLitres.value
         : this.capacityLitres,
     label: label.present ? label.value : this.label,
+    sensorProfile: sensorProfile.present
+        ? sensorProfile.value
+        : this.sensorProfile,
     addedAt: addedAt ?? this.addedAt,
   );
   Kiln copyWithCompanion(KilnsCompanion data) {
@@ -7473,6 +7514,9 @@ class Kiln extends DataClass implements Insertable<Kiln> {
           ? data.capacityLitres.value
           : this.capacityLitres,
       label: data.label.present ? data.label.value : this.label,
+      sensorProfile: data.sensorProfile.present
+          ? data.sensorProfile.value
+          : this.sensorProfile,
       addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
     );
   }
@@ -7484,14 +7528,21 @@ class Kiln extends DataClass implements Insertable<Kiln> {
           ..write('kilnType: $kilnType, ')
           ..write('capacityLitres: $capacityLitres, ')
           ..write('label: $label, ')
+          ..write('sensorProfile: $sensorProfile, ')
           ..write('addedAt: $addedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(kilnId, kilnType, capacityLitres, label, addedAt);
+  int get hashCode => Object.hash(
+    kilnId,
+    kilnType,
+    capacityLitres,
+    label,
+    sensorProfile,
+    addedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -7500,6 +7551,7 @@ class Kiln extends DataClass implements Insertable<Kiln> {
           other.kilnType == this.kilnType &&
           other.capacityLitres == this.capacityLitres &&
           other.label == this.label &&
+          other.sensorProfile == this.sensorProfile &&
           other.addedAt == this.addedAt);
 }
 
@@ -7508,6 +7560,7 @@ class KilnsCompanion extends UpdateCompanion<Kiln> {
   final Value<String> kilnType;
   final Value<double?> capacityLitres;
   final Value<String?> label;
+  final Value<String?> sensorProfile;
   final Value<String> addedAt;
   final Value<int> rowid;
   const KilnsCompanion({
@@ -7515,6 +7568,7 @@ class KilnsCompanion extends UpdateCompanion<Kiln> {
     this.kilnType = const Value.absent(),
     this.capacityLitres = const Value.absent(),
     this.label = const Value.absent(),
+    this.sensorProfile = const Value.absent(),
     this.addedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -7523,6 +7577,7 @@ class KilnsCompanion extends UpdateCompanion<Kiln> {
     required String kilnType,
     this.capacityLitres = const Value.absent(),
     this.label = const Value.absent(),
+    this.sensorProfile = const Value.absent(),
     required String addedAt,
     this.rowid = const Value.absent(),
   }) : kilnId = Value(kilnId),
@@ -7533,6 +7588,7 @@ class KilnsCompanion extends UpdateCompanion<Kiln> {
     Expression<String>? kilnType,
     Expression<double>? capacityLitres,
     Expression<String>? label,
+    Expression<String>? sensorProfile,
     Expression<String>? addedAt,
     Expression<int>? rowid,
   }) {
@@ -7541,6 +7597,7 @@ class KilnsCompanion extends UpdateCompanion<Kiln> {
       if (kilnType != null) 'kiln_type': kilnType,
       if (capacityLitres != null) 'capacity_litres': capacityLitres,
       if (label != null) 'label': label,
+      if (sensorProfile != null) 'sensor_profile': sensorProfile,
       if (addedAt != null) 'added_at': addedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -7551,6 +7608,7 @@ class KilnsCompanion extends UpdateCompanion<Kiln> {
     Value<String>? kilnType,
     Value<double?>? capacityLitres,
     Value<String?>? label,
+    Value<String?>? sensorProfile,
     Value<String>? addedAt,
     Value<int>? rowid,
   }) {
@@ -7559,6 +7617,7 @@ class KilnsCompanion extends UpdateCompanion<Kiln> {
       kilnType: kilnType ?? this.kilnType,
       capacityLitres: capacityLitres ?? this.capacityLitres,
       label: label ?? this.label,
+      sensorProfile: sensorProfile ?? this.sensorProfile,
       addedAt: addedAt ?? this.addedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -7579,6 +7638,9 @@ class KilnsCompanion extends UpdateCompanion<Kiln> {
     if (label.present) {
       map['label'] = Variable<String>(label.value);
     }
+    if (sensorProfile.present) {
+      map['sensor_profile'] = Variable<String>(sensorProfile.value);
+    }
     if (addedAt.present) {
       map['added_at'] = Variable<String>(addedAt.value);
     }
@@ -7595,6 +7657,7 @@ class KilnsCompanion extends UpdateCompanion<Kiln> {
           ..write('kilnType: $kilnType, ')
           ..write('capacityLitres: $capacityLitres, ')
           ..write('label: $label, ')
+          ..write('sensorProfile: $sensorProfile, ')
           ..write('addedAt: $addedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -13361,6 +13424,7 @@ typedef $$KilnsTableCreateCompanionBuilder =
       required String kilnType,
       Value<double?> capacityLitres,
       Value<String?> label,
+      Value<String?> sensorProfile,
       required String addedAt,
       Value<int> rowid,
     });
@@ -13370,6 +13434,7 @@ typedef $$KilnsTableUpdateCompanionBuilder =
       Value<String> kilnType,
       Value<double?> capacityLitres,
       Value<String?> label,
+      Value<String?> sensorProfile,
       Value<String> addedAt,
       Value<int> rowid,
     });
@@ -13399,6 +13464,11 @@ class $$KilnsTableFilterComposer extends Composer<_$AppDatabase, $KilnsTable> {
 
   ColumnFilters<String> get label => $composableBuilder(
     column: $table.label,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sensorProfile => $composableBuilder(
+    column: $table.sensorProfile,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13437,6 +13507,11 @@ class $$KilnsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get sensorProfile => $composableBuilder(
+    column: $table.sensorProfile,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get addedAt => $composableBuilder(
     column: $table.addedAt,
     builder: (column) => ColumnOrderings(column),
@@ -13465,6 +13540,11 @@ class $$KilnsTableAnnotationComposer
 
   GeneratedColumn<String> get label =>
       $composableBuilder(column: $table.label, builder: (column) => column);
+
+  GeneratedColumn<String> get sensorProfile => $composableBuilder(
+    column: $table.sensorProfile,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get addedAt =>
       $composableBuilder(column: $table.addedAt, builder: (column) => column);
@@ -13502,6 +13582,7 @@ class $$KilnsTableTableManager
                 Value<String> kilnType = const Value.absent(),
                 Value<double?> capacityLitres = const Value.absent(),
                 Value<String?> label = const Value.absent(),
+                Value<String?> sensorProfile = const Value.absent(),
                 Value<String> addedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => KilnsCompanion(
@@ -13509,6 +13590,7 @@ class $$KilnsTableTableManager
                 kilnType: kilnType,
                 capacityLitres: capacityLitres,
                 label: label,
+                sensorProfile: sensorProfile,
                 addedAt: addedAt,
                 rowid: rowid,
               ),
@@ -13518,6 +13600,7 @@ class $$KilnsTableTableManager
                 required String kilnType,
                 Value<double?> capacityLitres = const Value.absent(),
                 Value<String?> label = const Value.absent(),
+                Value<String?> sensorProfile = const Value.absent(),
                 required String addedAt,
                 Value<int> rowid = const Value.absent(),
               }) => KilnsCompanion.insert(
@@ -13525,6 +13608,7 @@ class $$KilnsTableTableManager
                 kilnType: kilnType,
                 capacityLitres: capacityLitres,
                 label: label,
+                sensorProfile: sensorProfile,
                 addedAt: addedAt,
                 rowid: rowid,
               ),

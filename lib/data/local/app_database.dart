@@ -66,7 +66,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 27;
+  int get schemaVersion => 28;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -280,6 +280,9 @@ class AppDatabase extends _$AppDatabase {
         // ignore: experimental_member_use
         await m.alterTable(TableMigration(syncOutbox));
         await m.createTable(entityMediaCaptures);
+      }
+      if (from < 28) {
+        await m.addColumn(kilns, kilns.sensorProfile);
       }
     },
   );
