@@ -43,4 +43,20 @@ describe("ChartFrame", () => {
     const { container } = render(<Basic />);
     expect((await axe(container)).violations).toEqual([]);
   });
+
+  it("renders no hover overlay/crosshair when onHoverFrac is not passed", () => {
+    const { container } = render(<Basic />);
+    expect(container.querySelector('rect[fill="transparent"]')).toBeNull();
+    expect(container.querySelector('line[data-crosshair="true"]')).toBeNull();
+  });
+
+  it("renders the hover capture rect and a crosshair when wired", () => {
+    const { container } = render(
+      <ChartFrame ariaLabel="hover chart" yDomain={[0, 100]} onHoverFrac={() => {}} crosshairFrac={0.5}>
+        {({ w, yScale }) => <rect x={0} y={yScale(100)} width={w} height={4} />}
+      </ChartFrame>,
+    );
+    expect(container.querySelector('rect[fill="transparent"]')).not.toBeNull();
+    expect(container.querySelector('line[data-crosshair="true"]')).not.toBeNull();
+  });
 });

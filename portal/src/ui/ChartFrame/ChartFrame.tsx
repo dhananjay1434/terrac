@@ -50,6 +50,16 @@ export interface ChartFrameProps {
   /** Data-space values to label on the y-axis. Defaults to 5 even ticks. */
   yTicks?: number[];
   yFormat?: (v: number) => string;
+  /** Optional hover overlay. When provided, ChartFrame renders a transparent
+   * pointer-capture rect over the plot and reports the pointer x as a fraction
+   * [0,1] of plot width (null on leave). Charts that don't pass this are
+   * unchanged (BarChart, TemperatureChart). */
+  onHoverFrac?: (frac: number | null) => void;
+  /** Fraction [0,1] of plot width at which to draw a 1px vertical crosshair, or
+   * null for none. SYMMETRIC with onHoverFrac (report a fraction, accept a
+   * fraction) so no chart ever juggles pixels — the caller derives this from the
+   * shared hover TIME: `(hoverT - t0) / span`. */
+  crosshairFrac?: number | null;
   /** The chart's marks, drawn in plot space: x in [0, w], y via yScale(value). */
   children: (plot: {
     w: number;
@@ -92,6 +102,8 @@ export default function ChartFrame({
   height = 200,
   yTicks,
   yFormat = (v) => v.toFixed(0),
+  onHoverFrac,
+  crosshairFrac = null,
   children,
 }: ChartFrameProps) {
   const [wrapRef, width] = useContainerWidth();
@@ -165,6 +177,34 @@ export default function ChartFrame({
         })}
         <g transform={`translate(${AXIS_GUTTER} 0)`}>
           {children({ w: plotW, h: plotH, yScale })}
+          {crosshairFrac != null && (
+            <line
+              data-crosshair="true"
+              x1={crosshairFrac * plotW}
+              y1={PLOT_TOP}
+              x2={crosshairFrac * plotW}
+              y2={PLOT_TOP + plotH}
+              stroke="var(--text-tertiary, currentColor)"
+              strokeWidth={1}
+              opacity={0.6}
+              pointerEvents="none"
+            />
+          )}
+          {onHoverFrac && (
+            <rect
+              x={0}
+              y={PLOT_TOP}
+              width={plotW}
+              height={plotH}
+              fill="transparent"
+              onPointerMove={(e) => {
+                const r = (e.target as SVGRectElement).getBoundingClientRect();
+                const f = r.width > 0 ? (e.clientX - r.left) / r.width : 0;
+                onHoverFrac(Math.min(1, Math.max(0, f)));
+              }}
+              onPointerLeave={() => onHoverFrac(null)}
+            />
+          )}
         </g>
       </svg>
       {legend && legend.length > 0 && (
