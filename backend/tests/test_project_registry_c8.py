@@ -81,6 +81,37 @@ async def test_kiln_register_then_update(client, session_factory):
         assert rows[0].weight_kg == 320.0
 
 
+async def test_kiln_register_accepts_sensor_profile(client, session_factory):
+    # P2.1 — sensor_profile round-trips on register, defaults to 'none' when
+    # omitted, and is only overwritten on update when explicitly provided.
+    r1 = await _post(
+        client,
+        "/api/v1/admin/kiln",
+        {"kiln_id": "KILN-FULL", "kiln_type": "open", "sensor_profile": "full"},
+    )
+    assert r1.status_code == 200 and r1.json()["updated"] is False
+
+    async with session_factory() as s:
+        kiln = (
+            await s.execute(select(Kiln).where(Kiln.kiln_id == "KILN-FULL"))
+        ).scalar_one()
+        assert kiln.sensor_profile == "full"
+
+    # Updating without sensor_profile leaves the stored value untouched.
+    r2 = await _post(
+        client,
+        "/api/v1/admin/kiln",
+        {"kiln_id": "KILN-FULL", "material": "steel"},
+    )
+    assert r2.status_code == 200 and r2.json()["updated"] is True
+
+    async with session_factory() as s:
+        kiln = (
+            await s.execute(select(Kiln).where(Kiln.kiln_id == "KILN-FULL"))
+        ).scalar_one()
+        assert kiln.sensor_profile == "full"
+
+
 # ---- one-to-many records + dedupe ---------------------------------------
 
 

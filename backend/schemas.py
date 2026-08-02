@@ -210,6 +210,7 @@ class KilnRequest(BaseModel):
     weight_kg: Optional[float] = Field(None, ge=0.0, le=1_000_000.0)
     lifetime_years: Optional[float] = Field(None, ge=0.0, le=200.0)
     kiln_type: Optional[Literal["open", "closed"]] = None
+    sensor_profile: Optional[Literal["none", "load_only", "thermal_only", "full"]] = None
 
     @field_validator("kiln_type", mode="before")
     @classmethod

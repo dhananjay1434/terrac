@@ -21,6 +21,7 @@ async def upsert_kiln(session: AsyncSession, payload) -> dict:
                 weight_kg=payload.weight_kg,
                 lifetime_years=payload.lifetime_years,
                 kiln_type=payload.kiln_type,
+                sensor_profile=payload.sensor_profile or "none",
                 payload_json=json.dumps(extra),
             )
         )
@@ -30,6 +31,8 @@ async def upsert_kiln(session: AsyncSession, payload) -> dict:
     existing.weight_kg = payload.weight_kg
     existing.lifetime_years = payload.lifetime_years
     existing.kiln_type = payload.kiln_type
+    if payload.sensor_profile is not None:
+        existing.sensor_profile = payload.sensor_profile
     existing.payload_json = json.dumps(extra)
     await session.commit()
     return {"status": "ok", "kiln_id": payload.kiln_id, "updated": True}
