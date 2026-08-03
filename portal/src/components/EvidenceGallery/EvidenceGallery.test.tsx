@@ -67,6 +67,25 @@ describe("EvidenceGallery", () => {
     expect(screen.queryByText(/Other \/ Uncategorized/)).not.toBeInTheDocument();
   });
 
+  it("renders backfilled moisture + composite photos under their named sections, not Other", () => {
+    // Regression guard for the capture_type backfill: rows relabeled moisture /
+    // composite_sample (previously NULL -> "Other / Uncategorized") must render
+    // under their own STEP_TITLES chapters.
+    const withMoistureComposite = [
+      ...ITEMS,
+      media({ operation_id: "o6", sha256_hash: "h6", capture_type: "moisture" }),
+      media({ operation_id: "o7", sha256_hash: "h7", capture_type: "composite_sample" }),
+    ];
+    render(<EvidenceGallery media={withMoistureComposite} />);
+    expect(
+      screen.getByRole("heading", { level: 3, name: /Moisture verification/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 3, name: /Composite pile sub-sample/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Other \/ Uncategorized/)).not.toBeInTheDocument();
+  });
+
   it("filter tabs narrow the visible chapters client-side", () => {
     render(<EvidenceGallery media={ITEMS} />);
     fireEvent.click(screen.getByRole("tab", { name: "Certificates" }));
